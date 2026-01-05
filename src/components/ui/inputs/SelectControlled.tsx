@@ -1,0 +1,54 @@
+import TextField, { type TextFieldProps } from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import {
+  Controller,
+  type FieldValues,
+  type Control,
+  type Path,
+} from "react-hook-form";
+
+type Option = { label: string; value: string | number };
+
+type Props<T extends FieldValues> = Omit<
+  TextFieldProps,
+  "name" | "select" | "defaultValue"
+> & {
+  name: Path<T>;
+  control: Control<T>;
+  options: Option[];
+  defaultValue?: T[Path<T>];
+};
+
+function SelectControlled<T extends FieldValues>({
+  name,
+  control,
+  options,
+  defaultValue,
+  ...rest
+}: Props<T>) {
+  return (
+    <Controller
+      name={name}
+      control={control}
+      defaultValue={defaultValue}
+      render={({ field, fieldState }) => (
+        <TextField
+          {...rest}
+          {...field}
+          select
+          fullWidth
+          error={!!fieldState.error}
+          helperText={fieldState.error?.message || rest.helperText}
+        >
+          {options.map((opt) => (
+            <MenuItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </MenuItem>
+          ))}
+        </TextField>
+      )}
+    />
+  );
+}
+
+export default SelectControlled;
