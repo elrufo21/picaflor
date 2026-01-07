@@ -88,35 +88,76 @@ const Login = () => {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-            <TextControlled
-              name="username"
-              control={control}
-              label="Usuario"
-              required
-              fullWidth
-              size="small"
-              InputLabelProps={{ className: "text-slate-200" }}
-              InputProps={{
-                className:
-                  "text-white bg-white/10 border border-white/10 rounded-xl",
-              }}
-            />
-            <TextControlled
-              name="password"
-              control={control}
-              label="Contrasena"
-              type="password"
-              required
-              fullWidth
-              size="small"
-              InputLabelProps={{ className: "text-slate-200" }}
-              InputProps={{
-                className:
-                  "text-white bg-white/10 border border-white/10 rounded-xl",
-              }}
-            />
+            <div>
+              <TextControlled
+                name="username"
+                control={control}
+                label="Usuario"
+                size="small"
+                InputLabelProps={{
+                  sx: {
+                    color: "#cbd5f5", // slate-200
+                    "&.Mui-focused": {
+                      color: "#38bdf8", // sky-400
+                    },
+                  },
+                }}
+                InputProps={{
+                  sx: {
+                    color: "white",
+                    backgroundColor: "rgba(255,255,255,0.10)",
+                    borderRadius: "12px",
 
-            {(error && hydrated) && (
+                    "& fieldset": {
+                      borderColor: "rgba(255,255,255,0.10)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(255,255,255,0.25)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#38bdf8",
+                    },
+                  },
+                }}
+              />
+            </div>
+
+            <div className="mt-4">
+              <TextControlled
+                name="password"
+                control={control}
+                label="Contraseña"
+                type="password"
+                size="small"
+                InputLabelProps={{
+                  sx: {
+                    color: "#cbd5f5",
+                    "&.Mui-focused": {
+                      color: "#38bdf8",
+                    },
+                  },
+                }}
+                InputProps={{
+                  sx: {
+                    color: "white",
+                    backgroundColor: "rgba(255,255,255,0.10)",
+                    borderRadius: "12px",
+
+                    "& fieldset": {
+                      borderColor: "rgba(255,255,255,0.10)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(255,255,255,0.25)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#38bdf8",
+                    },
+                  },
+                }}
+              />
+            </div>
+
+            {error && hydrated && (
               <div className="text-sm text-red-200 bg-red-600/20 border border-red-500/30 rounded-lg px-3 py-2">
                 {error}
               </div>

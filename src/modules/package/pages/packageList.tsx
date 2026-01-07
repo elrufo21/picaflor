@@ -1,223 +1,407 @@
-import { useMemo } from "react";
-import DndTable from "../../../components/dataTabla/DndTable";
-import { useDialogStore } from "../../../app/store/dialogStore";
-import { usePackageStore } from "../store/packageStore";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import { Plus, Calendar } from "lucide-react";
+
+import DndTable from "../../../components/dataTabla/DndTable";
+import { usePackageStore } from "../store/packageStore";
+import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
+
+/* =========================
+   HELPERS
+========================= */
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+// 🔥 PARSER BACKEND → TABLE
+function parsePackages(raw: any) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== "string") return [];
+
+  const rows = raw
+    .split("¬")
+    .map((r) => r.trim())
+    .filter(Boolean);
+
+  return rows
+    .map((row) => {
+      const cols = row.split("|");
+      if (cols.length < 7) return null;
+
+      const [
+        id,
+        destino,
+        fecha,
+        cantTotalPax,
+        cantMaxPax,
+        disponibles,
+        estado,
+      ] = cols;
+
+      return {
+        id: Number(id),
+        destino,
+        fecha,
+        cantTotalPax: Number(cantTotalPax),
+        cantMaxPax: Number(cantMaxPax),
+        disponibles: Number(disponibles),
+        estado,
+        verListadoUrl: "#",
+      };
+    })
+    .filter(Boolean);
+}
+
+/* =========================
+   COMPONENT
+========================= */
 
 const PackageList = () => {
-  const openDialog = useDialogStore((state) => state.openDialog);
-  const packages = usePackageStore((state) => state.packages);
-  const addPackage = usePackageStore((state) => state.addPackage);
+  /* =========================
+     STATES
+  ========================= */
+
+  const [fecha, setFecha] = useState<string>(todayISO());
+  const [productId, setProductId] = useState<string>("");
+  const [productos, setProductos] = useState<any[]>([]);
+  const [destino, setDestino] = useState<string>("");
+  const [selectedPackages, setSelectedPackages] = useState<any[]>([]);
+  const {
+    packages,
+    loadPackages,
+    loading,
+    loadServicios,
+    loadServiciosFromDB,
+    createProgramacion,
+    deleteProgramacion,
+  } = usePackageStore();
+  console.log("packages", packages);
   const navigate = useNavigate();
+
+  /* =========================
+     INIT
+  ========================= */
+
+  useEffect(() => {
+    const init = async () => {
+      // productos desde IndexedDB
+      const data = await serviciosDB.productos.toArray();
+      setProductos(data);
+
+      const exists = await hasServiciosData();
+      if (exists) {
+        await loadServiciosFromDB();
+      } else {
+        await loadServicios();
+      }
+    };
+
+    init();
+  }, []);
+
+  /* =========================
+     LOAD PACKAGES BY DATE
+  ========================= */
+
+  useEffect(() => {
+    loadPackages(fecha);
+  }, [fecha, loadPackages]);
+
+  /* =========================
+     NORMALIZED DATA
+  ========================= */
+
+  const parsedPackages = useMemo(() => parsePackages(packages), [packages]);
+
+  /* =========================
+     TABLE
+  ========================= */
+
+  const handleRowClick = (row: { id?: number }) => {
+    if (row?.id) {
+      navigate(`/package/${row.id}/passengers/new`);
+    }
+  };
+
+  const handleCantMaxChange = (id: number, value: number, row: any) => {
+    console.log(
+      "Actualizar cantMaxPax:",
+      { id, value },
+      row.original.idDetalle,
+      packages
+    );
+  };
 
   const columns = useMemo(
     () => [
       {
-        id: "select",
-        header: ({ table }) => (
-          <input
-            type="checkbox"
-            checked={table.getIsAllRowsSelected()}
-            onChange={table.getToggleAllRowsSelectedHandler()}
-            className="w-4 h-4 text-emerald-600 rounded"
-          />
-        ),
-        cell: ({ row }) => (
-          <input
-            type="checkbox"
-            checked={row.getIsSelected()}
-            onChange={row.getToggleSelectedHandler()}
-            className="w-4 h-4 text-emerald-600 rounded"
-          />
-        ),
-        enableSorting: false,
-      },
-      {
         accessorKey: "destino",
         header: "Destino",
-        cell: (info) => (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-sky-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-              {String(info.getValue()).charAt(0)}
-            </div>
-            <span className="font-medium">{info.getValue()}</span>
-          </div>
-        ),
       },
       {
         accessorKey: "fecha",
         header: "Fecha",
-        cell: (info) => (
-          <span className="text-slate-700">
-            {new Date(String(info.getValue())).toLocaleDateString("es-ES", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-            })}
-          </span>
+      },
+      {
+        accessorKey: "cantTotalPax",
+        header: "Total Pax",
+        meta: { align: "center" },
+      },
+      {
+        accessorKey: "cantMaxPax",
+
+        header: "Max Pax",
+        cell: ({ row }: any) => (
+          <input
+            type="number"
+            min={0}
+            defaultValue={row.original.cantMaxPax}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={(e) =>
+              handleCantMaxChange(row.original.id, Number(e.target.value), row)
+            }
+            className="w-20 border border-slate-300 rounded-md px-2 py-1 text-sm
+              focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
         ),
+        meta: { align: "center" },
       },
-      { accessorKey: "cantTotalPax", header: "CanTotalPax" },
-      { accessorKey: "cantMaxPax", header: "CantMaxPax" },
-      { accessorKey: "disponibles", header: "Disponibles" },
       {
-        accessorKey: "estado",
-        header: "Estado",
-        cell: (info) => {
-          const estado = info.getValue() as string;
-          return (
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                estado === "BLOQUEADO"
-                  ? "bg-rose-100 text-rose-700"
-                  : "bg-emerald-100 text-emerald-700"
-              }`}
+        accessorKey: "disponibles",
+        header: "Disponibles",
+        meta: { align: "center" },
+      },
+
+      {
+        id: "action",
+        header: "Acciones",
+        cell: ({ row }: any) => (
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRowClick({ id: row.original.id });
+              }}
+              className={`
+    w-28 px-3 py-1.5
+    rounded-lg text-xs font-semibold
+    text-center whitespace-nowrap
+    transition
+    ${
+      row.original.estado === "BLOQUEADO"
+        ? "bg-red-100 text-red-700 hover:bg-red-200"
+        : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+    }
+  `}
             >
-              {estado}
-            </span>
-          );
-        },
-      },
-      {
-        id: "verListado",
-        header: "VerListado",
-        cell: ({ row }) => (
-          <a
-            className="text-blue-700 underline text-sm"
-            href={row.original.verListadoUrl || "#"}
-          >
-            Ver listado
-          </a>
+              {row.original.estado}
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRowClick({ id: row.original.id });
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold
+                bg-emerald-100 text-emerald-700
+                hover:bg-emerald-200 transition"
+            >
+              VER LISTADO
+            </button>
+          </div>
         ),
       },
     ],
-    []
+    [handleRowClick]
   );
 
-  const handleRowClick = (row: { id?: number }) => {
-    if (row?.id) navigate(`/package/${row.id}/passengers/new`);
+  /* =========================
+     ADD BUTTON HANDLER
+  ========================= */
+
+  const handleAddServicio = async () => {
+    if (!productId) {
+      alert("Seleccione un producto");
+      return;
+    }
+
+    try {
+      await createProgramacion({
+        idProducto: Number(productId),
+        destino: destino,
+        fecha,
+        cantMax: 0,
+        region: "SUR",
+      });
+    } catch (e: any) {
+      alert(e.message);
+    }
   };
 
-  const handleNewPackage = () => {
-    const estadoOptions = [
-      { value: "BLOQUEADO", label: "Bloqueado" },
-      { value: "DISPONIBLE", label: "Disponible" },
-    ];
+  /* =========================
+     RENDER
+  ========================= */
 
-    openDialog({
-      title: "Nuevo paquete",
-      description: "Completa los datos para registrar un paquete.",
-      size: "md",
-      initialPayload: {
-        destino: "",
-        fecha: new Date().toISOString().slice(0, 10),
-        cantTotalPax: 0,
-        cantMaxPax: 0,
-        disponibles: 0,
-        estado: estadoOptions[0].value,
-        verListadoUrl: "#",
-      },
-      content: ({ payload, setPayload }) => (
-        <div className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm text-slate-700">
-            <span className="font-medium">Destino</span>
-            <input
-              type="text"
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-              value={String(payload.destino ?? "")}
-              onChange={(e) =>
-                setPayload({ ...payload, destino: e.target.value })
-              }
-              placeholder="Ej: FULL DAY PARACAS - ICA"
-            />
-          </label>
+  const onTableRowClick = (row) => {
+    console.log("ID (idDetalle):", row.id); // El idDetalle
+    console.log("Datos:", row);
 
-          <label className="flex flex-col gap-1 text-sm text-slate-700">
-            <span className="font-medium">Fecha</span>
-            <input
-              type="date"
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-              value={String(payload.fecha ?? "")}
-              onChange={(e) =>
-                setPayload({ ...payload, fecha: e.target.value })
-              }
-            />
-          </label>
+    // Puedes hacer lo que necesites aquí
+    // navigate(`/package/${row.original.idDetalle}/passengers/new`);
+  };
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
 
-          <label className="flex flex-col gap-1 text-sm text-slate-700">
-            <span className="font-medium">Estado</span>
+      if (isInput) return;
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedPackages.length === 0) {
+          console.log("No hay filas seleccionadas");
+          return;
+        }
+
+        // 🔥 función async interna
+        const deleteSelected = async () => {
+          try {
+            for (const pkg of selectedPackages) {
+              const idToDelete = pkg.idDetalle ?? pkg.id;
+              await deleteProgramacion(idToDelete, fecha); // pasar fecha para refrescar tabla
+            }
+
+            console.log("Eliminados:", selectedPackages);
+            setSelectedPackages([]);
+          } catch (err) {
+            console.error("Error eliminando:", err);
+            // opcional: mostrar notificación al usuario
+          }
+        };
+
+        deleteSelected();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedPackages, deleteProgramacion]);
+
+  return (
+    <div className="w-full">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 ">
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Fecha */}
+          <div className="w-full sm:w-auto">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+              Fecha de viaje
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Calendar
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                  size={16}
+                />
+                <input
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                  className="w-[180px] pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg
+            bg-white transition-all duration-200
+            hover:border-slate-400
+            focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setFecha(todayISO())}
+                className="px-2.5 py-2 text-xs font-medium text-emerald-700 
+          bg-emerald-50 rounded-lg border border-emerald-200
+          hover:bg-emerald-100 hover:border-emerald-300
+          transition-all duration-200 whitespace-nowrap"
+              >
+                Hoy
+              </button>
+            </div>
+          </div>
+
+          {/* Destino */}
+          <div className="w-full sm:w-auto sm:flex-1 sm:max-w-[280px]">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+              Destino
+            </label>
             <select
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-              value={String(payload.estado ?? "")}
-              onChange={(e) =>
-                setPayload({ ...payload, estado: e.target.value })
-              }
+              value={productId}
+              onChange={(e) => {
+                const selectedIndex = e.target.selectedIndex;
+                setDestino(e.target.options[selectedIndex].text);
+                setProductId(e.target.value);
+              }}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg
+        bg-white transition-all duration-200
+        hover:border-slate-400
+        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+        appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23475569%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3c%2Fpolyline%3E%3c%2Fsvg%3E')]
+        bg-[length:16px] bg-[right_8px_center] bg-no-repeat pr-9"
             >
-              {estadoOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              <option value="">Seleccione un destino</option>
+              {productos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            {["cantTotalPax", "cantMaxPax", "disponibles"].map((key) => (
-              <label
-                key={key}
-                className="flex flex-col gap-1 text-sm text-slate-700"
-              >
-                <span className="font-medium">
-                  {key === "cantTotalPax"
-                    ? "CanTotalPax"
-                    : key === "cantMaxPax"
-                      ? "CantMaxPax"
-                      : "Disponibles"}
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  className="rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  value={Number((payload as any)[key] ?? 0)}
-                  onChange={(e) =>
-                    setPayload({
-                      ...payload,
-                      [key]: Number(e.target.value),
-                    })
-                  }
-                />
-              </label>
-            ))}
+          {/* Botón agregar */}
+          <button
+            type="button"
+            onClick={handleAddServicio}
+            disabled={!productId || !fecha}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2
+      bg-green-600 text-white text-sm font-medium rounded-lg
+      hover:bg-green-700 active:bg-green-800
+      focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
+      transition-all duration-200 shadow-sm hover:shadow
+      disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Agregar servicio"
+          >
+            <Plus size={20} />
+          </button>
+
+          {/* 🔹 Botón Guardar (al final) */}
+          <div className="w-full sm:w-auto sm:ml-auto">
+            <button
+              type="button"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2
+        bg-blue-600 text-white text-sm font-semibold rounded-lg
+        hover:bg-blue-700 active:bg-blue-800
+        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+        transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              Guardar
+            </button>
           </div>
         </div>
-      ),
-      onConfirm: (data) => {
-        addPackage({
-          destino: String(data.destino ?? ""),
-          fecha: String(data.fecha ?? new Date().toISOString().slice(0, 10)),
-          cantTotalPax: Number(data.cantTotalPax ?? 0),
-          cantMaxPax: Number(data.cantMaxPax ?? 0),
-          disponibles: Number(data.disponibles ?? 0),
-          estado: String(data.estado ?? "BLOQUEADO"),
-          verListadoUrl: String(data.verListadoUrl ?? "#"),
-        });
-      },
-    });
-  };
-
-  return (
-    <div className="w-full ">
-      <div className="flex w-full justify-end ">
-        <div>
-          <button
-            className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-md"
-            onClick={handleNewPackage}
-          >
-            Nuevo Paquete
-          </button>
-        </div>
       </div>
-      <DndTable data={packages} columns={columns} onRowClick={handleRowClick} />
+
+      {/* TABLE */}
+      <DndTable
+        data={parsedPackages}
+        columns={columns}
+        isLoading={loading}
+        enableDateFilter={false}
+        enableSearching={false}
+        enableRowSelection={true}
+        onRowClick={(row) => onTableRowClick(row)}
+        onSelectionChange={setSelectedPackages}
+      />
     </div>
   );
 };

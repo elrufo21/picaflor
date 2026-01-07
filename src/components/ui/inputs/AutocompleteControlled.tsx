@@ -41,11 +41,24 @@ function AutocompleteControlled<T extends FieldValues, Option>({
           {...rest}
           {...field}
           value={field.value ?? null}
-          onChange={(_, value) => field.onChange(value)}
-          renderInput={(params: AutocompleteRenderInputParams) => (
+          onChange={(e, value) => {
+            field.onChange(value);
+
+            const nextSelector = (rest as any)["data-focus-next"];
+            if (nextSelector) {
+              setTimeout(() => {
+                const next =
+                  document.querySelector<HTMLInputElement>(nextSelector);
+                next?.focus();
+              }, 0);
+            }
+          }}
+          renderInput={(params) => (
             <TextField
               {...params}
               label={label}
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message}
               InputProps={{
                 ...params.InputProps,
                 endAdornment: (
@@ -55,8 +68,6 @@ function AutocompleteControlled<T extends FieldValues, Option>({
                   </>
                 ),
               }}
-              error={!!fieldState.error}
-              helperText={fieldState.error?.message}
             />
           )}
         />

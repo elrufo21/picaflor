@@ -4,6 +4,7 @@ import { Save, Plus, Trash2 } from "lucide-react";
 
 import { TextControlled } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
+import { useDialogStore } from "@/app/store/dialogStore";
 import type { Category } from "@/types/maintenance";
 
 type CategoryFormProps = {
@@ -46,6 +47,8 @@ export default function CategoryForm({
   const defaults = useMemo(() => buildDefaults(initialData), [initialData]);
   const [formKey, setFormKey] = useState(0);
 
+  const openDialog = useDialogStore((s) => s.openDialog);
+
   const form = useForm<CategoryFormValues>({
     defaultValues: defaults,
   });
@@ -63,6 +66,7 @@ export default function CategoryForm({
       initialData?.id ?? initialData?.idSubLinea
     );
     await onSave(payload);
+
     if (mode === "create") {
       reset(buildDefaults());
       onNew?.();
@@ -78,6 +82,27 @@ export default function CategoryForm({
     focusFirstInput(containerRef.current);
   };
 
+  const handleDelete = () => {
+    if (!onDelete) return;
+
+    openDialog({
+      title: "Eliminar categoría",
+      size: "sm",
+      confirmLabel: "Eliminar",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        await onDelete();
+      },
+      content: () => (
+        <p className="text-sm text-slate-700">
+          ¿Estás seguro de eliminar esta categoría?
+          <br />
+          Esta acción no se puede deshacer.
+        </p>
+      ),
+    });
+  };
+
   return (
     <form
       ref={containerRef}
@@ -89,6 +114,7 @@ export default function CategoryForm({
         <h1 className="text-base font-semibold">
           {mode === "create" ? "Crear categoría" : "Editar categoría"}
         </h1>
+
         <div className="flex items-center gap-2">
           <button
             type="submit"
@@ -98,6 +124,7 @@ export default function CategoryForm({
             <Save className="w-4 h-4" />
             <span className="hidden sm:inline">Guardar</span>
           </button>
+
           <button
             type="button"
             onClick={handleNew}
@@ -107,10 +134,11 @@ export default function CategoryForm({
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Nuevo</span>
           </button>
+
           {mode === "edit" && onDelete && (
             <button
               type="button"
-              onClick={onDelete}
+              onClick={handleDelete}
               className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
               title="Eliminar"
             >
@@ -121,9 +149,8 @@ export default function CategoryForm({
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow border   border-slate-100 p-5 space-y-4">
+      <div className="bg-white rounded-2xl shadow border border-slate-100 p-5 space-y-4">
         <div>
-          {" "}
           <TextControlled
             name="nombreSublinea"
             control={control}
@@ -134,8 +161,8 @@ export default function CategoryForm({
             inputProps={{ "data-focus-first": "true" }}
           />
         </div>
+
         <div className="mt-4">
-          {" "}
           <TextControlled
             name="codigoSunat"
             control={control}

@@ -1004,39 +1004,41 @@ const PackagePassengerCreate = () => {
                       <table className="w-full border border-slate-300 text-xs bg-white">
                         <thead>
                           <tr className="bg-slate-100">
-                            <th className="border border-slate-300 px-1.5 py-1 w-32"></th>
-                            <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-800">
+                            <th className="border border-slate-300 px-1.5 py-0.5 w-32"></th>
+                            <th className="border border-slate-300 px-1.5 py-0.5 text-left font-semibold text-slate-800">
                               DETALLE DE TARIFA:
                             </th>
-                            <th className="border border-slate-300 px-1.5 py-1 text-center font-semibold text-amber-700 w-16">
+                            <th className="border border-slate-300 px-1.5 py-0.5 text-center font-semibold text-amber-700 w-16">
                               Pre Uni.
                             </th>
-                            <th className="border border-slate-300 px-1.5 py-1 text-center font-semibold text-amber-700 w-16">
+                            <th className="border border-slate-300 px-1.5 py-0.5 text-center font-semibold text-amber-700 w-16">
                               Cantidad
                             </th>
-                            <th className="border border-slate-300 px-1.5 py-1 text-center font-semibold text-amber-700 w-16">
+                            <th className="border border-slate-300 px-1.5 py-0.5 text-center font-semibold text-amber-700 w-16">
                               Sub Total.
                             </th>
                           </tr>
                         </thead>
+
                         <tbody>
                           {tarifaRows.map((row) => (
                             <tr key={row.id} className="hover:bg-slate-50">
-                              <td className="border border-slate-300 px-1.5 py-1">
+                              <td className="border border-slate-300 px-1.5 py-0.5">
                                 <div
                                   className={`${
                                     row.id === "tarifaTour"
                                       ? "bg-orange-500"
                                       : "bg-orange-400"
-                                  } text-white px-2.5 py-1.5 rounded font-semibold text-[11px] sm:text-xs whitespace-nowrap`}
+                                  } text-white px-2 py-0.5 rounded font-semibold text-[11px] whitespace-nowrap`}
                                 >
                                   {row.label}
                                 </div>
                               </td>
-                              <td className="border border-slate-300 px-1.5 py-1">
+
+                              <td className="border border-slate-300 px-1.5 py-0.5">
                                 {row.type === "select" ? (
                                   <select
-                                    className="w-full rounded border border-slate-300 px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500 text-[11px] sm:text-xs"
+                                    className="w-full h-7 rounded border border-slate-300 px-1 py-0 bg-slate-50 leading-tight focus:outline-none focus:ring-1 focus:ring-orange-500 text-[11px]"
                                     {...register(
                                       row.id === "tarifaTour"
                                         ? "tarifaTour"
@@ -1066,13 +1068,14 @@ const PackagePassengerCreate = () => {
                                 ) : (
                                   <input
                                     type="text"
-                                    className="w-full rounded border border-slate-300 px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500 text-[11px] sm:text-xs"
+                                    className="w-full h-7 rounded border border-slate-300 px-1 py-0 bg-slate-50 leading-tight focus:outline-none focus:ring-1 focus:ring-orange-500 text-[11px]"
                                     placeholder="-"
                                     {...register(row.id as keyof FormValues)}
                                   />
                                 )}
                               </td>
-                              <td className="border border-slate-300 px-1.5 py-1">
+
+                              <td className="border border-slate-300 px-1.5 py-0.5">
                                 <input
                                   type="number"
                                   step="0.01"
@@ -1084,10 +1087,11 @@ const PackagePassengerCreate = () => {
                                       Number(e.target.value)
                                     )
                                   }
-                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-orange-500 text-[11px] sm:text-xs"
+                                  className="w-full h-7 appearance-none rounded border border-slate-300 px-1 py-0 text-right leading-tight focus:outline-none focus:ring-1 focus:ring-orange-500 text-[11px]"
                                 />
                               </td>
-                              <td className="border border-slate-300 px-1.5 py-1">
+
+                              <td className="border border-slate-300 px-1.5 py-0.5">
                                 <input
                                   type="number"
                                   value={row.cantidad}
@@ -1098,10 +1102,11 @@ const PackagePassengerCreate = () => {
                                       Number(e.target.value)
                                     )
                                   }
-                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-orange-500 text-[11px] sm:text-xs"
+                                  className="w-full h-7 appearance-none rounded border border-slate-300 px-1 py-0 text-center leading-tight focus:outline-none focus:ring-1 focus:ring-orange-500 text-[11px]"
                                 />
                               </td>
-                              <td className="border border-slate-300 px-1.5 py-1 text-right font-semibold">
+
+                              <td className="border border-slate-300 px-1.5 py-0.5 text-right font-semibold">
                                 {(row.precioUnit * row.cantidad).toFixed(2)}
                               </td>
                             </tr>

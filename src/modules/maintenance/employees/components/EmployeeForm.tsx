@@ -11,6 +11,7 @@ import {
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Personal } from "@/types/employees";
+import { useDialogStore } from "@/app/store/dialogStore";
 
 type EmployeeFormProps = {
   initialData?: Partial<Personal>;
@@ -41,9 +42,8 @@ const buildDefaults = (data?: Partial<Personal>): Personal => ({
   personalApellidos: data?.personalApellidos ?? "",
   areaId: data?.areaId ?? 0,
   personalCodigo: data?.personalCodigo ?? "",
-  personalNacimiento:
-    formatDateForInput(data?.personalNacimiento) || today(),
-  personalIngreso: formatDateForInput(data?.personalIngreso),
+  personalNacimiento: formatDateForInput(data?.personalNacimiento) || today(),
+  personalIngreso: formatDateForInput(data?.personalIngreso) || today(),
   personalDni: data?.personalDni ?? "",
   personalDireccion: data?.personalDireccion ?? "",
   personalTelefono: data?.personalTelefono ?? "",
@@ -77,6 +77,7 @@ export default function EmployeeForm({
   const [takingPhoto, setTakingPhoto] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageSrc, setModalImageSrc] = useState<string | null>(null);
+  const openDialog = useDialogStore((s) => s.openDialog);
 
   const areaOptions = useMemo(
     () =>
@@ -124,6 +125,26 @@ export default function EmployeeForm({
   const watchedImagen = watch("personalImagen") ?? "";
   const watchedNacimiento = watch("personalNacimiento");
 
+  const handleDeleteConfirm = () => {
+    if (!onDelete) return;
+
+    openDialog({
+      title: "Eliminar personal",
+      size: "sm",
+      confirmLabel: "Eliminar",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        await onDelete();
+      },
+      content: () => (
+        <div className="text-sm text-slate-700">
+          ¿Estás seguro de eliminar este empleado? Esta acción no se puede
+          deshacer.
+        </div>
+      ),
+    });
+  };
+
   const companyOptions = useMemo(() => {
     const base = [{ value: 1, label: "Compania 1" }];
     if (
@@ -131,7 +152,10 @@ export default function EmployeeForm({
       !base.some((c) => Number(c.value) === Number(initialData.companiaId))
     ) {
       return [
-        { value: Number(initialData.companiaId), label: `Compania ${initialData.companiaId}` },
+        {
+          value: Number(initialData.companiaId),
+          label: `Compania ${initialData.companiaId}`,
+        },
         ...base,
       ];
     }
@@ -293,7 +317,7 @@ export default function EmployeeForm({
               {mode === "edit" && onDelete && (
                 <button
                   type="button"
-                  onClick={onDelete}
+                  onClick={handleDeleteConfirm}
                   className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
                   title="Eliminar"
                 >

@@ -20,7 +20,6 @@ import {
   Filter,
   X,
 } from "lucide-react";
-import TextField from "@mui/material/TextField";
 
 // ============================================
 // TABLA PRINCIPAL - COMPONENTE REUTILIZABLE
@@ -40,6 +39,9 @@ const DndTable = ({
   isLoading = false,
   emptyMessage = "No hay datos disponibles",
   className = "",
+  dataFilterFn = null,
+  enableSearching = true,
+  onSelectionChange = null,
 }) => {
   const [sorting, setSorting] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -59,11 +61,23 @@ const DndTable = ({
       if (!dateFilter) return true;
       const valueDate = new Date(rawDate);
       const filterDate = new Date(dateFilter);
-      if (Number.isNaN(valueDate.getTime()) || Number.isNaN(filterDate.getTime()))
+      if (
+        Number.isNaN(valueDate.getTime()) ||
+        Number.isNaN(filterDate.getTime())
+      )
         return true;
       return valueDate.toDateString() === filterDate.toDateString();
     });
   }, [data, dateField, dateFilter, enableDateFilter]);
+  useEffect(() => {
+    if (!onSelectionChange) return;
+
+    const selectedRows = table
+      .getSelectedRowModel()
+      .rows.map((r) => r.original);
+
+    onSelectionChange(selectedRows);
+  }, [rowSelection]);
 
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
@@ -72,6 +86,7 @@ const DndTable = ({
   const table = useReactTable({
     data: filteredData,
     columns,
+    getRowId: (row) => row.idDetalle || row.id,
     state: {
       sorting,
       globalFilter,
@@ -106,6 +121,7 @@ const DndTable = ({
           dateFilter={dateFilter}
           setDateFilter={setDateFilter}
           enableDateFilter={enableDateFilter && Boolean(dateField)}
+          enableSearching={enableSearching}
         />
       )}
 
@@ -141,27 +157,32 @@ const TableHeader = ({
   dateFilter,
   setDateFilter,
   enableDateFilter,
+  enableSearching,
 }) => {
   return (
     <div className="p-4 sm:p-6 border-b border-slate-200">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         {/* Buscador */}
         <div className="relative flex-1 max-w-md w-full">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            value={globalFilter ?? ""}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Buscar en toda la tabla..."
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
-          />
-          {globalFilter && (
-            <button
-              onClick={() => setGlobalFilter("")}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          {enableSearching && (
+            <>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                value={globalFilter ?? ""}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                placeholder="Buscar en toda la tabla..."
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+              />
+              {globalFilter && (
+                <button
+                  onClick={() => setGlobalFilter("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </>
           )}
         </div>
 
@@ -169,19 +190,15 @@ const TableHeader = ({
         <div className="flex items-center gap-2">
           {enableDateFilter && (
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-              <TextField
-                label="Fecha"
+              <input
                 type="date"
-                size="small"
-                InputLabelProps={{ shrink: true }}
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
+                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               {dateFilter && (
                 <button
-                  onClick={() => {
-                    setDateFilter("");
-                  }}
+                  onClick={() => setDateFilter("")}
                   className="text-xs text-slate-600 underline"
                 >
                   Limpiar
@@ -217,11 +234,23 @@ const TableHead = ({ table, enableSorting }) => {
           {headerGroup.headers.map((header) => (
             <th
               key={header.id}
-              className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider"
+              className={`px-4 sm:px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider ${
+                header.column.columnDef.meta?.align === "center"
+                  ? "text-center"
+                  : header.column.columnDef.meta?.align === "right"
+                  ? "text-right"
+                  : "text-left"
+              }`}
             >
               {header.isPlaceholder ? null : (
                 <div
                   className={`flex items-center gap-2 ${
+                    header.column.columnDef.meta?.align === "center"
+                      ? "justify-center"
+                      : header.column.columnDef.meta?.align === "right"
+                      ? "justify-end"
+                      : "justify-start"
+                  } ${
                     header.column.getCanSort() && enableSorting
                       ? "cursor-pointer select-none hover:text-emerald-600"
                       : ""
@@ -261,7 +290,14 @@ const SortIcon = ({ sorted }) => {
 // ============================================
 // BODY DE LA TABLA
 // ============================================
-const TableBody = ({ table, isLoading, emptyMessage, onRowClick }) => {
+const TableBody = ({
+  table,
+  isLoading,
+  emptyMessage,
+  onRowClick,
+  selectedRowId,
+  setSelectedRowId,
+}) => {
   if (isLoading) {
     return (
       <tbody>
@@ -297,15 +333,26 @@ const TableBody = ({ table, isLoading, emptyMessage, onRowClick }) => {
       {table.getRowModel().rows.map((row) => (
         <tr
           key={row.id}
-          onClick={() => onRowClick && onRowClick(row.original)}
-          className={`${
-            onRowClick ? "cursor-pointer hover:bg-slate-50" : ""
-          } transition-colors`}
+          onClick={() => {
+            row.toggleSelected();
+            onRowClick && onRowClick(row.original);
+          }}
+          className={`
+    cursor-pointer
+    transition-colors
+    ${row.getIsSelected() ? "bg-emerald-50" : "hover:bg-slate-50"}
+  `}
         >
           {row.getVisibleCells().map((cell) => (
             <td
               key={cell.id}
-              className="px-4 sm:px-6 py-4 text-sm text-slate-700 whitespace-nowrap"
+              className={`px-4 sm:px-6 py-4 text-sm text-slate-700 whitespace-nowrap ${
+                cell.column.columnDef.meta?.align === "center"
+                  ? "text-center"
+                  : cell.column.columnDef.meta?.align === "right"
+                  ? "text-right"
+                  : "text-left"
+              }`}
             >
               {flexRender(cell.column.columnDef.cell, cell.getContext())}
             </td>

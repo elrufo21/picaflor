@@ -13,6 +13,7 @@ import {
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import { useUsersStore } from "@/store/users/users.store";
+import { useDialogStore } from "@/app/store/dialogStore"; // 👈 SOLO ESTO SE AGREGA
 
 interface UserFormBaseProps {
   initialData?: Partial<any>;
@@ -60,6 +61,8 @@ export default function UserFormBase({
   const containerRef = useRef<HTMLDivElement>(null);
   const { users, fetchUsers } = useUsersStore();
   const { employees, fetchEmployees } = useEmployeesStore();
+
+  const openDialog = useDialogStore((s) => s.openDialog); // 👈 SOLO ESTO
 
   const [showPass, setShowPass] = useState(false);
   const [showPassConfirm, setShowPassConfirm] = useState(false);
@@ -210,12 +213,12 @@ export default function UserFormBase({
   return (
     <div ref={containerRef} className="h-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-        {" "}
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="bg-[#B23636] text-white px-4 py-3 flex items-center justify-between">
             <h1 className="text-base font-semibold">
               {mode === "create" ? "Crear Usuario" : "Editar Usuario"}
             </h1>
+
             <div className="flex items-center gap-2">
               <button
                 type="submit"
@@ -225,6 +228,7 @@ export default function UserFormBase({
                 <Save className="w-4 h-4" />
                 <span className="hidden sm:inline">Guardar</span>
               </button>
+
               <button
                 type="button"
                 onClick={handleNew}
@@ -234,10 +238,28 @@ export default function UserFormBase({
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Nuevo</span>
               </button>
+
               {mode === "edit" && onDelete && (
                 <button
                   type="button"
-                  onClick={onDelete}
+                  onClick={() =>
+                    openDialog({
+                      title: "Eliminar usuario",
+                      size: "sm",
+                      confirmLabel: "Eliminar",
+                      cancelLabel: "Cancelar",
+                      onConfirm: async () => {
+                        await onDelete();
+                      },
+                      content: () => (
+                        <p className="text-sm text-slate-700">
+                          ¿Estás seguro de eliminar este usuario?
+                          <br />
+                          Esta acción no se puede deshacer.
+                        </p>
+                      ),
+                    })
+                  }
                   className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
                   title="Eliminar"
                 >
@@ -251,24 +273,25 @@ export default function UserFormBase({
           <div className="p-6 sm:p-8">
             <div className="flex flex-col md:flex-row gap-6">
               <div className="w-full md:w-[40%] space-y-4">
-                <AutocompleteControlled
-                  name="PersonalId"
-                  control={control}
-                  label="Personal"
-                  placeholder="Buscar personal"
-                  options={employeeOptions}
-                  getOptionLabel={(option) => option.label}
-                  isOptionEqualToValue={(opt, val) =>
-                    String(opt.value) === String(val.value)
-                  }
-                  onChange={(_, value) => setValue("PersonalId", value)}
-                  required
-                  size="small"
-                  data-focus-first="true"
-                />
+                <div className="mt-4">
+                  <AutocompleteControlled
+                    name="PersonalId"
+                    control={control}
+                    label="Personal"
+                    placeholder="Buscar personal"
+                    options={employeeOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(opt, val) =>
+                      String(opt.value) === String(val.value)
+                    }
+                    onChange={(_, value) => setValue("PersonalId", value)}
+                    required
+                    size="small"
+                    data-focus-next="input[name='UsuarioAlias']"
+                  />
+                </div>
 
-                <div>
-                  {" "}
+                <div className="mt-4">
                   <TextControlled
                     name="UsuarioAlias"
                     control={control}
@@ -282,6 +305,7 @@ export default function UserFormBase({
                     }}
                   />
                 </div>
+
                 <div className="mt-4">
                   <TextControlled
                     name="UsuarioClave"

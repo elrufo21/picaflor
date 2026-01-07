@@ -1,46 +1,117 @@
-function parseLegacyData(raw) {
-  if (!raw || typeof raw !== "string") return [];
+function parseLegacyData(raw: string): string[][][] {
+  if (!raw) return [];
 
-  return raw
-    .split("[") // bloques
-    .map(
-      (block) =>
-        block
-          .split("¬") // registros
-          .filter((r) => r.trim() !== "")
-          .map((row) => row.split("|")) // campos
-    );
+  return raw.split("[").map((block) =>
+    block
+      .split("¬")
+      .map((row) => row.trim())
+      .filter(Boolean)
+      .map((row) => row.split("|"))
+  );
 }
 
-export function transformServiciosData(raw) {
-  const blocks = parseLegacyData(raw);
+export function transformServiciosData(raw: string) {
+  const b = parseLegacyData(raw);
 
   return {
-    servicios:
-      blocks[0]?.map(([id, nombre]) => ({
+    productos:
+      b[0]?.map(([id, nombre]) => ({
         id: Number(id),
         nombre,
-      })) || [],
+      })) ?? [],
 
-    detalles:
-      blocks[1]?.map(([idProducto, entrada, descripcion, precio]) => ({
+    preciosProducto:
+      b[1]?.map(([idProducto, precioBase, visitas, precioVenta]) => ({
         idProducto: Number(idProducto),
-        entrada: Number(entrada),
-        descripcion,
-        precio: Number(precio),
-      })) || [],
+        precioBase: Number(precioBase),
+        visitas,
+        precioVenta: Number(precioVenta),
+      })) ?? [],
 
     canales:
-      blocks[2]?.map(([id, nombre]) => ({
+      b[2]?.map(([id, nombre]) => ({
         id: Number(id),
         nombre,
-      })) || [],
+      })) ?? [],
 
     actividades:
-      blocks[3]?.map(([id, actividad, idProducto]) => ({
+      b[3]?.map(([id, actividad, idProducto]) => ({
         id: Number(id),
         actividad,
         idProducto: Number(idProducto),
-      })) || [],
+      })) ?? [],
+
+    partidas:
+      b[4]?.map(([id, partida, idProducto]) => ({
+        id: Number(id),
+        partida,
+        idProducto: Number(idProducto),
+      })) ?? [],
+
+    auxiliares:
+      b[5]?.map(([id, telefono]) => ({
+        id: Number(id),
+        telefono,
+      })) ?? [],
+
+    preciosActividades:
+      b[6]?.map(([idActi, precioSol, entradaSol, precioDol, entradaDol]) => ({
+        idActi: Number(idActi),
+        precioSol: Number(precioSol),
+        entradaSol: Number(entradaSol),
+        precioDol: Number(precioDol),
+        entradaDol: Number(entradaDol),
+      })) ?? [],
+
+    horasPartida:
+      b[7]?.map(([idParti, hora]) => ({
+        idParti: Number(idParti),
+        hora,
+      })) ?? [],
+
+    almuerzos:
+      b[8]?.map(([id, nombre]) => ({
+        id: Number(id),
+        nombre,
+      })) ?? [],
+
+    traslados:
+      b[9]?.map(([id, nombre]) => ({
+        id: Number(id),
+        nombre,
+      })) ?? [],
+
+    preciosAlmuerzo:
+      b[10]?.map(([id, precioSol, precioDol]) => ({
+        id: Number(id),
+        precioSol: Number(precioSol),
+        precioDol: Number(precioDol),
+      })) ?? [],
+
+    preciosTraslado:
+      b[11]?.map(([id, precioSol, precioDol]) => ({
+        id: Number(id),
+        precioSol: Number(precioSol),
+        precioDol: Number(precioDol),
+      })) ?? [],
+
+    hoteles:
+      b[12]?.map(([id, nombre, region]) => ({
+        id: Number(id),
+        nombre,
+        region,
+      })) ?? [],
+
+    direccionesHotel:
+      b[13]?.map(([idHotel, direccion]) => ({
+        idHotel: Number(idHotel),
+        direccion,
+      })) ?? [],
+
+    ubigeos:
+      b[14]?.map(([id, nombre]) => ({
+        id,
+        nombre,
+      })) ?? [],
   };
 }

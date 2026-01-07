@@ -37,6 +37,19 @@ function SelectControlled<T extends FieldValues>({
           {...field}
           select
           fullWidth
+          onChange={(e) => {
+            field.onChange(e);
+
+            // 🔥 mover focus al siguiente input
+            const nextSelector = (rest as any)["data-focus-next"];
+            if (nextSelector) {
+              setTimeout(() => {
+                const next =
+                  document.querySelector<HTMLInputElement>(nextSelector);
+                next?.focus();
+              }, 0);
+            }
+          }}
           error={!!fieldState.error}
           helperText={fieldState.error?.message || rest.helperText}
         >

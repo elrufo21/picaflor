@@ -1,4 +1,44 @@
 import { create } from "zustand";
+import {
+  createProgramacion,
+  deleteProgramacion,
+  fetchPackages,
+} from "../api/packageApi";
+import { transformServiciosData } from "@/shared/helpers/helpers";
+import { getServiciosFromDB, serviciosDB } from "@/app/db/serviciosDB";
+
+/* =========================
+   TYPES
+========================= */
+
+export type ServiciosData = {
+  productos: { id: number; nombre: string }[];
+  preciosProducto: {
+    idProducto: number;
+    precioBase: number;
+    visitas: string;
+    precioVenta: number;
+  }[];
+  canales: { id: number; nombre: string }[];
+  actividades: { id: number; actividad: string; idProducto: number }[];
+  partidas: { id: number; partida: string; idProducto: number }[];
+  auxiliares: { id: number; telefono: string }[];
+  preciosActividades: {
+    idActi: number;
+    precioSol: number;
+    entradaSol: number;
+    precioDol: number;
+    entradaDol: number;
+  }[];
+  horasPartida: { idParti: number; hora: string }[];
+  almuerzos: { id: number; nombre: string }[];
+  traslados: { id: number; nombre: string }[];
+  preciosAlmuerzo: { id: number; precioSol: number; precioDol: number }[];
+  preciosTraslado: { id: number; precioSol: number; precioDol: number }[];
+  hoteles: { id: number; nombre: string; region: string }[];
+  direccionesHotel: { idHotel: number; direccion: string }[];
+  ubigeos: { id: string; nombre: string }[];
+};
 
 export type Passenger = {
   id: number;
@@ -47,7 +87,7 @@ export type Passenger = {
 export type PackageItem = {
   id: number;
   destino: string;
-  fecha: string; // ISO date string
+  fecha: string; // YYYY-MM-DD
   cantTotalPax: number;
   cantMaxPax: number;
   disponibles: number;
@@ -56,47 +96,213 @@ export type PackageItem = {
   passengers: Passenger[];
 };
 
+/* =========================
+   STORE STATE
+========================= */
+
 type PackageState = {
   packages: PackageItem[];
-  addPackage: (item: Omit<PackageItem, "id" | "passengers">) => void;
-  addPassenger: (packageId: number, passenger: Omit<Passenger, "id" | "packageId">) => void;
+  servicios: ServiciosData | null;
+  loading: boolean;
+  error: string | null;
+
+  // 🔥 backend
+  loadPackages: (fecha?: string) => Promise<void>;
+  loadServicios: () => Promise<void>;
+  loadServiciosFromDB: () => Promise<void>;
+  // 🔥 lógica local (NO TOCAR)
+  addPassenger: (
+    packageId: number,
+    passenger: Omit<Passenger, "id" | "packageId">
+  ) => void;
+  createProgramacion: (data: {
+    idProducto: number;
+    destino: string;
+    fecha: string;
+    cantMax: number;
+    region: string;
+  }) => Promise<void>;
   getPackageById: (id: number) => PackageItem | undefined;
+  clearPackages: () => void;
+  deleteProgramacion: (id: number, fecha?: string) => Promise<void>;
 };
 
-const initialPackages: PackageItem[] = [
-  {
-    id: 1,
-    destino: "FULL DAY PARACAS - ICA",
-    fecha: "2026-02-01",
-    cantTotalPax: 0,
-    cantMaxPax: 0,
-    disponibles: 0,
-    estado: "BLOQUEADO",
-    verListadoUrl: "#",
-    passengers: [],
-  },
-  {
-    id: 2,
-    destino: "FULL DAY ANTIOQUIA",
-    fecha: "2026-02-01",
-    cantTotalPax: 0,
-    cantMaxPax: 0,
-    disponibles: 0,
-    estado: "BLOQUEADO",
-    verListadoUrl: "#",
-    passengers: [],
-  },
-];
+function parsePackages(raw: unknown) {
+  if (!raw) return [];
+
+  if (Array.isArray(raw)) return raw;
+
+  if (typeof raw !== "string") return [];
+
+  return raw
+    .split("¬")
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .map((row) => {
+      const [
+        id,
+        destino,
+        fecha,
+        cantTotalPax,
+        cantMaxPax,
+        disponibles,
+        estado,
+        region,
+        accionTexto,
+        idDetalle,
+      ] = row.split("|");
+
+      return {
+        id: Number(id),
+        destino,
+        fecha,
+        cantTotalPax: Number(cantTotalPax),
+        cantMaxPax: Number(cantMaxPax),
+        disponibles: Number(disponibles),
+        estado,
+        region,
+        accionTexto,
+        idDetalle: Number(idDetalle),
+        passengers: [],
+      };
+    });
+}
+
+/* =========================
+   STORE
+========================= */
 
 export const usePackageStore = create<PackageState>((set, get) => ({
-  packages: initialPackages,
-  addPackage: (item) => {
-    const nextId =
-      get().packages.reduce((max, pkg) => Math.max(max, pkg.id), 0) + 1;
-    set((state) => ({
-      packages: [...state.packages, { ...item, id: nextId, passengers: [] }],
-    }));
+  packages: [],
+  loading: false,
+  error: null,
+  servicios: null,
+
+  /* =========================
+     CARGAR DESDE BACKEND
+  ========================= */
+
+  loadPackages: async (fecha) => {
+    try {
+      set({ loading: true, error: null });
+
+      // Normalizar a YYYY-MM-DD por seguridad
+      const raw = await fetchPackages(fecha?.slice(0, 10));
+
+      const parsed = parsePackages(raw);
+
+      set({
+        packages: parsed,
+        loading: false,
+      });
+    } catch (err: any) {
+      set({
+        loading: false,
+        error: err?.message ?? "Error al cargar packages",
+      });
+    }
   },
+  loadServiciosFromDB: async () => {
+    const data = await getServiciosFromDB();
+    set({ servicios: data });
+  },
+  loadServicios: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const res = await fetch(
+        "http://localhost:5000/api/v1/Programacion/listServ",
+        { headers: { accept: "text/plain" } }
+      );
+
+      if (!res.ok) throw new Error("Error cargando servicios");
+
+      const rawText = await res.text();
+      const data = transformServiciosData(rawText);
+
+      await serviciosDB.transaction(
+        "rw",
+        [
+          serviciosDB.productos,
+          serviciosDB.preciosProducto,
+          serviciosDB.canales,
+          serviciosDB.actividades,
+          serviciosDB.partidas,
+          serviciosDB.auxiliares,
+          serviciosDB.preciosActividades,
+          serviciosDB.horasPartida,
+          serviciosDB.almuerzos,
+          serviciosDB.traslados,
+          serviciosDB.preciosAlmuerzo,
+          serviciosDB.preciosTraslado,
+          serviciosDB.hoteles,
+          serviciosDB.direccionesHotel,
+          serviciosDB.ubigeos,
+        ],
+        async () => {
+          await serviciosDB.productos.bulkPut(data.productos);
+          await serviciosDB.preciosProducto.bulkPut(data.preciosProducto);
+          await serviciosDB.canales.bulkPut(data.canales);
+          await serviciosDB.actividades.bulkPut(data.actividades);
+          await serviciosDB.partidas.bulkPut(data.partidas);
+          await serviciosDB.auxiliares.bulkPut(data.auxiliares);
+          await serviciosDB.preciosActividades.bulkPut(data.preciosActividades);
+          await serviciosDB.horasPartida.bulkPut(data.horasPartida);
+          await serviciosDB.almuerzos.bulkPut(data.almuerzos);
+          await serviciosDB.traslados.bulkPut(data.traslados);
+          await serviciosDB.preciosAlmuerzo.bulkPut(data.preciosAlmuerzo);
+          await serviciosDB.preciosTraslado.bulkPut(data.preciosTraslado);
+          await serviciosDB.hoteles.bulkPut(data.hoteles);
+          await serviciosDB.direccionesHotel.bulkPut(data.direccionesHotel);
+          await serviciosDB.ubigeos.bulkPut(data.ubigeos);
+        }
+      );
+
+      set({ servicios: data, loading: false });
+    } catch (err: any) {
+      console.error(err);
+      set({
+        loading: false,
+        error: err?.message ?? "Error al cargar servicios",
+      });
+    }
+  },
+  clearPackages: () => {
+    set({ packages: [] });
+  },
+  createProgramacion: async (data) => {
+    try {
+      set({ loading: true, error: null });
+
+      const payload = {
+        idDetalle: 0,
+        idProducto: data.idProducto,
+        destino: data.destino,
+        // Enviar sólo YYYY-MM-DD (aaaa-mm-dd) para que el backend reciba formato consistente
+        fecha: data.fecha.slice(0, 10),
+        cantMax: data.cantMax,
+        region: data.region,
+      };
+
+      await createProgramacion(payload);
+
+      // 🔥 refresca tabla automáticamente
+      await get().loadPackages(data.fecha.slice(0, 10));
+
+      set({ loading: false });
+    } catch (err: any) {
+      set({
+        loading: false,
+        error: err?.message ?? "Error al crear programación",
+      });
+      throw err;
+    }
+  },
+
+  /* =========================
+     NO TOCAR – TU LÓGICA
+  ========================= */
+
   addPassenger: (packageId, passenger) => {
     set((state) => {
       const nextPassengerId =
@@ -106,8 +312,10 @@ export const usePackageStore = create<PackageState>((set, get) => ({
 
       const packages = state.packages.map((pkg) => {
         if (pkg.id !== packageId) return pkg;
+
         const cantPax = passenger.cantPax ?? 0;
         const newCantTotal = (pkg.cantTotalPax ?? 0) + cantPax;
+
         const newDisponibles =
           pkg.cantMaxPax > 0
             ? Math.max(pkg.cantMaxPax - newCantTotal, 0)
@@ -131,5 +339,35 @@ export const usePackageStore = create<PackageState>((set, get) => ({
       return { packages };
     });
   },
-  getPackageById: (id) => get().packages.find((pkg) => pkg.id === id),
+
+  getPackageById: (id) => {
+    return get().packages.find((pkg) => pkg.id === id);
+  },
+  deleteProgramacion: async (id, fecha) => {
+    try {
+      set({ loading: true, error: null });
+
+      await deleteProgramacion(id);
+
+      // 🔥 refresca la tabla
+      if (fecha) {
+        await get().loadPackages(fecha.slice(0, 10));
+      } else {
+        // fallback: quitar del estado local (coincida por id o idDetalle)
+        set((state) => ({
+          packages: state.packages.filter(
+            (p) => p.id !== id && (p as any).idDetalle !== id
+          ),
+        }));
+      }
+
+      set({ loading: false });
+    } catch (err: any) {
+      set({
+        loading: false,
+        error: err?.message ?? "Error al eliminar programación",
+      });
+      throw err;
+    }
+  },
 }));

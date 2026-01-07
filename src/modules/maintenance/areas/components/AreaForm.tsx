@@ -4,6 +4,7 @@ import { Save, Plus, Trash2 } from "lucide-react";
 
 import { TextControlled } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
+import { useDialogStore } from "@/app/store/dialogStore";
 import type { Area } from "@/types/maintenance";
 
 type AreaFormProps = {
@@ -38,6 +39,8 @@ export default function AreaForm({
   const defaults = useMemo(() => buildDefaults(initialData), [initialData]);
   const [formKey, setFormKey] = useState(0);
 
+  const openDialog = useDialogStore((s) => s.openDialog);
+
   const form = useForm<AreaFormValues>({
     defaultValues: defaults,
   });
@@ -50,8 +53,13 @@ export default function AreaForm({
   }, [defaults, reset]);
 
   const submit = async (values: AreaFormValues) => {
-    const payload = normalizePayload(values, initialData?.id as number | undefined);
+    const payload = normalizePayload(
+      values,
+      initialData?.id as number | undefined
+    );
+
     await onSave(payload);
+
     if (mode === "create") {
       reset(buildDefaults());
       onNew?.();
@@ -67,6 +75,27 @@ export default function AreaForm({
     focusFirstInput(containerRef.current);
   };
 
+  const handleDelete = () => {
+    if (!onDelete) return;
+
+    openDialog({
+      title: "Eliminar área",
+      size: "sm",
+      confirmLabel: "Eliminar",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        await onDelete();
+      },
+      content: () => (
+        <p className="text-sm text-slate-700">
+          ¿Estás seguro de eliminar esta área?
+          <br />
+          Esta acción no se puede deshacer.
+        </p>
+      ),
+    });
+  };
+
   return (
     <form
       ref={containerRef}
@@ -78,6 +107,7 @@ export default function AreaForm({
         <h1 className="text-base font-semibold">
           {mode === "create" ? "Crear área" : "Editar área"}
         </h1>
+
         <div className="flex items-center gap-2">
           <button
             type="submit"
@@ -87,6 +117,7 @@ export default function AreaForm({
             <Save className="w-4 h-4" />
             <span className="hidden sm:inline">Guardar</span>
           </button>
+
           <button
             type="button"
             onClick={handleNew}
@@ -96,10 +127,11 @@ export default function AreaForm({
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Nuevo</span>
           </button>
+
           {mode === "edit" && onDelete && (
             <button
               type="button"
-              onClick={onDelete}
+              onClick={handleDelete}
               className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
               title="Eliminar"
             >
@@ -119,6 +151,7 @@ export default function AreaForm({
           required
           size="small"
           inputProps={{ "data-focus-first": "true" }}
+          disabled={mode === "edit"}
         />
       </div>
     </form>
