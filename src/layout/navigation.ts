@@ -5,6 +5,7 @@ import {
   Settings,
   BarChart2,
   Package,
+  Wrench,
 } from "lucide-react";
 
 export type NavigationItem = {
@@ -27,5 +28,11 @@ export const navigationItems: NavigationItem[] = [
     to: "/package",
     icon: Package,
     description: "Gestión de paquetes",
+  },
+  {
+    label: "Mantenimiento",
+    to: "/maintenance",
+    icon: Wrench,
+    description: "Catálogos y usuarios",
   },
 ];

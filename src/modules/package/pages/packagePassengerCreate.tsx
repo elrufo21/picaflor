@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useForm } from "react-hook-form";
@@ -9,6 +9,7 @@ import {
   AutocompleteControlled,
 } from "../../../components/ui/inputs";
 import { usePackageStore } from "../store/packageStore";
+import { useDialogStore } from "../../../app/store/dialogStore";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";
@@ -17,6 +18,14 @@ import Stack from "@mui/material/Stack";
 import Divider from "@mui/material/Divider";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+
+type SelectOption = { value: string; label: string };
+type CanalOption = SelectOption & {
+  contacto?: string;
+  telefono?: string;
+  email?: string;
+  auxiliar?: string;
+};
 
 type FormValues = {
   nombreCompleto: string;
@@ -31,9 +40,9 @@ type FormValues = {
   fechaEmision?: string;
   moneda?: string;
   origen?: string;
-  canalVenta?: string;
+  canalVenta?: CanalOption | null;
   counter?: string;
-  condicion?: string;
+  condicion?: SelectOption | null;
   puntoPartida?: string;
   otrosPartidas?: string;
   hotel?: string;
@@ -68,13 +77,11 @@ const documentoOptions = [
   { value: "CE", label: "C.E." },
 ];
 
-const canalVentaOptions = [
-  { value: "WEB", label: "Web" },
-  { value: "CALL", label: "Call Center" },
-  { value: "AGENCIA", label: "Agencia" },
-];
+const CANAL_LIST_ENDPOINT = "http://localhost:5000/api/v1/Canal/list";
 
-const estadoPagoOptions = [
+const canalVentaOptions: CanalOption[] = [];
+
+const estadoPagoOptions: SelectOption[] = [
   { value: "PENDIENTE", label: "Pendiente" },
   { value: "PAGADO", label: "Pagado" },
   { value: "PARCIAL", label: "Pago parcial" },
@@ -134,17 +141,112 @@ const bancoOptions = [
   { value: "INTERBANK", label: "Interbank" },
 ];
 
+const parseCanalPayload = (payload: unknown): CanalOption[] => {
+  const fromDelimitedRow = (row: string, idx: number): CanalOption | null => {
+    if (!row) return null;
+    const columns = row.split("|").map((col) => col.trim());
+    if (columns.length >= 2) {
+      const [id, nombre, contacto, telefono, email] = columns;
+      const value = id || nombre || `CANAL_${idx + 1}`;
+      const label = nombre || value;
+      return {
+        value,
+        label,
+        contacto: contacto && contacto !== "-" ? contacto : undefined,
+        telefono: telefono && telefono !== "-" ? telefono : undefined,
+        email: email && email !== "-" ? email : undefined,
+        auxiliar: nombre,
+      };
+    }
+
+    const trimmed = row.trim();
+    if (!trimmed) return null;
+    return { value: trimmed, label: trimmed };
+  };
+
+  if (typeof payload === "string") {
+    const rows = payload
+      .split(/¬|\r?\n/)
+      .map((r) => r.trim())
+      .filter(Boolean);
+
+    return rows
+      .map((row, idx) => fromDelimitedRow(row, idx))
+      .filter(Boolean) as CanalOption[];
+  }
+
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item, idx) => {
+        if (typeof item === "string") return fromDelimitedRow(item, idx);
+        if (item && typeof item === "object") {
+          const valueCandidate =
+            (item as any).value ??
+            (item as any).IdCanal ??
+            (item as any).codigo ??
+            (item as any).code ??
+            (item as any).id ??
+            (item as any).Id ??
+            (item as any).slug ??
+            (item as any).CanalNombre ??
+            (item as any).nombre ??
+            (item as any).name;
+          const labelCandidate =
+            (item as any).label ??
+            (item as any).descripcion ??
+            (item as any).descripcionCanal ??
+            (item as any).CanalNombre ??
+            (item as any).nombre ??
+            (item as any).name ??
+            valueCandidate;
+          const contacto = (item as any).Contacto ?? (item as any).contacto;
+          const telefono = (item as any).Telefono ?? (item as any).telefono;
+          const email = (item as any).Email ?? (item as any).email;
+
+          if (!valueCandidate && !labelCandidate) return null;
+          return {
+            value: String(
+              valueCandidate ?? labelCandidate ?? `CANAL_${idx + 1}`
+            ),
+            label: String(
+              labelCandidate ?? valueCandidate ?? `Canal ${idx + 1}`
+            ),
+            contacto: contacto ? String(contacto) : undefined,
+            telefono: telefono ? String(telefono) : undefined,
+            email: email ? String(email) : undefined,
+            auxiliar: (item as any).auxiliar
+              ? String((item as any).auxiliar)
+              : undefined,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean) as CanalOption[];
+  }
+
+  if (payload && typeof payload === "object") {
+    const data = (payload as any).data;
+    if (typeof data === "string" || Array.isArray(data)) {
+      return parseCanalPayload(data);
+    }
+  }
+
+  return [];
+};
+
 const PackagePassengerCreate = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const pkg = usePackageStore((state) => state.getPackageById(Number(id)));
   const addPassenger = usePackageStore((state) => state.addPassenger);
+  const openDialog = useDialogStore((state) => state.openDialog);
 
   const {
     control,
     handleSubmit,
     watch,
     register,
+    setValue,
     formState: { isSubmitting },
   } = useForm<FormValues>({
     defaultValues: {
@@ -160,9 +262,9 @@ const PackagePassengerCreate = () => {
       fechaEmision: new Date().toISOString().slice(0, 10),
       moneda: "PEN",
       origen: "LIMA",
-      canalVenta: "",
+      canalVenta: null,
       counter: "ANDRE RAMIREZ",
-      condicion: "",
+      condicion: null,
       puntoPartida: "",
       otrosPartidas: "",
       hotel: "",
@@ -192,12 +294,17 @@ const PackagePassengerCreate = () => {
     mode: "onBlur",
   });
 
+  const [canalVentaList, setCanalVentaList] =
+    useState<CanalOption[]>(canalVentaOptions);
   const precioBase = watch("precioBase");
   const impuesto = watch("impuesto");
   const cargosExtras = watch("cargosExtras");
   const acuenta = watch("acuenta");
   const precioUnit = watch("precioUnit");
   const cantidad = watch("cantidad");
+
+  const extractOptionValue = (option?: SelectOption | CanalOption | null) =>
+    typeof option === "string" ? option : option?.value ?? "";
 
   const totals = useMemo(() => {
     const precio = Number(precioBase ?? 0);
@@ -211,6 +318,222 @@ const PackagePassengerCreate = () => {
       subTotal: Number(precioUnit ?? 0) * Number(cantidad ?? 0),
     };
   }, [precioBase, impuesto, cargosExtras, acuenta, precioUnit, cantidad]);
+
+  const handleAddCanalVenta = () => {
+    openDialog({
+      title: "Nuevo canal de venta",
+      description: "Crea un canal de venta sin salir del formulario.",
+      size: "md",
+      initialPayload: {
+        label: "",
+        value: "",
+        contacto: "",
+        telefono: "",
+        email: "",
+        search: "",
+        editingValue: "",
+      },
+      confirmLabel: "Guardar canal",
+      content: ({ payload, setPayload, close }) => {
+        const search = String(payload.search ?? "").toLowerCase();
+        const filtered = canalVentaList.filter((opt) => {
+          const haystack = [
+            opt.label,
+            opt.contacto ?? "",
+            opt.telefono ?? "",
+            opt.email ?? "",
+          ]
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(search);
+        });
+
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1 text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Nombre</span>
+                <input
+                  type="text"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  value={String(payload.label ?? "")}
+                  onChange={(e) =>
+                    setPayload({ ...payload, label: e.target.value })
+                  }
+                  placeholder="Ej: AEROMAR TRAVEL"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">
+                  Código interno (opcional)
+                </span>
+                <input
+                  type="text"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  value={String(payload.value ?? "")}
+                  onChange={(e) =>
+                    setPayload({ ...payload, value: e.target.value })
+                  }
+                  placeholder="Ej: WEB_PERU"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Contacto</span>
+                <input
+                  type="text"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  value={String(payload.contacto ?? "")}
+                  onChange={(e) =>
+                    setPayload({ ...payload, contacto: e.target.value })
+                  }
+                  placeholder="Ej: DIANA"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-slate-700">
+                <span className="font-semibold text-slate-800">Teléfono</span>
+                <input
+                  type="text"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  value={String(payload.telefono ?? "")}
+                  onChange={(e) =>
+                    setPayload({ ...payload, telefono: e.target.value })
+                  }
+                  placeholder="Ej: 984821760"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-slate-700 md:col-span-2">
+                <span className="font-semibold text-slate-800">Email</span>
+                <input
+                  type="email"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  value={String(payload.email ?? "")}
+                  onChange={(e) =>
+                    setPayload({ ...payload, email: e.target.value })
+                  }
+                  placeholder="Ej: contacto@canal.com"
+                />
+              </label>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-semibold text-slate-700">
+                  Lista de canales
+                </label>
+                <input
+                  type="text"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  placeholder="Buscar..."
+                  value={String(payload.search ?? "")}
+                  onChange={(e) =>
+                    setPayload({ ...payload, search: e.target.value })
+                  }
+                />
+              </div>
+              <div className="border border-slate-200 rounded-lg max-h-64 overflow-auto divide-y divide-slate-200">
+                {filtered.length === 0 && (
+                  <p className="text-sm text-slate-500 px-3 py-2">
+                    No hay canales para mostrar.
+                  </p>
+                )}
+                {filtered.map((opt) => (
+                  <div
+                    key={opt.value}
+                    className="flex items-center justify-between px-3 py-2 bg-white hover:bg-slate-50"
+                  >
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {opt.label}
+                      </p>
+                      <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
+                        {opt.contacto && <span>Contacto: {opt.contacto}</span>}
+                        {opt.telefono && <span>Teléfono: {opt.telefono}</span>}
+                        {opt.email && <span>Email: {opt.email}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-amber-600 hover:text-amber-700 underline cursor-pointer"
+                        onClick={() =>
+                          setPayload({
+                            ...payload,
+                            label: opt.label,
+                            value: opt.value,
+                            contacto: opt.contacto ?? "",
+                            telefono: opt.telefono ?? "",
+                            email: opt.email ?? "",
+                            editingValue: opt.value,
+                          })
+                        }
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline cursor-pointer"
+                        onClick={() => {
+                          setValue("canalVenta", opt);
+                          close();
+                        }}
+                      >
+                        Usar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      },
+      onConfirm: (data) => {
+        const label = String(data.label ?? "").trim();
+        const customValue = String(data.value ?? "").trim();
+        const contacto = String(data.contacto ?? "").trim();
+        const telefono = String(data.telefono ?? "").trim();
+        const email = String(data.email ?? "").trim();
+        const editingValue = String(data.editingValue ?? "").trim();
+
+        if (!label) {
+          alert("Ingresa el nombre del canal de venta.");
+          throw new Error("Nombre de canal de venta requerido");
+        }
+
+        const newOption = {
+          label,
+          value: customValue || label.trim().toUpperCase().replace(/\s+/g, "_"),
+          contacto: contacto || undefined,
+          telefono: telefono || undefined,
+          email: email || undefined,
+          auxiliar: label,
+        };
+
+        setCanalVentaList((prev) => {
+          const targetIndex = editingValue
+            ? prev.findIndex(
+                (opt) => opt.value.toLowerCase() === editingValue.toLowerCase()
+              )
+            : -1;
+
+          if (targetIndex >= 0) {
+            const next = [...prev];
+            next[targetIndex] = newOption;
+            return next;
+          }
+
+          const exists = prev.some(
+            (opt) =>
+              opt.value.toLowerCase() === newOption.value.toLowerCase() ||
+              opt.label.toLowerCase() === newOption.label.toLowerCase()
+          );
+          if (exists) return prev;
+          return [...prev, newOption];
+        });
+        setValue("canalVenta", newOption);
+      },
+    });
+  };
 
   if (!pkg) {
     return (
@@ -229,6 +552,8 @@ const PackagePassengerCreate = () => {
   const onSubmit = handleSubmit(async (values) => {
     addPassenger(pkg.id, {
       ...values,
+      canalVenta: extractOptionValue(values.canalVenta),
+      condicion: extractOptionValue(values.condicion),
       precioBase: Number(values.precioBase ?? 0),
       impuesto: Number(values.impuesto ?? 0),
       cargosExtras: Number(values.cargosExtras ?? 0),
@@ -295,6 +620,52 @@ const PackagePassengerCreate = () => {
       cantidad: 0,
     },
   ]);
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchCanales = async () => {
+      try {
+        const response = await fetch(CANAL_LIST_ENDPOINT, {
+          headers: { accept: "application/json, text/plain" },
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`Status ${response.status}`);
+
+        const rawText = await response.text();
+        const parsed = (() => {
+          try {
+            return JSON.parse(rawText);
+          } catch {
+            return rawText;
+          }
+        })();
+
+        const mapped: SelectOption[] = parseCanalPayload(parsed);
+
+        if (mapped.length === 0) return;
+
+        setCanalVentaList((prev) => {
+          const existing = new Map(
+            prev.map((opt) => [opt.value.toLowerCase(), opt])
+          );
+          mapped.forEach((opt) => {
+            const key = opt.value.toLowerCase();
+            if (!existing.has(key)) {
+              existing.set(key, opt);
+            }
+          });
+          return Array.from(existing.values());
+        });
+      } catch (error) {
+        if ((error as any).name === "AbortError") return;
+        console.error("No se pudo cargar canales de venta", error);
+      }
+    };
+
+    fetchCanales();
+
+    return () => controller.abort();
+  }, []);
 
   const updateRow = (
     id: string,
@@ -449,9 +820,23 @@ const PackagePassengerCreate = () => {
                   name="canalVenta"
                   control={control}
                   label="Canal de venta"
-                  options={canalVentaOptions}
+                  options={canalVentaList}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(option, value) =>
+                    option.value === value.value
+                  }
+                  inputEndAdornment={
+                    <button
+                      type="button"
+                      className="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
+                      onClick={handleAddCanalVenta}
+                    >
+                      Nuevo
+                    </button>
+                  }
                   required
                   size="small"
+                  className="w-full"
                 />
                 <TextControlled
                   name="counter"
@@ -473,6 +858,10 @@ const PackagePassengerCreate = () => {
                   control={control}
                   label="Condición"
                   options={estadoPagoOptions}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(option, value) =>
+                    option.value === value.value
+                  }
                   required
                   size="small"
                 />
@@ -612,20 +1001,20 @@ const PackagePassengerCreate = () => {
                     </div>
 
                     <div className="overflow-x-auto">
-                      <table className="w-full border border-slate-300 text-sm bg-white">
+                      <table className="w-full border border-slate-300 text-xs bg-white">
                         <thead>
                           <tr className="bg-slate-100">
-                            <th className="border border-slate-300 px-2 py-1.5 w-36"></th>
-                            <th className="border border-slate-300 px-2 py-1.5 text-left font-semibold text-slate-800">
+                            <th className="border border-slate-300 px-1.5 py-1 w-32"></th>
+                            <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-800">
                               DETALLE DE TARIFA:
                             </th>
-                            <th className="border border-slate-300 px-2 py-1.5 text-center font-semibold text-amber-700 w-20">
+                            <th className="border border-slate-300 px-1.5 py-1 text-center font-semibold text-amber-700 w-16">
                               Pre Uni.
                             </th>
-                            <th className="border border-slate-300 px-2 py-1.5 text-center font-semibold text-amber-700 w-20">
+                            <th className="border border-slate-300 px-1.5 py-1 text-center font-semibold text-amber-700 w-16">
                               Cantidad
                             </th>
-                            <th className="border border-slate-300 px-2 py-1.5 text-center font-semibold text-amber-700 w-20">
+                            <th className="border border-slate-300 px-1.5 py-1 text-center font-semibold text-amber-700 w-16">
                               Sub Total.
                             </th>
                           </tr>
@@ -633,21 +1022,21 @@ const PackagePassengerCreate = () => {
                         <tbody>
                           {tarifaRows.map((row) => (
                             <tr key={row.id} className="hover:bg-slate-50">
-                              <td className="border border-slate-300 px-2 py-1.5">
+                              <td className="border border-slate-300 px-1.5 py-1">
                                 <div
                                   className={`${
                                     row.id === "tarifaTour"
                                       ? "bg-orange-500"
                                       : "bg-orange-400"
-                                  } text-white px-3 py-2 rounded font-semibold text-xs sm:text-sm whitespace-nowrap`}
+                                  } text-white px-2.5 py-1.5 rounded font-semibold text-[11px] sm:text-xs whitespace-nowrap`}
                                 >
                                   {row.label}
                                 </div>
                               </td>
-                              <td className="border border-slate-300 px-2 py-1.5">
+                              <td className="border border-slate-300 px-1.5 py-1">
                                 {row.type === "select" ? (
                                   <select
-                                    className="w-full rounded border border-slate-300 px-2.5 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    className="w-full rounded border border-slate-300 px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500 text-[11px] sm:text-xs"
                                     {...register(
                                       row.id === "tarifaTour"
                                         ? "tarifaTour"
@@ -677,13 +1066,13 @@ const PackagePassengerCreate = () => {
                                 ) : (
                                   <input
                                     type="text"
-                                    className="w-full rounded border border-slate-300 px-2.5 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    className="w-full rounded border border-slate-300 px-2 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500 text-[11px] sm:text-xs"
                                     placeholder="-"
                                     {...register(row.id as keyof FormValues)}
                                   />
                                 )}
                               </td>
-                              <td className="border border-slate-300 px-2 py-1.5">
+                              <td className="border border-slate-300 px-1.5 py-1">
                                 <input
                                   type="number"
                                   step="0.01"
@@ -695,10 +1084,10 @@ const PackagePassengerCreate = () => {
                                       Number(e.target.value)
                                     )
                                   }
-                                  className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-orange-500 text-[11px] sm:text-xs"
                                 />
                               </td>
-                              <td className="border border-slate-300 px-2 py-1.5">
+                              <td className="border border-slate-300 px-1.5 py-1">
                                 <input
                                   type="number"
                                   value={row.cantidad}
@@ -709,25 +1098,14 @@ const PackagePassengerCreate = () => {
                                       Number(e.target.value)
                                     )
                                   }
-                                  className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-orange-500 text-[11px] sm:text-xs"
                                 />
                               </td>
-                              <td className="border border-slate-300 px-2 py-1.5 text-right font-semibold">
+                              <td className="border border-slate-300 px-1.5 py-1 text-right font-semibold">
                                 {(row.precioUnit * row.cantidad).toFixed(2)}
                               </td>
                             </tr>
                           ))}
-                          <tr className="bg-orange-100 font-bold">
-                            <td
-                              colSpan={4}
-                              className="border border-slate-300 px-4 py-3 text-right text-slate-700"
-                            >
-                              TOTAL:
-                            </td>
-                            <td className="border border-slate-300 px-4 py-3 text-right text-lg text-orange-700">
-                              {tarifaTotal.toFixed(2)}
-                            </td>
-                          </tr>
                         </tbody>
                       </table>
                     </div>

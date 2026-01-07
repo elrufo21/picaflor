@@ -49,31 +49,25 @@ const DndTable = ({
     pageIndex: 0,
     pageSize: pageSize,
   });
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
 
   const filteredData = useMemo(() => {
     if (!enableDateFilter || !dateField) return data;
     return data.filter((row) => {
       const rawDate = row?.[dateField];
       if (!rawDate) return true;
-      const valueTime = new Date(rawDate).getTime();
-      if (Number.isNaN(valueTime)) return true;
-      if (dateFrom) {
-        const fromTime = new Date(dateFrom).getTime();
-        if (valueTime < fromTime) return false;
-      }
-      if (dateTo) {
-        const toTime = new Date(dateTo).getTime();
-        if (valueTime > toTime) return false;
-      }
-      return true;
+      if (!dateFilter) return true;
+      const valueDate = new Date(rawDate);
+      const filterDate = new Date(dateFilter);
+      if (Number.isNaN(valueDate.getTime()) || Number.isNaN(filterDate.getTime()))
+        return true;
+      return valueDate.toDateString() === filterDate.toDateString();
     });
-  }, [data, dateField, dateFrom, dateTo, enableDateFilter]);
+  }, [data, dateField, dateFilter, enableDateFilter]);
 
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [dateFrom, dateTo]);
+  }, [dateFilter]);
 
   const table = useReactTable({
     data: filteredData,
@@ -84,8 +78,7 @@ const DndTable = ({
       columnFilters,
       rowSelection,
       pagination,
-      dateFrom,
-      dateTo,
+      dateFilter,
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
@@ -110,10 +103,8 @@ const DndTable = ({
           setGlobalFilter={setGlobalFilter}
           selectedRows={Object.keys(rowSelection).length}
           totalRows={filteredData.length}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          setDateFrom={setDateFrom}
-          setDateTo={setDateTo}
+          dateFilter={dateFilter}
+          setDateFilter={setDateFilter}
           enableDateFilter={enableDateFilter && Boolean(dateField)}
         />
       )}
@@ -147,10 +138,8 @@ const TableHeader = ({
   setGlobalFilter,
   selectedRows,
   totalRows,
-  dateFrom,
-  dateTo,
-  setDateFrom,
-  setDateTo,
+  dateFilter,
+  setDateFilter,
   enableDateFilter,
 }) => {
   return (
@@ -181,26 +170,17 @@ const TableHeader = ({
           {enableDateFilter && (
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
               <TextField
-                label="Desde"
+                label="Fecha"
                 type="date"
                 size="small"
                 InputLabelProps={{ shrink: true }}
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
               />
-              <TextField
-                label="Hasta"
-                type="date"
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-              {(dateFrom || dateTo) && (
+              {dateFilter && (
                 <button
                   onClick={() => {
-                    setDateFrom("");
-                    setDateTo("");
+                    setDateFilter("");
                   }}
                   className="text-xs text-slate-600 underline"
                 >

@@ -9,6 +9,7 @@ import {
   type Control,
   type Path,
 } from "react-hook-form";
+import type { ReactNode } from "react";
 
 type Props<T extends FieldValues, Option> = Omit<
   AutocompleteProps<Option, false, false, false>,
@@ -19,6 +20,7 @@ type Props<T extends FieldValues, Option> = Omit<
   label?: string;
   defaultValue?: Option | null;
   getOptionLabel: (option: Option) => string;
+  inputEndAdornment?: ReactNode;
 };
 
 function AutocompleteControlled<T extends FieldValues, Option>({
@@ -26,6 +28,7 @@ function AutocompleteControlled<T extends FieldValues, Option>({
   control,
   label,
   defaultValue = null,
+  inputEndAdornment,
   ...rest
 }: Props<T, Option>) {
   return (
@@ -43,6 +46,15 @@ function AutocompleteControlled<T extends FieldValues, Option>({
             <TextField
               {...params}
               label={label}
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <>
+                    {inputEndAdornment}
+                    {params.InputProps.endAdornment}
+                  </>
+                ),
+              }}
               error={!!fieldState.error}
               helperText={fieldState.error?.message}
             />

@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router";
-import { Menu, X } from "lucide-react";
+import { NavLink, Outlet, useNavigate } from "react-router";
+import { Menu, X, LogOut } from "lucide-react";
 import BreadCrumb from "./BreadCrumb";
 import { useLayoutStore } from "../app/store/layoutStore";
 import Dialog from "../components/ui/Dialog";
 import { navigationItems } from "./navigation";
+import { useAuthStore } from "@/store/auth/auth.store";
 
 const MainLayout = () => {
   const [isDesktop, setIsDesktop] = useState(false);
   const { isSidebarOpen, setSidebarOpen, toggleSidebar, closeSidebar } =
     useLayoutStore();
+  const navigate = useNavigate();
+  const { user, logout } = useAuthStore();
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -169,10 +172,23 @@ const MainLayout = () => {
             <h1 className="text-lg font-semibold">Picaflor</h1>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-600">Bienvenido</span>
-            <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold">
-              RV
+            <div className="flex flex-col text-right">
+              <span className="text-sm text-slate-600">Bienvenido</span>
+              <span className="text-xs text-slate-500">
+                {user?.username ?? "Usuario"}
+              </span>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                navigate("/login", { replace: true });
+              }}
+              className="p-2 rounded hover:bg-slate-100 transition-colors"
+              title="Cerrar sesión"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 
