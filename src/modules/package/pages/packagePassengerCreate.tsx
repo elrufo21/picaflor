@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useForm } from "react-hook-form";
@@ -11,13 +11,11 @@ import {
 import { usePackageStore } from "../store/packageStore";
 import { useDialogStore } from "../../../app/store/dialogStore";
 import Paper from "@mui/material/Paper";
-import Typography from "@mui/material/Typography";
-import Grid from "@mui/material/Grid";
-import Box from "@mui/material/Box";
-import Stack from "@mui/material/Stack";
 import Divider from "@mui/material/Divider";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
+import type { PrecioActividad } from "@/app/db/serviciosDB";
 
 type SelectOption = { value: string; label: string };
 type CanalOption = SelectOption & {
@@ -82,49 +80,16 @@ const CANAL_LIST_ENDPOINT = "http://localhost:5000/api/v1/Canal/list";
 const canalVentaOptions: CanalOption[] = [];
 
 const estadoPagoOptions: SelectOption[] = [
-  { value: "PENDIENTE", label: "Pendiente" },
-  { value: "PAGADO", label: "Pagado" },
-  { value: "PARCIAL", label: "Pago parcial" },
+  { value: "Cancelado", label: "Cancelado" },
+  { value: "Crédito", label: "Crédito" },
+  { value: "A Cuenta", label: "A Cuenta" },
+  { value: "Canje", label: "Canje" },
+  { value: "Plataforma", label: "Plataforma" },
 ];
 
 const monedaOptions = [
   { value: "PEN", label: "Soles" },
   { value: "USD", label: "Dólares" },
-];
-
-const origenOptions = [
-  { value: "LIMA", label: "Lima" },
-  { value: "AREQUIPA", label: "Arequipa" },
-  { value: "CUSCO", label: "Cusco" },
-];
-
-const impuestoOptions = [
-  { value: "IGV", label: "IGV" },
-  { value: "EXENTO", label: "Exento" },
-];
-
-const puntoPartidaOptions = [
-  { value: "LIMA", label: "Lima" },
-  { value: "MIRAFLORES", label: "Miraflores" },
-  { value: "SAN_ISIDRO", label: "San Isidro" },
-];
-
-const hotelOptions = [
-  { value: "-", label: "-" },
-  { value: "HOTEL_A", label: "Hotel A" },
-  { value: "HOTEL_B", label: "Hotel B" },
-];
-
-const tarifaTourOptions = [
-  { value: "TOUR_FULL_DAY", label: "Tour Full Day" },
-  { value: "TOUR_MEDIO_DIA", label: "Tour Medio Día" },
-];
-
-const actividadOptions = [
-  { value: "-", label: "-" },
-  { value: "ACT1", label: "Actividad 01" },
-  { value: "ACT2", label: "Actividad 02" },
-  { value: "ACT3", label: "Actividad 03" },
 ];
 
 const medioPagoOptions = [
@@ -142,105 +107,168 @@ const bancoOptions = [
 ];
 
 const parseCanalPayload = (payload: unknown): CanalOption[] => {
-  const fromDelimitedRow = (row: string, idx: number): CanalOption | null => {
-    if (!row) return null;
-    const columns = row.split("|").map((col) => col.trim());
-    if (columns.length >= 2) {
-      const [id, nombre, contacto, telefono, email] = columns;
-      const value = id || nombre || `CANAL_${idx + 1}`;
-      const label = nombre || value;
+  const normalizeRow = (value: string, idx: number): CanalOption | null => {
+    if (!value) return null;
+    const parts = value
+      .split("|")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length >= 2) {
+      const [id, nombre, contacto, telefono, email] = parts;
+      const val = id || nombre || `CANAL_${idx + 1}`;
       return {
-        value,
-        label,
+        value: String(val),
+        label: String(nombre || val),
         contacto: contacto && contacto !== "-" ? contacto : undefined,
         telefono: telefono && telefono !== "-" ? telefono : undefined,
         email: email && email !== "-" ? email : undefined,
-        auxiliar: nombre,
+        auxiliar: nombre || undefined,
       };
     }
-
-    const trimmed = row.trim();
-    if (!trimmed) return null;
-    return { value: trimmed, label: trimmed };
+    const trimmed = value.trim();
+    return trimmed ? { value: trimmed, label: trimmed } : null;
   };
+
+  if (!payload) return [];
 
   if (typeof payload === "string") {
     const rows = payload
       .split(/¬|\r?\n/)
       .map((r) => r.trim())
       .filter(Boolean);
-
     return rows
-      .map((row, idx) => fromDelimitedRow(row, idx))
+      .map((r, i) => normalizeRow(r, i))
       .filter(Boolean) as CanalOption[];
   }
 
   if (Array.isArray(payload)) {
     return payload
-      .map((item, idx) => {
-        if (typeof item === "string") return fromDelimitedRow(item, idx);
-        if (item && typeof item === "object") {
+      .map((it, i) => {
+        if (typeof it === "string") return normalizeRow(it, i);
+        if (it && typeof it === "object") {
+          const o: any = it;
           const valueCandidate =
-            (item as any).value ??
-            (item as any).IdCanal ??
-            (item as any).codigo ??
-            (item as any).code ??
-            (item as any).id ??
-            (item as any).Id ??
-            (item as any).slug ??
-            (item as any).CanalNombre ??
-            (item as any).nombre ??
-            (item as any).name;
+            o.value ??
+            o.IdCanal ??
+            o.codigo ??
+            o.code ??
+            o.id ??
+            o.Id ??
+            o.slug ??
+            o.CanalNombre ??
+            o.nombre ??
+            o.name;
           const labelCandidate =
-            (item as any).label ??
-            (item as any).descripcion ??
-            (item as any).descripcionCanal ??
-            (item as any).CanalNombre ??
-            (item as any).nombre ??
-            (item as any).name ??
+            o.label ??
+            o.descripcion ??
+            o.descripcionCanal ??
+            o.CanalNombre ??
+            o.nombre ??
+            o.name ??
             valueCandidate;
-          const contacto = (item as any).Contacto ?? (item as any).contacto;
-          const telefono = (item as any).Telefono ?? (item as any).telefono;
-          const email = (item as any).Email ?? (item as any).email;
-
           if (!valueCandidate && !labelCandidate) return null;
           return {
-            value: String(
-              valueCandidate ?? labelCandidate ?? `CANAL_${idx + 1}`
-            ),
-            label: String(
-              labelCandidate ?? valueCandidate ?? `Canal ${idx + 1}`
-            ),
-            contacto: contacto ? String(contacto) : undefined,
-            telefono: telefono ? String(telefono) : undefined,
-            email: email ? String(email) : undefined,
-            auxiliar: (item as any).auxiliar
-              ? String((item as any).auxiliar)
-              : undefined,
-          };
+            value: String(valueCandidate ?? labelCandidate),
+            label: String(labelCandidate ?? valueCandidate),
+            contacto: o.Contacto ?? o.contacto ?? undefined,
+            telefono: o.Telefono ?? o.telefono ?? undefined,
+            email: o.Email ?? o.email ?? undefined,
+            auxiliar: o.auxiliar ?? undefined,
+          } as CanalOption;
         }
         return null;
       })
       .filter(Boolean) as CanalOption[];
   }
 
-  if (payload && typeof payload === "object") {
-    const data = (payload as any).data;
-    if (typeof data === "string" || Array.isArray(data)) {
-      return parseCanalPayload(data);
-    }
+  if (typeof payload === "object") {
+    const d: any = (payload as any).data ?? payload;
+    return parseCanalPayload(d);
   }
 
   return [];
 };
 
 const PackagePassengerCreate = () => {
+  const [partidas, setPartidas] = useState<
+    { value: string; label: string }[] | undefined
+  >();
+  const [hoteles, setHoteles] = useState<
+    { value: string; label: string }[] | undefined
+  >();
+  const [actividades, setActividades] = useState<
+    { value: string; label: string }[] | undefined
+  >();
+  const [preciosActividades, setPreciosActividades] = useState<
+    PrecioActividad[] | undefined
+  >();
+
   const { id } = useParams();
   const navigate = useNavigate();
-  const pkg = usePackageStore((state) => state.getPackageById(Number(id)));
-  const addPassenger = usePackageStore((state) => state.addPassenger);
-  const openDialog = useDialogStore((state) => state.openDialog);
+  const pkg = usePackageStore((s) => s.getPackageById(Number(id)));
+  const addPassenger = usePackageStore((s) => s.addPassenger);
+  const openDialog = useDialogStore((s) => s.openDialog);
+  const { loadServiciosFromDB, loadServicios, date } = usePackageStore();
 
+  // Inicialización de datos de servicios/producto
+  useEffect(() => {
+    let cancelled = false;
+
+    const init = async () => {
+      try {
+        const exists = await hasServiciosData();
+        if (exists) await loadServiciosFromDB();
+        else await loadServicios();
+
+        const [partidasRaw, hotelesRaw, actividadesRaw, preciosRaw] =
+          await Promise.all([
+            serviciosDB.partidas.toArray(),
+            serviciosDB.hoteles.toArray(),
+            serviciosDB.actividades.toArray(),
+            serviciosDB.preciosProducto.toArray(),
+          ]);
+
+        if (cancelled) return;
+
+        setPartidas(
+          partidasRaw
+            .filter((p) => String(p.idProducto) === String(id))
+            .map((d) => ({ value: String(d.id), label: d.partida }))
+        );
+
+        const regionPkg = String(pkg?.region ?? "").toUpperCase();
+        setHoteles(
+          regionPkg
+            ? hotelesRaw
+                .filter((h) => String(h.region).toUpperCase() === regionPkg)
+                .map((h) => ({ value: String(h.id), label: h.nombre }))
+            : []
+        );
+
+        setActividades(
+          actividadesRaw
+            .filter((a) => String(a.idProducto) === String(id))
+            .map((a) => ({ value: String(a.id), label: a.actividad }))
+        );
+
+        const precio = preciosRaw.find(
+          (p) => String(p.idProducto) === String(id)
+        );
+        if (precio?.visitas) {
+          // se setea via react-hook-form más abajo si aplica
+        }
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        console.error("Error cargando datos del producto:", err);
+      }
+    };
+
+    if (id) init();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, pkg?.region, loadServicios, loadServiciosFromDB]);
   const {
     control,
     handleSubmit,
@@ -257,7 +285,7 @@ const PackagePassengerCreate = () => {
       telefono: "",
       email: "",
       cantPax: 1,
-      fechaViaje: pkg?.fecha ?? new Date().toISOString().slice(0, 10),
+      fechaViaje: date,
       fechaPago: new Date().toISOString().slice(0, 10),
       fechaEmision: new Date().toISOString().slice(0, 10),
       moneda: "PEN",
@@ -294,6 +322,25 @@ const PackagePassengerCreate = () => {
     mode: "onBlur",
   });
 
+  //Canal de venta
+  const canalVentaSelected = watch("canalVenta");
+
+  useEffect(() => {
+    if (!canalVentaSelected) return;
+
+    console.log("Canal de venta cambiado:", canalVentaSelected);
+
+    if (canalVentaSelected.telefono) {
+      setValue("telefono", canalVentaSelected.telefono);
+    }
+
+    if (canalVentaSelected.email) {
+      setValue("email", canalVentaSelected.email);
+    }
+
+    setValue("counter", canalVentaSelected.auxiliar ?? "—");
+  }, [canalVentaSelected, setValue]);
+
   const [canalVentaList, setCanalVentaList] =
     useState<CanalOption[]>(canalVentaOptions);
   const precioBase = watch("precioBase");
@@ -302,6 +349,9 @@ const PackagePassengerCreate = () => {
   const acuenta = watch("acuenta");
   const precioUnit = watch("precioUnit");
   const cantidad = watch("cantidad");
+  const actividad1Value = watch("actividad1");
+  const actividad2Value = watch("actividad2");
+  const actividad3Value = watch("actividad3");
 
   const extractOptionValue = (option?: SelectOption | CanalOption | null) =>
     typeof option === "string" ? option : option?.value ?? "";
@@ -436,7 +486,7 @@ const PackagePassengerCreate = () => {
                     No hay canales para mostrar.
                   </p>
                 )}
-                {filtered.map((opt) => (
+                {filtered?.map((opt) => (
                   <div
                     key={opt.value}
                     className="flex items-center justify-between px-3 py-2 bg-white hover:bg-slate-50"
@@ -574,7 +624,6 @@ const PackagePassengerCreate = () => {
     });
     navigate("/package");
   });
-  console.log("Rerendering PackagePassengerCreate", pkg);
   const [tab, setTab] = useState(0);
   const [tarifaRows, setTarifaRows] = useState([
     {
@@ -646,7 +695,7 @@ const PackagePassengerCreate = () => {
 
         setCanalVentaList((prev) => {
           const existing = new Map(
-            prev.map((opt) => [opt.value.toLowerCase(), opt])
+            prev?.map((opt) => [opt.value.toLowerCase(), opt])
           );
           mapped.forEach((opt) => {
             const key = opt.value.toLowerCase();
@@ -666,7 +715,6 @@ const PackagePassengerCreate = () => {
 
     return () => controller.abort();
   }, []);
-
   const updateRow = (
     id: string,
     key: "precioUnit" | "cantidad",
@@ -678,6 +726,117 @@ const PackagePassengerCreate = () => {
       )
     );
   };
+  useEffect(() => {
+    let cancelled = false;
+
+    const init = async () => {
+      try {
+        // 1️⃣ asegurar servicios
+        const exists = await hasServiciosData();
+        if (exists) {
+          await loadServiciosFromDB();
+        } else {
+          await loadServicios();
+        }
+
+        // 2️⃣ leer DB (en paralelo)
+        const [
+          dataPartidas,
+          dataHoteles,
+          dataActividades,
+          dataPrecios,
+          dataPreciosActividades,
+        ] = await Promise.all([
+          serviciosDB.partidas.toArray(),
+          serviciosDB.hoteles.toArray(),
+          serviciosDB.actividades.toArray(),
+          serviciosDB.preciosProducto.toArray(), // precio producto
+          serviciosDB.preciosActividades.toArray(), // precios actividades
+        ]);
+
+        // 3️⃣ PARTIDAS (por producto)
+        const partidasData = dataPartidas
+          .filter((p) => Number(p.idProducto) === Number(id))
+          .map((d) => ({
+            value: String(d.id),
+            label: d.partida,
+          }));
+
+        // 4️⃣ HOTELES (por región)
+        const regionPkg = pkg?.region?.toUpperCase();
+
+        const hotelesData = regionPkg
+          ? dataHoteles
+              .filter((h) => String(h.region).toUpperCase() === regionPkg)
+              .map((h) => ({
+                value: String(h.id),
+                label: h.nombre,
+              }))
+          : [];
+
+        // 5️⃣ ACTIVIDADES (por producto)
+        const actividadesData = dataActividades
+          .filter((a) => Number(a.idProducto) === Number(id))
+          .map((a) => ({
+            value: String(a.id),
+            label: a.actividad,
+          }));
+
+        // 6️⃣ VISITAS (desde preciosProducto) 👈 CLAVE
+        const precio = dataPrecios.find(
+          (p) => Number(p.idProducto) === Number(id)
+        );
+
+        if (!cancelled) {
+          setPartidas(partidasData);
+          setHoteles(hotelesData);
+          setActividades(actividadesData);
+          setPreciosActividades(dataPreciosActividades as PrecioActividad[]);
+
+          if (precio?.visitas) {
+            setValue("visitas", precio.visitas, {
+              shouldDirty: false,
+              shouldTouch: false,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error cargando datos del producto:", err);
+      }
+    };
+
+    if (id && pkg?.region) {
+      init();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, pkg?.region, loadServicios, loadServiciosFromDB, setValue]);
+  // Sincronizar precios de actividades seleccionadas con la tabla de precios
+  useEffect(() => {
+    if (!preciosActividades) return;
+
+    const map = new Map(preciosActividades.map((p) => [String(p.idActi), p]));
+
+    const applyPrecio = (actividadId: unknown, rowId: string) => {
+      const key = String(actividadId ?? "").trim();
+      const precioObj = map.get(key);
+      const precio = precioObj ? Number(precioObj.precioSol ?? 0) : 0;
+      setTarifaRows((rows) =>
+        rows.map((r) => (r.id === rowId ? { ...r, precioUnit: precio } : r))
+      );
+    };
+
+    applyPrecio(actividad1Value, "actividad1");
+    applyPrecio(actividad2Value, "actividad2");
+    applyPrecio(actividad3Value, "actividad3");
+  }, [actividad1Value, actividad2Value, actividad3Value, preciosActividades]);
+  const totalTarifas = useMemo(
+    () =>
+      tarifaRows.reduce((acc, row) => acc + row.precioUnit * row.cantidad, 0),
+    [tarifaRows]
+  );
 
   const tarifaTotal = useMemo(
     () =>
@@ -764,13 +923,16 @@ const PackagePassengerCreate = () => {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <TextControlled
-                  name="visitas"
-                  disabled
-                  control={control}
-                  size="small"
-                  label="Destino"
-                />
+                <div className="col-span-2">
+                  {" "}
+                  <TextControlled
+                    name="visitas"
+                    disabled
+                    control={control}
+                    size="small"
+                    label="Destino"
+                  />
+                </div>
                 <SelectControlled
                   name="moneda"
                   control={control}
@@ -779,14 +941,14 @@ const PackagePassengerCreate = () => {
                   required
                   size="small"
                 />
-                <SelectControlled
+                {/**   <SelectControlled
                   name="origen"
                   control={control}
                   label="Salida"
                   options={origenOptions}
                   required
                   size="small"
-                />
+                /> */}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div className="grid grid-cols-3 gap-2 items-center">
@@ -813,6 +975,7 @@ const PackagePassengerCreate = () => {
                   label="Fecha de emisión"
                   required
                   size="small"
+                  disabled
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -944,7 +1107,7 @@ const PackagePassengerCreate = () => {
                             onChange: handleAdvanceAfterChange,
                           })}
                         >
-                          {puntoPartidaOptions.map((opt) => (
+                          {partidas?.map((opt) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
@@ -960,7 +1123,7 @@ const PackagePassengerCreate = () => {
                             onChange: handleAdvanceAfterChange,
                           })}
                         >
-                          {hotelOptions.map((opt) => (
+                          {hoteles?.map((opt) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
@@ -1004,18 +1167,18 @@ const PackagePassengerCreate = () => {
                       <table className="w-full border border-slate-300 text-xs bg-white">
                         <thead>
                           <tr className="bg-slate-100">
-                            <th className="border border-slate-300 px-1.5 py-0.5 w-32"></th>
-                            <th className="border border-slate-300 px-1.5 py-0.5 text-left font-semibold text-slate-800">
-                              DETALLE DE TARIFA:
+                            <th className="border px-2 py-1 w-40"></th>
+                            <th className="border px-2 py-1 text-left">
+                              Detalle
                             </th>
-                            <th className="border border-slate-300 px-1.5 py-0.5 text-center font-semibold text-amber-700 w-16">
-                              Pre Uni.
+                            <th className="border px-2 py-1 text-center w-20">
+                              Precio
                             </th>
-                            <th className="border border-slate-300 px-1.5 py-0.5 text-center font-semibold text-amber-700 w-16">
-                              Cantidad
+                            <th className="border px-2 py-1 text-center w-16">
+                              Cant
                             </th>
-                            <th className="border border-slate-300 px-1.5 py-0.5 text-center font-semibold text-amber-700 w-16">
-                              Sub Total.
+                            <th className="border px-2 py-1 text-right w-20">
+                              SubTotal
                             </th>
                           </tr>
                         </thead>
@@ -1023,59 +1186,37 @@ const PackagePassengerCreate = () => {
                         <tbody>
                           {tarifaRows.map((row) => (
                             <tr key={row.id} className="hover:bg-slate-50">
-                              <td className="border border-slate-300 px-1.5 py-0.5">
-                                <div
-                                  className={`${
-                                    row.id === "tarifaTour"
-                                      ? "bg-orange-500"
-                                      : "bg-orange-400"
-                                  } text-white px-2 py-0.5 rounded font-semibold text-[11px] whitespace-nowrap`}
-                                >
+                              {/* LABEL */}
+                              <td className="border px-2 py-1">
+                                <span className="bg-orange-500 text-white px-2 py-0.5 rounded text-[11px] font-semibold">
                                   {row.label}
-                                </div>
+                                </span>
                               </td>
 
-                              <td className="border border-slate-300 px-1.5 py-0.5">
+                              {/* SELECT / INPUT */}
+                              <td className="border px-2 py-1">
                                 {row.type === "select" ? (
                                   <select
-                                    className="w-full h-7 rounded border border-slate-300 px-1 py-0 bg-slate-50 leading-tight focus:outline-none focus:ring-1 focus:ring-orange-500 text-[11px]"
-                                    {...register(
-                                      row.id === "tarifaTour"
-                                        ? "tarifaTour"
-                                        : (row.id as keyof FormValues),
-                                      { onChange: handleAdvanceAfterChange }
-                                    )}
+                                    className="w-full h-7 rounded border px-1 text-[11px]"
+                                    {...register(row.id as keyof FormValues)}
                                   >
-                                    <option value="">(SELECCIONE)</option>
-                                    {row.id === "tarifaTour"
-                                      ? tarifaTourOptions.map((opt) => (
-                                          <option
-                                            key={opt.value}
-                                            value={opt.value}
-                                          >
-                                            {opt.label}
-                                          </option>
-                                        ))
-                                      : actividadOptions.map((opt) => (
-                                          <option
-                                            key={opt.value}
-                                            value={opt.value}
-                                          >
-                                            {opt.label}
-                                          </option>
-                                        ))}
+                                    <option value="-">(SELECCIONE)</option>
+                                    {actividades?.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
                                   </select>
                                 ) : (
                                   <input
-                                    type="text"
-                                    className="w-full h-7 rounded border border-slate-300 px-1 py-0 bg-slate-50 leading-tight focus:outline-none focus:ring-1 focus:ring-orange-500 text-[11px]"
-                                    placeholder="-"
+                                    className="w-full h-7 rounded border px-1 text-[11px]"
                                     {...register(row.id as keyof FormValues)}
                                   />
                                 )}
                               </td>
 
-                              <td className="border border-slate-300 px-1.5 py-0.5">
+                              {/* PRECIO */}
+                              <td className="border px-2 py-1">
                                 <input
                                   type="number"
                                   step="0.01"
@@ -1087,13 +1228,15 @@ const PackagePassengerCreate = () => {
                                       Number(e.target.value)
                                     )
                                   }
-                                  className="w-full h-7 appearance-none rounded border border-slate-300 px-1 py-0 text-right leading-tight focus:outline-none focus:ring-1 focus:ring-orange-500 text-[11px]"
+                                  className="w-full h-7 rounded border px-1 text-right text-[11px]"
                                 />
                               </td>
 
-                              <td className="border border-slate-300 px-1.5 py-0.5">
+                              {/* CANTIDAD */}
+                              <td className="border px-2 py-1">
                                 <input
                                   type="number"
+                                  min={1}
                                   value={row.cantidad}
                                   onChange={(e) =>
                                     updateRow(
@@ -1102,11 +1245,12 @@ const PackagePassengerCreate = () => {
                                       Number(e.target.value)
                                     )
                                   }
-                                  className="w-full h-7 appearance-none rounded border border-slate-300 px-1 py-0 text-center leading-tight focus:outline-none focus:ring-1 focus:ring-orange-500 text-[11px]"
+                                  className="w-full h-7 rounded border px-1 text-center text-[11px]"
                                 />
                               </td>
 
-                              <td className="border border-slate-300 px-1.5 py-0.5 text-right font-semibold">
+                              {/* SUBTOTAL */}
+                              <td className="border px-2 py-1 text-right font-semibold">
                                 {(row.precioUnit * row.cantidad).toFixed(2)}
                               </td>
                             </tr>
@@ -1125,7 +1269,7 @@ const PackagePassengerCreate = () => {
                 <SelectControlled
                   name="documentoTipo"
                   control={control}
-                  label="Documento cobranza"
+                  label="Tipo de documento"
                   options={documentoOptions}
                   size="small"
                 />

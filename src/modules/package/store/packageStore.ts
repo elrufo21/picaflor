@@ -3,6 +3,7 @@ import {
   createProgramacion,
   deleteProgramacion,
   fetchPackages,
+  editarCantMax,
 } from "../api/packageApi";
 import { transformServiciosData } from "@/shared/helpers/helpers";
 import { getServiciosFromDB, serviciosDB } from "@/app/db/serviciosDB";
@@ -125,6 +126,12 @@ type PackageState = {
   getPackageById: (id: number) => PackageItem | undefined;
   clearPackages: () => void;
   deleteProgramacion: (id: number, fecha?: string) => Promise<void>;
+  editarCantMax: (
+    data: { idDetalle: number; cantMax: number }[],
+    date: string
+  ) => Promise<void>;
+  date: string;
+  setDate: (date: string) => void;
 };
 
 function parsePackages(raw: unknown) {
@@ -175,6 +182,8 @@ function parsePackages(raw: unknown) {
 export const usePackageStore = create<PackageState>((set, get) => ({
   packages: [],
   loading: false,
+  date: new Date().toISOString().slice(0, 10),
+  setDate: (date) => set({ date }),
   error: null,
   servicios: null,
 
@@ -284,12 +293,13 @@ export const usePackageStore = create<PackageState>((set, get) => ({
         region: data.region,
       };
 
-      await createProgramacion(payload);
+      const rs = await createProgramacion(payload);
 
       // 🔥 refresca tabla automáticamente
       await get().loadPackages(data.fecha.slice(0, 10));
 
       set({ loading: false });
+      return rs;
     } catch (err: any) {
       set({
         loading: false,
@@ -341,6 +351,7 @@ export const usePackageStore = create<PackageState>((set, get) => ({
   },
 
   getPackageById: (id) => {
+    console.log("packages", get().packages);
     return get().packages.find((pkg) => pkg.id === id);
   },
   deleteProgramacion: async (id, fecha) => {
@@ -366,6 +377,35 @@ export const usePackageStore = create<PackageState>((set, get) => ({
       set({
         loading: false,
         error: err?.message ?? "Error al eliminar programación",
+      });
+      throw err;
+    }
+  },
+  editarCantMax: async (changes, date) => {
+    try {
+      set({ loading: true, error: null });
+
+      if (!changes.length) {
+        set({ loading: false });
+        return;
+      }
+
+      // 🔥 transformar array → "5|30;8|45;12|20"
+      const listaOrden = changes
+        .map((x) => `${x.idDetalle}|${x.cantMax}`)
+        .join(";");
+
+      // 👉 llamada API
+      await editarCantMax(listaOrden);
+
+      // 🔄 refrescar tabla CON FECHA CORRECTA
+      await get().loadPackages(date?.slice(0, 10));
+
+      set({ loading: false });
+    } catch (err: any) {
+      set({
+        loading: false,
+        error: err?.message ?? "Error al editar cantidad máxima",
       });
       throw err;
     }

@@ -53,7 +53,7 @@ export async function createProgramacion(payload: CreateProgramacionPayload) {
     throw new Error(text || "Error al crear programación");
   }
 
-  return res.json(); // o res.text() si el backend devuelve texto
+  return res.json();
 }
 
 export async function deleteProgramacion(id: number): Promise<void> {
@@ -69,3 +69,25 @@ export async function deleteProgramacion(id: number): Promise<void> {
     throw new Error(text || "Error al eliminar la programación");
   }
 }
+export const editarCantMax = async (listaOrden: string) => {
+  const res = await fetch(
+    "http://localhost:5000/api/v1/Programacion/editar-cant-max",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        listaOrden,
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Error al editar cantidad máxima");
+  }
+
+  return res.json();
+};

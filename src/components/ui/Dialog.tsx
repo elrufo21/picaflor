@@ -13,7 +13,7 @@ const sizeClassMap = {
 const Dialog = () => {
   const { isOpen, config, payload, closeDialog, setPayload } = useDialogStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [partidas, setPartidas] = useState([]);
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) closeDialog();
