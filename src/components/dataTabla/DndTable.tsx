@@ -134,6 +134,8 @@ const DndTable = ({
             isLoading={isLoading}
             emptyMessage={emptyMessage}
             onRowClick={onRowClick}
+            rowSelection={rowSelection}
+            setRowSelection={setRowSelection}
           />
         </table>
       </div>
@@ -295,8 +297,8 @@ const TableBody = ({
   isLoading,
   emptyMessage,
   onRowClick,
-  selectedRowId,
-  setSelectedRowId,
+  rowSelection,
+  setRowSelection,
 }) => {
   if (isLoading) {
     return (
@@ -334,7 +336,8 @@ const TableBody = ({
         <tr
           key={row.id}
           onClick={() => {
-            row.toggleSelected();
+            // Limitar selección a solo un row
+            setRowSelection(row.getIsSelected() ? {} : { [row.id]: true });
             onRowClick && onRowClick(row.original);
           }}
           className={`

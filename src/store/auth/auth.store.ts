@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { resetAllStores } from "@/store/resetAllStores";
 
 const STORAGE_KEY = "picaflor.auth.session";
 const SESSION_EXPIRED_MESSAGE = "Tu sesion expiro, vuelve a ingresar.";
@@ -116,6 +117,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       sessionTimeoutId = null;
     }
     clearSession();
+    resetAllStores();
     set({
       user: null,
       token: null,

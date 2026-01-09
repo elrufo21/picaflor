@@ -1,29 +1,19 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
-import type { ChangeEvent, KeyboardEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { KeyboardEvent, ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useForm } from "react-hook-form";
-import {
-  TextControlled,
-  SelectControlled,
-  DateInput,
-  AutocompleteControlled,
-} from "../../../components/ui/inputs";
+import { showToast } from "../../../components/ui/AppToast";
 import { usePackageStore } from "../store/packageStore";
 import { useDialogStore } from "../../../app/store/dialogStore";
-import Paper from "@mui/material/Paper";
-import Divider from "@mui/material/Divider";
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
-import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
-import type { PrecioActividad } from "@/app/db/serviciosDB";
-
-type SelectOption = { value: string; label: string };
-type CanalOption = SelectOption & {
-  contacto?: string;
-  telefono?: string;
-  email?: string;
-  auxiliar?: string;
-};
+import { useAuthStore } from "@/store/auth/auth.store";
+import { useCanalVenta } from "../hooks/useCanalVenta";
+import { usePackageData } from "../hooks/usePackageData";
+import { PackageHeader } from "../components/create-passenger/PackageHeader";
+import { PassengerDetails } from "../components/create-passenger/PassengerDetails";
+import { ServicesTable } from "../components/create-passenger/ServicesTable";
+import { PaymentSummary } from "../components/create-passenger/PaymentSummary";
+import { buildOrdenPayload } from "../utils/payloadBuilder";
+import type { CanalOption, SelectOption } from "../hooks/canalUtils";
 
 type FormValues = {
   nombreCompleto: string;
@@ -67,6 +57,7 @@ type FormValues = {
   nroOperacion?: string;
   notas?: string;
   salida?: string;
+  destino?: string;
 };
 
 const documentoOptions = [
@@ -75,11 +66,7 @@ const documentoOptions = [
   { value: "CE", label: "C.E." },
 ];
 
-const CANAL_LIST_ENDPOINT = "http://localhost:5000/api/v1/Canal/list";
-
-const canalVentaOptions: CanalOption[] = [];
-
-const estadoPagoOptions: SelectOption[] = [
+const estadoPagoOptions = [
   { value: "Cancelado", label: "Cancelado" },
   { value: "Crédito", label: "Crédito" },
   { value: "A Cuenta", label: "A Cuenta" },
@@ -95,8 +82,8 @@ const monedaOptions = [
 const medioPagoOptions = [
   { value: "", label: "(SELECCIONE)" },
   { value: "EFECTIVO", label: "Efectivo" },
-  { value: "TRANSFERENCIA", label: "Transferencia" },
-  { value: "TARJETA", label: "Tarjeta" },
+  { value: "DEPOSITO", label: "Deposito" },
+  { value: "YAPE", label: "Yape" },
 ];
 
 const bancoOptions = [
@@ -106,169 +93,14 @@ const bancoOptions = [
   { value: "INTERBANK", label: "Interbank" },
 ];
 
-const parseCanalPayload = (payload: unknown): CanalOption[] => {
-  const normalizeRow = (value: string, idx: number): CanalOption | null => {
-    if (!value) return null;
-    const parts = value
-      .split("|")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (parts.length >= 2) {
-      const [id, nombre, contacto, telefono, email] = parts;
-      const val = id || nombre || `CANAL_${idx + 1}`;
-      return {
-        value: String(val),
-        label: String(nombre || val),
-        contacto: contacto && contacto !== "-" ? contacto : undefined,
-        telefono: telefono && telefono !== "-" ? telefono : undefined,
-        email: email && email !== "-" ? email : undefined,
-        auxiliar: nombre || undefined,
-      };
-    }
-    const trimmed = value.trim();
-    return trimmed ? { value: trimmed, label: trimmed } : null;
-  };
-
-  if (!payload) return [];
-
-  if (typeof payload === "string") {
-    const rows = payload
-      .split(/¬|\r?\n/)
-      .map((r) => r.trim())
-      .filter(Boolean);
-    return rows
-      .map((r, i) => normalizeRow(r, i))
-      .filter(Boolean) as CanalOption[];
-  }
-
-  if (Array.isArray(payload)) {
-    return payload
-      .map((it, i) => {
-        if (typeof it === "string") return normalizeRow(it, i);
-        if (it && typeof it === "object") {
-          const o: any = it;
-          const valueCandidate =
-            o.value ??
-            o.IdCanal ??
-            o.codigo ??
-            o.code ??
-            o.id ??
-            o.Id ??
-            o.slug ??
-            o.CanalNombre ??
-            o.nombre ??
-            o.name;
-          const labelCandidate =
-            o.label ??
-            o.descripcion ??
-            o.descripcionCanal ??
-            o.CanalNombre ??
-            o.nombre ??
-            o.name ??
-            valueCandidate;
-          if (!valueCandidate && !labelCandidate) return null;
-          return {
-            value: String(valueCandidate ?? labelCandidate),
-            label: String(labelCandidate ?? valueCandidate),
-            contacto: o.Contacto ?? o.contacto ?? undefined,
-            telefono: o.Telefono ?? o.telefono ?? undefined,
-            email: o.Email ?? o.email ?? undefined,
-            auxiliar: o.auxiliar ?? undefined,
-          } as CanalOption;
-        }
-        return null;
-      })
-      .filter(Boolean) as CanalOption[];
-  }
-
-  if (typeof payload === "object") {
-    const d: any = (payload as any).data ?? payload;
-    return parseCanalPayload(d);
-  }
-
-  return [];
-};
-
 const PackagePassengerCreate = () => {
-  const [partidas, setPartidas] = useState<
-    { value: string; label: string }[] | undefined
-  >();
-  const [hoteles, setHoteles] = useState<
-    { value: string; label: string }[] | undefined
-  >();
-  const [actividades, setActividades] = useState<
-    { value: string; label: string }[] | undefined
-  >();
-  const [preciosActividades, setPreciosActividades] = useState<
-    PrecioActividad[] | undefined
-  >();
-
+  const { user } = useAuthStore();
   const { id } = useParams();
   const navigate = useNavigate();
-  const pkg = usePackageStore((s) => s.getPackageById(Number(id)));
   const addPassenger = usePackageStore((s) => s.addPassenger);
   const openDialog = useDialogStore((s) => s.openDialog);
-  const { loadServiciosFromDB, loadServicios, date } = usePackageStore();
+  const { date } = usePackageStore();
 
-  // Inicialización de datos de servicios/producto
-  useEffect(() => {
-    let cancelled = false;
-
-    const init = async () => {
-      try {
-        const exists = await hasServiciosData();
-        if (exists) await loadServiciosFromDB();
-        else await loadServicios();
-
-        const [partidasRaw, hotelesRaw, actividadesRaw, preciosRaw] =
-          await Promise.all([
-            serviciosDB.partidas.toArray(),
-            serviciosDB.hoteles.toArray(),
-            serviciosDB.actividades.toArray(),
-            serviciosDB.preciosProducto.toArray(),
-          ]);
-
-        if (cancelled) return;
-
-        setPartidas(
-          partidasRaw
-            .filter((p) => String(p.idProducto) === String(id))
-            .map((d) => ({ value: String(d.id), label: d.partida }))
-        );
-
-        const regionPkg = String(pkg?.region ?? "").toUpperCase();
-        setHoteles(
-          regionPkg
-            ? hotelesRaw
-                .filter((h) => String(h.region).toUpperCase() === regionPkg)
-                .map((h) => ({ value: String(h.id), label: h.nombre }))
-            : []
-        );
-
-        setActividades(
-          actividadesRaw
-            .filter((a) => String(a.idProducto) === String(id))
-            .map((a) => ({ value: String(a.id), label: a.actividad }))
-        );
-
-        const precio = preciosRaw.find(
-          (p) => String(p.idProducto) === String(id)
-        );
-        if (precio?.visitas) {
-          // se setea via react-hook-form más abajo si aplica
-        }
-      } catch (err: any) {
-        if (err?.name === "AbortError") return;
-        console.error("Error cargando datos del producto:", err);
-      }
-    };
-
-    if (id) init();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id, pkg?.region, loadServicios, loadServiciosFromDB]);
   const {
     control,
     handleSubmit,
@@ -291,13 +123,13 @@ const PackagePassengerCreate = () => {
       moneda: "PEN",
       origen: "LIMA",
       canalVenta: null,
-      counter: "ANDRE RAMIREZ",
+      counter: user?.username,
       condicion: null,
       puntoPartida: "",
       otrosPartidas: "",
       hotel: "",
       horaPresentacion: "",
-      visitas: pkg?.destino ?? "",
+      visitas: "",
       tarifaTour: "",
       actividad1: "-",
       actividad2: "-",
@@ -318,56 +150,39 @@ const PackagePassengerCreate = () => {
       entidadBancaria: "",
       nroOperacion: "",
       notas: "",
+      destino: "",
     },
     mode: "onBlur",
   });
 
-  //Canal de venta
+  // Hooks
+  const { canalVentaList, addCanalToList } = useCanalVenta();
+  const {
+    pkg,
+    partidas,
+    hoteles,
+    actividades,
+    almuerzos,
+    trasladosOptions,
+    preciosActividades,
+    preciosAlmuerzo,
+    preciosTraslado,
+  } = usePackageData(id, setValue);
+
+  useEffect(() => {
+    if (pkg?.destino) {
+      setValue("destino", pkg.destino);
+    }
+  }, [pkg, setValue]);
+
   const canalVentaSelected = watch("canalVenta");
 
   useEffect(() => {
     if (!canalVentaSelected) return;
-
-    console.log("Canal de venta cambiado:", canalVentaSelected);
-
-    if (canalVentaSelected.telefono) {
+    if (canalVentaSelected.telefono)
       setValue("telefono", canalVentaSelected.telefono);
-    }
-
-    if (canalVentaSelected.email) {
-      setValue("email", canalVentaSelected.email);
-    }
-
-    setValue("counter", canalVentaSelected.auxiliar ?? "—");
+    if (canalVentaSelected.email) setValue("email", canalVentaSelected.email);
   }, [canalVentaSelected, setValue]);
-
-  const [canalVentaList, setCanalVentaList] =
-    useState<CanalOption[]>(canalVentaOptions);
-  const precioBase = watch("precioBase");
-  const impuesto = watch("impuesto");
-  const cargosExtras = watch("cargosExtras");
-  const acuenta = watch("acuenta");
-  const precioUnit = watch("precioUnit");
-  const cantidad = watch("cantidad");
-  const actividad1Value = watch("actividad1");
-  const actividad2Value = watch("actividad2");
-  const actividad3Value = watch("actividad3");
-
-  const extractOptionValue = (option?: SelectOption | CanalOption | null) =>
-    typeof option === "string" ? option : option?.value ?? "";
-
-  const totals = useMemo(() => {
-    const precio = Number(precioBase ?? 0);
-    const imp = Number(impuesto ?? 0);
-    const extras = Number(cargosExtras ?? 0);
-    const aCuenta = Number(acuenta ?? 0);
-    const total = precio + imp + extras - aCuenta;
-    return {
-      total: total > 0 ? total : 0,
-      saldo: total > 0 ? total : 0,
-      subTotal: Number(precioUnit ?? 0) * Number(cantidad ?? 0),
-    };
-  }, [precioBase, impuesto, cargosExtras, acuenta, precioUnit, cantidad]);
 
   const handleAddCanalVenta = () => {
     openDialog({
@@ -384,7 +199,7 @@ const PackagePassengerCreate = () => {
         editingValue: "",
       },
       confirmLabel: "Guardar canal",
-      content: ({ payload, setPayload, close }) => {
+      content: ({ payload, setPayload, close }: any) => {
         const search = String(payload.search ?? "").toLowerCase();
         const filtered = canalVentaList.filter((opt) => {
           const haystack = [
@@ -537,7 +352,7 @@ const PackagePassengerCreate = () => {
           </div>
         );
       },
-      onConfirm: (data) => {
+      onConfirm: (data: any) => {
         const label = String(data.label ?? "").trim();
         const customValue = String(data.value ?? "").trim();
         const contacto = String(data.contacto ?? "").trim();
@@ -546,7 +361,11 @@ const PackagePassengerCreate = () => {
         const editingValue = String(data.editingValue ?? "").trim();
 
         if (!label) {
-          alert("Ingresa el nombre del canal de venta.");
+          showToast({
+            title: "Atención",
+            description: "Ingresa el nombre del canal de venta.",
+            type: "warning",
+          });
           throw new Error("Nombre de canal de venta requerido");
         }
 
@@ -559,78 +378,18 @@ const PackagePassengerCreate = () => {
           auxiliar: label,
         };
 
-        setCanalVentaList((prev) => {
-          const targetIndex = editingValue
-            ? prev.findIndex(
-                (opt) => opt.value.toLowerCase() === editingValue.toLowerCase()
-              )
-            : -1;
-
-          if (targetIndex >= 0) {
-            const next = [...prev];
-            next[targetIndex] = newOption;
-            return next;
-          }
-
-          const exists = prev.some(
-            (opt) =>
-              opt.value.toLowerCase() === newOption.value.toLowerCase() ||
-              opt.label.toLowerCase() === newOption.label.toLowerCase()
-          );
-          if (exists) return prev;
-          return [...prev, newOption];
-        });
+        addCanalToList(newOption, editingValue);
         setValue("canalVenta", newOption);
       },
     });
   };
 
-  if (!pkg) {
-    return (
-      <div className="p-6 bg-white rounded-xl shadow-sm">
-        <p className="text-sm text-rose-600">Paquete no encontrado.</p>
-        <button
-          className="mt-3 text-sm text-blue-600 underline"
-          onClick={() => navigate("/package")}
-        >
-          Volver a paquetes
-        </button>
-      </div>
-    );
-  }
-
-  const onSubmit = handleSubmit(async (values) => {
-    addPassenger(pkg.id, {
-      ...values,
-      canalVenta: extractOptionValue(values.canalVenta),
-      condicion: extractOptionValue(values.condicion),
-      precioBase: Number(values.precioBase ?? 0),
-      impuesto: Number(values.impuesto ?? 0),
-      cargosExtras: Number(values.cargosExtras ?? 0),
-      acuenta: Number(values.acuenta ?? 0),
-      cobroExtraSol: Number(values.cobroExtraSol ?? 0),
-      cobroExtraDol: Number(values.cobroExtraDol ?? 0),
-      deposito: Number(values.deposito ?? 0),
-      cantPax: Number(values.cantPax ?? 1),
-      fechaViaje: values.fechaViaje,
-      fechaPago: values.fechaPago,
-      total: totals.total,
-      subTotal: totals.subTotal,
-      actividades: [
-        values.actividad1 ?? "-",
-        values.actividad2 ?? "-",
-        values.actividad3 ?? "-",
-      ],
-    });
-    navigate("/package");
-  });
-  const [tab, setTab] = useState(0);
   const [tarifaRows, setTarifaRows] = useState([
     {
       id: "tarifaTour",
       label: "Tarifa de Tour:",
       type: "select",
-      precioUnit: 99,
+      precioUnit: 0,
       cantidad: 0,
     },
     {
@@ -657,7 +416,7 @@ const PackagePassengerCreate = () => {
     {
       id: "traslados",
       label: "• Traslados:",
-      type: "input",
+      type: "select",
       precioUnit: 0,
       cantidad: 0,
     },
@@ -669,52 +428,15 @@ const PackagePassengerCreate = () => {
       cantidad: 0,
     },
   ]);
-  useEffect(() => {
-    const controller = new AbortController();
 
-    const fetchCanales = async () => {
-      try {
-        const response = await fetch(CANAL_LIST_ENDPOINT, {
-          headers: { accept: "application/json, text/plain" },
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error(`Status ${response.status}`);
+  const cobroExtraSol = watch("cobroExtraSol");
+  const tarifaTourValue = watch("tarifaTour");
+  const trasladosValue = watch("traslados");
+  const actividad1Value = watch("actividad1");
+  const actividad2Value = watch("actividad2");
+  const actividad3Value = watch("actividad3");
+  const acuenta = watch("acuenta") || 0;
 
-        const rawText = await response.text();
-        const parsed = (() => {
-          try {
-            return JSON.parse(rawText);
-          } catch {
-            return rawText;
-          }
-        })();
-
-        const mapped: SelectOption[] = parseCanalPayload(parsed);
-
-        if (mapped.length === 0) return;
-
-        setCanalVentaList((prev) => {
-          const existing = new Map(
-            prev?.map((opt) => [opt.value.toLowerCase(), opt])
-          );
-          mapped.forEach((opt) => {
-            const key = opt.value.toLowerCase();
-            if (!existing.has(key)) {
-              existing.set(key, opt);
-            }
-          });
-          return Array.from(existing.values());
-        });
-      } catch (error) {
-        if ((error as any).name === "AbortError") return;
-        console.error("No se pudo cargar canales de venta", error);
-      }
-    };
-
-    fetchCanales();
-
-    return () => controller.abort();
-  }, []);
   const updateRow = (
     id: string,
     key: "precioUnit" | "cantidad",
@@ -726,97 +448,10 @@ const PackagePassengerCreate = () => {
       )
     );
   };
-  useEffect(() => {
-    let cancelled = false;
 
-    const init = async () => {
-      try {
-        // 1️⃣ asegurar servicios
-        const exists = await hasServiciosData();
-        if (exists) {
-          await loadServiciosFromDB();
-        } else {
-          await loadServicios();
-        }
-
-        // 2️⃣ leer DB (en paralelo)
-        const [
-          dataPartidas,
-          dataHoteles,
-          dataActividades,
-          dataPrecios,
-          dataPreciosActividades,
-        ] = await Promise.all([
-          serviciosDB.partidas.toArray(),
-          serviciosDB.hoteles.toArray(),
-          serviciosDB.actividades.toArray(),
-          serviciosDB.preciosProducto.toArray(), // precio producto
-          serviciosDB.preciosActividades.toArray(), // precios actividades
-        ]);
-
-        // 3️⃣ PARTIDAS (por producto)
-        const partidasData = dataPartidas
-          .filter((p) => Number(p.idProducto) === Number(id))
-          .map((d) => ({
-            value: String(d.id),
-            label: d.partida,
-          }));
-
-        // 4️⃣ HOTELES (por región)
-        const regionPkg = pkg?.region?.toUpperCase();
-
-        const hotelesData = regionPkg
-          ? dataHoteles
-              .filter((h) => String(h.region).toUpperCase() === regionPkg)
-              .map((h) => ({
-                value: String(h.id),
-                label: h.nombre,
-              }))
-          : [];
-
-        // 5️⃣ ACTIVIDADES (por producto)
-        const actividadesData = dataActividades
-          .filter((a) => Number(a.idProducto) === Number(id))
-          .map((a) => ({
-            value: String(a.id),
-            label: a.actividad,
-          }));
-
-        // 6️⃣ VISITAS (desde preciosProducto) 👈 CLAVE
-        const precio = dataPrecios.find(
-          (p) => Number(p.idProducto) === Number(id)
-        );
-
-        if (!cancelled) {
-          setPartidas(partidasData);
-          setHoteles(hotelesData);
-          setActividades(actividadesData);
-          setPreciosActividades(dataPreciosActividades as PrecioActividad[]);
-
-          if (precio?.visitas) {
-            setValue("visitas", precio.visitas, {
-              shouldDirty: false,
-              shouldTouch: false,
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error cargando datos del producto:", err);
-      }
-    };
-
-    if (id && pkg?.region) {
-      init();
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id, pkg?.region, loadServicios, loadServiciosFromDB, setValue]);
-  // Sincronizar precios de actividades seleccionadas con la tabla de precios
+  // Pricing synchronization effects
   useEffect(() => {
     if (!preciosActividades) return;
-
     const map = new Map(preciosActividades.map((p) => [String(p.idActi), p]));
 
     const applyPrecio = (actividadId: unknown, rowId: string) => {
@@ -832,11 +467,32 @@ const PackagePassengerCreate = () => {
     applyPrecio(actividad2Value, "actividad2");
     applyPrecio(actividad3Value, "actividad3");
   }, [actividad1Value, actividad2Value, actividad3Value, preciosActividades]);
-  const totalTarifas = useMemo(
-    () =>
-      tarifaRows.reduce((acc, row) => acc + row.precioUnit * row.cantidad, 0),
-    [tarifaRows]
-  );
+
+  useEffect(() => {
+    if (!preciosAlmuerzo) return;
+    const map = new Map(preciosAlmuerzo.map((p) => [String(p.id), p]));
+    const key = String(tarifaTourValue ?? "").trim();
+    const precioObj = map.get(key);
+    const precio = precioObj ? Number(precioObj.precioSol ?? 0) : 0;
+
+    setTarifaRows((rows) =>
+      rows.map((r) =>
+        r.id === "tarifaTour" ? { ...r, precioUnit: precio } : r
+      )
+    );
+  }, [tarifaTourValue, preciosAlmuerzo]);
+
+  useEffect(() => {
+    if (!preciosTraslado) return;
+    const map = new Map(preciosTraslado.map((p) => [String(p.id), p]));
+    const key = String(trasladosValue ?? "").trim();
+    const precioObj = map.get(key);
+    const precio = precioObj ? Number(precioObj.precioSol ?? 0) : 0;
+
+    setTarifaRows((rows) =>
+      rows.map((r) => (r.id === "traslados" ? { ...r, precioUnit: precio } : r))
+    );
+  }, [trasladosValue, preciosTraslado]);
 
   const tarifaTotal = useMemo(
     () =>
@@ -847,17 +503,56 @@ const PackagePassengerCreate = () => {
     [tarifaRows]
   );
 
-  const [comprobanteName, setComprobanteName] = useState(
-    "Sin archivos seleccionados"
+  const totalPagar = useMemo(
+    () => tarifaTotal + Number(cobroExtraSol ?? 0),
+    [tarifaTotal, cobroExtraSol]
   );
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setComprobanteName(file.name);
-    } else {
-      setComprobanteName("Sin archivos seleccionados");
-    }
-  };
+
+  const saldo = totalPagar - acuenta;
+
+  const onSubmit = handleSubmit(async (values) => {
+    const ordenPayload = buildOrdenPayload({
+      values,
+      user,
+      pkg,
+      id,
+      partidas,
+      hoteles,
+      almuerzos,
+      actividades,
+      trasladosOptions,
+      tarifaRows,
+      tarifaTotal,
+    });
+
+    console.log("PAYLOAD FOR BACKEND:", JSON.stringify(ordenPayload, null, 2));
+
+    /*
+    const extractOptionValue = (option?: any) => typeof option === "string" ? option : option?.value ?? "";
+    
+    addPassenger(Number(id), {
+      ...values,
+      canalVenta: extractOptionValue(values.canalVenta),
+      condicion: extractOptionValue(values.condicion),
+      precioBase: Number(values.precioBase ?? 0),
+      impuesto: Number(values.impuesto ?? 0),
+      cargosExtras: Number(values.cargosExtras ?? 0),
+      acuenta: Number(values.acuenta ?? 0),
+      cobroExtraSol: Number(values.cobroExtraSol ?? 0),
+      cobroExtraDol: Number(values.cobroExtraDol ?? 0),
+      deposito: Number(values.deposito ?? 0),
+      cantPax: Number(values.cantPax ?? 1),
+      total: totalPagar,
+      subTotal: tarifaTotal,
+      actividades: [
+        values.actividad1 ?? "-",
+        values.actividad2 ?? "-",
+        values.actividad3 ?? "-",
+      ],
+    });
+    navigate("/package");
+    */
+  });
 
   const focusNext = (
     current?: HTMLElement | null,
@@ -881,10 +576,8 @@ const PackagePassengerCreate = () => {
   const handleEnterFocus = (e: KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== "Enter") return;
     const target = e.target as HTMLElement;
-    // Avoid interfering with buttons/submit
     if (target.tagName === "BUTTON") return;
     e.preventDefault();
-
     focusNext(target, target.closest("form"));
   };
 
@@ -892,12 +585,28 @@ const PackagePassengerCreate = () => {
     const target = e.target as HTMLElement;
     setTimeout(() => focusNext(target, target.closest("form")), 0);
   };
+
   const handleSelectAdvanceCapture = (e: ChangeEvent<HTMLFormElement>) => {
     const target = e.target as HTMLElement;
     if (target.tagName === "SELECT") {
       setTimeout(() => focusNext(target, target.closest("form")), 0);
     }
   };
+
+  if (!pkg) {
+    return (
+      <div className="p-6 bg-white rounded-xl shadow-sm">
+        <p className="text-sm text-rose-600">Paquete no encontrado.</p>
+        <button
+          className="mt-3 text-sm text-blue-600 underline"
+          onClick={() => navigate("/package")}
+        >
+          Volver a paquetes
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 bg-white p-4 sm:p-5 rounded-2xl shadow-sm max-w-8xl mx-auto">
       <form
@@ -908,550 +617,41 @@ const PackagePassengerCreate = () => {
       >
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-3 space-y-3">
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-800">
-                  Datos del paquete
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-600">
-                  <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-semibold">
-                    {pkg.destino}
-                  </span>
-                  <span className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-semibold">
-                    {new Date(pkg.fecha).toLocaleDateString("es-ES")}
-                  </span>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  {" "}
-                  <TextControlled
-                    name="visitas"
-                    disabled
-                    control={control}
-                    size="small"
-                    label="Destino"
-                  />
-                </div>
-                <SelectControlled
-                  name="moneda"
-                  control={control}
-                  label="Moneda"
-                  options={monedaOptions}
-                  required
-                  size="small"
-                />
-                {/**   <SelectControlled
-                  name="origen"
-                  control={control}
-                  label="Salida"
-                  options={origenOptions}
-                  required
-                  size="small"
-                /> */}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div className="grid grid-cols-3 gap-2 items-center">
-                  <div className="col-span-2">
-                    <DateInput
-                      name="fechaViaje"
-                      control={control}
-                      label="Fecha de viaje"
-                      required
-                      disabled
-                      size="small"
-                    />
-                  </div>
-                  <div className="h-full flex items-center text-xs text-slate-600">
-                    Disp:{" "}
-                    <span className="ml-1 font-semibold text-emerald-700">
-                      {pkg.disponibles}
-                    </span>
-                  </div>
-                </div>
-                <DateInput
-                  name="fechaEmision"
-                  control={control}
-                  label="Fecha de emisión"
-                  required
-                  size="small"
-                  disabled
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <AutocompleteControlled
-                  name="canalVenta"
-                  control={control}
-                  label="Canal de venta"
-                  options={canalVentaList}
-                  getOptionLabel={(option) => option.label}
-                  isOptionEqualToValue={(option, value) =>
-                    option.value === value.value
-                  }
-                  inputEndAdornment={
-                    <button
-                      type="button"
-                      className="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
-                      onClick={handleAddCanalVenta}
-                    >
-                      Nuevo
-                    </button>
-                  }
-                  required
-                  size="small"
-                  className="w-full"
-                />
-                <TextControlled
-                  name="counter"
-                  control={control}
-                  label="Counter"
-                  disabled
-                  size="small"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <TextControlled
-                  name="telefono"
-                  control={control}
-                  label="Teléfono"
-                  size="small"
-                />
-                <AutocompleteControlled
-                  name="condicion"
-                  control={control}
-                  label="Condición"
-                  options={estadoPagoOptions}
-                  getOptionLabel={(option) => option.label}
-                  isOptionEqualToValue={(option, value) =>
-                    option.value === value.value
-                  }
-                  required
-                  size="small"
-                />
-              </div>
-            </div>
-            <Divider />
-            <div className="rounded-2xl border border-slate-100 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-semibold text-slate-800">
-                  Contacto y actividades del pax
-                </h2>
-                <span className="text-xs text-slate-500">
-                  Datos mínimos para reservar
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-2">
-                <div className="col-span-3">
-                  <TextControlled
-                    name="nombreCompleto"
-                    control={control}
-                    label="Nombre completo"
-                    required
-                    size="small"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <TextControlled
-                    name="documentoNumero"
-                    control={control}
-                    label="Número de documento"
-                    required
-                    size="small"
-                  />
-                </div>
-                <div className="col-span-1">
-                  <TextControlled
-                    name="celular"
-                    control={control}
-                    label="Celular Pax"
-                    required
-                    size="small"
-                  />
-                </div>
-                <div>
-                  <TextControlled
-                    name="cantPax"
-                    control={control}
-                    label="Cant"
-                    type="number"
-                    required
-                    size="small"
-                  />
-                </div>
-              </div>
-            </div>
-            <Divider />
-            <Paper
-              elevation={0}
-              className="border border-slate-100 rounded-xl shadow-sm"
-            >
-              <Tabs
-                value={tab}
-                onChange={(_, value) => setTab(value)}
-                variant="scrollable"
-                scrollButtons="auto"
-              >
-                <Tab label="Detalles" />
-              </Tabs>
-              <div className="p-2.5">
-                {tab === 0 && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                      <label className="flex flex-col text-sm text-slate-700">
-                        <span className="font-semibold mb-1">
-                          Punto partida
-                        </span>
-                        <select
-                          className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                          {...register("puntoPartida", {
-                            onChange: handleAdvanceAfterChange,
-                          })}
-                        >
-                          {partidas?.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="flex flex-col text-sm text-slate-700">
-                        <span className="font-semibold mb-1">Hotel</span>
-                        <select
-                          className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                          {...register("hotel", {
-                            onChange: handleAdvanceAfterChange,
-                          })}
-                        >
-                          {hoteles?.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="flex flex-col text-sm text-slate-700 md:col-span-2">
-                        <span className="font-semibold mb-1">
-                          Otros partidas
-                        </span>
-                        <input
-                          className="rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                          placeholder="Ingresa punto alterno"
-                          {...register("otrosPartidas")}
-                        />
-                      </label>
-
-                      <label className="flex flex-col text-sm text-slate-700">
-                        <span className="font-semibold mb-1">Hora P.</span>
-                        <input
-                          className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                          placeholder="HH:MM"
-                          {...register("horaPresentacion")}
-                        />
-                      </label>
-
-                      <label className="flex flex-col text-sm text-slate-700 md:col-span-3">
-                        <span className="font-semibold mb-1">
-                          Visitas y excursiones
-                        </span>
-                        <textarea
-                          className="rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                          rows={2}
-                          {...register("visitas")}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full border border-slate-300 text-xs bg-white">
-                        <thead>
-                          <tr className="bg-slate-100">
-                            <th className="border px-2 py-1 w-40"></th>
-                            <th className="border px-2 py-1 text-left">
-                              Detalle
-                            </th>
-                            <th className="border px-2 py-1 text-center w-20">
-                              Precio
-                            </th>
-                            <th className="border px-2 py-1 text-center w-16">
-                              Cant
-                            </th>
-                            <th className="border px-2 py-1 text-right w-20">
-                              SubTotal
-                            </th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {tarifaRows.map((row) => (
-                            <tr key={row.id} className="hover:bg-slate-50">
-                              {/* LABEL */}
-                              <td className="border px-2 py-1">
-                                <span className="bg-orange-500 text-white px-2 py-0.5 rounded text-[11px] font-semibold">
-                                  {row.label}
-                                </span>
-                              </td>
-
-                              {/* SELECT / INPUT */}
-                              <td className="border px-2 py-1">
-                                {row.type === "select" ? (
-                                  <select
-                                    className="w-full h-7 rounded border px-1 text-[11px]"
-                                    {...register(row.id as keyof FormValues)}
-                                  >
-                                    <option value="-">(SELECCIONE)</option>
-                                    {actividades?.map((opt) => (
-                                      <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    className="w-full h-7 rounded border px-1 text-[11px]"
-                                    {...register(row.id as keyof FormValues)}
-                                  />
-                                )}
-                              </td>
-
-                              {/* PRECIO */}
-                              <td className="border px-2 py-1">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={row.precioUnit}
-                                  onChange={(e) =>
-                                    updateRow(
-                                      row.id,
-                                      "precioUnit",
-                                      Number(e.target.value)
-                                    )
-                                  }
-                                  className="w-full h-7 rounded border px-1 text-right text-[11px]"
-                                />
-                              </td>
-
-                              {/* CANTIDAD */}
-                              <td className="border px-2 py-1">
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={row.cantidad}
-                                  onChange={(e) =>
-                                    updateRow(
-                                      row.id,
-                                      "cantidad",
-                                      Number(e.target.value)
-                                    )
-                                  }
-                                  className="w-full h-7 rounded border px-1 text-center text-[11px]"
-                                />
-                              </td>
-
-                              {/* SUBTOTAL */}
-                              <td className="border px-2 py-1 text-right font-semibold">
-                                {(row.precioUnit * row.cantidad).toFixed(2)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Paper>
+            <PackageHeader
+              pkg={pkg}
+              control={control}
+              monedaOptions={monedaOptions}
+              canalVentaList={canalVentaList}
+              estadoPagoOptions={estadoPagoOptions}
+              handleAddCanalVenta={handleAddCanalVenta}
+            />
+            <PassengerDetails control={control} />
+            <ServicesTable
+              partidas={partidas}
+              hoteles={hoteles}
+              almuerzos={almuerzos}
+              trasladosOptions={trasladosOptions}
+              actividades={actividades}
+              tarifaRows={tarifaRows}
+              register={register}
+              updateRow={updateRow}
+              handleAdvanceAfterChange={handleAdvanceAfterChange}
+            />
           </div>
-          <div className="lg:col-span-2 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div>
-                <SelectControlled
-                  name="documentoTipo"
-                  control={control}
-                  label="Tipo de documento"
-                  options={documentoOptions}
-                  size="small"
-                />
-              </div>
-              <div>
-                <TextControlled
-                  name="documentoNumero"
-                  control={control}
-                  label="N° documento"
-                  size="small"
-                />
-              </div>
-              <div>
-                <SelectControlled
-                  name="documentoTipo"
-                  control={control}
-                  label="Documento cobranza"
-                  options={documentoOptions}
-                  size="small"
-                />
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800 mb-2">
-                Precio De Liquidación
-              </p>
-              <div className="border border-slate-300 rounded-lg overflow-hidden">
-                <div className="grid grid-cols-3 border-b border-slate-300">
-                  <div className="bg-amber-300 text-amber-900 font-semibold px-3 py-2 col-span-2">
-                    TOTAL A PAGAR S/ :
-                  </div>
-                  <div className="px-3 py-2 text-right font-semibold">
-                    {totals.total.toFixed(2)}
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 border-b border-slate-300">
-                  <div className="bg-amber-300 text-amber-900 font-semibold px-3 py-2 col-span-2">
-                    ACUENTA:
-                  </div>
-                  <div className="px-3 py-2">
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      {...register("acuenta", { valueAsNumber: true })}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 border-b border-slate-300">
-                  <div className="bg-amber-300 text-amber-900 font-semibold px-3 py-2 col-span-2">
-                    SALDO S/ :
-                  </div>
-                  <div className="px-3 py-2 text-right font-semibold">
-                    {(totals.total - (watch("acuenta") || 0)).toFixed(2)}
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 border-b border-slate-300">
-                  <div className="bg-amber-50 text-amber-900 font-semibold px-3 py-2 col-span-2">
-                    Cobro Extra Sol:
-                  </div>
-                  <div className="px-3 py-2">
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      {...register("cobroExtraSol", { valueAsNumber: true })}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3">
-                  <div className="bg-amber-50 text-amber-900 font-semibold px-3 py-2 col-span-2">
-                    Cobro Extra Dol:
-                  </div>
-                  <div className="px-3 py-2">
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      {...register("cobroExtraDol", { valueAsNumber: true })}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-              <div className="bg-slate-50 px-4 py-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">
-                  Medio de pago
-                </p>
-                <span className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Cobranza
-                </span>
-              </div>
-              <div className="p-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <DateInput
-                    name="fechaPago"
-                    control={control}
-                    label="Fecha de adelanto"
-                    size="small"
-                  />
-                  <TextControlled
-                    name="nroOperacion"
-                    control={control}
-                    label="Nro Operación"
-                    size="small"
-                  />
-                  <SelectControlled
-                    name="medioPago"
-                    control={control}
-                    label="Medio de pago"
-                    options={medioPagoOptions}
-                    size="small"
-                  />
-                  <SelectControlled
-                    name="entidadBancaria"
-                    control={control}
-                    label="Entidad bancaria"
-                    options={bancoOptions}
-                    size="small"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <TextControlled
-                    name="deposito"
-                    control={control}
-                    label="Depósito S/"
-                    type="number"
-                    inputProps={{ min: 0, step: "0.01" }}
-                    size="small"
-                  />
-                  <TextControlled
-                    name="cobroExtraSol"
-                    control={control}
-                    label="Efectivo S/"
-                    type="number"
-                    inputProps={{ min: 0, step: "0.01" }}
-                    size="small"
-                  />
-                  <TextControlled
-                    name="cobroExtraDol"
-                    control={control}
-                    label="Efectivo $"
-                    type="number"
-                    inputProps={{ min: 0, step: "0.01" }}
-                    size="small"
-                  />
-                </div>
-
-                {/** <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-800">
-                    Adjuntar comprobante
-                  </label>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <label
-                      htmlFor="comprobante"
-                      className="cursor-pointer inline-flex items-center justify-center px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 text-sm font-medium"
-                    >
-                      Seleccionar archivo
-                    </label>
-                    <input
-                      id="comprobante"
-                      type="file"
-                      accept=".pdf,.jpg,.png"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
-                    <span className="text-xs text-slate-600 truncate">
-                      {comprobanteName}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    PDF, JPG o PNG (máx. 5MB)
-                  </p>
-                </div> */}
-              </div>
-            </div>
-          </div>
+          <PaymentSummary
+            control={control}
+            register={register}
+            documentoOptions={documentoOptions}
+            totalPagar={totalPagar}
+            saldo={saldo}
+            medioPagoOptions={medioPagoOptions}
+            bancoOptions={bancoOptions}
+            isSubmitting={isSubmitting}
+            documentoCobranzaOptions={[
+              { label: "Boleta", value: "BOLETA" },
+              { label: "Factura", value: "FACTURA" },
+            ]}
+          />
         </div>
       </form>
     </div>

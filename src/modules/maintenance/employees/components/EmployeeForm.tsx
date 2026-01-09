@@ -289,7 +289,7 @@ export default function EmployeeForm({
     <div ref={formRef} className="py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
         <form onSubmit={handleSubmit(submit)}>
-          <div className="bg-[#B23636] text-white px-4 py-3 flex items-center justify-between">
+          <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
             <h1 className="text-base font-semibold">
               {mode === "create" ? "Registrar personal" : "Editar personal"}
             </h1>
@@ -542,3 +542,4 @@ export default function EmployeeForm({
     </div>
   );
 }
+

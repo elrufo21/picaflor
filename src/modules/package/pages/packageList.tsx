@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Plus, Calendar } from "lucide-react";
+import { Plus, Calendar, RefreshCw } from "lucide-react";
 
 import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/packageStore";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
-import { toast } from "sonner";
+import { showToast } from "../../../components/ui/AppToast";
+import { useDialogStore } from "@/app/store/dialogStore";
 
 /* =========================
    HELPERS
@@ -105,10 +106,7 @@ const PackageList = () => {
   } = usePackageStore();
   console.log("cantMaxChanges", cantMaxChanges);
   const navigate = useNavigate();
-
-  /* =========================
-     INIT
-  ========================= */
+  const openDialog = useDialogStore((state) => state.openDialog);
 
   useEffect(() => {
     const init = async () => {
@@ -126,31 +124,16 @@ const PackageList = () => {
     init();
   }, []);
 
-  /* =========================
-     LOAD PACKAGES BY DATE
-  ========================= */
-
   useEffect(() => {
     loadPackages(date);
   }, [date, loadPackages]);
 
-  /* =========================
-     CLEAR CHANGES ON NEW DATA
-  ========================= */
-
   useEffect(() => {
     setCantMaxChanges([]);
+    setSelectedPackages([]);
   }, [packages]);
 
-  /* =========================
-     NORMALIZED DATA
-  ========================= */
-
   const parsedPackages = useMemo(() => parsePackages(packages), [packages]);
-
-  /* =========================
-     HANDLERS
-  ========================= */
 
   const handleRowClick = useCallback(
     (row: { id?: number }) => {
@@ -188,40 +171,34 @@ const PackageList = () => {
     const rs = buildCantMaxString(cantMaxChanges);
     console.log("rs", rs);
     if (cantMaxChanges.length === 0) {
-      alert("No hay cambios para guardar");
+      showToast({
+        title: "Sin cambios",
+        description: "No hay cambios para guardar",
+        type: "info",
+      });
       return;
     }
 
     try {
       await editarCantMax(cantMaxChanges, date);
       setCantMaxChanges([]);
+      showToast({
+        title: "Guardado",
+        description: "Cambios guardados correctamente",
+        type: "success",
+      });
     } catch (e: any) {
-      alert(e.message);
+      showToast({ title: "Error", description: e.message, type: "error" });
     }
-    /**  if (cantMaxChanges.length === 0) {
-      alert("No hay cambios para guardar");
-      return;
-    }
-
-    try {
-      for (const item of cantMaxChanges) {
-        await createProgramacion({
-          idDetalle: item.idDetalle,
-          cantMax: item.cantMax,
-          fecha,
-        });
-      }
-
-      setCantMaxChanges([]);
-      loadPackages(fecha);
-    } catch (e: any) {
-      alert(e.message);
-    } */
   };
 
   const handleAddServicio = async () => {
     if (!productId) {
-      alert("Seleccione un producto");
+      showToast({
+        title: "Atención",
+        description: "Seleccione un producto",
+        type: "warning",
+      });
       return;
     }
 
@@ -234,18 +211,23 @@ const PackageList = () => {
         region: "SUR",
       });
       if (result === "EXISTE") {
-        toast.error("Ya existe este registro");
+        showToast({
+          title: "Error",
+          description: "Ya existe este registro",
+          type: "error",
+        });
         return;
       }
-      toast.success("Se agrego el registro correctamente");
+      showToast({
+        title: "Éxito",
+        description: "Se agrego el registro correctamente",
+        type: "success",
+      });
     } catch (e: any) {
-      alert(e.message);
+      showToast({ title: "Error", description: e.message, type: "error" });
     }
   };
 
-  /* =========================
-     TABLE COLUMNS
-  ========================= */
   console.log("packages", packages);
   const columns = useMemo(
     () => [
@@ -271,7 +253,9 @@ const PackageList = () => {
               }}
               type="number"
               min={0}
-              defaultValue={row.original.cantMaxPax}
+              defaultValue={
+                row.original.cantMaxPax === 0 ? "" : row.original.cantMaxPax
+              }
               onClick={(e) => e.stopPropagation()}
               onBlur={(e) =>
                 handleCantMaxChange(
@@ -308,8 +292,9 @@ const PackageList = () => {
       {
         id: "action",
         header: "Acciones",
+        meta: { align: "center" },
         cell: ({ row }: any) => (
-          <div className="flex justify-end gap-2">
+          <div className="flex gap-2 justify-center">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -329,14 +314,9 @@ const PackageList = () => {
               onClick={(e) => {
                 if (row.original.estado === "BLOQUEADO") return;
                 e.stopPropagation();
-                // handleRowClick({ id: row.original.id });
               }}
-              className={`w-28 px-3 py-1.5 rounded-lg text-xs font-semibold
-                ${
-                  row.original.estado === "BLOQUEADO"
-                    ? "bg-red-100 text-red-700 hover:bg-red-200"
-                    : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                }`}
+              className={`w-28 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200
+                `}
             >
               {row.original.accionTexto}
             </button>
@@ -346,6 +326,41 @@ const PackageList = () => {
     ],
     [handleRowClick]
   );
+
+  const confirmDeleteSelected = useCallback(() => {
+    if (selectedPackages.length === 0) {
+      console.log("No hay filas seleccionadas");
+      return;
+    }
+
+    openDialog({
+      title: "Eliminar registros",
+      size: "sm",
+      confirmLabel: "Eliminar",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        try {
+          for (const pkg of selectedPackages) {
+            const idToDelete = pkg.idDetalle ?? pkg.id;
+            await deleteProgramacion(idToDelete, date);
+          }
+
+          console.log("Eliminados:", selectedPackages);
+          setSelectedPackages([]);
+        } catch (err) {
+          console.error("Error eliminando:", err);
+        }
+      },
+      content: () => (
+        <p className="text-sm text-slate-700">
+          Deseas eliminar{" "}
+          {selectedPackages.length === 1 ? "este registro" : "estos registros"}?
+          <br />
+          Esta accion no se puede deshacer.
+        </p>
+      ),
+    });
+  }, [selectedPackages, deleteProgramacion, date, openDialog]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -358,28 +373,7 @@ const PackageList = () => {
       if (isInput) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedPackages.length === 0) {
-          console.log("No hay filas seleccionadas");
-          return;
-        }
-
-        // 🔥 función async interna
-        const deleteSelected = async () => {
-          try {
-            for (const pkg of selectedPackages) {
-              const idToDelete = pkg.idDetalle ?? pkg.id;
-              await deleteProgramacion(idToDelete, date); // pasar fecha para refrescar tabla
-            }
-
-            console.log("Eliminados:", selectedPackages);
-            setSelectedPackages([]);
-          } catch (err) {
-            console.error("Error eliminando:", err);
-            // opcional: mostrar notificación al usuario
-          }
-        };
-
-        deleteSelected();
+        confirmDeleteSelected();
       }
     };
 
@@ -388,17 +382,12 @@ const PackageList = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedPackages, deleteProgramacion]);
-
-  /* =========================
-     RENDER
-  ========================= */
+  }, [confirmDeleteSelected]);
 
   return (
     <div className="w-full">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          {/* FECHA */}
+        <div className="flex flex-wrap items-end gap-4 w-full">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
               Fecha
@@ -417,7 +406,6 @@ const PackageList = () => {
             </div>
           </div>
 
-          {/* DESTINO */}
           <div className="flex-1 max-w-xs">
             <label className="block text-xs font-medium text-slate-600 mb-1">
               Destino
@@ -440,21 +428,42 @@ const PackageList = () => {
             </select>
           </div>
 
-          {/* AGREGAR */}
           <button
             onClick={handleAddServicio}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg"
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
           >
             <Plus size={18} />
           </button>
 
-          {/* GUARDAR */}
-          <button
-            onClick={handleGuardarCambios}
-            className="ml-auto px-5 py-2 bg-blue-600 text-white rounded-lg"
-          >
-            Guardar
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => {
+                loadPackages(date);
+              }}
+              title="Refrescar"
+              className="
+              p-2 rounded-lg
+              bg-emerald-500 text-slate-100
+              hove:bg-emerald-100
+              transition
+            "
+            >
+              <RefreshCw size={18} />
+            </button>
+
+            {/* GUARDAR */}
+            <button
+              onClick={handleGuardarCambios}
+              className="
+      px-5 py-2 rounded-lg
+      bg-blue-600 text-white
+      hover:bg-blue-700
+      transition
+    "
+            >
+              Guardar
+            </button>
+          </div>
         </div>
       </div>
 
@@ -467,6 +476,7 @@ const PackageList = () => {
         enableDateFilter={false}
         enableSearching={false}
         enableFiltering={false}
+        enableSorting={false}
       />
     </div>
   );

@@ -1,8 +1,8 @@
 :root {
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   line-height: 1.5;
-  color: #0f172a;
-  background-color: #f6f8fb;
+  color: var(--color-ink);
+  background-color: var(--color-paper);
 }
 
 *,
@@ -14,7 +14,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #f6f8fb;
+  color: var(--color-ink);
+  background-color: var(--color-paper);
 }
 
 a {

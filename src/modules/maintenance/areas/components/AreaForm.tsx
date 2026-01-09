@@ -103,7 +103,7 @@ export default function AreaForm({
       className="space-y-4"
       key={formKey}
     >
-      <div className="bg-[#B23636] text-white px-4 py-3 rounded-2xl flex items-center justify-between">
+      <div className="bg-[#E8612A] text-white px-4 py-3 rounded-2xl flex items-center justify-between">
         <h1 className="text-base font-semibold">
           {mode === "create" ? "Crear área" : "Editar área"}
         </h1>
@@ -157,3 +157,4 @@ export default function AreaForm({
     </form>
   );
 }
+
