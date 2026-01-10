@@ -217,7 +217,7 @@ const FulldayListado = () => {
             vertical: "center",
             wrapText: true,
           },
-          fill: { fgColor: { rgb: "334155" } },
+          fill: { fgColor: { rgb: "3377FF" } },
           border: {
             top: { style: "thin", color: { rgb: "475569" } },
             bottom: { style: "thin", color: { rgb: "475569" } },
