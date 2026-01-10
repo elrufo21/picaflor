@@ -8,8 +8,14 @@ interface ServicesTableProps {
   actividades: { value: string; label: string }[] | undefined;
   tarifaRows: any[];
   register: UseFormRegister<any>;
-  updateRow: (id: string, key: "precioUnit" | "cantidad", value: number) => void;
+  updateRow: (
+    id: string,
+    key: "precioUnit" | "cantidad",
+    value: number
+  ) => void;
   handleAdvanceAfterChange: (e: any) => void;
+  onPartidaChange?: (value: string) => void;
+  enableHotelHora?: boolean;
 }
 
 export const ServicesTable = ({
@@ -22,6 +28,8 @@ export const ServicesTable = ({
   register,
   updateRow,
   handleAdvanceAfterChange,
+  onPartidaChange,
+  enableHotelHora = false,
 }: ServicesTableProps) => {
   return (
     <div className="p-2.5">
@@ -32,9 +40,16 @@ export const ServicesTable = ({
             <select
               className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               {...register("puntoPartida", {
-                onChange: handleAdvanceAfterChange,
+                onChange: (e) => {
+                  handleAdvanceAfterChange(e);
+                  onPartidaChange?.(e.target.value);
+                },
+                required: "Seleccione punto partida",
               })}
             >
+              <option value="">Seleccione</option>
+              <option value="HOTEL">Hotel</option>
+              <option value="OTROS">Otros</option>
               {partidas?.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -47,10 +62,12 @@ export const ServicesTable = ({
             <span className="font-semibold mb-1">Hotel</span>
             <select
               className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              disabled={!enableHotelHora}
               {...register("hotel", {
                 onChange: handleAdvanceAfterChange,
               })}
             >
+              <option value="-">-</option>
               {hoteles?.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -71,16 +88,17 @@ export const ServicesTable = ({
           <label className="flex flex-col text-sm text-slate-700">
             <span className="font-semibold mb-1">Hora P.</span>
             <input
-              className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               placeholder="HH:MM"
+              readOnly={!enableHotelHora}
               {...register("horaPresentacion")}
+              className={`rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                enableHotelHora ? "" : "bg-slate-50 text-slate-600"
+              }`}
             />
           </label>
 
           <label className="flex flex-col text-sm text-slate-700 md:col-span-3">
-            <span className="font-semibold mb-1">
-              Visitas y excursiones
-            </span>
+            <span className="font-semibold mb-1">Visitas y excursiones</span>
             <textarea
               className="rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               rows={2}
@@ -93,17 +111,11 @@ export const ServicesTable = ({
           <table className="w-full border border-slate-300 text-xs bg-white">
             <thead>
               <tr className="bg-slate-100">
-                <th className="border px-2 py-1 w-40"></th>
+                <th className="border px-2 py-1 w-28"></th>
                 <th className="border px-2 py-1 text-left">Detalle</th>
-                <th className="border px-2 py-1 text-center w-20">
-                  Precio
-                </th>
-                <th className="border px-2 py-1 text-center w-16">
-                  Cant
-                </th>
-                <th className="border px-2 py-1 text-right w-20">
-                  SubTotal
-                </th>
+                <th className="border px-2 py-1 text-center w-30">Precio</th>
+                <th className="border px-2 py-1 text-center w-30">Cant</th>
+                <th className="border px-2 py-1 text-right w-30">SubTotal</th>
               </tr>
             </thead>
 
@@ -151,11 +163,7 @@ export const ServicesTable = ({
                       step="0.01"
                       value={row.precioUnit}
                       onChange={(e) =>
-                        updateRow(
-                          row.id,
-                          "precioUnit",
-                          Number(e.target.value)
-                        )
+                        updateRow(row.id, "precioUnit", Number(e.target.value))
                       }
                       className="w-full h-7 rounded border px-1 text-right text-[11px]"
                     />
@@ -167,14 +175,8 @@ export const ServicesTable = ({
                       type="number"
                       min={1}
                       value={row.cantidad}
-                      onChange={(e) =>
-                        updateRow(
-                          row.id,
-                          "cantidad",
-                          Number(e.target.value)
-                        )
-                      }
-                      className="w-full h-7 rounded border px-1 text-center text-[11px]"
+                      readOnly
+                      className="w-full h-7 rounded border px-1 text-center text-[11px] bg-slate-50 text-slate-600"
                     />
                   </td>
 

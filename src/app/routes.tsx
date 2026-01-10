@@ -4,7 +4,7 @@ import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
-import packageRoutes from "../modules/package/router";
+import fulldayRoutes from "../modules/fullday/router";
 import maintenanceRoutes from "../modules/maintenance/routes";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
@@ -26,7 +26,7 @@ const router = createBrowserRouter([
       { path: "projects", element: <Projects /> },
       { path: "reports", element: <Reports /> },
       { path: "settings", element: <Settings /> },
-      ...packageRoutes,
+      ...fulldayRoutes,
       ...maintenanceRoutes,
       { path: "*", element: <Navigate to="/" replace /> },
     ],

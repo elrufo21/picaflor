@@ -1,0 +1,293 @@
+import {
+  TextControlled,
+  SelectControlled,
+  DateInput,
+} from "@/components/ui/inputs";
+import { useWatch, type Control, type UseFormRegister } from "react-hook-form";
+
+interface PaymentSummaryProps {
+  control: Control<any>;
+  register: UseFormRegister<any>;
+  documentoOptions: any[];
+  totalPagar: number;
+  saldo: number;
+  medioPagoOptions: any[];
+  bancoOptions: any[];
+  isSubmitting?: boolean;
+  documentoCobranzaOptions: any[];
+}
+
+export const PaymentSummary = ({
+  control,
+  register,
+  documentoOptions,
+  documentoCobranzaOptions,
+  totalPagar,
+  saldo,
+  medioPagoOptions,
+  bancoOptions,
+  isSubmitting,
+}: PaymentSummaryProps) => {
+  const condicionSelected = useWatch({ control, name: "condicion" });
+  const saldoAmount = Number(saldo) || 0;
+  const deudaAmount = Math.max(saldoAmount, 0);
+  const hasDebt = deudaAmount > 0;
+
+  const condicionLabel =
+    typeof condicionSelected === "string"
+      ? condicionSelected
+      : String(
+          condicionSelected?.label ?? condicionSelected?.value ?? ""
+        ).trim();
+  const condicionKey = condicionLabel
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const isCredito = condicionKey.includes("credit");
+
+  const panelText = (() => {
+    if (condicionKey.includes("cancel")) {
+      return "El Pasajero No Tiene Deuda";
+    }
+    if (condicionKey.includes("cuenta")) {
+      return hasDebt
+        ? `El Pasajero Si Tiene Deuda S/ -${deudaAmount.toFixed(2)}`
+        : "El Pasajero No Tiene Deuda";
+    }
+    if (condicionKey.includes("credit")) {
+      return hasDebt
+        ? `El Pasajero Si Tiene Deuda S/ ${deudaAmount.toFixed(2)}`
+        : "El Pasajero No Tiene Deuda";
+    }
+    return hasDebt
+      ? `El Pasajero Si Tiene Deuda S/ ${deudaAmount.toFixed(2)}`
+      : "El Pasajero No Tiene Deuda";
+  })();
+
+  const toneClass = (() => {
+    if (condicionKey.includes("cancel") || !hasDebt) {
+      return "border-blue-800 bg-blue-700 text-white";
+    }
+    return "border-red-700 bg-red-600 text-white";
+  })();
+
+  return (
+    <div className="lg:col-span-2 space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div>
+          <SelectControlled
+            name="documentoCobranza"
+            control={control}
+            label="Documento de Cobranza"
+            options={documentoCobranzaOptions}
+            size="small"
+          />
+        </div>
+        <div>
+          <TextControlled name="nserie" control={control} size="small" />
+        </div>
+        <div>
+          <TextControlled name="ndocumento" control={control} size="small" />
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-slate-800 mb-2">
+          Precio De Liquidación
+        </p>
+        <div className="border border-slate-300 rounded-lg overflow-hidden">
+          <div className="grid grid-cols-3 border-b border-slate-300">
+            <div className="bg-amber-300 text-amber-900 font-semibold px-3 py-2 col-span-2">
+              TOTAL A PAGAR S/ :
+            </div>
+            <div className="px-3 py-2 text-right font-semibold">
+              {totalPagar.toFixed(2)}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 border-b border-slate-300">
+            <div className="bg-amber-300 text-amber-900 font-semibold px-3 py-2 col-span-2">
+              ACUENTA:
+            </div>
+            <div className="px-3 py-2">
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
+                {...register("acuenta", { valueAsNumber: true })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 border-b border-slate-300">
+            <div className="bg-amber-300 text-amber-900 font-semibold px-3 py-2 col-span-2">
+              SALDO S/ :
+            </div>
+            <div className="px-3 py-2 text-right font-semibold">
+              {saldo.toFixed(2)}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 border-b border-slate-300">
+            <div className="bg-amber-50 text-amber-900 font-semibold px-3 py-2 col-span-2">
+              Cobro Extra Sol:
+            </div>
+            <div className="px-3 py-2">
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
+                {...register("cobroExtraSol", { valueAsNumber: true })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-3">
+            <div className="bg-amber-50 text-amber-900 font-semibold px-3 py-2 col-span-2">
+              Cobro Extra Dol:
+            </div>
+            <div className="px-3 py-2">
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
+                {...register("cobroExtraDol", { valueAsNumber: true })}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+        <div className="bg-slate-50 px-4 py-2.5 flex items-center justify-between border-b border-slate-200">
+          <p className="text-sm font-semibold text-slate-900">Medio Pago</p>
+          <span className="text-[11px] uppercase tracking-wide text-slate-500">
+            Cobranza
+          </span>
+        </div>
+        <div className="p-3">
+          <div
+            className={`grid grid-cols-1 divide-y divide-slate-200 border border-slate-200 rounded-lg overflow-hidden ${
+              isCredito ? "opacity-70" : ""
+            }`}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
+              <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
+                Fecha de adelanto
+              </div>
+              <div className="bg-white px-2 py-1">
+                <DateInput
+                  name="fechaPago"
+                  control={control}
+                  size="small"
+                  disabled={isCredito}
+                  InputLabelProps={{ shrink: false }}
+                  inputProps={{ "aria-label": "Fecha de adelanto" }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
+              <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
+                Medio de pago
+              </div>
+              <div className="bg-white px-2 py-1">
+                <SelectControlled
+                  name="medioPago"
+                  control={control}
+                  options={medioPagoOptions}
+                  size="small"
+                  disabled={isCredito}
+                  inputProps={{ "aria-label": "Medio de pago" }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
+              <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
+                Entidad bancaria
+              </div>
+              <div className="bg-white px-2 py-1">
+                <SelectControlled
+                  name="entidadBancaria"
+                  control={control}
+                  options={bancoOptions}
+                  size="small"
+                  disabled={isCredito}
+                  inputProps={{ "aria-label": "Entidad bancaria" }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
+              <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
+                Nro Operacion
+              </div>
+              <div className="bg-white px-2 py-1">
+                <TextControlled
+                  name="nroOperacion"
+                  control={control}
+                  size="small"
+                  disabled={isCredito}
+                  inputProps={{ "aria-label": "Nro Operacion" }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
+              <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
+                Deposito S/
+              </div>
+              <div className="bg-white px-2 py-1">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
+                  <TextControlled
+                    name="deposito"
+                    control={control}
+                    type="number"
+                    disabled={isCredito}
+                    inputProps={{
+                      min: 0,
+                      step: "0.01",
+                      "aria-label": "Deposito",
+                    }}
+                    size="small"
+                  />
+                  <span className="text-xs font-semibold text-slate-600">
+                    Efecti.
+                  </span>
+                  <TextControlled
+                    name="cobroExtraSol"
+                    control={control}
+                    type="number"
+                    disabled={isCredito}
+                    inputProps={{
+                      min: 0,
+                      step: "0.01",
+                      "aria-label": "Efectivo soles",
+                    }}
+                    size="small"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.6fr] gap-3">
+        <div
+          className={`rounded-lg border px-4 py-3 shadow-sm min-h-[88px] ${toneClass}`}
+        >
+          <p className="text-sm font-semibold italic leading-snug">
+            {panelText}
+          </p>
+        </div>
+        <textarea
+          rows={3}
+          className="w-full min-h-[88px] rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          placeholder="Observaciones"
+          {...register("notas")}
+        />
+      </div>
+      {/**     <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        {isSubmitting ? "Guardando..." : "Guardar Full Day"}
+      </button> */}{" "}
+    </div>
+  );
+};

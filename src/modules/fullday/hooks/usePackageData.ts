@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { usePackageStore } from "../store/packageStore";
+import { usePackageStore } from "../store/fulldayStore";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
 import type {
   PrecioActividad,
@@ -8,11 +8,24 @@ import type {
 } from "@/app/db/serviciosDB";
 
 export const usePackageData = (id: string | undefined, setValue: any) => {
-  const [partidas, setPartidas] = useState<{ value: string; label: string }[] | undefined>();
-  const [hoteles, setHoteles] = useState<{ value: string; label: string }[] | undefined>();
-  const [actividades, setActividades] = useState<{ value: string; label: string }[] | undefined>();
-  const [almuerzos, setAlmuerzos] = useState<{ value: string; label: string }[] | undefined>();
-  const [trasladosOptions, setTrasladosOptions] = useState<{ value: string; label: string }[] | undefined>();
+  const [partidas, setPartidas] = useState<
+    { value: string; label: string }[] | undefined
+  >();
+  const [hoteles, setHoteles] = useState<
+    { value: string; label: string }[] | undefined
+  >();
+  const [actividades, setActividades] = useState<
+    { value: string; label: string }[] | undefined
+  >();
+  const [almuerzos, setAlmuerzos] = useState<
+    { value: string; label: string }[] | undefined
+  >();
+  const [trasladosOptions, setTrasladosOptions] = useState<
+    { value: string; label: string }[] | undefined
+  >();
+  const [horasPartida, setHorasPartida] = useState<
+    { idParti: string; hora: string }[] | undefined
+  >();
   
   const [preciosActividades, setPreciosActividades] = useState<PrecioActividad[] | undefined>();
   const [preciosAlmuerzo, setPreciosAlmuerzo] = useState<PrecioAlmuerzo[] | undefined>();
@@ -43,6 +56,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           dataPreciosAlmuerzo,
           dataTraslados,
           dataPreciosTraslado,
+          dataHorasPartida,
         ] = await Promise.all([
           serviciosDB.partidas.toArray(),
           serviciosDB.hoteles.toArray(),
@@ -53,6 +67,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           serviciosDB.preciosAlmuerzo.toArray(),
           serviciosDB.traslados.toArray(),
           serviciosDB.preciosTraslado.toArray(),
+          serviciosDB.horasPartida.toArray(),
         ]);
 
         if (cancelled) return;
@@ -104,6 +119,13 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           }))
         );
 
+        setHorasPartida(
+          dataHorasPartida.map((h) => ({
+            idParti: String(h.idParti),
+            hora: String(h.hora ?? "").trim(),
+          }))
+        );
+
         // 6️⃣ VISITAS
         const precio = dataPrecios.find(
           (p) => Number(p.idProducto) === Number(id)
@@ -141,6 +163,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
     actividades,
     almuerzos,
     trasladosOptions,
+    horasPartida,
     preciosActividades,
     preciosAlmuerzo,
     preciosTraslado,

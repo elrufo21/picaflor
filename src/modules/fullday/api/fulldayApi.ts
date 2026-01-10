@@ -1,4 +1,5 @@
-import type { PackageItem } from "../store/packageStore";
+import type { PackageItem } from "../store/fulldayStore";
+import { API_BASE_URL } from "@/config";
 export type CreateProgramacionPayload = {
   idDetalle: number;
   idProducto: number;
@@ -33,6 +34,51 @@ export async function fetchPackages(fecha?: string): Promise<PackageItem[]> {
   }
 
   return res.json();
+}
+
+const formatDateForListado = (value?: string) => {
+  if (!value) return "";
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, year, month, day] = match;
+    return `${month}-${day}-${year}`;
+  }
+  return trimmed;
+};
+
+export async function fetchListadoByProducto(
+  fecha: string | undefined,
+  idProducto: number
+) {
+  if (!idProducto) return [];
+  const dateValue = formatDateForListado(fecha);
+  const payload = {
+    valores: `${dateValue}|${dateValue}|${idProducto}`,
+  };
+
+  const res = await fetch(`${API_BASE_URL}/Programacion/lista-full-day`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Error al obtener el listado");
+  }
+
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
 }
 
 export async function createProgramacion(payload: CreateProgramacionPayload) {

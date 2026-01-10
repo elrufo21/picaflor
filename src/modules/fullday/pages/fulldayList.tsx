@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { Plus, Calendar, RefreshCw } from "lucide-react";
 
 import DndTable from "../../../components/dataTabla/DndTable";
-import { usePackageStore } from "../store/packageStore";
+import { usePackageStore } from "../store/fulldayStore";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
 import { showToast } from "../../../components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -103,6 +103,7 @@ const PackageList = () => {
     editarCantMax,
     date,
     setDate,
+    setSelectedFullDayName,
   } = usePackageStore();
   console.log("cantMaxChanges", cantMaxChanges);
   const navigate = useNavigate();
@@ -138,10 +139,20 @@ const PackageList = () => {
   const handleRowClick = useCallback(
     (row: { id?: number }) => {
       if (row?.id) {
-        navigate(`/package/${row.id}/passengers/new`);
+        navigate(`/fullday/${row.id}/passengers/new`);
       }
     },
     [navigate]
+  );
+
+  const handleListadoClick = useCallback(
+    (row: { id?: number; idProducto?: number }) => {
+      const idProducto = row?.idProducto ?? row?.id;
+      if (!idProducto) return;
+      setSelectedFullDayName(row?.destino ?? "");
+      navigate(`/fullday/${idProducto}/listado`);
+    },
+    [navigate, setSelectedFullDayName]
   );
 
   const handleCantMaxChange = (id: number, value: number, row: any) => {
@@ -218,17 +229,16 @@ const PackageList = () => {
         });
         return;
       }
-      showToast({
+      /* showToast({
         title: "Éxito",
         description: "Se agrego el registro correctamente",
         type: "success",
-      });
+      });*/
     } catch (e: any) {
       showToast({ title: "Error", description: e.message, type: "error" });
     }
   };
 
-  console.log("packages", packages);
   const columns = useMemo(
     () => [
       { accessorKey: "destino", header: "Destino" },
@@ -312,8 +322,9 @@ const PackageList = () => {
             </button>
             <button
               onClick={(e) => {
-                if (row.original.estado === "BLOQUEADO") return;
                 e.stopPropagation();
+                if (row.original.estado === "BLOQUEADO") return;
+                handleListadoClick(row.original);
               }}
               className={`w-28 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200
                 `}
@@ -324,7 +335,7 @@ const PackageList = () => {
         ),
       },
     ],
-    [handleRowClick]
+    [handleRowClick, handleListadoClick]
   );
 
   const confirmDeleteSelected = useCallback(() => {
@@ -436,6 +447,18 @@ const PackageList = () => {
           </button>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* GUARDAR */}
+            <button
+              onClick={handleGuardarCambios}
+              className="
+      px-5 py-2 rounded-lg
+      bg-blue-600 text-white
+      hover:bg-blue-700
+      transition
+    "
+            >
+              Guardar
+            </button>
             <button
               onClick={() => {
                 loadPackages(date);
@@ -449,19 +472,6 @@ const PackageList = () => {
             "
             >
               <RefreshCw size={18} />
-            </button>
-
-            {/* GUARDAR */}
-            <button
-              onClick={handleGuardarCambios}
-              className="
-      px-5 py-2 rounded-lg
-      bg-blue-600 text-white
-      hover:bg-blue-700
-      transition
-    "
-            >
-              Guardar
             </button>
           </div>
         </div>

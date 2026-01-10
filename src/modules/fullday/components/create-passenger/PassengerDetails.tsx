@@ -1,4 +1,3 @@
-
 import { TextControlled } from "@/components/ui/inputs";
 import Divider from "@mui/material/Divider";
 import type { Control } from "react-hook-form";
@@ -19,8 +18,8 @@ export const PassengerDetails = ({ control }: PassengerDetailsProps) => {
             Datos mínimos para reservar
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-2">
-          <div className="col-span-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-11 gap-2">
+          <div className="col-span-4">
             <TextControlled
               name="nombreCompleto"
               control={control}
@@ -30,7 +29,7 @@ export const PassengerDetails = ({ control }: PassengerDetailsProps) => {
               size="small"
             />
           </div>
-          <div className="col-span-2">
+          <div className="col-span-3">
             <TextControlled
               name="documentoNumero"
               control={control}
@@ -41,7 +40,7 @@ export const PassengerDetails = ({ control }: PassengerDetailsProps) => {
               size="small"
             />
           </div>
-          <div className="col-span-1">
+          <div className="col-span-3">
             <TextControlled
               name="celular"
               control={control}

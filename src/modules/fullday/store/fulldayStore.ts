@@ -1,16 +1,14 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import {
   createProgramacion,
   deleteProgramacion,
   fetchPackages,
   editarCantMax,
-} from "../api/packageApi";
+  fetchListadoByProducto,
+} from "../api/fulldayApi";
 import { transformServiciosData } from "@/shared/helpers/helpers";
 import { getServiciosFromDB, serviciosDB } from "@/app/db/serviciosDB";
-
-/* =========================
-   TYPES
-========================= */
 
 export type ServiciosData = {
   productos: { id: number; nombre: string }[];
@@ -87,6 +85,7 @@ export type Passenger = {
 
 export type PackageItem = {
   id: number;
+  idProducto?: number;
   destino: string;
   fecha: string; // YYYY-MM-DD
   cantTotalPax: number;
@@ -97,18 +96,19 @@ export type PackageItem = {
   passengers: Passenger[];
 };
 
-/* =========================
-   STORE STATE
-========================= */
-
 type PackageState = {
   packages: PackageItem[];
+  listado: any;
+  selectedFullDayName: string;
   servicios: ServiciosData | null;
   loading: boolean;
+  listadoLoading: boolean;
   error: string | null;
 
   // 🔥 backend
   loadPackages: (fecha?: string) => Promise<void>;
+  loadListadoByProducto: (fecha: string | undefined, idProducto: number) => Promise<void>;
+  setSelectedFullDayName: (name: string) => void;
   loadServicios: () => Promise<void>;
   loadServiciosFromDB: () => Promise<void>;
   // 🔥 lógica local (NO TOCAR)
@@ -161,6 +161,7 @@ function parsePackages(raw: unknown) {
 
       return {
         id: Number(id),
+        idProducto: Number(id),
         destino,
         fecha,
         cantTotalPax: Number(cantTotalPax),
@@ -175,17 +176,20 @@ function parsePackages(raw: unknown) {
     });
 }
 
-/* =========================
-   STORE
-========================= */
-
-export const usePackageStore = create<PackageState>((set, get) => ({
-  packages: [],
-  loading: false,
-  date: new Date().toISOString().slice(0, 10),
-  setDate: (date) => set({ date }),
-  error: null,
-  servicios: null,
+export const usePackageStore = create<PackageState>()(
+  persist(
+    (set, get) => ({
+      packages: [],
+      listado: [],
+      selectedFullDayName: "",
+      loading: false,
+      listadoLoading: false,
+      date: new Date().toISOString().slice(0, 10),
+      setDate: (date) => set({ date }),
+      setSelectedFullDayName: (name) =>
+        set({ selectedFullDayName: (name ?? "").trim() }),
+      error: null,
+      servicios: null,
 
   /* =========================
      CARGAR DESDE BACKEND
@@ -208,6 +212,26 @@ export const usePackageStore = create<PackageState>((set, get) => ({
       set({
         loading: false,
         error: err?.message ?? "Error al cargar packages",
+      });
+    }
+  },
+  loadListadoByProducto: async (fecha, idProducto) => {
+    if (!idProducto) {
+      set({ listado: [] });
+      return;
+    }
+
+    try {
+      set({ listadoLoading: true, error: null });
+      const response = await fetchListadoByProducto(fecha, idProducto);
+      set({
+        listado: response ?? [],
+        listadoLoading: false,
+      });
+    } catch (err: any) {
+      set({
+        listadoLoading: false,
+        error: err?.message ?? "Error al cargar listado",
       });
     }
   },
@@ -410,4 +434,13 @@ export const usePackageStore = create<PackageState>((set, get) => ({
       throw err;
     }
   },
-}));
+    }),
+    {
+      name: "picaflor.fullday",
+      partialize: (state) => ({
+        selectedFullDayName: state.selectedFullDayName,
+        date: state.date,
+      }),
+    }
+  )
+);

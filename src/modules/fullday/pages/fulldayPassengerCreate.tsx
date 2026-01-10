@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useForm } from "react-hook-form";
+import { Plus, Save, Printer } from "lucide-react";
 import { showToast } from "../../../components/ui/AppToast";
-import { usePackageStore } from "../store/packageStore";
+import { usePackageStore } from "../store/fulldayStore";
 import { useDialogStore } from "../../../app/store/dialogStore";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useCanalVenta } from "../hooks/useCanalVenta";
 import { usePackageData } from "../hooks/usePackageData";
-import { PackageHeader } from "../components/create-passenger/PackageHeader";
+import { PackageHeader } from "../components/create-passenger/FullDayHeader";
 import { PassengerDetails } from "../components/create-passenger/PassengerDetails";
 import { ServicesTable } from "../components/create-passenger/ServicesTable";
 import { PaymentSummary } from "../components/create-passenger/PaymentSummary";
@@ -68,10 +69,8 @@ const documentoOptions = [
 
 const estadoPagoOptions = [
   { value: "Cancelado", label: "Cancelado" },
-  { value: "Crédito", label: "Crédito" },
   { value: "A Cuenta", label: "A Cuenta" },
-  { value: "Canje", label: "Canje" },
-  { value: "Plataforma", label: "Plataforma" },
+  { value: "Crédito", label: "Crédito" },
 ];
 
 const monedaOptions = [
@@ -107,6 +106,7 @@ const PackagePassengerCreate = () => {
     watch,
     register,
     setValue,
+    reset,
     formState: { isSubmitting },
   } = useForm<FormValues>({
     defaultValues: {
@@ -123,7 +123,7 @@ const PackagePassengerCreate = () => {
       moneda: "PEN",
       origen: "LIMA",
       canalVenta: null,
-      counter: user?.username,
+      counter: user?.displayName,
       condicion: null,
       puntoPartida: "",
       otrosPartidas: "",
@@ -164,6 +164,7 @@ const PackagePassengerCreate = () => {
     actividades,
     almuerzos,
     trasladosOptions,
+    horasPartida,
     preciosActividades,
     preciosAlmuerzo,
     preciosTraslado,
@@ -436,6 +437,8 @@ const PackagePassengerCreate = () => {
   const actividad2Value = watch("actividad2");
   const actividad3Value = watch("actividad3");
   const acuenta = watch("acuenta") || 0;
+  const cantPaxValue = watch("cantPax") || 0;
+  const partidaValue = watch("puntoPartida") || "";
 
   const updateRow = (
     id: string,
@@ -448,6 +451,11 @@ const PackagePassengerCreate = () => {
       )
     );
   };
+
+  useEffect(() => {
+    const pax = Number(cantPaxValue) || 0;
+    setTarifaRows((rows) => rows.map((row) => ({ ...row, cantidad: pax })));
+  }, [cantPaxValue]);
 
   // Pricing synchronization effects
   useEffect(() => {
@@ -510,6 +518,23 @@ const PackagePassengerCreate = () => {
 
   const saldo = totalPagar - acuenta;
 
+  const horaByPartida = useMemo(() => {
+    const map = new Map<string, string>();
+    (horasPartida ?? []).forEach((h) => {
+      map.set(String(h.idParti), h.hora);
+    });
+    return map;
+  }, [horasPartida]);
+
+  const handlePartidaChange = (value: string) => {
+    if (value === "HOTEL" || value === "OTROS") {
+      setValue("horaPresentacion", "");
+      return;
+    }
+    const hora = horaByPartida.get(String(value)) ?? "";
+    setValue("horaPresentacion", hora);
+  };
+
   const onSubmit = handleSubmit(async (values) => {
     const ordenPayload = buildOrdenPayload({
       values,
@@ -550,9 +575,19 @@ const PackagePassengerCreate = () => {
         values.actividad3 ?? "-",
       ],
     });
-    navigate("/package");
+    navigate("/fullday");
     */
   });
+
+  const handleNew = () => {
+    reset();
+    if (pkg?.destino) {
+      setValue("destino", pkg.destino);
+    }
+    setValue("fechaViaje", date);
+    setValue("fechaPago", new Date().toISOString().slice(0, 10));
+    setValue("fechaEmision", new Date().toISOString().slice(0, 10));
+  };
 
   const focusNext = (
     current?: HTMLElement | null,
@@ -596,12 +631,12 @@ const PackagePassengerCreate = () => {
   if (!pkg) {
     return (
       <div className="p-6 bg-white rounded-xl shadow-sm">
-        <p className="text-sm text-rose-600">Paquete no encontrado.</p>
+        <p className="text-sm text-rose-600">Full Day no encontrado.</p>
         <button
           className="mt-3 text-sm text-blue-600 underline"
-          onClick={() => navigate("/package")}
+          onClick={() => navigate("/fullday")}
         >
-          Volver a paquetes
+          Volver a Full Day
         </button>
       </div>
     );
@@ -615,8 +650,33 @@ const PackagePassengerCreate = () => {
         onChangeCapture={handleSelectAdvanceCapture}
         className="space-y-4"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          <div className="lg:col-span-3 space-y-3">
+        <div className="flex justify-end gap-2">
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center rounded-lg bg-emerald-600 p-2 text-white shadow-sm hover:bg-emerald-700 transition-colors"
+            title="Guardar"
+          >
+            <Save size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={handleNew}
+            className="inline-flex items-center justify-center rounded-lg bg-slate-100 p-2 text-slate-700 shadow-sm hover:bg-slate-200 transition-colors"
+            title="Nuevo"
+          >
+            <Plus size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center justify-center rounded-lg bg-white p-2 text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 transition-colors"
+            title="Imprimir"
+          >
+            <Printer size={16} />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
+          <div className="lg:col-span-4 space-y-3">
             <PackageHeader
               pkg={pkg}
               control={control}
@@ -636,6 +696,10 @@ const PackagePassengerCreate = () => {
               register={register}
               updateRow={updateRow}
               handleAdvanceAfterChange={handleAdvanceAfterChange}
+              onPartidaChange={handlePartidaChange}
+              enableHotelHora={
+                partidaValue === "HOTEL" || partidaValue === "OTROS"
+              }
             />
           </div>
           <PaymentSummary

@@ -27,20 +27,7 @@ export const PackageHeader = ({
 }: PackageHeaderProps) => {
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-800">
-            Datos del paquete
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-600">
-            <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-semibold">
-              {pkg.destino}
-            </span>
-            <span className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-semibold">
-              {new Date(pkg.fecha).toLocaleDateString("es-ES")}
-            </span>
-          </div>
-        </div>
+      <div className="p-3 space-y-2">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div className="col-span-2">
             <TextControlled

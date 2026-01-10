@@ -13,6 +13,7 @@ const MainLayout = () => {
   const { isSidebarOpen, setSidebarOpen, toggleSidebar, closeSidebar } =
     useLayoutStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [navFilter, setNavFilter] = useState("");
   const open = Boolean(anchorEl);
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -37,6 +38,17 @@ const MainLayout = () => {
   useEffect(() => {
     setSidebarOpen(isDesktop);
   }, [isDesktop, setSidebarOpen]);
+
+  const normalizedNavFilter = navFilter.trim().toLowerCase();
+  const filteredNavigationItems = navigationItems.filter((item) => {
+    if (!normalizedNavFilter) return true;
+    const label = item.label.toLowerCase();
+    const description = item.description?.toLowerCase() ?? "";
+    return (
+      label.includes(normalizedNavFilter) ||
+      description.includes(normalizedNavFilter)
+    );
+  });
 
   const desktopNav = (
     <aside
@@ -65,8 +77,20 @@ const MainLayout = () => {
         </button>
       </div>
 
-      <nav className="mt-4 flex flex-col gap-1 px-2 flex-1">
-        {navigationItems.map((item) => {
+      <nav className="mt-4 flex flex-col gap-2 px-2 flex-1">
+        {isSidebarOpen && (
+          <div>
+            <input
+              type="text"
+              value={navFilter}
+              onChange={(e) => setNavFilter(e.target.value)}
+              placeholder="Buscar"
+              aria-label="Buscar en navegacion"
+              className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-[#E8612A]/60"
+            />
+          </div>
+        )}
+        {filteredNavigationItems.map((item) => {
           const Icon = item.icon;
 
           return (
@@ -135,8 +159,18 @@ const MainLayout = () => {
         </button>
       </div>
 
-      <nav className="mt-4 flex flex-col gap-1 px-2 flex-1">
-        {navigationItems.map((item) => {
+      <nav className="mt-4 flex flex-col gap-2 px-2 flex-1">
+        <div>
+          <input
+            type="text"
+            value={navFilter}
+            onChange={(e) => setNavFilter(e.target.value)}
+            placeholder="Buscar"
+            aria-label="Buscar en navegacion"
+            className="w-full rounded-md border border-paper/20 bg-paper/10 px-3 py-2 text-xs text-paper placeholder:text-paper/70 focus:outline-none focus:ring-2 focus:ring-paper/40"
+          />
+        </div>
+        {filteredNavigationItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
@@ -167,7 +201,6 @@ const MainLayout = () => {
       </nav>
     </aside>
   );
-
   return (
     <div className="flex min-h-screen h-screen text-ink overflow-hidden">
       {desktopNav}
@@ -202,7 +235,7 @@ const MainLayout = () => {
               <div className="flex flex-col text-right leading-tight">
                 <span className="text-xs text-white/70">Bienvenido</span>
                 <span className="text-sm font-medium text-white">
-                  {user?.username ?? "Usuario"}
+                  {user?.displayName ?? "Usuario"}
                 </span>
               </div>
 

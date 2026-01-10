@@ -161,11 +161,22 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const passwordSafe = (password ?? "").toString().trim();
 
       if (!usernameSafe || !passwordSafe) {
+        let message = "";
+
+        if (!usernameSafe && !passwordSafe) {
+          message = "Falta usuario y contraseña";
+        } else if (!usernameSafe) {
+          message = "Falta usuario";
+        } else {
+          message = "Falta contraseña";
+        }
+
         set({
           loading: false,
-          error: "Ingresa usuario y contrasena",
+          error: message,
           isAuthenticated: false,
         });
+
         return false;
       }
 

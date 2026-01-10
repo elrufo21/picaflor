@@ -1,12 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import {
-  LayoutDashboard,
-  FolderKanban,
-  Settings,
-  BarChart2,
-  Package,
-  Wrench,
-} from "lucide-react";
+import { LayoutDashboard, Package, Wrench, Plane, Car } from "lucide-react";
 
 export type NavigationItem = {
   label: string;
@@ -22,13 +15,25 @@ export const navigationItems: NavigationItem[] = [
     icon: LayoutDashboard,
     description: "Resumen general",
   },
-
+  {
+    label: "Full Day",
+    to: "/fullday",
+    icon: Plane,
+    description: "Experiencias de dia completo",
+  },
+  {
+    label: "City Tour",
+    to: "/vity-tour",
+    icon: Car,
+    description: "Turismo local",
+  },
   {
     label: "Paquetes",
-    to: "/package",
+    to: "/packages",
     icon: Package,
-    description: "Gestión de paquetes",
+    description: "Ofertas de viajes",
   },
+
   {
     label: "Mantenimiento",
     to: "/maintenance",

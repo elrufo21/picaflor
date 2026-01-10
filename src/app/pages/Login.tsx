@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
-import { LogIn, Plane } from "lucide-react";
+import { LogIn } from "lucide-react";
 
 import { TextControlled } from "@/components/ui/inputs";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -24,7 +24,7 @@ const Login = () => {
     },
   });
 
-  const { control, handleSubmit } = form;
+  const { control, handleSubmit, setFocus } = form;
 
   useEffect(() => {
     hydrate();
@@ -109,6 +109,14 @@ const Login = () => {
                 control={control}
                 label="Usuario"
                 size="small"
+                inputProps={{
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      setFocus("password");
+                    }
+                  },
+                }}
                 InputLabelProps={{
                   sx: {
                     color: "#94a3b8",
@@ -160,6 +168,14 @@ const Login = () => {
                     "&.Mui-focused": {
                       color: "#38bdf8",
                     },
+                  },
+                }}
+                inputProps={{
+                  onKeyDown: (e: React.KeyboardEvent) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleSubmit(onSubmit)();
+                    }
                   },
                 }}
                 InputProps={{

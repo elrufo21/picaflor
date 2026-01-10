@@ -29,28 +29,34 @@ function TextControlled<T extends FieldValues>({
       name={name}
       control={control}
       defaultValue={defaultValue}
-      render={({ field, fieldState }) => (
-        <TextField
-          {...rest}
-          {...field}
-          onChange={(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-            if (transform) {
-              const nextValue = transform(event.target.value);
-              field.onChange(nextValue);
-              rest.onChange?.({
-                ...event,
-                target: { ...event.target, value: nextValue },
-              } as ChangeEvent<HTMLInputElement | HTMLTextAreaElement>);
-              return;
-            }
-            field.onChange(event);
-            rest.onChange?.(event);
-          }}
-          fullWidth
-          error={!!fieldState.error}
-          helperText={fieldState.error?.message || rest.helperText}
-        />
-      )}
+      render={({ field, fieldState }) => {
+        const { ref, onChange, ...fieldProps } = field;
+        return (
+          <TextField
+            {...rest}
+            {...fieldProps}
+            inputRef={ref} // 🔥 CLAVE ABSOLUTA
+            onChange={(
+              event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+            ) => {
+              if (transform) {
+                const nextValue = transform(event.target.value);
+                onChange(nextValue);
+                rest.onChange?.({
+                  ...event,
+                  target: { ...event.target, value: nextValue },
+                } as ChangeEvent<HTMLInputElement | HTMLTextAreaElement>);
+                return;
+              }
+              onChange(event);
+              rest.onChange?.(event);
+            }}
+            fullWidth
+            error={!!fieldState.error}
+            helperText={fieldState.error?.message || rest.helperText}
+          />
+        );
+      }}
     />
   );
 }

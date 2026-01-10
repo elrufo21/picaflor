@@ -1,6 +1,6 @@
 import { useLayoutStore } from "@/app/store/layoutStore";
 import { useDialogStore } from "@/app/store/dialogStore";
-import { usePackageStore } from "@/modules/package/store/packageStore";
+import { usePackageStore } from "@/modules/fullday/store/fulldayStore";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useEmployeesStore } from "@/store/employees/employees.store";
@@ -13,8 +13,11 @@ export const resetAllStores = () => {
   useDialogStore.setState({ isOpen: false, payload: {}, config: null });
   usePackageStore.setState({
     packages: [],
+    listado: [],
+    selectedFullDayName: "",
     servicios: null,
     loading: false,
+    listadoLoading: false,
     error: null,
     date: getDefaultPackageDate(),
   });
