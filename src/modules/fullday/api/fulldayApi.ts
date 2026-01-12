@@ -115,7 +115,7 @@ export async function deleteProgramacion(id: number): Promise<void> {
     throw new Error(text || "Error al eliminar la programación");
   }
 }
-export const editarCantMax = async (listaOrden: string) => {
+export const editarCantMax = async (Valores: string) => {
   const res = await fetch(
     "http://localhost:5000/api/v1/Programacion/editar-cant-max",
     {
@@ -125,7 +125,7 @@ export const editarCantMax = async (listaOrden: string) => {
         accept: "application/json",
       },
       body: JSON.stringify({
-        listaOrden,
+        Valores,
       }),
     }
   );
