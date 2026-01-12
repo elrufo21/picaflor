@@ -50,7 +50,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           dataPartidas,
           dataHoteles,
           dataActividades,
-          dataPrecios,
+          precioProducto,
           dataPreciosActividades,
           dataAlmuerzos,
           dataPreciosAlmuerzo,
@@ -61,7 +61,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           serviciosDB.partidas.toArray(),
           serviciosDB.hoteles.toArray(),
           serviciosDB.actividades.toArray(),
-          serviciosDB.preciosProducto.toArray(),
+          serviciosDB.preciosProducto.get(Number(id)),
           serviciosDB.preciosActividades.toArray(),
           serviciosDB.almuerzos.toArray(),
           serviciosDB.preciosAlmuerzo.toArray(),
@@ -127,9 +127,14 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
         );
 
         // 6️⃣ VISITAS
-        const precio = dataPrecios.find(
-          (p) => Number(p.idProducto) === Number(id)
-        );
+        const precio = precioProducto;
+
+        if (precio?.precioVenta != null) {
+          setValue("precioVenta", Number(precio.precioVenta) || 0, {
+            shouldDirty: false,
+            shouldTouch: false,
+          });
+        }
 
         setPreciosActividades(dataPreciosActividades as PrecioActividad[]);
         setPreciosAlmuerzo(dataPreciosAlmuerzo as PrecioAlmuerzo[]);

@@ -13,7 +13,11 @@ import { PackageHeader } from "../components/create-passenger/FullDayHeader";
 import { PassengerDetails } from "../components/create-passenger/PassengerDetails";
 import { ServicesTable } from "../components/create-passenger/ServicesTable";
 import { PaymentSummary } from "../components/create-passenger/PaymentSummary";
-import { buildOrdenPayload } from "../utils/payloadBuilder";
+import {
+  buildLegacyPayloadString,
+  buildOrdenPayload,
+  parseLegacyPayloadString,
+} from "../utils/payloadBuilder";
 import type { CanalOption, SelectOption } from "../hooks/canalUtils";
 
 type FormValues = {
@@ -38,7 +42,7 @@ type FormValues = {
   horaPresentacion?: string;
   visitas?: string;
   tarifaTour?: string;
-  precioBase?: number;
+  precioVenta?: number;
   precioUnit?: number;
   cantidad?: number;
   subTotal?: number;
@@ -53,9 +57,12 @@ type FormValues = {
   cobroExtraSol?: number;
   cobroExtraDol?: number;
   deposito?: number;
+  efectivo?: number;
   medioPago?: string;
   entidadBancaria?: string;
   nroOperacion?: string;
+  nserie?: string;
+  ndocumento?: string;
   notas?: string;
   salida?: string;
   destino?: string;
@@ -105,6 +112,7 @@ const PackagePassengerCreate = () => {
     handleSubmit,
     watch,
     register,
+    setFocus,
     setValue,
     reset,
     formState: { isSubmitting },
@@ -139,16 +147,19 @@ const PackagePassengerCreate = () => {
       precioUnit: 0,
       cantidad: 1,
       subTotal: 0,
-      precioBase: 0,
+      precioVenta: 0,
       impuesto: 0,
       cargosExtras: 0,
       acuenta: 0,
       cobroExtraSol: 0,
       cobroExtraDol: 0,
       deposito: 0,
+      efectivo: 0,
       medioPago: "",
       entidadBancaria: "",
       nroOperacion: "",
+      nserie: "",
+      ndocumento: "",
       notas: "",
       destino: "",
     },
@@ -183,7 +194,8 @@ const PackagePassengerCreate = () => {
     if (canalVentaSelected.telefono)
       setValue("telefono", canalVentaSelected.telefono);
     if (canalVentaSelected.email) setValue("email", canalVentaSelected.email);
-  }, [canalVentaSelected, setValue]);
+    setFocus("telefono");
+  }, [canalVentaSelected, setFocus, setValue]);
 
   const handleAddCanalVenta = () => {
     openDialog({
@@ -436,6 +448,7 @@ const PackagePassengerCreate = () => {
   const actividad1Value = watch("actividad1");
   const actividad2Value = watch("actividad2");
   const actividad3Value = watch("actividad3");
+  const precioVentaValue = watch("precioVenta") || 0;
   const acuenta = watch("acuenta") || 0;
   const cantPaxValue = watch("cantPax") || 0;
   const partidaValue = watch("puntoPartida") || "";
@@ -477,18 +490,19 @@ const PackagePassengerCreate = () => {
   }, [actividad1Value, actividad2Value, actividad3Value, preciosActividades]);
 
   useEffect(() => {
-    if (!preciosAlmuerzo) return;
-    const map = new Map(preciosAlmuerzo.map((p) => [String(p.id), p]));
+    const map = new Map((preciosAlmuerzo ?? []).map((p) => [String(p.id), p]));
     const key = String(tarifaTourValue ?? "").trim();
     const precioObj = map.get(key);
-    const precio = precioObj ? Number(precioObj.precioSol ?? 0) : 0;
+    const almuerzo = precioObj ? Number(precioObj.precioSol ?? 0) : 0;
+    const base = Number(precioVentaValue) || 0;
+    const precio = base + almuerzo;
 
     setTarifaRows((rows) =>
       rows.map((r) =>
         r.id === "tarifaTour" ? { ...r, precioUnit: precio } : r
       )
     );
-  }, [tarifaTourValue, preciosAlmuerzo]);
+  }, [tarifaTourValue, preciosAlmuerzo, precioVentaValue]);
 
   useEffect(() => {
     if (!preciosTraslado) return;
@@ -527,6 +541,7 @@ const PackagePassengerCreate = () => {
   }, [horasPartida]);
 
   const handlePartidaChange = (value: string) => {
+    setValue("hotel", "-");
     if (value === "HOTEL" || value === "OTROS") {
       setValue("horaPresentacion", "");
       return;
@@ -549,8 +564,41 @@ const PackagePassengerCreate = () => {
       tarifaRows,
       tarifaTotal,
     });
-
     console.log("PAYLOAD FOR BACKEND:", JSON.stringify(ordenPayload, null, 2));
+    const legacyPayload = buildLegacyPayloadString(ordenPayload);
+    console.log("LEGACY PAYLOAD:", legacyPayload);
+    console.log("LEGACY PARSED:", parseLegacyPayloadString(legacyPayload));
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/v1/programacion/agregar-viaje",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ valores: legacyPayload }),
+        }
+      );
+      const responseText = await response.text();
+      if (!response.ok) {
+        showToast({
+          title: "Error",
+          description: responseText || "Error al enviar el viaje",
+          type: "error",
+        });
+        return;
+      }
+      showToast({
+        title: "Enviado",
+        description: responseText || "Viaje registrado correctamente",
+        type: "success",
+      });
+    } catch (error: any) {
+      showToast({
+        title: "Error",
+        description: error?.message ?? "No se pudo enviar el viaje",
+        type: "error",
+      });
+    }
+    return;
 
     /*
     const extractOptionValue = (option?: any) => typeof option === "string" ? option : option?.value ?? "";
@@ -559,7 +607,7 @@ const PackagePassengerCreate = () => {
       ...values,
       canalVenta: extractOptionValue(values.canalVenta),
       condicion: extractOptionValue(values.condicion),
-      precioBase: Number(values.precioBase ?? 0),
+      precioVenta: Number(values.precioVenta ?? 0),
       impuesto: Number(values.impuesto ?? 0),
       cargosExtras: Number(values.cargosExtras ?? 0),
       acuenta: Number(values.acuenta ?? 0),
@@ -612,6 +660,19 @@ const PackagePassengerCreate = () => {
     if (e.key !== "Enter") return;
     const target = e.target as HTMLElement;
     if (target.tagName === "BUTTON") return;
+    const nextSelector =
+      target.getAttribute("data-focus-next") ??
+      target.closest<HTMLElement>("[data-focus-next]")?.getAttribute(
+        "data-focus-next"
+      );
+    if (nextSelector) {
+      e.preventDefault();
+      setTimeout(() => {
+        const next = document.querySelector<HTMLElement>(nextSelector);
+        next?.focus();
+      }, 0);
+      return;
+    }
     e.preventDefault();
     focusNext(target, target.closest("form"));
   };
@@ -650,6 +711,7 @@ const PackagePassengerCreate = () => {
         onChangeCapture={handleSelectAdvanceCapture}
         className="space-y-4"
       >
+        <input type="hidden" {...register("precioVenta")} />
         <div className="flex justify-end gap-2">
           <button
             type="submit"
@@ -693,6 +755,7 @@ const PackagePassengerCreate = () => {
               trasladosOptions={trasladosOptions}
               actividades={actividades}
               tarifaRows={tarifaRows}
+              control={control}
               register={register}
               updateRow={updateRow}
               handleAdvanceAfterChange={handleAdvanceAfterChange}
@@ -705,6 +768,7 @@ const PackagePassengerCreate = () => {
           <PaymentSummary
             control={control}
             register={register}
+            setValue={setValue}
             documentoOptions={documentoOptions}
             totalPagar={totalPagar}
             saldo={saldo}

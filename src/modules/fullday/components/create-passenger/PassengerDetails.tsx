@@ -59,6 +59,11 @@ export const PassengerDetails = ({ control }: PassengerDetailsProps) => {
               type="number"
               required
               size="small"
+              sx={{
+                "& input": {
+                  textAlign: "center",
+                },
+              }}
             />
           </div>
         </div>

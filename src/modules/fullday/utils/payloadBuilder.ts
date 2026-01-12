@@ -35,6 +35,19 @@ const getLabelByValue = (
 const extractOptionValue = (option?: SelectOption | CanalOption | null) =>
   typeof option === "string" ? option : option?.value ?? "";
 
+const normalizeCondicion = (value: unknown) => {
+  const raw = String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  if (!raw) return "";
+  if (raw.includes("cancel")) return "CONTADO";
+  if (raw.includes("cuenta")) return "ACUENTA";
+  if (raw.includes("credit")) return "CREDITO";
+  return String(value ?? "").trim();
+};
+
 const buildDetalle = ({
   values,
   tarifaRows,
@@ -106,7 +119,7 @@ export const buildOrdenPayload = ({
   const total = subtotal + igv + adicional;
   const acuentaValue = toNumber(values.acuenta);
   const saldo = total - acuentaValue;
-  const notaEstado = saldo <= 0 ? "PAGADO" : "PENDIENTE";
+  const notaEstado = saldo <= 0 ? "CANCELADO" : "PENDIENTE";
   const canal = values.canalVenta ?? null;
   const puntoPartidaLabel = getLabelByValue(partidas, values.puntoPartida);
   const hotelLabel = getLabelByValue(hoteles, values.hotel);
@@ -115,14 +128,20 @@ export const buildOrdenPayload = ({
     String(values.tarifaTour ?? "").trim() !== "-"
       ? "SI"
       : "NO";
+  const notaDocuValue = String(values.documentoCobranza ?? "").trim();
+  const monedaValue = String(values.moneda ?? "").trim().toUpperCase();
+  const monedaLabel =
+    monedaValue === "PEN" ? "SOLES" : monedaValue === "USD" ? "DOLARES" : monedaValue;
+  const condicionRaw = extractOptionValue(values.condicion);
+  const notaCondicion = normalizeCondicion(condicionRaw);
 
   return {
     orden: {
-      notaDocu: values.documentoTipo ?? "",
-      clienteId: toNumber(values.documentoNumero),
+      notaDocu: notaDocuValue || "DOCUMENTO COBRANZA",
+      clienteId: 1,
       notaUsuario: user?.username ?? user?.displayName ?? "",
       notaFormaPago: values.medioPago ?? "",
-      notaCondicion: extractOptionValue(values.condicion),
+      notaCondicion,
       notaTelefono: values.telefono || values.celular || "",
 
       notaSubtotal: subtotal,
@@ -134,43 +153,48 @@ export const buildOrdenPayload = ({
 
       notaEstado,
       companiaId: toNumber(user?.companyId),
-      incluyeIGV: igv > 0 ? "SI" : "NO",
-      serie: "0001",
-      numero: values.documentoNumero ?? "",
+      incluyeIGV: igv > 0 ? "SI" : "N/A",
+      serie: values.nserie ?? "",
+      numero: values.ndocumento ?? "",
       notaGanancia: 0,
 
       usuarioId: toNumber(user?.id ?? user?.personalId),
       entidadBancaria: values.entidadBancaria ?? "",
       nroOperacion: values.nroOperacion ?? "",
 
-      efectivo: values.medioPago === "EFECTIVO" ? total : 0,
+      efectivo: toNumber(values.efectivo),
       deposito: toNumber(values.deposito),
 
       idProducto: Number(id ?? 0),
-      auxiliar: (canal as CanalOption | null)?.contacto ?? "",
+      auxiliar:
+        (canal as CanalOption | null)?.auxiliar ??
+        (canal as CanalOption | null)?.label ??
+        (canal as CanalOption | null)?.value ??
+        (canal as CanalOption | null)?.contacto ??
+        "",
       telefonoAuxiliar: (canal as CanalOption | null)?.telefono ?? "",
       cantidadPax: toNumber(values.cantPax),
 
       puntoPartida: puntoPartidaLabel || values.puntoPartida || "",
       horaPartida: values.horaPresentacion ?? "",
-      otrasPartidas: values.otrosPartidas ?? "-",
-      visitasExCur: values.visitas ?? "-",
+      otrasPartidas: values.otrosPartidas ?? "",
+      visitasExCur: values.visitas ?? "",
 
       cobroExtraSol: toNumber(values.cobroExtraSol),
       cobroExtraDol: toNumber(values.cobroExtraDol),
       fechaAdelanto: values.fechaPago ?? "",
 
-      mensajePasajero: values.notas ?? "-",
-      observaciones: values.notas ?? "-",
+      mensajePasajero: values.notas ?? "",
+      observaciones: values.notas ?? "",
 
-      islas: "NO",
-      tubulares: "NO",
-      otros: "NO",
+      islas: "",
+      tubulares: "",
+      otros: "",
 
       fechaViaje: values.fechaViaje,
       igv,
       incluyeCargos: adicional > 0 ? "SI" : "NO",
-      monedas: values.moneda ?? "",
+      monedas: monedaLabel,
       incluyeAlmuerzo,
 
       notaImagen: "-",
@@ -185,4 +209,146 @@ export const buildOrdenPayload = ({
       trasladosOptions: trasladosOptions || [],
     }),
   };
+};
+
+const ordenFieldOrder = [
+  "notaDocu",
+  "clienteId",
+  "notaUsuario",
+  "notaFormaPago",
+  "notaCondicion",
+  "notaTelefono",
+  "notaSubtotal",
+  "notaTotal",
+  "notaAcuenta",
+  "notaSaldo",
+  "notaAdicional",
+  "notaPagar",
+  "notaEstado",
+  "companiaId",
+  "incluyeIGV",
+  "serie",
+  "numero",
+  "notaGanancia",
+  "usuarioId",
+  "entidadBancaria",
+  "nroOperacion",
+  "efectivo",
+  "deposito",
+  "idProducto",
+  "auxiliar",
+  "telefonoAuxiliar",
+  "cantidadPax",
+  "puntoPartida",
+  "horaPartida",
+  "otrasPartidas",
+  "visitasExCur",
+  "cobroExtraSol",
+  "cobroExtraDol",
+  "fechaAdelanto",
+  "mensajePasajero",
+  "observaciones",
+  "islas",
+  "tubulares",
+  "otros",
+  "fechaViaje",
+  "igv",
+  "incluyeCargos",
+  "monedas",
+  "incluyeAlmuerzo",
+  "notaImagen",
+  "hotel",
+  "region",
+];
+
+const serializeValue = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+  const text = String(value);
+  return text.replace(/\r?\n/g, " ").trim();
+};
+
+const legacyNumericKeys = new Set([
+  "clienteId",
+  "notaSubtotal",
+  "notaTotal",
+  "notaAcuenta",
+  "notaSaldo",
+  "notaAdicional",
+  "notaPagar",
+  "companiaId",
+  "notaGanancia",
+  "usuarioId",
+  "efectivo",
+  "deposito",
+  "idProducto",
+  "cantidadPax",
+  "cobroExtraSol",
+  "cobroExtraDol",
+  "igv",
+]);
+
+const serializeLegacyValue = (key: string, value: unknown) => {
+  const normalized = serializeValue(value);
+  if (!normalized && legacyNumericKeys.has(key)) return "0";
+  if (!normalized && key === "entidadBancaria") return "-";
+  if (!normalized && (key === "islas" || key === "tubulares" || key === "otros"))
+    return "";
+  return normalized;
+};
+
+export const buildLegacyPayloadString = (payload: {
+  orden: Record<string, unknown>;
+  detalle: Array<{
+    actividad?: unknown;
+    precio?: unknown;
+    cantidad?: unknown;
+    importe?: unknown;
+  }>;
+}) => {
+  const values = ordenFieldOrder.map((key) =>
+    serializeLegacyValue(key, payload.orden?.[key])
+  );
+
+  const detalle = (payload.detalle ?? [])
+    .map((row) =>
+      [
+        serializeValue(row.actividad),
+        serializeValue(row.precio),
+        serializeValue(row.cantidad),
+        serializeValue(row.importe),
+      ].join("|")
+    )
+    .join(";");
+
+  return `${values.join("|")}[${detalle}`;
+};
+
+export const parseLegacyPayloadString = (text: string) => {
+  const raw = String(text ?? "");
+  const detailStart = raw.indexOf("[");
+  const detailEnd = raw.lastIndexOf("]");
+  const ordenPart =
+    detailStart >= 0 ? raw.slice(0, detailStart).trim() : raw.trim();
+  const detallePart =
+    detailStart >= 0
+      ? detailEnd > detailStart
+        ? raw.slice(detailStart + 1, detailEnd)
+        : raw.slice(detailStart + 1)
+      : "";
+  const ordenJoined = ordenPart.split(/\r?\n/).join("|");
+  const values = ordenJoined ? ordenJoined.split("|") : [];
+  const orden = ordenFieldOrder.reduce<Record<string, string>>((acc, key, i) => {
+    acc[key] = values[i] ?? "";
+    return acc;
+  }, {});
+
+  const detalle = detallePart
+    ? detallePart.split(";").map((row) => {
+        const [actividad = "", precio = "", cantidad = "", importe = ""] =
+          row.split("|");
+        return { actividad, precio, cantidad, importe };
+      })
+    : [];
+
+  return { orden, detalle };
 };

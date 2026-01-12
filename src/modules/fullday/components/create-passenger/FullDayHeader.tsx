@@ -59,7 +59,7 @@ export const PackageHeader = ({
                 size="small"
               />
             </div>
-            <div className="h-full flex items-center text-xs text-slate-600">
+            <div className="h-full flex items-center text-xl text-slate-600 ">
               Disp:{" "}
               <span className="ml-1 font-semibold text-emerald-700">
                 {pkg.disponibles}
@@ -94,7 +94,6 @@ export const PackageHeader = ({
                 Nuevo
               </button>
             }
-            required
             size="small"
             className="w-full"
           />
@@ -111,6 +110,7 @@ export const PackageHeader = ({
             name="telefono"
             control={control}
             label="Teléfono"
+            inputProps={{ "data-focus-next": 'input[name="nombreCompleto"]' }}
             size="small"
           />
           <AutocompleteControlled
@@ -122,6 +122,7 @@ export const PackageHeader = ({
             isOptionEqualToValue={(option: any, value: any) =>
               option.value === value.value
             }
+            data-focus-next='input[name="nombreCompleto"]'
             required
             size="small"
           />

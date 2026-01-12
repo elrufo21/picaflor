@@ -3,11 +3,18 @@ import {
   SelectControlled,
   DateInput,
 } from "@/components/ui/inputs";
-import { useWatch, type Control, type UseFormRegister } from "react-hook-form";
+import { useEffect } from "react";
+import {
+  useWatch,
+  type Control,
+  type UseFormRegister,
+  type UseFormSetValue,
+} from "react-hook-form";
 
 interface PaymentSummaryProps {
   control: Control<any>;
   register: UseFormRegister<any>;
+  setValue: UseFormSetValue<any>;
   documentoOptions: any[];
   totalPagar: number;
   saldo: number;
@@ -20,6 +27,7 @@ interface PaymentSummaryProps {
 export const PaymentSummary = ({
   control,
   register,
+  setValue,
   documentoOptions,
   documentoCobranzaOptions,
   totalPagar,
@@ -29,6 +37,8 @@ export const PaymentSummary = ({
   isSubmitting,
 }: PaymentSummaryProps) => {
   const condicionSelected = useWatch({ control, name: "condicion" });
+  const medioPagoValue = useWatch({ control, name: "medioPago" });
+  const acuentaValue = useWatch({ control, name: "acuenta" });
   const saldoAmount = Number(saldo) || 0;
   const deudaAmount = Math.max(saldoAmount, 0);
   const hasDebt = deudaAmount > 0;
@@ -43,10 +53,51 @@ export const PaymentSummary = ({
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+  const isCancelado = condicionKey.includes("cancel");
+  const isACuenta = condicionKey.includes("cuenta");
   const isCredito = condicionKey.includes("credit");
+  const isDeposito =
+    String(medioPagoValue ?? "").trim().toUpperCase() === "DEPOSITO";
+
+  useEffect(() => {
+    if (isCancelado) {
+      setValue("acuenta", Number(totalPagar) || 0, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+      return;
+    }
+    setValue("acuenta", 0, {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  }, [isCancelado, setValue, totalPagar]);
+
+  useEffect(() => {
+    const acuentaAmount = Number(acuentaValue) || 0;
+    if (isDeposito) {
+      setValue("deposito", acuentaAmount, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+      setValue("efectivo", 0, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+      return;
+    }
+    setValue("deposito", 0, {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+    setValue("efectivo", acuentaAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  }, [acuentaValue, isDeposito, setValue]);
 
   const panelText = (() => {
-    if (condicionKey.includes("cancel")) {
+    if (isCancelado) {
       return "El Pasajero No Tiene Deuda";
     }
     if (condicionKey.includes("cuenta")) {
@@ -112,6 +163,7 @@ export const PaymentSummary = ({
                 type="number"
                 min={0}
                 step="0.01"
+                disabled={!isACuenta}
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
                 {...register("acuenta", { valueAsNumber: true })}
               />
@@ -237,7 +289,7 @@ export const PaymentSummary = ({
                     name="deposito"
                     control={control}
                     type="number"
-                    disabled={isCredito}
+                    disabled
                     inputProps={{
                       min: 0,
                       step: "0.01",
@@ -249,10 +301,10 @@ export const PaymentSummary = ({
                     Efecti.
                   </span>
                   <TextControlled
-                    name="cobroExtraSol"
+                    name="efectivo"
                     control={control}
                     type="number"
-                    disabled={isCredito}
+                    disabled
                     inputProps={{
                       min: 0,
                       step: "0.01",

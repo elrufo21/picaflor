@@ -14,6 +14,7 @@ import {
 
 import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/fulldayStore";
+import { showToast } from "@/components/ui/AppToast";
 
 const LISTADO_FIELDS = [
   { key: "hora", label: "Hora", sourceIndex: 0 },
@@ -162,7 +163,6 @@ const FulldayListado = () => {
     selectedFullDayName || selectedProducto?.destino || "Sin nombre";
 
   const normalizedListado = useMemo(() => parseListado(listado), [listado]);
-
   const filteredListado = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
     if (!needle) return normalizedListado;
@@ -192,6 +192,14 @@ const FulldayListado = () => {
   };
 
   const handleExportExcel = () => {
+    if (filteredListado.filter((l) => l.hora !== "~").length == 0) {
+      showToast({
+        title: "No hay datos",
+        description: "No hay datos para exportar.",
+        type: "error",
+      });
+      return;
+    }
     const data = normalizedListado.map((row: any) => {
       const obj: any = {};
       LISTADO_FIELDS.forEach((f) => {
@@ -425,12 +433,13 @@ const FulldayListado = () => {
       </div>
 
       <DndTable
-        data={filteredListado}
+        data={filteredListado.filter((l) => l.hora !== "~")}
         columns={columns}
         isLoading={listadoLoading}
         enableDateFilter={false}
         enableFiltering={false}
         enableSearching={false}
+        enableSorting={false}
       />
     </div>
   );

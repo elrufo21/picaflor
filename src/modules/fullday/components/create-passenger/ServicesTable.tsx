@@ -1,4 +1,4 @@
-import type { UseFormRegister } from "react-hook-form";
+import { Controller, type Control, type UseFormRegister } from "react-hook-form";
 
 interface ServicesTableProps {
   partidas: { value: string; label: string }[] | undefined;
@@ -7,6 +7,7 @@ interface ServicesTableProps {
   trasladosOptions: { value: string; label: string }[] | undefined;
   actividades: { value: string; label: string }[] | undefined;
   tarifaRows: any[];
+  control: Control<any>;
   register: UseFormRegister<any>;
   updateRow: (
     id: string,
@@ -25,17 +26,84 @@ export const ServicesTable = ({
   trasladosOptions,
   actividades,
   tarifaRows,
+  control,
   register,
   updateRow,
   handleAdvanceAfterChange,
   onPartidaChange,
   enableHotelHora = false,
 }: ServicesTableProps) => {
+  const horaTemplate = "__:____";
+  const digitPositions = [0, 1, 3, 4];
+  const editablePositions = [0, 1, 3, 4, 5, 6];
+
+  const buildHoraMask = (value: string | undefined) => {
+    const raw = String(value ?? "").toUpperCase();
+    if (!raw) return horaTemplate;
+    const digits = raw.replace(/\D/g, "").slice(0, 4);
+    const chars = horaTemplate.split("");
+    digits.split("").forEach((digit, index) => {
+      const pos = digitPositions[index];
+      if (pos != null) chars[pos] = digit;
+    });
+
+    if (raw.includes("AM")) {
+      chars[5] = "A";
+      chars[6] = "M";
+    } else if (raw.includes("PM")) {
+      chars[5] = "P";
+      chars[6] = "M";
+    } else if (raw.includes("A")) {
+      chars[5] = "A";
+    } else if (raw.includes("P")) {
+      chars[5] = "P";
+    }
+
+    return chars.join("");
+  };
+
+  const clearRange = (mask: string, start: number, end: number) => {
+    const chars = mask.split("");
+    editablePositions.forEach((pos) => {
+      if (pos >= start && pos < end) chars[pos] = "_";
+    });
+    return chars.join("");
+  };
+
+  const findNext = (positions: number[], from: number) =>
+    positions.find((pos) => pos >= from);
+  const findPrev = (positions: number[], from: number) =>
+    [...positions].reverse().find((pos) => pos < from);
+
+  const applyPaste = (mask: string, text: string) => {
+    const raw = String(text ?? "").toUpperCase();
+    const digits = raw.replace(/\D/g, "").slice(0, 4);
+    const chars = mask.split("");
+    digits.split("").forEach((digit, index) => {
+      const pos = digitPositions[index];
+      if (pos != null) chars[pos] = digit;
+    });
+
+    if (raw.includes("AM")) {
+      chars[5] = "A";
+      chars[6] = "M";
+    } else if (raw.includes("PM")) {
+      chars[5] = "P";
+      chars[6] = "M";
+    } else if (raw.includes("A")) {
+      chars[5] = "A";
+    } else if (raw.includes("P")) {
+      chars[5] = "P";
+    }
+
+    return chars.join("");
+  };
+
   return (
     <div className="p-2.5">
       <div className="space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-          <label className="flex flex-col text-sm text-slate-700">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+          <label className="flex flex-col text-sm text-slate-700 md:col-span-3">
             <span className="font-semibold mb-1">Punto partida</span>
             <select
               className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -58,7 +126,7 @@ export const ServicesTable = ({
             </select>
           </label>
 
-          <label className="flex flex-col text-sm text-slate-700">
+          <label className="flex flex-col text-sm text-slate-700 col-span-2">
             <span className="font-semibold mb-1">Hotel</span>
             <select
               className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -76,7 +144,7 @@ export const ServicesTable = ({
             </select>
           </label>
 
-          <label className="flex flex-col text-sm text-slate-700 md:col-span-2">
+          <label className="flex flex-col text-sm text-slate-700 md:col-span-4">
             <span className="font-semibold mb-1">Otros partidas</span>
             <input
               className="rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -87,22 +155,112 @@ export const ServicesTable = ({
 
           <label className="flex flex-col text-sm text-slate-700">
             <span className="font-semibold mb-1">Hora P.</span>
-            <input
-              placeholder="HH:MM"
-              readOnly={!enableHotelHora}
-              {...register("horaPresentacion")}
-              className={`rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                enableHotelHora ? "" : "bg-slate-50 text-slate-600"
-              }`}
+            <Controller
+              name="horaPresentacion"
+              control={control}
+              render={({ field }) => (
+                <input
+                  placeholder="__:____"
+                  readOnly={!enableHotelHora}
+                  value={buildHoraMask(field.value)}
+                  onKeyDown={(e) => {
+                    if (!enableHotelHora) return;
+                    const input = e.currentTarget;
+                    const start = input.selectionStart ?? 0;
+                    const end = input.selectionEnd ?? 0;
+                    const mask = buildHoraMask(field.value);
+
+                    const setValueAndCursor = (nextMask: string, cursor: number) => {
+                      field.onChange(nextMask);
+                      requestAnimationFrame(() => {
+                        input.setSelectionRange(cursor, cursor);
+                      });
+                    };
+
+                    if (e.key === "Backspace") {
+                      e.preventDefault();
+                      if (start !== end) {
+                        setValueAndCursor(clearRange(mask, start, end), start);
+                        return;
+                      }
+                      const prev = findPrev(editablePositions, start);
+                      if (prev == null) return;
+                      const chars = mask.split("");
+                      chars[prev] = "_";
+                      setValueAndCursor(chars.join(""), prev);
+                      return;
+                    }
+
+                    if (e.key === "Delete") {
+                      e.preventDefault();
+                      if (start !== end) {
+                        setValueAndCursor(clearRange(mask, start, end), start);
+                        return;
+                      }
+                      const pos = editablePositions.includes(start)
+                        ? start
+                        : findNext(editablePositions, start);
+                      if (pos == null) return;
+                      const chars = mask.split("");
+                      chars[pos] = "_";
+                      setValueAndCursor(chars.join(""), pos);
+                      return;
+                    }
+
+                    if (/^\d$/.test(e.key)) {
+                      e.preventDefault();
+                      const pos = findNext(digitPositions, start);
+                      if (pos == null) return;
+                      const chars = mask.split("");
+                      chars[pos] = e.key;
+                      const nextPos = findNext(editablePositions, pos + 1) ?? pos + 1;
+                      setValueAndCursor(chars.join(""), nextPos);
+                      return;
+                    }
+
+                    if (/^[aApP]$/.test(e.key)) {
+                      e.preventDefault();
+                      const chars = mask.split("");
+                      chars[5] = e.key.toUpperCase();
+                      chars[6] = "M";
+                      setValueAndCursor(chars.join(""), 7);
+                      return;
+                    }
+
+                    if (e.key.length === 1) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onPaste={(e) => {
+                    if (!enableHotelHora) return;
+                    e.preventDefault();
+                    const text = e.clipboardData.getData("text");
+                    const nextMask = applyPaste(buildHoraMask(field.value), text);
+                    field.onChange(nextMask);
+                    requestAnimationFrame(() => {
+                      e.currentTarget.setSelectionRange(7, 7);
+                    });
+                  }}
+                  onChange={(e) => {
+                    if (!enableHotelHora) return;
+                    field.onChange(buildHoraMask(e.target.value));
+                  }}
+                  maxLength={7}
+                  className={`rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    enableHotelHora ? "" : "bg-slate-50 text-slate-600"
+                  }`}
+                />
+              )}
             />
           </label>
 
-          <label className="flex flex-col text-sm text-slate-700 md:col-span-3">
+          <label className="flex flex-col text-sm text-slate-700 md:col-span-5">
             <span className="font-semibold mb-1">Visitas y excursiones</span>
             <textarea
               className="rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               rows={2}
               {...register("visitas")}
+              disabled
             />
           </label>
         </div>
