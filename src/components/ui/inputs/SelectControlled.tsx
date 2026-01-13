@@ -6,6 +6,7 @@ import {
   type Control,
   type Path,
 } from "react-hook-form";
+import { focusNextElement } from "@/shared/helpers/formFocus";
 
 type Option = { label: string; value: string | number };
 
@@ -17,6 +18,7 @@ type Props<T extends FieldValues> = Omit<
   control: Control<T>;
   options: Option[];
   defaultValue?: T[Path<T>];
+  autoAdvance?: boolean;
 };
 
 function SelectControlled<T extends FieldValues>({
@@ -24,6 +26,7 @@ function SelectControlled<T extends FieldValues>({
   control,
   options,
   defaultValue,
+  autoAdvance,
   ...rest
 }: Props<T>) {
   return (
@@ -40,7 +43,6 @@ function SelectControlled<T extends FieldValues>({
           onChange={(e) => {
             field.onChange(e);
 
-            // 🔥 mover focus al siguiente input
             const nextSelector = (rest as any)["data-focus-next"];
             if (nextSelector) {
               setTimeout(() => {
@@ -48,10 +50,17 @@ function SelectControlled<T extends FieldValues>({
                   document.querySelector<HTMLInputElement>(nextSelector);
                 next?.focus();
               }, 0);
+              return;
+            }
+            if (autoAdvance) {
+              const target = e.target as HTMLElement | null;
+              setTimeout(() => {
+                focusNextElement(target, target?.closest("form"));
+              }, 0);
             }
           }}
           error={!!fieldState.error}
-          helperText={fieldState.error?.message || rest.helperText}
+          helperText={rest.helperText}
         >
           {options.map((opt) => (
             <MenuItem key={opt.value} value={opt.value}>
@@ -65,3 +74,4 @@ function SelectControlled<T extends FieldValues>({
 }
 
 export default SelectControlled;
+

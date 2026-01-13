@@ -57,7 +57,9 @@ export const PaymentSummary = ({
   const isACuenta = condicionKey.includes("cuenta");
   const isCredito = condicionKey.includes("credit");
   const isDeposito =
-    String(medioPagoValue ?? "").trim().toUpperCase() === "DEPOSITO";
+    String(medioPagoValue ?? "")
+      .trim()
+      .toUpperCase() === "DEPOSITO";
 
   useEffect(() => {
     if (isCancelado) {
@@ -96,6 +98,18 @@ export const PaymentSummary = ({
     });
   }, [acuentaValue, isDeposito, setValue]);
 
+  useEffect(() => {
+    if (isDeposito) return;
+    setValue("entidadBancaria", "", {
+      shouldDirty: false,
+      shouldTouch: false,
+    });
+    setValue("nroOperacion", "", {
+      shouldDirty: false,
+      shouldTouch: false,
+    });
+  }, [isDeposito, setValue]);
+
   const panelText = (() => {
     if (isCancelado) {
       return "El Pasajero No Tiene Deuda";
@@ -115,6 +129,13 @@ export const PaymentSummary = ({
       : "El Pasajero No Tiene Deuda";
   })();
 
+  useEffect(() => {
+    setValue("mensajePasajero", panelText, {
+      shouldDirty: false,
+      shouldTouch: false,
+    });
+  }, [panelText, setValue]);
+
   const toneClass = (() => {
     if (condicionKey.includes("cancel") || !hasDebt) {
       return "border-blue-800 bg-blue-700 text-white";
@@ -124,20 +145,20 @@ export const PaymentSummary = ({
 
   return (
     <div className="lg:col-span-2 space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        <div>
+      <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
+        <div className="col-span-3">
           <SelectControlled
             name="documentoCobranza"
             control={control}
-            label="Documento de Cobranza"
+            label="Tipo de Documento"
             options={documentoCobranzaOptions}
             size="small"
           />
         </div>
-        <div>
+        <div className="col-span-1">
           <TextControlled name="nserie" control={control} size="small" />
         </div>
-        <div>
+        <div className="col-span-2">
           <TextControlled name="ndocumento" control={control} size="small" />
         </div>
       </div>
@@ -246,6 +267,7 @@ export const PaymentSummary = ({
                   options={medioPagoOptions}
                   size="small"
                   disabled={isCredito}
+                  SelectProps={{ displayEmpty: true }}
                   inputProps={{ "aria-label": "Medio de pago" }}
                 />
               </div>
@@ -260,7 +282,8 @@ export const PaymentSummary = ({
                   control={control}
                   options={bancoOptions}
                   size="small"
-                  disabled={isCredito}
+                  disabled={isCredito || !isDeposito}
+                  SelectProps={{ displayEmpty: true }}
                   inputProps={{ "aria-label": "Entidad bancaria" }}
                 />
               </div>
@@ -274,7 +297,7 @@ export const PaymentSummary = ({
                   name="nroOperacion"
                   control={control}
                   size="small"
-                  disabled={isCredito}
+                  disabled={isCredito || !isDeposito}
                   inputProps={{ "aria-label": "Nro Operacion" }}
                 />
               </div>

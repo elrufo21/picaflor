@@ -1,6 +1,5 @@
 import type { CanalOption, SelectOption } from "../hooks/canalUtils";
 
-
 type FormValues = any; // We can improve this type if we export it from the page or define a shared type
 
 interface BuildPayloadParams {
@@ -129,9 +128,15 @@ export const buildOrdenPayload = ({
       ? "SI"
       : "NO";
   const notaDocuValue = String(values.documentoCobranza ?? "").trim();
-  const monedaValue = String(values.moneda ?? "").trim().toUpperCase();
+  const monedaValue = String(values.moneda ?? "")
+    .trim()
+    .toUpperCase();
   const monedaLabel =
-    monedaValue === "PEN" ? "SOLES" : monedaValue === "USD" ? "DOLARES" : monedaValue;
+    monedaValue === "PEN"
+      ? "SOLES"
+      : monedaValue === "USD"
+      ? "DOLARES"
+      : monedaValue;
   const condicionRaw = extractOptionValue(values.condicion);
   const notaCondicion = normalizeCondicion(condicionRaw);
 
@@ -139,7 +144,7 @@ export const buildOrdenPayload = ({
     orden: {
       notaDocu: notaDocuValue || "DOCUMENTO COBRANZA",
       clienteId: 1,
-      notaUsuario: user?.username ?? user?.displayName ?? "",
+      notaUsuario: user?.displayName ?? "",
       notaFormaPago: values.medioPago ?? "",
       notaCondicion,
       notaTelefono: values.telefono || values.celular || "",
@@ -184,7 +189,7 @@ export const buildOrdenPayload = ({
       cobroExtraDol: toNumber(values.cobroExtraDol),
       fechaAdelanto: values.fechaPago ?? "",
 
-      mensajePasajero: values.notas ?? "",
+      mensajePasajero: values.mensajePasajero ?? "",
       observaciones: values.notas ?? "",
 
       islas: "",
@@ -291,7 +296,10 @@ const serializeLegacyValue = (key: string, value: unknown) => {
   const normalized = serializeValue(value);
   if (!normalized && legacyNumericKeys.has(key)) return "0";
   if (!normalized && key === "entidadBancaria") return "-";
-  if (!normalized && (key === "islas" || key === "tubulares" || key === "otros"))
+  if (
+    !normalized &&
+    (key === "islas" || key === "tubulares" || key === "otros")
+  )
     return "";
   return normalized;
 };
@@ -337,10 +345,13 @@ export const parseLegacyPayloadString = (text: string) => {
       : "";
   const ordenJoined = ordenPart.split(/\r?\n/).join("|");
   const values = ordenJoined ? ordenJoined.split("|") : [];
-  const orden = ordenFieldOrder.reduce<Record<string, string>>((acc, key, i) => {
-    acc[key] = values[i] ?? "";
-    return acc;
-  }, {});
+  const orden = ordenFieldOrder.reduce<Record<string, string>>(
+    (acc, key, i) => {
+      acc[key] = values[i] ?? "";
+      return acc;
+    },
+    {}
+  );
 
   const detalle = detallePart
     ? detallePart.split(";").map((row) => {

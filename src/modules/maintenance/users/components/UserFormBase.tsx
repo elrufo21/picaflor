@@ -11,6 +11,7 @@ import {
   TextControlled,
 } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
+import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useDialogStore } from "@/app/store/dialogStore"; // 👈 SOLO ESTO SE AGREGA
@@ -213,7 +214,7 @@ export default function UserFormBase({
   return (
     <div ref={containerRef} className="h-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleEnterFocus}>
           <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
             <h1 className="text-base font-semibold">
               {mode === "create" ? "Crear Usuario" : "Editar Usuario"}
@@ -338,6 +339,7 @@ export default function UserFormBase({
                     options={estadoOptions}
                     disabled={mode === "create"}
                     size="small"
+                    autoAdvance
                   />
                 </div>
               </div>

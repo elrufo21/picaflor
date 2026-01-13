@@ -30,7 +30,7 @@ const AreaEdit = () => {
 
   const handleSave = async (data: Area) => {
     await updateArea(Number(id), data);
-    toast.success("Área actualizada correctamente");
+    toast.success("Ya existe esta area");
     navigate("/maintenance/areas");
   };
 

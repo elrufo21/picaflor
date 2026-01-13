@@ -57,3 +57,20 @@ export interface BankEntity {
   id: number;
   nombre: string;
 }
+
+export interface Client {
+  id?: number;
+  clienteId: number;
+  clienteRazon?: string;
+  clienteRuc?: string;
+  clienteDni?: string;
+  clienteDireccion?: string;
+  clienteMovil?: string;
+  clienteTelefono?: string;
+  clienteCorreo?: string;
+  clienteEstado?: string;
+  clienteDespacho?: string;
+  clienteUsuario?: string;
+  clienteFecha?: string;
+  companiaId?: number | null;
+}

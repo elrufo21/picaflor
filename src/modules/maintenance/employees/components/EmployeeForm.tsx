@@ -9,6 +9,7 @@ import {
   TextControlled,
 } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
+import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Personal } from "@/types/employees";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -288,7 +289,7 @@ export default function EmployeeForm({
   return (
     <div ref={formRef} className="py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-        <form onSubmit={handleSubmit(submit)}>
+        <form onSubmit={handleSubmit(submit)} onKeyDown={handleEnterFocus}>
           <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
             <h1 className="text-base font-semibold">
               {mode === "create" ? "Registrar personal" : "Editar personal"}
@@ -339,6 +340,7 @@ export default function EmployeeForm({
                     options={companyOptions}
                     size="small"
                     defaultValue={companyOptions[0]?.value ?? 1}
+                    autoAdvance
                   />
                 </div>
 
@@ -361,6 +363,7 @@ export default function EmployeeForm({
                   ]}
                   size="small"
                   defaultValue={0}
+                  autoAdvance
                 />
 
                 <TextControlled
@@ -436,6 +439,7 @@ export default function EmployeeForm({
                   options={estadoOptions}
                   size="small"
                   disabled={mode === "create"}
+                  autoAdvance
                 />
               </div>
 
@@ -542,4 +546,3 @@ export default function EmployeeForm({
     </div>
   );
 }
-

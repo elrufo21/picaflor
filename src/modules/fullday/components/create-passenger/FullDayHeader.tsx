@@ -110,10 +110,11 @@ export const PackageHeader = ({
             name="telefono"
             control={control}
             label="Teléfono"
-            inputProps={{ "data-focus-next": 'input[name="nombreCompleto"]' }}
+            inputProps={{ "data-focus-next": 'input[id="condicion"]' }}
             size="small"
           />
           <AutocompleteControlled
+            id="condicion"
             name="condicion"
             control={control}
             label="Condición"

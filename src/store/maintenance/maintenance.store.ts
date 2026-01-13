@@ -340,7 +340,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         typeof created === "string" &&
         created.toLowerCase().includes("existe")
       ) {
-        toast.error("Ya existe esa categoria");
+        //toast.error("Ya existe esa categoria");
         return false;
       }
 
@@ -450,7 +450,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         typeof created === "string" &&
         created.toLowerCase().includes("existe")
       ) {
-        toast.error("Ya existe esta area");
+        //  toast.error("Ya existe esta area");
         return false;
       }
 

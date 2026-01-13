@@ -5,6 +5,7 @@ import type {
   PrecioActividad,
   PrecioAlmuerzo,
   PrecioTraslado,
+  DireccionHotel,
 } from "@/app/db/serviciosDB";
 
 export const usePackageData = (id: string | undefined, setValue: any) => {
@@ -27,6 +28,10 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
     { idParti: string; hora: string }[] | undefined
   >();
   
+  const [direccionesHotel, setDireccionesHotel] = useState<
+    DireccionHotel[] | undefined
+  >();
+
   const [preciosActividades, setPreciosActividades] = useState<PrecioActividad[] | undefined>();
   const [preciosAlmuerzo, setPreciosAlmuerzo] = useState<PrecioAlmuerzo[] | undefined>();
   const [preciosTraslado, setPreciosTraslado] = useState<PrecioTraslado[] | undefined>();
@@ -49,6 +54,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
         const [
           dataPartidas,
           dataHoteles,
+          dataDireccionesHotel,
           dataActividades,
           precioProducto,
           dataPreciosActividades,
@@ -60,6 +66,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
         ] = await Promise.all([
           serviciosDB.partidas.toArray(),
           serviciosDB.hoteles.toArray(),
+          serviciosDB.direccionesHotel.toArray(),
           serviciosDB.actividades.toArray(),
           serviciosDB.preciosProducto.get(Number(id)),
           serviciosDB.preciosActividades.toArray(),
@@ -82,18 +89,15 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
             }))
         );
 
-        // 4️⃣ HOTELES (por región)
-        const regionPkg = pkg?.region?.toUpperCase();
+        // 4 HOTELES (todos)
         setHoteles(
-          regionPkg
-            ? dataHoteles
-                .filter((h) => String(h.region).toUpperCase() === regionPkg)
-                .map((h) => ({
-                  value: String(h.id),
-                  label: h.nombre,
-                }))
-            : []
+          dataHoteles.map((h) => ({
+            value: String(h.id),
+            label: h.nombre,
+          }))
         );
+
+        setDireccionesHotel(dataDireccionesHotel);
 
         // 5️⃣ ACTIVIDADES (por producto)
         setActividades(
@@ -152,7 +156,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
       }
     };
 
-    if (id && pkg?.region) {
+    if (id) {
       init();
     }
 
@@ -165,6 +169,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
     pkg,
     partidas,
     hoteles,
+    direccionesHotel,
     actividades,
     almuerzos,
     trasladosOptions,

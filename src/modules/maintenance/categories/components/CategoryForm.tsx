@@ -4,6 +4,7 @@ import { Save, Plus, Trash2 } from "lucide-react";
 
 import { TextControlled } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
+import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import { useDialogStore } from "@/app/store/dialogStore";
 import type { Category } from "@/types/maintenance";
 
@@ -107,6 +108,7 @@ export default function CategoryForm({
     <form
       ref={containerRef}
       onSubmit={handleSubmit(submit)}
+      onKeyDown={handleEnterFocus}
       className="space-y-4"
       key={formKey}
     >

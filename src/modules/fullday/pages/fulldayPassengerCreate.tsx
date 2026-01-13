@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useForm } from "react-hook-form";
@@ -61,9 +61,11 @@ type FormValues = {
   medioPago?: string;
   entidadBancaria?: string;
   nroOperacion?: string;
+  documentoCobranza?: string;
   nserie?: string;
   ndocumento?: string;
   notas?: string;
+  mensajePasajero?: string;
   salida?: string;
   destino?: string;
 };
@@ -114,8 +116,11 @@ const PackagePassengerCreate = () => {
     register,
     setFocus,
     setValue,
+    getValues,
+    setError,
+    clearErrors,
     reset,
-    formState: { isSubmitting },
+    formState: { isSubmitting, errors },
   } = useForm<FormValues>({
     defaultValues: {
       nombreCompleto: "",
@@ -124,7 +129,7 @@ const PackagePassengerCreate = () => {
       celular: "",
       telefono: "",
       email: "",
-      cantPax: 1,
+      cantPax: 0,
       fechaViaje: date,
       fechaPago: new Date().toISOString().slice(0, 10),
       fechaEmision: new Date().toISOString().slice(0, 10),
@@ -158,9 +163,11 @@ const PackagePassengerCreate = () => {
       medioPago: "",
       entidadBancaria: "",
       nroOperacion: "",
+      documentoCobranza: "DOCUMENTO DE COBRANZA",
       nserie: "",
       ndocumento: "",
       notas: "",
+      mensajePasajero: "",
       destino: "",
     },
     mode: "onBlur",
@@ -172,6 +179,7 @@ const PackagePassengerCreate = () => {
     pkg,
     partidas,
     hoteles,
+    direccionesHotel,
     actividades,
     almuerzos,
     trasladosOptions,
@@ -186,6 +194,12 @@ const PackagePassengerCreate = () => {
       setValue("destino", pkg.destino);
     }
   }, [pkg, setValue]);
+
+  useEffect(() => {
+    if (pkg) {
+      setFocus("canalVenta");
+    }
+  }, [pkg, setFocus]);
 
   const canalVentaSelected = watch("canalVenta");
 
@@ -441,6 +455,7 @@ const PackagePassengerCreate = () => {
       cantidad: 0,
     },
   ]);
+  const [precioError, setPrecioError] = useState(false);
 
   const cobroExtraSol = watch("cobroExtraSol");
   const tarifaTourValue = watch("tarifaTour");
@@ -452,6 +467,26 @@ const PackagePassengerCreate = () => {
   const acuenta = watch("acuenta") || 0;
   const cantPaxValue = watch("cantPax") || 0;
   const partidaValue = watch("puntoPartida") || "";
+  const hotelValue = watch("hotel") || "";
+  const isIslasSelected = useMemo(
+    () =>
+      [actividad1Value, actividad2Value, actividad3Value]
+        .map((value) => String(value ?? "").trim())
+        .includes("1"),
+    [actividad1Value, actividad2Value, actividad3Value]
+  );
+
+  const direccionHotelMap = useMemo(
+    () =>
+      new Map(
+        (direccionesHotel ?? []).map((direccion) => [
+          String(direccion.idHotel),
+          direccion.direccion,
+        ])
+      ),
+    [direccionesHotel]
+  );
+  const prevCantPaxRef = useRef(0);
 
   const updateRow = (
     id: string,
@@ -466,8 +501,50 @@ const PackagePassengerCreate = () => {
   };
 
   useEffect(() => {
+    if (!hotelValue || hotelValue === "-") {
+      setValue("otrosPartidas", "", {
+        shouldDirty: false,
+        shouldTouch: false,
+      });
+      return;
+    }
+    const direccion = direccionHotelMap.get(String(hotelValue));
+    if (!direccion) {
+      setValue("otrosPartidas", "", {
+        shouldDirty: false,
+        shouldTouch: false,
+      });
+      return;
+    }
+    setValue("otrosPartidas", direccion, {
+      shouldDirty: false,
+      shouldTouch: false,
+    });
+  }, [hotelValue, direccionHotelMap, setValue]);
+
+  useEffect(() => {
     const pax = Number(cantPaxValue) || 0;
-    setTarifaRows((rows) => rows.map((row) => ({ ...row, cantidad: pax })));
+    const prevPax = prevCantPaxRef.current;
+    setTarifaRows((rows) =>
+      rows.map((row) => {
+        const current = Number(row.cantidad) || 0;
+        let nextCantidad = current;
+
+        if (pax <= 0) {
+          nextCantidad = 0;
+        } else if (prevPax === 0 && current === 0) {
+          nextCantidad = pax;
+        } else if (current === prevPax && prevPax > 0) {
+          nextCantidad = pax;
+        } else if (current > pax) {
+          nextCantidad = pax;
+        }
+
+        if (nextCantidad === current) return row;
+        return { ...row, cantidad: nextCantidad };
+      })
+    );
+    prevCantPaxRef.current = pax;
   }, [cantPaxValue]);
 
   // Pricing synchronization effects
@@ -516,6 +593,31 @@ const PackagePassengerCreate = () => {
     );
   }, [trasladosValue, preciosTraslado]);
 
+  useEffect(() => {
+    if (!isIslasSelected) {
+      setValue("entradas", "", {
+        shouldDirty: false,
+        shouldTouch: false,
+      });
+      setTarifaRows((rows) =>
+        rows.map((row) =>
+          row.id === "entradas" ? { ...row, precioUnit: 0 } : row
+        )
+      );
+      return;
+    }
+
+    setValue("entradas", "IMPTOS DE ISLAS + MUELLE", {
+      shouldDirty: false,
+      shouldTouch: false,
+    });
+    setTarifaRows((rows) =>
+      rows.map((row) =>
+        row.id === "entradas" ? { ...row, precioUnit: 16 } : row
+      )
+    );
+  }, [isIslasSelected, setValue]);
+
   const tarifaTotal = useMemo(
     () =>
       tarifaRows.reduce(
@@ -550,7 +652,100 @@ const PackagePassengerCreate = () => {
     setValue("horaPresentacion", hora);
   };
 
+  const validateRequired = (values: FormValues) => {
+    clearErrors([
+      "canalVenta",
+      "condicion",
+      "nombreCompleto",
+      "celular",
+      "cantPax",
+      "puntoPartida",
+      "horaPresentacion",
+      "medioPago",
+      "tarifaTour",
+    ]);
+
+    const missing: string[] = [];
+    const isEmptyText = (value: unknown) => !String(value ?? "").trim();
+    const hasSelectedOption = (option: unknown) => {
+      if (!option) return false;
+      if (typeof option === "string") return option.trim() !== "";
+      const typed = option as { value?: string; label?: string };
+      return Boolean(String(typed.value ?? typed.label ?? "").trim());
+    };
+
+    const markMissing = (field: keyof FormValues, label: string) => {
+      missing.push(label);
+      setError(field as any, {
+        type: "required",
+        message: `${label} es obligatorio`,
+      });
+    };
+
+    if (!hasSelectedOption(values.canalVenta))
+      markMissing("canalVenta", "Canal de venta");
+    if (!hasSelectedOption(values.condicion))
+      markMissing("condicion", "Condición");
+    if (isEmptyText(values.nombreCompleto))
+      markMissing("nombreCompleto", "Nombre completo");
+    if (isEmptyText(values.celular)) markMissing("celular", "Teléfono");
+    if ((Number(values.cantPax) || 0) < 1) markMissing("cantPax", "Cantidad");
+    if (isEmptyText(values.puntoPartida))
+      markMissing("puntoPartida", "Punto de partida");
+    if (isEmptyText(values.horaPresentacion))
+      markMissing("horaPresentacion", "Hora de partida del tour");
+    const tarifaTourValue = String(values.tarifaTour ?? "").trim();
+    if (!tarifaTourValue || tarifaTourValue === "-")
+      markMissing("tarifaTour", "Incluye almuerzo");
+    if (isEmptyText(values.medioPago))
+      markMissing("medioPago", "Medio de pago");
+    const tarifaTourRow = tarifaRows.find((row) => row.id === "tarifaTour");
+    const precioInvalid = (Number(tarifaTourRow?.precioUnit) || 0) <= 0;
+    if (precioInvalid) missing.push("Precio");
+    setPrecioError(precioInvalid);
+
+    return missing;
+  };
+
+  const renderMissingList = (missing: string[]) => (
+    <div>
+      <p className="text-xs text-slate-600">Completa los campos:</p>
+      <ul className="mt-1 list-disc pl-4 text-xs text-slate-600 space-y-0.5">
+        {missing.map((field) => (
+          <li key={field}>{field}</li>
+        ))}
+      </ul>
+    </div>
+  );
+
+  const handleInvalidSubmit = () => {
+    const missing = validateRequired(getValues());
+    if (missing.length > 0) {
+      showToast({
+        title: "Campos obligatorios",
+        description: renderMissingList(missing),
+        type: "warning",
+      });
+      return;
+    }
+    showToast({
+      title: "Campos obligatorios",
+      description: "Revisa los campos resaltados.",
+      type: "warning",
+    });
+  };
+
   const onSubmit = handleSubmit(async (values) => {
+    const missing = validateRequired(values);
+    if (missing.length > 0) {
+      showToast({
+        title: "Campos obligatorios",
+        description: renderMissingList(missing),
+        type: "warning",
+      });
+      return;
+    }
+
     const ordenPayload = buildOrdenPayload({
       values,
       user,
@@ -577,6 +772,14 @@ const PackagePassengerCreate = () => {
           body: JSON.stringify({ valores: legacyPayload }),
         }
       );
+      if (!response) {
+        showToast({
+          title: "Error",
+          description: "La caja está cerrada.",
+          type: "error",
+        });
+        return;
+      }
       const responseText = await response.text();
       if (!response.ok) {
         showToast({
@@ -625,16 +828,20 @@ const PackagePassengerCreate = () => {
     });
     navigate("/fullday");
     */
-  });
+  }, handleInvalidSubmit);
 
   const handleNew = () => {
     reset();
+    setPrecioError(false);
     if (pkg?.destino) {
       setValue("destino", pkg.destino);
     }
     setValue("fechaViaje", date);
     setValue("fechaPago", new Date().toISOString().slice(0, 10));
     setValue("fechaEmision", new Date().toISOString().slice(0, 10));
+    setTimeout(() => {
+      setFocus("canalVenta");
+    }, 0);
   };
 
   const focusNext = (
@@ -662,9 +869,9 @@ const PackagePassengerCreate = () => {
     if (target.tagName === "BUTTON") return;
     const nextSelector =
       target.getAttribute("data-focus-next") ??
-      target.closest<HTMLElement>("[data-focus-next]")?.getAttribute(
-        "data-focus-next"
-      );
+      target
+        .closest<HTMLElement>("[data-focus-next]")
+        ?.getAttribute("data-focus-next");
     if (nextSelector) {
       e.preventDefault();
       setTimeout(() => {
@@ -704,84 +911,142 @@ const PackagePassengerCreate = () => {
   }
 
   return (
-    <div className="space-y-4 bg-white p-4 sm:p-5 rounded-2xl shadow-sm max-w-8xl mx-auto">
-      <form
-        onSubmit={onSubmit}
-        onKeyDown={handleEnterFocus}
-        onChangeCapture={handleSelectAdvanceCapture}
-        className="space-y-4"
+    <div className="max-w-8xl mx-auto">
+      {/* CARD GENERAL */}
+      <div
+        className="
+          rounded-2xl 
+          border border-slate-200 
+          bg-white 
+          shadow-sm
+          overflow-hidden
+    "
       >
-        <input type="hidden" {...register("precioVenta")} />
-        <div className="flex justify-end gap-2">
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center rounded-lg bg-emerald-600 p-2 text-white shadow-sm hover:bg-emerald-700 transition-colors"
-            title="Guardar"
-          >
-            <Save size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={handleNew}
-            className="inline-flex items-center justify-center rounded-lg bg-slate-100 p-2 text-slate-700 shadow-sm hover:bg-slate-200 transition-colors"
-            title="Nuevo"
-          >
-            <Plus size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center justify-center rounded-lg bg-white p-2 text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 transition-colors"
-            title="Imprimir"
-          >
-            <Printer size={16} />
-          </button>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
-          <div className="lg:col-span-4 space-y-3">
-            <PackageHeader
-              pkg={pkg}
-              control={control}
-              monedaOptions={monedaOptions}
-              canalVentaList={canalVentaList}
-              estadoPagoOptions={estadoPagoOptions}
-              handleAddCanalVenta={handleAddCanalVenta}
-            />
-            <PassengerDetails control={control} />
-            <ServicesTable
-              partidas={partidas}
-              hoteles={hoteles}
-              almuerzos={almuerzos}
-              trasladosOptions={trasladosOptions}
-              actividades={actividades}
-              tarifaRows={tarifaRows}
-              control={control}
-              register={register}
-              updateRow={updateRow}
-              handleAdvanceAfterChange={handleAdvanceAfterChange}
-              onPartidaChange={handlePartidaChange}
-              enableHotelHora={
-                partidaValue === "HOTEL" || partidaValue === "OTROS"
-              }
-            />
-          </div>
-          <PaymentSummary
-            control={control}
-            register={register}
-            setValue={setValue}
-            documentoOptions={documentoOptions}
-            totalPagar={totalPagar}
-            saldo={saldo}
-            medioPagoOptions={medioPagoOptions}
-            bancoOptions={bancoOptions}
-            isSubmitting={isSubmitting}
-            documentoCobranzaOptions={[
-              { label: "Boleta", value: "BOLETA" },
-              { label: "Factura", value: "FACTURA" },
-            ]}
-          />
-        </div>
-      </form>
+        <form
+          onSubmit={onSubmit}
+          onKeyDown={handleEnterFocus}
+          onChangeCapture={handleSelectAdvanceCapture}
+          noValidate
+        >
+          <fieldset disabled={isSubmitting} className="contents">
+            <input type="hidden" {...register("precioVenta")} />
+            <input type="hidden" {...register("mensajePasajero")} />
+
+            {/* =========================
+            CABECERA / TOOLBAR
+        ========================== */}
+            <div
+              className="
+            flex justify-end gap-2
+            border-b border-slate-200
+            bg-[#DCFCE7] from-slate-50 to-white
+            p-3
+          "
+            >
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center 
+              rounded-lg bg-emerald-600 p-2 text-white
+              shadow-sm ring-1 ring-emerald-600/30
+              hover:bg-emerald-700 hover:ring-emerald-600/50
+              transition"
+                title="Guardar"
+              >
+                <Save size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNew}
+                className="inline-flex items-center justify-center 
+              rounded-lg bg-slate-100 p-2 text-slate-700
+              shadow-sm ring-1 ring-slate-200
+              hover:bg-slate-200 transition"
+                title="Nuevo"
+              >
+                <Plus size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center justify-center 
+              rounded-lg bg-white p-2 text-slate-700
+              shadow-sm ring-1 ring-slate-200
+              hover:bg-slate-50 transition"
+                title="Imprimir"
+              >
+                <Printer size={16} />
+              </button>
+            </div>
+
+            {/* =========================
+            CUERPO DEL FORMULARIO
+        ========================== */}
+            <div className="p-4 sm:p-5 space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
+                <div className="lg:col-span-4 space-y-3">
+                  <PackageHeader
+                    pkg={pkg}
+                    control={control}
+                    monedaOptions={monedaOptions}
+                    canalVentaList={canalVentaList}
+                    estadoPagoOptions={estadoPagoOptions}
+                    handleAddCanalVenta={handleAddCanalVenta}
+                  />
+
+                <PassengerDetails control={control} setValue={setValue} />
+
+                  <ServicesTable
+                    partidas={partidas}
+                    hoteles={hoteles}
+                    almuerzos={almuerzos}
+                    trasladosOptions={trasladosOptions}
+                    actividades={actividades}
+                    tarifaRows={tarifaRows}
+                    cantPaxValue={Number(cantPaxValue) || 0}
+                    control={control}
+                    register={register}
+                    errors={errors}
+                    precioError={precioError}
+                    updateRow={updateRow}
+                    handleAdvanceAfterChange={handleAdvanceAfterChange}
+                    onPartidaChange={handlePartidaChange}
+                    activitySelections={{
+                      actividad1: actividad1Value,
+                      actividad2: actividad2Value,
+                      actividad3: actividad3Value,
+                    }}
+                    enableHotelHora={
+                      partidaValue === "HOTEL" || partidaValue === "OTROS"
+                    }
+                  />
+                </div>
+
+                <PaymentSummary
+                  control={control}
+                  register={register}
+                  setValue={setValue}
+                  documentoOptions={documentoOptions}
+                  totalPagar={totalPagar}
+                  saldo={saldo}
+                  medioPagoOptions={medioPagoOptions}
+                  bancoOptions={bancoOptions}
+                  isSubmitting={isSubmitting}
+                  documentoCobranzaOptions={[
+                    {
+                      label: "Documento de Cobranza",
+                      value: "DOCUMENTO DE COBRANZA",
+                    },
+                    { label: "Boleta", value: "BOLETA" },
+                    { label: "Factura", value: "FACTURA" },
+                  ]}
+                />
+              </div>
+            </div>
+          </fieldset>
+        </form>
+      </div>
     </div>
   );
 };

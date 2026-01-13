@@ -4,6 +4,7 @@ import { usePackageStore } from "@/modules/fullday/store/fulldayStore";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useEmployeesStore } from "@/store/employees/employees.store";
+import { useClientsStore } from "@/store/clients/clients.store";
 import { queryClient } from "@/shared/queryClient";
 
 const getDefaultPackageDate = () => new Date().toISOString().slice(0, 10);
@@ -32,5 +33,6 @@ export const resetAllStores = () => {
   });
   useUsersStore.setState({ users: [], loading: false });
   useEmployeesStore.setState({ employees: [], loading: false });
+  useClientsStore.setState({ clients: [], loading: false });
   queryClient.clear();
 };

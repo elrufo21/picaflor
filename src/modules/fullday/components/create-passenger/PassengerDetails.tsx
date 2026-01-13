@@ -1,12 +1,114 @@
+import { useEffect, useRef } from "react";
 import { TextControlled } from "@/components/ui/inputs";
 import Divider from "@mui/material/Divider";
-import type { Control } from "react-hook-form";
+import {
+  useWatch,
+  type Control,
+  type UseFormSetValue,
+} from "react-hook-form";
+import { API_BASE_URL } from "@/config";
 
 interface PassengerDetailsProps {
   control: Control<any>;
+  setValue: UseFormSetValue<any>;
 }
 
-export const PassengerDetails = ({ control }: PassengerDetailsProps) => {
+type ClientLookupResponse = {
+  clienteId?: number;
+  clienteRazon?: string;
+  clienteRuc?: string;
+  clienteDni?: string;
+  clienteDireccion?: string;
+  clienteMovil?: string;
+  clienteTelefono?: string;
+  clienteCorreo?: string;
+  clienteEstado?: string;
+  clienteDespacho?: string;
+  clienteUsuario?: string;
+  clienteFecha?: string;
+  companiaId?: number;
+};
+
+const normalizeText = (value: unknown) => String(value ?? "").trim();
+
+export const PassengerDetails = ({ control, setValue }: PassengerDetailsProps) => {
+  const documentoNumero = useWatch({ control, name: "documentoNumero" });
+  const lastRequestedRef = useRef<string>("");
+
+  useEffect(() => {
+    const dni = normalizeText(documentoNumero);
+    if (!dni) return;
+
+    const controller = new AbortController();
+    const handle = setTimeout(async () => {
+      if (dni === lastRequestedRef.current) return;
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/Cliente/buscaDni?dni=${encodeURIComponent(dni)}`,
+          {
+            method: "GET",
+            headers: { accept: "text/plain" },
+            signal: controller.signal,
+          }
+        );
+        if (!response.ok) return;
+        const text = await response.text();
+        if (!text) return;
+        let data: ClientLookupResponse | null = null;
+        try {
+          data = JSON.parse(text) as ClientLookupResponse;
+        } catch {
+          data = null;
+        }
+        if (!data || controller.signal.aborted) return;
+        if (
+          data.clienteDni &&
+          normalizeText(data.clienteDni) !== dni
+        ) {
+          return;
+        }
+
+        lastRequestedRef.current = dni;
+        const nombre = normalizeText(data.clienteRazon);
+        if (nombre) {
+          setValue("nombreCompleto", nombre, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+        }
+        const telefono = normalizeText(data.clienteTelefono);
+        const movil = normalizeText(data.clienteMovil);
+        if (movil || telefono) {
+          setValue("celular", movil || telefono, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+        }
+        if (telefono || movil) {
+          setValue("telefono", telefono || movil, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+        }
+        const correo = normalizeText(data.clienteCorreo);
+        if (correo) {
+          setValue("email", correo, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+        }
+      } catch (error) {
+        if ((error as Error).name === "AbortError") return;
+        console.error("Error buscando DNI", error);
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(handle);
+      controller.abort();
+    };
+  }, [documentoNumero, setValue]);
+
   return (
     <>
       <div className="rounded-2xl border border-slate-100 p-3">
@@ -59,6 +161,7 @@ export const PassengerDetails = ({ control }: PassengerDetailsProps) => {
               type="number"
               required
               size="small"
+              displayZeroAsEmpty
               sx={{
                 "& input": {
                   textAlign: "center",

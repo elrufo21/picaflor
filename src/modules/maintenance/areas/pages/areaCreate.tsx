@@ -10,7 +10,7 @@ const AreaCreate = () => {
   const handleSave = async (data: { area: string; id?: number }) => {
     const ok = await addArea({ area: data.area });
     if (!ok) {
-      toast.error("No se pudo crear el área");
+      toast.error("Ya existe esta area");
       return;
     }
     toast.success("Área creada correctamente");

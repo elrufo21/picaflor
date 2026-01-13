@@ -1,4 +1,13 @@
-import { Controller, type Control, type UseFormRegister } from "react-hook-form";
+import {
+  Controller,
+  type Control,
+  type UseFormRegister,
+  type FieldErrors,
+} from "react-hook-form";
+import type { KeyboardEvent } from "react";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
+import { showToast } from "@/components/ui/AppToast";
 
 interface ServicesTableProps {
   partidas: { value: string; label: string }[] | undefined;
@@ -7,8 +16,11 @@ interface ServicesTableProps {
   trasladosOptions: { value: string; label: string }[] | undefined;
   actividades: { value: string; label: string }[] | undefined;
   tarifaRows: any[];
+  cantPaxValue: number;
   control: Control<any>;
   register: UseFormRegister<any>;
+  errors?: FieldErrors<any>;
+  precioError?: boolean;
   updateRow: (
     id: string,
     key: "precioUnit" | "cantidad",
@@ -17,6 +29,7 @@ interface ServicesTableProps {
   handleAdvanceAfterChange: (e: any) => void;
   onPartidaChange?: (value: string) => void;
   enableHotelHora?: boolean;
+  activitySelections?: Record<string, string | number | undefined>;
 }
 
 export const ServicesTable = ({
@@ -26,16 +39,83 @@ export const ServicesTable = ({
   trasladosOptions,
   actividades,
   tarifaRows,
+  cantPaxValue,
   control,
   register,
+  errors,
+  precioError = false,
   updateRow,
   handleAdvanceAfterChange,
   onPartidaChange,
   enableHotelHora = false,
+  activitySelections,
 }: ServicesTableProps) => {
   const horaTemplate = "__:____";
   const digitPositions = [0, 1, 3, 4];
   const editablePositions = [0, 1, 3, 4, 5, 6];
+  const maxCantidad = Number(cantPaxValue) || 0;
+  const isCantValid = maxCantidad >= 1;
+  const selectedActivityValues = new Set(
+    Object.values(activitySelections ?? {})
+      .map((value) => String(value ?? "").trim())
+      .filter(Boolean)
+  );
+  const isActivityRow = (rowId: string) =>
+    rowId === "actividad1" || rowId === "actividad2" || rowId === "actividad3";
+  const hasError = (field: string) => Boolean(errors && (errors as any)[field]);
+  const puntoPartidaError = hasError("puntoPartida");
+  const horaPresentacionError = hasError("horaPresentacion");
+  const tarifaTourError = hasError("tarifaTour");
+  const errorBorderClass = "border-rose-500 focus:ring-rose-500";
+  const getActivityOptions = (rowId: string) => {
+    const currentValue = String(activitySelections?.[rowId] ?? "").trim();
+    return (actividades ?? []).filter((opt) => {
+      const optValue = String(opt.value);
+      if (!optValue) return false;
+      if (optValue === currentValue) return true;
+      return !selectedActivityValues.has(optValue);
+    });
+  };
+  const notifyCantRequired = () => {
+    showToast({
+      title: "Atencion",
+      description: "Ingresa la cantidad de pax antes de seleccionar.",
+      type: "warning",
+    });
+  };
+  const notifyCantidadExcede = (maxCantidadValue: number) => {
+    showToast({
+      title: "Atencion",
+      description: `La cantidad no puede ser mayor que ${maxCantidadValue}.`,
+      type: "warning",
+    });
+  };
+  const handleArrowNavigate = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const target = e.currentTarget;
+    const row = target.closest("tr");
+    const cell = target.closest("td");
+    if (!row || !cell) return;
+    const cellIndex = Array.from(row.children).indexOf(cell);
+    const nextRow =
+      e.key === "ArrowUp" ? row.previousElementSibling : row.nextElementSibling;
+    if (!nextRow || nextRow.tagName !== "TR") return;
+    const nextCell = nextRow.children.item(cellIndex) as HTMLElement | null;
+    if (!nextCell) return;
+    const nextInput = nextCell.querySelector<HTMLElement>("input");
+    nextInput?.focus();
+  };
+  const renderCantGuard = () =>
+    !isCantValid ? (
+      <button
+        type="button"
+        className="absolute inset-0 cursor-not-allowed"
+        onClick={notifyCantRequired}
+        tabIndex={-1}
+        aria-label="Cantidad requerida"
+      />
+    ) : null;
 
   const buildHoraMask = (value: string | undefined) => {
     const raw = String(value ?? "").toUpperCase();
@@ -106,7 +186,9 @@ export const ServicesTable = ({
           <label className="flex flex-col text-sm text-slate-700 md:col-span-3">
             <span className="font-semibold mb-1">Punto partida</span>
             <select
-              className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className={`rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                puntoPartidaError ? errorBorderClass : ""
+              }`}
               {...register("puntoPartida", {
                 onChange: (e) => {
                   handleAdvanceAfterChange(e);
@@ -114,6 +196,7 @@ export const ServicesTable = ({
                 },
                 required: "Seleccione punto partida",
               })}
+              aria-invalid={puntoPartidaError || undefined}
             >
               <option value="">Seleccione</option>
               <option value="HOTEL">Hotel</option>
@@ -128,20 +211,43 @@ export const ServicesTable = ({
 
           <label className="flex flex-col text-sm text-slate-700 col-span-2">
             <span className="font-semibold mb-1">Hotel</span>
-            <select
-              className="rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              disabled={!enableHotelHora}
-              {...register("hotel", {
-                onChange: handleAdvanceAfterChange,
-              })}
-            >
-              <option value="-">-</option>
-              {hoteles?.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="hotel"
+              control={control}
+              render={({ field }) => {
+                const selectedValue = String(field.value ?? "").trim();
+                const selectedOption =
+                  hoteles?.find((opt) => String(opt.value) === selectedValue) ??
+                  null;
+                return (
+                  <Autocomplete
+                    options={hoteles ?? []}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, value) =>
+                      option.value === value.value
+                    }
+                    value={selectedOption}
+                    onChange={(e, value) => {
+                      field.onChange(value ? value.value : "-");
+                      handleAdvanceAfterChange(e as any);
+                    }}
+                    disabled={!enableHotelHora}
+                    size="small"
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="-"
+                        InputProps={{
+                          ...params.InputProps,
+                          className:
+                            "rounded-lg border border-slate-200 px-2.5 h-[35px]  focus:outline-none focus:ring-2 focus:ring-emerald-500",
+                        }}
+                      />
+                    )}
+                  />
+                );
+              }}
+            />
           </label>
 
           <label className="flex flex-col text-sm text-slate-700 md:col-span-4">
@@ -170,7 +276,10 @@ export const ServicesTable = ({
                     const end = input.selectionEnd ?? 0;
                     const mask = buildHoraMask(field.value);
 
-                    const setValueAndCursor = (nextMask: string, cursor: number) => {
+                    const setValueAndCursor = (
+                      nextMask: string,
+                      cursor: number
+                    ) => {
                       field.onChange(nextMask);
                       requestAnimationFrame(() => {
                         input.setSelectionRange(cursor, cursor);
@@ -213,7 +322,8 @@ export const ServicesTable = ({
                       if (pos == null) return;
                       const chars = mask.split("");
                       chars[pos] = e.key;
-                      const nextPos = findNext(editablePositions, pos + 1) ?? pos + 1;
+                      const nextPos =
+                        findNext(editablePositions, pos + 1) ?? pos + 1;
                       setValueAndCursor(chars.join(""), nextPos);
                       return;
                     }
@@ -235,7 +345,10 @@ export const ServicesTable = ({
                     if (!enableHotelHora) return;
                     e.preventDefault();
                     const text = e.clipboardData.getData("text");
-                    const nextMask = applyPaste(buildHoraMask(field.value), text);
+                    const nextMask = applyPaste(
+                      buildHoraMask(field.value),
+                      text
+                    );
                     field.onChange(nextMask);
                     requestAnimationFrame(() => {
                       e.currentTarget.setSelectionRange(7, 7);
@@ -248,7 +361,8 @@ export const ServicesTable = ({
                   maxLength={7}
                   className={`rounded-lg border border-slate-200 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                     enableHotelHora ? "" : "bg-slate-50 text-slate-600"
-                  }`}
+                  } ${horaPresentacionError ? errorBorderClass : ""}`}
+                  aria-invalid={horaPresentacionError || undefined}
                 />
               )}
             />
@@ -278,72 +392,129 @@ export const ServicesTable = ({
             </thead>
 
             <tbody>
-              {tarifaRows.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50">
-                  {/* LABEL */}
-                  <td className="border px-2 py-1">
-                    <span className="bg-orange-500 text-white px-2 py-0.5 rounded text-[11px] font-semibold">
-                      {row.label}
-                    </span>
-                  </td>
+              {tarifaRows.map((row) => {
+                const isTarifaRow = row.id === "tarifaTour";
+                const selectError = isTarifaRow && tarifaTourError;
+                const precioCellError = isTarifaRow && precioError;
+                return (
+                  <tr key={row.id} className="hover:bg-slate-50">
+                    {/* LABEL */}
+                    <td className="border px-2 py-1">
+                      <span className="bg-orange-500 text-white px-2 py-0.5 rounded text-[11px] font-semibold">
+                        {row.label}
+                      </span>
+                    </td>
 
-                  {/* SELECT / INPUT */}
-                  <td className="border px-2 py-1">
-                    {row.type === "select" ? (
-                      <select
-                        className="w-full h-7 rounded border px-1 text-[11px]"
-                        {...register(row.id)}
-                      >
-                        <option value="-">(SELECCIONE)</option>
-                        {(row.id === "tarifaTour"
-                          ? almuerzos
-                          : row.id === "traslados"
-                          ? trasladosOptions
-                          : actividades
-                        )?.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        className="w-full h-7 rounded border px-1 text-[11px]"
-                        {...register(row.id)}
-                      />
-                    )}
-                  </td>
+                    {/* SELECT / INPUT */}
+                    <td className="border px-2 py-1">
+                      {row.type === "select" ? (
+                        <div className="relative">
+                          <select
+                            className={`w-full h-7 rounded border px-1 text-[11px] ${
+                              selectError ? errorBorderClass : ""
+                            }`}
+                            disabled={!isCantValid}
+                            {...register(row.id)}
+                            aria-invalid={selectError || undefined}
+                          >
+                            <option value="-">(SELECCIONE)</option>
+                            {(row.id === "tarifaTour"
+                              ? almuerzos
+                              : row.id === "traslados"
+                              ? trasladosOptions
+                              : isActivityRow(row.id)
+                              ? getActivityOptions(row.id)
+                              : actividades
+                            )?.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          {renderCantGuard()}
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <input
+                            className="w-full h-7 rounded border px-1 text-[11px]"
+                            disabled
+                            {...register(row.id)}
+                          />
+                          {renderCantGuard()}
+                        </div>
+                      )}
+                    </td>
 
-                  {/* PRECIO */}
-                  <td className="border px-2 py-1">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={row.precioUnit}
-                      onChange={(e) =>
-                        updateRow(row.id, "precioUnit", Number(e.target.value))
-                      }
-                      className="w-full h-7 rounded border px-1 text-right text-[11px]"
-                    />
-                  </td>
+                    {/* PRECIO */}
+                    <td className="border px-2 py-1">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={row.precioUnit === 0 ? "" : row.precioUnit}
+                          disabled={!isCantValid}
+                          onKeyDown={handleArrowNavigate}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              updateRow(row.id, "precioUnit", 0);
+                              return;
+                            }
+                            updateRow(row.id, "precioUnit", Number(raw));
+                          }}
+                          className={`w-full h-7 rounded border px-1 text-right text-[11px] ${
+                            !isCantValid ? "bg-slate-50 text-slate-600" : ""
+                          } ${precioCellError ? errorBorderClass : ""}`}
+                          aria-invalid={precioCellError || undefined}
+                        />
+                        {renderCantGuard()}
+                      </div>
+                    </td>
 
-                  {/* CANTIDAD */}
-                  <td className="border px-2 py-1">
-                    <input
-                      type="number"
-                      min={1}
-                      value={row.cantidad}
-                      readOnly
-                      className="w-full h-7 rounded border px-1 text-center text-[11px] bg-slate-50 text-slate-600"
-                    />
-                  </td>
+                    {/* CANTIDAD */}
+                    <td className="border px-2 py-1">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min={0}
+                          max={maxCantidad || undefined}
+                          value={row.cantidad === 0 ? "" : row.cantidad}
+                          disabled={!isCantValid}
+                          onKeyDown={handleArrowNavigate}
+                          onChange={(e) => {
+                            if (!isCantValid) return;
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              updateRow(row.id, "cantidad", 0);
+                              return;
+                            }
+                            const next = Number(raw);
+                            if (Number.isNaN(next)) {
+                              updateRow(row.id, "cantidad", 0);
+                              return;
+                            }
+                            if (maxCantidad > 0 && next > maxCantidad) {
+                              notifyCantidadExcede(maxCantidad);
+                              updateRow(row.id, "cantidad", maxCantidad);
+                              return;
+                            }
+                            updateRow(row.id, "cantidad", Math.max(next, 0));
+                          }}
+                          className={`w-full h-7 rounded border px-1 text-center text-[11px] ${
+                            !isCantValid ? "bg-slate-50 text-slate-600" : ""
+                          }`}
+                        />
+                        {renderCantGuard()}
+                      </div>
+                    </td>
 
-                  {/* SUBTOTAL */}
-                  <td className="border px-2 py-1 text-right font-semibold">
-                    {(row.precioUnit * row.cantidad).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
+                    {/* SUBTOTAL */}
+                    <td className="border px-2 py-1 text-right font-semibold">
+                      {(row.precioUnit * row.cantidad).toFixed(2)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

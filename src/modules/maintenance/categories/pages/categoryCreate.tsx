@@ -16,7 +16,7 @@ const CategoryCreate = () => {
       codigoSunat: data.codigoSunat ?? "",
     });
     if (!ok) {
-      toast.error("No se pudo crear la categoría");
+      toast.error("Ya existe esa categoria");
       return;
     }
     toast.success("Categoría creada correctamente");

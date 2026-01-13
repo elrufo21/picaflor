@@ -1,11 +1,12 @@
 import { toast } from "sonner";
 import { CheckCircle, XCircle, AlertTriangle, Info } from "lucide-react";
+import type { ReactNode } from "react";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
 interface ToastProps {
   title: string;
-  description?: string;
+  description?: ReactNode;
   type?: ToastType;
 }
 
@@ -46,9 +47,9 @@ const AppToast = ({ title, description, type = "info" }: ToastProps) => {
       <div className="flex-1">
         <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
         {description && (
-          <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+          <div className="text-xs text-slate-600 mt-1 leading-relaxed">
             {description}
-          </p>
+          </div>
         )}
       </div>
     </div>

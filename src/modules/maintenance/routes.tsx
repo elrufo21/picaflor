@@ -11,6 +11,9 @@ import CategoryEdit from "./categories/pages/categoryEdit";
 import EmployeeList from "./employees/pages/employeeList";
 import EmployeeCreate from "./employees/pages/employeeCreate";
 import EmployeeEdit from "./employees/pages/employeeEdit";
+import ClientList from "./clients/pages/clientList";
+import ClientCreate from "./clients/pages/clientCreate";
+import ClientEdit from "./clients/pages/clientEdit";
 
 // Por ahora dejamos solo usuarios y áreas activas en mantenimiento.
 export default [
@@ -138,6 +141,38 @@ export default [
         { label: "Mantenimiento", to: "/maintenance" },
         { label: "Usuarios", to: "/maintenance/users" },
         { label: "Editar usuario" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/clients",
+    element: <ClientList />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Clientes" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/clients/create",
+    element: <ClientCreate />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Clientes", to: "/maintenance/clients" },
+        { label: "Crear cliente" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/clients/:id/edit",
+    element: <ClientEdit />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Clientes", to: "/maintenance/clients" },
+        { label: "Editar cliente" },
       ],
     },
   },

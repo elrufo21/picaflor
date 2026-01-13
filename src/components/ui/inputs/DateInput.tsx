@@ -34,7 +34,7 @@ function DateInput<T extends FieldValues>({
           fullWidth
           InputLabelProps={{ shrink: true, ...(rest.InputLabelProps || {}) }}
           error={!!fieldState.error}
-          helperText={fieldState.error?.message || rest.helperText}
+          helperText={rest.helperText}
         />
       )}
     />

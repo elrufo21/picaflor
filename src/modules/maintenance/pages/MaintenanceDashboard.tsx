@@ -1,12 +1,9 @@
 import {
   Layers,
-  Laptop,
   Grid3X3,
   Users2,
   UserCheck2Icon,
-  Icon,
   Building2,
-  CalendarDays,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -25,6 +22,12 @@ export default function MaintenanceDashboard() {
       desc: "Organiza las áreas de la empresa.",
       icon: <Layers className="w-10 h-10 text-green-600" />,
       route: "/maintenance/areas",
+    },
+    {
+      title: "Clientes",
+      desc: "Registra y controla los clientes",
+      icon: <Building2 className="w-10 h-10 text-slate-700" />,
+      route: "/maintenance/clients",
     },
     {
       title: "Empleados",

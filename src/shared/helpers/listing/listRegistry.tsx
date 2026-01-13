@@ -1,17 +1,17 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
-import { useCategoriesQuery } from "@/features/maintenance/categories/useCategoriesQuery";
-import { useAreasQuery } from "@/features/maintenance/areas/useAreasQuery";
-import { useProvidersQuery } from "@/features/maintenance/providers/useProvidersQuery";
-import { useHolidaysQuery } from "@/features/maintenance/holidays/useHolidaysQuery";
-import { useClientsStore } from "@/store/customers/customers.store";
-import { employeeListConfig } from "@/features/maintenance/employees/employee.list.config";
-import { categoryListConfig } from "@/features/maintenance/categories/categories.list.config";
-import { areaListConfig } from "@/features/maintenance/areas/area.list.config";
-import { providerListConfig } from "@/features/maintenance/providers/provider.list.config";
-import { holidaysListConfig } from "@/features/maintenance/holidays/holidays.list.config";
-import { customerListConfig } from "@/features/customers/customer.list.config";
+import { useCategoriesQuery } from "@/modules/maintenance/categories/useCategoriesQuery";
+import { useAreasQuery } from "@/modules/maintenance/areas/useAreasQuery";
+import { useProvidersQuery } from "@/modules/maintenance/providers/useProvidersQuery";
+import { useHolidaysQuery } from "@/modules/maintenance/holidays/useHolidaysQuery";
+import { useClientsStore } from "@/store/clients/clients.store";
+import { employeeListConfig } from "@/modules/maintenance/employees/employee.list.config";
+import { categoryListConfig } from "@/modules/maintenance/categories/category.list.config";
+import { areaListConfig } from "@/modules/maintenance/areas/area.list.config";
+import { providerListConfig } from "@/modules/maintenance/providers/provider.list.config";
+import { holidaysListConfig } from "@/modules/maintenance/holidays/holidays.list.config";
+import { clientListConfig } from "@/modules/maintenance/clients/client.list.config";
 import type { ModuleListConfig } from "@/shared/config/listConfig";
 
 const useEmployeeListDeps = () => {
@@ -77,7 +77,7 @@ const useHolidayListDeps = () => {
   };
 };
 
-const useCustomerListDeps = () => {
+const useClientListDeps = () => {
   const { clients, fetchClients, deleteClient } = useClientsStore();
   return {
     data: clients,
@@ -124,9 +124,9 @@ export const listRegistry = {
     useDeps: useHolidayListDeps,
   } satisfies ListModuleEntry<any>,
 
-  customers: {
-    config: customerListConfig,
-    useDeps: useCustomerListDeps,
+  clients: {
+    config: clientListConfig,
+    useDeps: useClientListDeps,
   } satisfies ListModuleEntry<any>,
 } as const;
 

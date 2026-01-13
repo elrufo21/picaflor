@@ -11,8 +11,8 @@ const EmployeeCreate = () => {
   const handleSave = async (
     data: Personal & { imageFile?: File | null; imageRemoved?: boolean }
   ) => {
-    const created = await addEmployee(data);
-    if (!created) {
+    const ok = await addEmployee(data);
+    if (!ok) {
       toast.error("No se pudo crear el empleado");
       return;
     }
@@ -20,9 +20,13 @@ const EmployeeCreate = () => {
     navigate("/maintenance/employees");
   };
 
+  const handleNew = () => {
+    navigate("/maintenance/employees/create");
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-4">
-      <EmployeeForm mode="create" onSave={handleSave} onNew={() => {}} />
+      <EmployeeForm mode="create" onSave={handleSave} onNew={handleNew} />
     </div>
   );
 };

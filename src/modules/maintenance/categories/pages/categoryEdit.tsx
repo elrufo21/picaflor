@@ -25,7 +25,7 @@ const CategoryEdit = () => {
   const handleSave = async (data: Category) => {
     const ok = await updateCategory(Number(id), data);
     if (!ok) {
-      toast.error("No se pudo actualizar la categoría");
+      toast.error("Ya existe esa categoria");
       return;
     }
     toast.success("Categoría actualizada");

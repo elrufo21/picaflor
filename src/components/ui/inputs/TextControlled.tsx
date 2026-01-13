@@ -15,6 +15,7 @@ type Props<T extends FieldValues> = Omit<
   control: Control<T>;
   defaultValue?: T[Path<T>];
   transform?: (value: string) => string;
+  displayZeroAsEmpty?: boolean;
 };
 
 function TextControlled<T extends FieldValues>({
@@ -22,6 +23,7 @@ function TextControlled<T extends FieldValues>({
   control,
   defaultValue,
   transform,
+  displayZeroAsEmpty,
   ...rest
 }: Props<T>) {
   return (
@@ -30,11 +32,16 @@ function TextControlled<T extends FieldValues>({
       control={control}
       defaultValue={defaultValue}
       render={({ field, fieldState }) => {
-        const { ref, onChange, ...fieldProps } = field;
+        const { ref, onChange, value, ...fieldProps } = field;
+        const displayValue =
+          displayZeroAsEmpty && (value === 0 || value === "0")
+            ? ""
+            : value ?? "";
         return (
           <TextField
             {...rest}
             {...fieldProps}
+            value={displayValue}
             inputRef={ref} // 🔥 CLAVE ABSOLUTA
             onChange={(
               event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -53,7 +60,7 @@ function TextControlled<T extends FieldValues>({
             }}
             fullWidth
             error={!!fieldState.error}
-            helperText={fieldState.error?.message || rest.helperText}
+            helperText={rest.helperText}
           />
         );
       }}
