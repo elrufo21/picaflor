@@ -4,9 +4,396 @@ import {
   Text,
   View,
   StyleSheet,
-  PDFViewer,
   Image,
 } from "@react-pdf/renderer";
+
+/* =========================
+   DATA
+========================= */
+
+type InvoiceActivity = {
+  label: string;
+  actividad: string;
+  cantidad?: number | null;
+};
+
+type InvoiceItem = {
+  label: string;
+  descripcion: string;
+  precio?: number | null;
+  cantidad?: number | null;
+  subtotal?: number | null;
+};
+
+export type InvoiceData = {
+  destino: string;
+  fechaViaje: string;
+  auxiliar: string;
+  telefonos: string;
+  fechaEmision: string;
+  counter: string;
+  condicion: string;
+  pasajeroNombre: string;
+  pasajeroDocumento: string;
+  pasajeroContacto: string;
+  pasajeroCant: number | null;
+  actividades: InvoiceActivity[];
+  detalleServicio: {
+    puntoPartida: string;
+    horaPartida: string;
+    otrosPuntos: string;
+    visitas: string;
+  };
+  items: InvoiceItem[];
+  impuestos: number;
+  cargos: number;
+  extraSoles: number;
+  extraDolares: number;
+  total: number;
+  acuenta: number;
+  saldo: number;
+  fechaAdelanto: string;
+  medioPago: string;
+  documento: string;
+  nroDocumento: string;
+  observaciones: string;
+};
+
+type OptionItem = { value: string; label: string };
+
+type TarifaRow = {
+  id: string;
+  precioUnit?: number;
+  cantidad?: number;
+};
+
+type BuildInvoiceFormValues = {
+  nombreCompleto?: string;
+  documentoTipo?: string;
+  documentoNumero?: string;
+  celular?: string;
+  telefono?: string;
+  cantPax?: number;
+  fechaViaje?: string;
+  fechaPago?: string;
+  fechaEmision?: string;
+  canalVenta?: unknown;
+  counter?: string;
+  condicion?: unknown;
+  puntoPartida?: string;
+  otrosPartidas?: string;
+  horaPresentacion?: string;
+  visitas?: string;
+  tarifaTour?: string;
+  actividad1?: string;
+  actividad2?: string;
+  actividad3?: string;
+  traslados?: string;
+  entradas?: string;
+  impuesto?: number;
+  cargosExtras?: number;
+  cobroExtraSol?: number;
+  cobroExtraDol?: number;
+  acuenta?: number;
+  medioPago?: string;
+  documentoCobranza?: string;
+  nserie?: string;
+  ndocumento?: string;
+  notas?: string;
+  destino?: string;
+};
+
+type BuildInvoiceDataInput = {
+  values: BuildInvoiceFormValues;
+  pkg?: { destino?: string };
+  tarifaRows?: TarifaRow[];
+  tarifaTotal?: number;
+  totalPagar?: number;
+  saldo?: number;
+  partidas?: OptionItem[];
+  almuerzos?: OptionItem[];
+  actividades?: OptionItem[];
+  trasladosOptions?: OptionItem[];
+};
+
+const DEFAULT_INVOICE_DATA: InvoiceData = {
+  destino: "FULL DAY PARACAS",
+  fechaViaje: "17/02/2023",
+  auxiliar: "**DIRECTO",
+  telefonos: "924228332",
+  fechaEmision: "17/02/2023 03:39:57",
+  counter: "ANDRE RAMIREZ",
+  condicion: "CANCELADO",
+  pasajeroNombre: "Ruben Vasquez",
+  pasajeroDocumento: "75614167",
+  pasajeroContacto: "987654321",
+  pasajeroCant: 3,
+  actividades: [
+    {
+      label: "Actividades Opcionales 1",
+      actividad: "EXCURSION ISLAS BALLESTAS",
+      cantidad: 5,
+    },
+    {
+      label: "Actividades Opcionales 2",
+      actividad: "AVENTURA EN TUBULARES Y SANDBOARD",
+      cantidad: 5,
+    },
+    {
+      label: "Actividades Opcionales 3",
+      actividad: "-",
+      cantidad: null,
+    },
+  ],
+  detalleServicio: {
+    puntoPartida: "puntoPartida",
+    horaPartida: "horaPartida",
+    otrosPuntos: "otrosPuntos",
+    visitas: "visitas",
+  },
+  items: [
+    {
+      label: "Tarifa de Tour :",
+      descripcion: "NO INCLUYE ALMUERZO",
+      precio: 74,
+      cantidad: 5,
+      subtotal: 370,
+    },
+    {
+      label: "Actividad 01 :",
+      descripcion: "EXCURSION ISLAS BALLESTAS",
+    },
+    {
+      label: "Actividad 02 :",
+      descripcion: "AVENTURA EN TUBULARES Y SANDBOARD",
+      precio: 35,
+      cantidad: 5,
+      subtotal: 175,
+    },
+    {
+      label: "Actividad 03 :",
+      descripcion: "-",
+    },
+    {
+      label: "Traslados :",
+      descripcion: "-",
+    },
+    {
+      label: "Entradas :",
+      descripcion: "IMPTOS DE ISLAS + MUELLE",
+      precio: 16,
+      cantidad: 5,
+      subtotal: 80,
+    },
+  ],
+  impuestos: 0,
+  cargos: 0,
+  extraSoles: 0,
+  extraDolares: 0,
+  total: 625,
+  acuenta: 625,
+  saldo: 0,
+  fechaAdelanto: "13/01/2026",
+  medioPago: "EFECTIVO",
+  documento: "DOCUMENTO COBRANZA",
+  nroDocumento: "0001-00024585",
+  observaciones: "RECOJO Y RETORNO",
+};
+
+const toNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const textValue = (value: unknown) => String(value ?? "").trim();
+
+const resolveOptionLabel = (
+  options: OptionItem[] | undefined,
+  value: unknown
+) => {
+  const key = textValue(value);
+  if (!key || key === "-") return "";
+  const found = options?.find((opt) => String(opt.value) === key);
+  return found?.label ?? key;
+};
+
+const resolveSelectLabel = (value: unknown) => {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "object") {
+    const typed = value as { label?: string; value?: string };
+    return textValue(typed.label ?? typed.value);
+  }
+  return textValue(value);
+};
+
+const resolveCanal = (value: unknown) => {
+  if (!value) return { auxiliar: "", telefono: "" };
+  if (typeof value === "string") return { auxiliar: value.trim(), telefono: "" };
+  const typed = value as {
+    auxiliar?: string;
+    label?: string;
+    value?: string;
+    contacto?: string;
+    telefono?: string;
+  };
+  return {
+    auxiliar: textValue(
+      typed.auxiliar ?? typed.label ?? typed.value ?? typed.contacto
+    ),
+    telefono: textValue(typed.telefono),
+  };
+};
+
+const resolvePartida = (
+  value: unknown,
+  partidas: OptionItem[] | undefined
+) => {
+  const key = textValue(value);
+  if (!key) return "";
+  if (key === "HOTEL" || key === "OTROS") return key;
+  return resolveOptionLabel(partidas, key) || key;
+};
+
+const buildDocumentoNumero = (serie: unknown, numero: unknown) => {
+  const serieValue = textValue(serie);
+  const numeroValue = textValue(numero);
+  if (serieValue && numeroValue) {
+    return `${serieValue}-${numeroValue}`;
+  }
+  return serieValue || numeroValue;
+};
+
+export const buildInvoiceData = ({
+  values,
+  pkg,
+  tarifaRows,
+  tarifaTotal,
+  totalPagar,
+  saldo,
+  partidas,
+  almuerzos,
+  actividades,
+  trasladosOptions,
+}: BuildInvoiceDataInput): InvoiceData => {
+  const rows = tarifaRows ?? [];
+  const findRow = (id: string) => rows.find((row) => row.id === id);
+  const canal = resolveCanal(values.canalVenta);
+  const telefonos =
+    canal.telefono || textValue(values.telefono) || textValue(values.celular);
+  const pasajeroContacto =
+    textValue(values.celular) || textValue(values.telefono);
+  const pasajeroDocumento =
+    textValue(values.documentoNumero) || textValue(values.documentoTipo);
+  const actividadRows = [
+    { key: "actividad1", label: "Actividades Opcionales 1" },
+    { key: "actividad2", label: "Actividades Opcionales 2" },
+    { key: "actividad3", label: "Actividades Opcionales 3" },
+  ];
+  const actividadesData = actividadRows.map((row) => {
+    const value = (values as Record<string, unknown>)[row.key];
+    const actividad = resolveOptionLabel(actividades, value) || "-";
+    const cantidad = toNumber(findRow(row.key)?.cantidad);
+    return {
+      label: row.label,
+      actividad,
+      cantidad: actividad === "-" ? null : cantidad || null,
+    };
+  });
+
+  const buildItem = (id: string, label: string, descripcion: string) => {
+    const row = findRow(id);
+    const precio = toNumber(row?.precioUnit);
+    const cantidad = toNumber(row?.cantidad);
+    const hasNumbers = precio > 0 || cantidad > 0;
+    return {
+      label,
+      descripcion: descripcion || "-",
+      precio: hasNumbers ? precio : null,
+      cantidad: hasNumbers ? cantidad : null,
+      subtotal: hasNumbers ? Number((precio * cantidad).toFixed(2)) : null,
+    };
+  };
+
+  const items = [
+    buildItem(
+      "tarifaTour",
+      "Tarifa de Tour :",
+      resolveOptionLabel(almuerzos, values.tarifaTour) || "-"
+    ),
+    buildItem(
+      "actividad1",
+      "Actividad 01 :",
+      resolveOptionLabel(actividades, values.actividad1) || "-"
+    ),
+    buildItem(
+      "actividad2",
+      "Actividad 02 :",
+      resolveOptionLabel(actividades, values.actividad2) || "-"
+    ),
+    buildItem(
+      "actividad3",
+      "Actividad 03 :",
+      resolveOptionLabel(actividades, values.actividad3) || "-"
+    ),
+    buildItem(
+      "traslados",
+      "Traslados :",
+      resolveOptionLabel(trasladosOptions, values.traslados) || "-"
+    ),
+    buildItem("entradas", "Entradas :", textValue(values.entradas) || "-"),
+  ];
+
+  const impuestos = toNumber(values.impuesto);
+  const cargos = toNumber(values.cargosExtras);
+  const extraSoles = toNumber(values.cobroExtraSol);
+  const extraDolares = toNumber(values.cobroExtraDol);
+  const subtotal = toNumber(tarifaTotal);
+  const total =
+    totalPagar !== undefined
+      ? toNumber(totalPagar)
+      : subtotal + impuestos + cargos + extraSoles;
+  const acuenta = toNumber(values.acuenta);
+  const saldoValue = saldo !== undefined ? toNumber(saldo) : total - acuenta;
+
+  return {
+    destino: textValue(values.destino) || textValue(pkg?.destino),
+    fechaViaje: textValue(values.fechaViaje),
+    auxiliar: canal.auxiliar,
+    telefonos,
+    fechaEmision: textValue(values.fechaEmision),
+    counter: textValue(values.counter),
+    condicion: resolveSelectLabel(values.condicion),
+    pasajeroNombre: textValue(values.nombreCompleto),
+    pasajeroDocumento: pasajeroDocumento || "-",
+    pasajeroContacto: pasajeroContacto || "-",
+    pasajeroCant: toNumber(values.cantPax) || null,
+    actividades: actividadesData,
+    detalleServicio: {
+      puntoPartida: resolvePartida(values.puntoPartida, partidas),
+      horaPartida: textValue(values.horaPresentacion),
+      otrosPuntos: textValue(values.otrosPartidas) || "-",
+      visitas: textValue(values.visitas),
+    },
+    items,
+    impuestos,
+    cargos,
+    extraSoles,
+    extraDolares,
+    total,
+    acuenta,
+    saldo: saldoValue,
+    fechaAdelanto: textValue(values.fechaPago),
+    medioPago: textValue(values.medioPago),
+    documento: textValue(values.documentoCobranza),
+    nroDocumento: buildDocumentoNumero(values.nserie, values.ndocumento),
+    observaciones: textValue(values.notas),
+  };
+};
+
+/* =========================
+   STYLES GENERALES (COMPACTO)
+========================= */
 
 const styles = StyleSheet.create({
   page: {
@@ -14,595 +401,560 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     fontFamily: "Helvetica",
   },
-  header: {
-    backgroundColor: "#f89b2e",
-    padding: 15,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  logo: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-  },
-  headerRight: {
-    alignItems: "flex-end",
-  },
-  headerTitle: {
-    fontSize: 12,
-    color: "#ffffff",
-    fontWeight: "bold",
-  },
-  headerSubtitle: {
-    fontSize: 10,
-    color: "#ffffff",
-  },
   content: {
-    padding: 15,
+    padding: 10, // 👈 antes 15
   },
   title: {
-    fontSize: 14,
+    fontSize: 12, // 👈 antes 14
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 6,
   },
   infoRow: {
     flexDirection: "row",
-    marginBottom: 5,
+    marginBottom: 3,
   },
   infoLabel: {
-    fontSize: 9,
+    fontSize: 8,
     width: "30%",
     fontWeight: "bold",
   },
   infoValue: {
-    fontSize: 9,
+    fontSize: 8,
     width: "70%",
-  },
-  section: {
-    marginTop: 15,
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 10,
-    fontWeight: "bold",
-    backgroundColor: "#000000",
-    color: "#ffffff",
-    padding: 5,
-    marginBottom: 5,
-  },
-  table: {
-    width: "100%",
-    marginTop: 5,
-  },
-  tableHeader: {
-    flexDirection: "row",
-    backgroundColor: "#4a4a4a",
-    padding: 5,
-  },
-  tableHeaderCell: {
-    color: "#ffffff",
-    fontSize: 8,
-    fontWeight: "bold",
-  },
-  tableRow: {
-    flexDirection: "row",
-    backgroundColor: "#e0e0e0",
-    padding: 5,
-    marginTop: 2,
-  },
-  tableCell: {
-    fontSize: 8,
-  },
-  orangeRow: {
-    flexDirection: "row",
-    backgroundColor: "#f89b2e",
-    padding: 5,
-    marginTop: 2,
-  },
-  orangeLabel: {
-    fontSize: 8,
-    color: "#ffffff",
-    fontWeight: "bold",
-    width: "60%",
-  },
-  orangeValue: {
-    fontSize: 8,
-    color: "#ffffff",
-    width: "20%",
-    textAlign: "center",
-  },
-  grayRow: {
-    flexDirection: "row",
-    backgroundColor: "#d0d0d0",
-    padding: 5,
-    marginTop: 2,
-  },
-  grayLabel: {
-    fontSize: 8,
-    width: "60%",
-  },
-  grayValue: {
-    fontSize: 8,
-    width: "20%",
-    textAlign: "center",
-  },
-  yellowRow: {
-    flexDirection: "row",
-    backgroundColor: "#ffd966",
-    padding: 5,
-    marginTop: 2,
-  },
-  yellowLabel: {
-    fontSize: 8,
-    fontWeight: "bold",
-    width: "60%",
-  },
-  priceSection: {
-    marginTop: 15,
-  },
-  priceTitle: {
-    fontSize: 10,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  priceRow: {
-    flexDirection: "row",
-    marginBottom: 5,
-  },
-  priceLabel: {
-    fontSize: 9,
-    fontWeight: "bold",
-    width: "40%",
-  },
-  priceValue: {
-    fontSize: 9,
-    width: "30%",
-  },
-  blueBox: {
-    backgroundColor: "#4a6fa5",
-    padding: 10,
-    marginTop: 10,
-    alignItems: "center",
-  },
-  blueBoxText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  detailRow: {
-    flexDirection: "row",
-    padding: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  detailLabel: {
-    fontSize: 9,
-    width: "30%",
-    fontWeight: "bold",
-  },
-  detailValue: {
-    fontSize: 9,
-    width: "70%",
-  },
-  visitasBox: {
-    backgroundColor: "#f5f5f5",
-    padding: 8,
-    marginTop: 5,
-  },
-  visitasText: {
-    fontSize: 8,
   },
 });
 
-const PdfDocument = () => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.logo}>✈ Viajes Picaflor</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <Text style={styles.headerTitle}>LIQUIDACION</Text>
-          <Text style={styles.headerSubtitle}>DE SERVICIO TURISTICO</Text>
-        </View>
-      </View>
+/* =========================
+   CONTACT STYLES (COMPACTO)
+========================= */
 
-      {/* Content */}
-      <View style={styles.content}>
-        {/* Title */}
-        <Text style={styles.title}>FULL DAY PARACAS</Text>
+const contactS = StyleSheet.create({
+  section: { marginTop: 8 },
+  title: { fontSize: 9, fontWeight: "bold", marginBottom: 3 },
 
-        {/* Info Section */}
-        <View style={{ flexDirection: "row", marginBottom: 10 }}>
-          <View style={{ width: "50%" }}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Fecha de Viaje:</Text>
-              <Text style={styles.infoValue}>17/02/2023</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Auxiliar:</Text>
-              <Text style={styles.infoValue}>**DIRECTO</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Teléfonos:</Text>
-              <Text style={styles.infoValue}>924228332</Text>
-            </View>
+  table: { width: "100%", borderWidth: 1, borderColor: "#000" },
+  headerRow: { flexDirection: "row", backgroundColor: "#000" },
+  headerCell: {
+    color: "#FFF",
+    fontSize: 8,
+    fontWeight: "bold",
+    padding: 3,
+    borderRightWidth: 1,
+    borderRightColor: "#000",
+    textAlign: "center",
+  },
+  bodyRow: { flexDirection: "row", backgroundColor: "#FFF9EE" },
+  bodyCell: {
+    fontSize: 8,
+    padding: 3,
+    borderRightWidth: 1,
+    borderRightColor: "#000",
+    textAlign: "center",
+  },
+  lastCell: { borderRightWidth: 0 },
+
+  /* ACTIVIDADES */
+  activityRowFixed: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    marginBottom: 1,
+  },
+  activityLeft: { flexDirection: "row", width: "70%" },
+  activityLabelFixed: {
+    width: "35%",
+    backgroundColor: "#3F4348",
+    color: "#FFF",
+    fontSize: 8,
+    padding: 4,
+  },
+  activityValueFixed: {
+    width: "65%",
+    backgroundColor: "#EEECE7",
+    fontSize: 8,
+    padding: 4,
+  },
+  activityArrowFixed: {
+    width: "5%",
+    textAlign: "center",
+    fontSize: 9,
+    alignSelf: "center",
+  },
+  activityRight: { flexDirection: "row", width: "25%" },
+  activityQtyLabelFixed: {
+    width: "65%",
+    backgroundColor: "#3F4348",
+    color: "#FFF",
+    fontSize: 8,
+    padding: 4,
+    textAlign: "center",
+  },
+  activityQtyValueFixed: {
+    width: "35%",
+    backgroundColor: "#EEECE7",
+    fontSize: 8,
+    padding: 4,
+    textAlign: "center",
+  },
+
+  /* DETALLE SERVICIO */
+  detailSection: { marginTop: 8 },
+  detailTitle: { fontSize: 9, fontWeight: "bold", marginBottom: 3 },
+  detailRow: { flexDirection: "row" },
+  detailLabel: {
+    width: "25%",
+    backgroundColor: "#3F4348",
+    color: "#FFF",
+    fontSize: 8,
+    padding: 4,
+  },
+  detailValue: {
+    width: "45%",
+    backgroundColor: "#EEECE7",
+    fontSize: 8,
+    padding: 4,
+  },
+  detailHourLabel: {
+    width: "18%",
+    backgroundColor: "#3F4348",
+    color: "#FFF",
+    fontSize: 8,
+    padding: 4,
+    textAlign: "center",
+  },
+  detailHourValue: {
+    width: "12%",
+    backgroundColor: "#EEECE7",
+    fontSize: 8,
+    padding: 4,
+    textAlign: "center",
+  },
+  detailFullValue: {
+    width: "75%",
+    backgroundColor: "#EEECE7",
+    fontSize: 8,
+    padding: 4,
+  },
+
+  /* TARIFA */
+  tarifaSection: { marginTop: 8 },
+  tarifaHeaderRow: {
+    flexDirection: "row",
+    backgroundColor: "#EEECE7",
+    paddingVertical: 2,
+  },
+  tarifaTitle: {
+    width: "55%",
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  tarifaColHeader: {
+    width: "15%",
+    fontSize: 8,
+    color: "#C05A1A",
+    textAlign: "center",
+  },
+  tarifaRow: { flexDirection: "row", minHeight: 14 },
+  tarifaLabel: {
+    width: "20%",
+    backgroundColor: "#ED8A3A",
+    color: "#FFF",
+    fontSize: 8,
+    padding: 3,
+  },
+  tarifaDesc: { width: "35%", fontSize: 8, padding: 3 },
+  tarifaUnit: { width: "15%", fontSize: 8, textAlign: "center", padding: 3 },
+  tarifaCant: { width: "15%", fontSize: 8, textAlign: "center", padding: 3 },
+  tarifaSub: {
+    width: "15%",
+    fontSize: 8,
+    textAlign: "right",
+    padding: 3,
+  },
+
+  divider: { height: 6, backgroundColor: "#EEECE7", marginVertical: 4 },
+
+  taxRow: { flexDirection: "row" },
+  taxLabel: {
+    width: "20%",
+    backgroundColor: "#FFD000",
+    fontSize: 8,
+    padding: 3,
+  },
+  taxValue: { width: "65%", fontSize: 8, padding: 3 },
+  taxAmount: {
+    width: "15%",
+    fontSize: 8,
+    textAlign: "right",
+    padding: 3,
+  },
+
+  extraRow: { flexDirection: "row", backgroundColor: "#FFF9EE" },
+
+  /* LIQUIDACION */
+  liquidationSection: {
+    marginTop: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  liquidationTitle: { fontSize: 9, fontWeight: "bold", marginBottom: 4 },
+  liquidationTable: { width: "48%" },
+  liquidationRow: { flexDirection: "row" },
+  liquidationLabel: {
+    width: "45%",
+    backgroundColor: "#FFD000",
+    fontSize: 8,
+    fontWeight: "bold",
+    padding: 4,
+  },
+  liquidationCurrency: {
+    width: "15%",
+    backgroundColor: "#EEECE7",
+    fontSize: 8,
+    padding: 4,
+    textAlign: "center",
+  },
+  liquidationAmount: {
+    width: "40%",
+    backgroundColor: "#EEECE7",
+    fontSize: 8,
+    padding: 4,
+    textAlign: "right",
+  },
+  noDebtBox: {
+    marginTop: 8,
+    backgroundColor: "#2F5597",
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  noDebtText: {
+    color: "#FFF",
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+
+  paymentInfoBox: { width: "48%" },
+  paymentRow: { flexDirection: "row" },
+  paymentLabel: {
+    width: "50%",
+    backgroundColor: "#2E6DA4",
+    color: "#FFF",
+    fontSize: 8,
+    padding: 4,
+  },
+  paymentValue: {
+    width: "50%",
+    backgroundColor: "#E3F0F8",
+    fontSize: 8,
+    padding: 4,
+  },
+
+  obsBox: { marginTop: 8 },
+  obsTitle: { fontSize: 9, fontWeight: "bold", marginBottom: 3 },
+  obsContent: {
+    backgroundColor: "#EEECE7",
+    minHeight: 30,
+    fontSize: 8,
+    padding: 4,
+  },
+});
+
+/* =========================
+   PDF
+========================= */
+
+const PdfDocument = ({ data }: { data?: InvoiceData }) => {
+  const invoiceData = data ?? DEFAULT_INVOICE_DATA;
+  const {
+    destino,
+    fechaViaje,
+    auxiliar,
+    telefonos,
+    fechaEmision,
+    counter,
+    condicion,
+    pasajeroNombre,
+    pasajeroDocumento,
+    pasajeroContacto,
+    pasajeroCant,
+    actividades,
+    detalleServicio,
+    items,
+    impuestos,
+    cargos,
+    extraSoles,
+    extraDolares,
+    total,
+    acuenta,
+    saldo,
+    fechaAdelanto,
+    medioPago,
+    documento,
+    nroDocumento,
+    observaciones,
+  } = invoiceData;
+
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <Image src="/images/invoice/header.jpeg" />
+
+        <View style={styles.content}>
+          <Text style={styles.title}>{destino || "-"}</Text>
+
+          {/* Info Section */}
+          <View style={{ flexDirection: "row", marginBottom: 10 }}>
+            {[
+              [
+                ["Fecha de Viaje:", fechaViaje || "-"],
+                ["Auxiliar:", auxiliar || "-"],
+                ["Telefonos:", telefonos || "-"],
+              ],
+              [
+                ["Fecha de Emision:", fechaEmision || "-"],
+                ["Counter:", counter || "-"],
+                ["Condicion:", condicion || "-"],
+              ],
+            ].map((col, i) => (
+              <View key={i} style={{ width: "50%" }}>
+                {col.map(([l, v], j) => (
+                  <View key={j} style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>{l}</Text>
+                    <Text style={styles.infoValue}>{v}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
           </View>
-          <View style={{ width: "50%" }}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Fecha de Emisión:</Text>
-              <Text style={styles.infoValue}>17/02/2023 03:39:57</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Counter:</Text>
-              <Text style={styles.infoValue}>ANDRE RAMIREZ</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Condición:</Text>
-              <Text style={styles.infoValue}>CANCELADO</Text>
-            </View>
-          </View>
-        </View>
+          <View style={contactS.section}>
+            {/* TITULO */}
+            <Text style={contactS.title}>CONTACTO Y ACTIVIDADES DEL PAX :</Text>
 
-        {/* Contact Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            CONTACTO Y ACTIVIDADES DEL PAX :
-          </Text>
-
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { width: "40%" }]}>
-              Nombre y Apellido del Pasajero
-            </Text>
-            <Text style={[styles.tableHeaderCell, { width: "30%" }]}>
-              D.N.I / Pasaporte
-            </Text>
-            <Text style={[styles.tableHeaderCell, { width: "15%" }]}>
-              Cant de PAX
-            </Text>
-            <Text style={[styles.tableHeaderCell, { width: "15%" }]}>
-              Cant de PAX
-            </Text>
-          </View>
-
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableCell, { width: "40%" }]}>
-              ANDRE RAMIREZ CALLA
-            </Text>
-            <Text style={[styles.tableCell, { width: "30%" }]}>48065873</Text>
-            <Text style={[styles.tableCell, { width: "15%" }]}>924228332</Text>
-            <Text style={[styles.tableCell, { width: "15%" }]}>1</Text>
-          </View>
-
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableCell, { width: "60%" }]}>
-              Actividades Opcionales 1
-            </Text>
-            <Text style={[styles.tableCell, { width: "25%" }]}>
-              EXCURSIÓN ISLAS BALLESTAS
-            </Text>
-            <Text style={[styles.tableCell, { width: "15%" }]}>
-              Cantidad Activ. 1
-            </Text>
-          </View>
-
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableCell, { width: "60%" }]}>
-              Actividades Opcionales 2
-            </Text>
-            <Text style={[styles.tableCell, { width: "25%" }]}>
-              AVENTURA EN TUBULARES Y SANDBOARD
-            </Text>
-            <Text style={[styles.tableCell, { width: "15%" }]}>
-              Cantidad Activ. 1
-            </Text>
-          </View>
-
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableCell, { width: "60%" }]}>
-              Actividades Opcionales 3
-            </Text>
-            <Text style={[styles.tableCell, { width: "25%" }]}>-</Text>
-            <Text style={[styles.tableCell, { width: "15%" }]}>
-              Cantidad Activ.
-            </Text>
-          </View>
-        </View>
-
-        {/* Service Detail Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            DETALLE DEL SERVICIO TURISTICO :
-          </Text>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Punto de Partida</Text>
-            <Text style={styles.detailValue}>PLAZA NORTE</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Otros Puntos de Partida</Text>
-            <Text style={styles.detailValue}></Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Hora de Partida</Text>
-            <Text style={styles.detailValue}>04:30</Text>
-          </View>
-
-          <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.detailLabel}>Visitas y Excursiones</Text>
-          </View>
-
-          <View style={styles.visitasBox}>
-            <Text style={styles.visitasText}>
-              BALNEARIO CERRO AZUL + PLAZA DE CAÑETE + PLAZA PRINCIPAL DE
-              LUNAHUANÁ + CATAPALLA + DEGUSTACIÓN DE VINOS Y PISCO.
-            </Text>
-          </View>
-        </View>
-
-        {/* Price Detail Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>DETALLE DE TARIFA :</Text>
-
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { width: "60%" }]}></Text>
-            <Text
-              style={[
-                styles.tableHeaderCell,
-                { width: "15%", textAlign: "center" },
-              ]}
-            >
-              Precio Unit.
-            </Text>
-            <Text
-              style={[
-                styles.tableHeaderCell,
-                { width: "10%", textAlign: "center" },
-              ]}
-            >
-              Cant.
-            </Text>
-            <Text
-              style={[
-                styles.tableHeaderCell,
-                { width: "15%", textAlign: "center" },
-              ]}
-            >
-              Sub Total
-            </Text>
-          </View>
-
-          <View style={styles.orangeRow}>
-            <Text style={styles.orangeLabel}>Tarifa de Tour :</Text>
-            <Text style={styles.orangeValue}>99.00</Text>
-            <Text style={[styles.orangeValue, { width: "10%" }]}>1</Text>
-            <Text style={[styles.orangeValue, { width: "15%" }]}>99.00</Text>
-          </View>
-
-          <View style={[styles.tableRow, { backgroundColor: "#ffffff" }]}>
-            <Text style={[styles.tableCell, { width: "85%" }]}>
-              NO INCLUYE ALMUERZO
-            </Text>
-          </View>
-
-          <View style={styles.orangeRow}>
-            <Text style={styles.orangeLabel}>Actividad 01 :</Text>
-            <Text style={styles.orangeValue}></Text>
-            <Text style={[styles.orangeValue, { width: "10%" }]}>1</Text>
-            <Text style={[styles.orangeValue, { width: "15%" }]}></Text>
-          </View>
-
-          <View style={[styles.tableRow, { backgroundColor: "#ffffff" }]}>
-            <Text style={[styles.tableCell, { width: "85%" }]}>
-              EXCURSIÓN ISLAS BALLESTAS
-            </Text>
-          </View>
-
-          <View style={styles.orangeRow}>
-            <Text style={styles.orangeLabel}>Actividad 02 :</Text>
-            <Text style={styles.orangeValue}>35.00</Text>
-            <Text style={[styles.orangeValue, { width: "10%" }]}>1</Text>
-            <Text style={[styles.orangeValue, { width: "15%" }]}>35.00</Text>
-          </View>
-
-          <View style={[styles.tableRow, { backgroundColor: "#ffffff" }]}>
-            <Text style={[styles.tableCell, { width: "85%" }]}>
-              AVENTURA EN TUBULARES Y SANDBOARD
-            </Text>
-          </View>
-
-          <View style={styles.orangeRow}>
-            <Text style={styles.orangeLabel}>Actividad 03 :</Text>
-            <Text style={styles.orangeValue}></Text>
-            <Text style={[styles.orangeValue, { width: "10%" }]}></Text>
-            <Text style={[styles.orangeValue, { width: "15%" }]}></Text>
-          </View>
-
-          <View style={[styles.tableRow, { backgroundColor: "#ffffff" }]}>
-            <Text style={[styles.tableCell, { width: "85%" }]}>-</Text>
-          </View>
-
-          <View style={styles.orangeRow}>
-            <Text style={styles.orangeLabel}>Traslados :</Text>
-            <Text style={styles.orangeValue}></Text>
-            <Text style={[styles.orangeValue, { width: "10%" }]}></Text>
-            <Text style={[styles.orangeValue, { width: "15%" }]}></Text>
-          </View>
-
-          <View style={[styles.tableRow, { backgroundColor: "#ffffff" }]}>
-            <Text style={[styles.tableCell, { width: "85%" }]}>-</Text>
-          </View>
-
-          <View style={styles.orangeRow}>
-            <Text style={styles.orangeLabel}>Entradas :</Text>
-            <Text style={styles.orangeValue}>16.00</Text>
-            <Text style={[styles.orangeValue, { width: "10%" }]}>1</Text>
-            <Text style={[styles.orangeValue, { width: "15%" }]}>16.00</Text>
-          </View>
-
-          <View style={[styles.tableRow, { backgroundColor: "#ffffff" }]}>
-            <Text style={[styles.tableCell, { width: "85%" }]}>
-              IMPTOS DE ISLAS + MUELLE
-            </Text>
-          </View>
-
-          <View style={styles.grayRow}>
-            <Text style={styles.grayLabel}>Impuestos (I.G.V.):</Text>
-            <Text style={styles.grayValue}>N/A</Text>
-          </View>
-
-          <View style={styles.grayRow}>
-            <Text style={styles.grayLabel}>Cargos:</Text>
-            <Text style={styles.grayValue}>N/A</Text>
-          </View>
-
-          <View style={styles.yellowRow}>
-            <Text style={styles.yellowLabel}>Cobros Extras:</Text>
-            <Text style={[styles.grayValue, { width: "40%" }]}>
-              En Soles ( S/ ) -{">"} 0.00 | En Dólares ( US$ ) 0.00
-            </Text>
-          </View>
-        </View>
-
-        {/* Final Price Section */}
-        <View style={styles.priceSection}>
-          <Text style={styles.priceTitle}>PRECIO DE LA LIQUIDACION</Text>
-
-          <View style={{ flexDirection: "row" }}>
-            <View style={{ width: "50%" }}>
-              <View style={styles.priceRow}>
+            {/* TABLA */}
+            <View style={contactS.table}>
+              {/* HEADER */}
+              <View style={contactS.headerRow}>
+                <Text style={[contactS.headerCell, { width: "35%" }]}>
+                  Nombre y Apellido del Pasajero
+                </Text>
+                <Text style={[contactS.headerCell, { width: "20%" }]}>
+                  D.N.I / Pasaporte
+                </Text>
+                <Text style={[contactS.headerCell, { width: "25%" }]}>
+                  Contacto del PAX
+                </Text>
                 <Text
                   style={[
-                    styles.priceLabel,
-                    { backgroundColor: "#ffd966", padding: 3 },
+                    contactS.headerCell,
+                    contactS.lastCell,
+                    { width: "20%" },
                   ]}
                 >
-                  TOTAL A PAGAR:
+                  Cant de PAX
                 </Text>
-                <Text style={styles.priceValue}>S/ 150.00</Text>
               </View>
 
-              <View style={styles.priceRow}>
+              {/* BODY */}
+              <View style={contactS.bodyRow}>
+                <Text style={[contactS.bodyCell, { width: "35%" }]}>
+                  {pasajeroNombre || "-"}
+                </Text>
+                <Text style={[contactS.bodyCell, { width: "20%" }]}>
+                  {pasajeroDocumento || "-"}
+                </Text>
+                <Text style={[contactS.bodyCell, { width: "25%" }]}>
+                  {pasajeroContacto || "-"}
+                </Text>
                 <Text
                   style={[
-                    styles.priceLabel,
-                    { backgroundColor: "#ffd966", padding: 3 },
+                    contactS.bodyCell,
+                    contactS.lastCell,
+                    { width: "20%" },
                   ]}
                 >
-                  A CUENTA
+                  {pasajeroCant ?? ""}
                 </Text>
-                <Text style={styles.priceValue}>S/ 150.00</Text>
-              </View>
-
-              <View style={styles.priceRow}>
-                <Text
-                  style={[
-                    styles.priceLabel,
-                    { backgroundColor: "#ffd966", padding: 3 },
-                  ]}
-                >
-                  SALDO:
-                </Text>
-                <Text style={styles.priceValue}>S/ 0.00</Text>
-              </View>
-
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Cobro Extra Soles:</Text>
-                <Text style={styles.priceValue}>S/ 0.00</Text>
-              </View>
-
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Cobro Extra Dólares:</Text>
-                <Text style={styles.priceValue}>US$ 0.00</Text>
-              </View>
-            </View>
-
-            <View style={{ width: "50%", paddingLeft: 20 }}>
-              <View style={styles.priceRow}>
-                <Text
-                  style={[
-                    styles.priceLabel,
-                    {
-                      backgroundColor: "#4a6fa5",
-                      color: "#ffffff",
-                      padding: 3,
-                    },
-                  ]}
-                >
-                  Fecha Adelanto:
-                </Text>
-                <Text style={styles.priceValue}>17/02/2023</Text>
-              </View>
-
-              <View style={styles.priceRow}>
-                <Text
-                  style={[
-                    styles.priceLabel,
-                    {
-                      backgroundColor: "#4a6fa5",
-                      color: "#ffffff",
-                      padding: 3,
-                    },
-                  ]}
-                >
-                  Medio de Pago:
-                </Text>
-                <Text style={styles.priceValue}>EFECTIVO</Text>
-              </View>
-
-              <View style={styles.priceRow}>
-                <Text
-                  style={[
-                    styles.priceLabel,
-                    {
-                      backgroundColor: "#4a6fa5",
-                      color: "#ffffff",
-                      padding: 3,
-                    },
-                  ]}
-                >
-                  Documento de Vta:
-                </Text>
-                <Text style={styles.priceValue}>DOCUMENTO COBRANZA</Text>
-              </View>
-
-              <View style={styles.priceRow}>
-                <Text
-                  style={[
-                    styles.priceLabel,
-                    {
-                      backgroundColor: "#4a6fa5",
-                      color: "#ffffff",
-                      padding: 3,
-                    },
-                  ]}
-                >
-                  Nº Documento:
-                </Text>
-                <Text style={styles.priceValue}>0001-00000001</Text>
               </View>
             </View>
           </View>
+          <View>
+            {actividades.map((item, index) => (
+              <View key={index} style={contactS.activityRowFixed}>
+                {/* IZQUIERDA */}
+                <View style={contactS.activityLeft}>
+                  <Text style={contactS.activityLabelFixed}>{item.label}</Text>
 
-          <Text style={[styles.priceTitle, { marginTop: 15 }]}>
-            OBSERVACIONES
-          </Text>
+                  <Text style={contactS.activityValueFixed}>
+                    {item.actividad || "-"}
+                  </Text>
+                </View>
 
-          <View style={styles.blueBox}>
-            <Text style={styles.blueBoxText}>El Pasajero No Tiene Deuda</Text>
+                {/* FLECHA */}
+                <Text style={contactS.activityArrowFixed}>-&gt;</Text>
+
+                {/* DERECHA */}
+                <View style={contactS.activityRight}>
+                  <Text style={contactS.activityQtyLabelFixed}>
+                    Cantidad Activ.
+                  </Text>
+                  <Text style={contactS.activityQtyValueFixed}>
+                    {item.cantidad ?? ""}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+          <View style={contactS.detailSection}>
+            {/* TITULO */}
+            <Text style={contactS.detailTitle}>
+              DETALLE DEL SERVICIO TURISTICO :
+            </Text>
+
+            {/* PUNTO DE PARTIDA */}
+            <View style={contactS.detailRow}>
+              <Text style={contactS.detailLabel}>Punto de Partida</Text>
+              <Text style={contactS.detailValue}>
+                {detalleServicio.puntoPartida || "-"}
+              </Text>
+              <Text style={contactS.detailHourLabel}>Hora de Partida</Text>
+              <Text style={contactS.detailHourValue}>
+                {detalleServicio.horaPartida || "-"}
+              </Text>
+            </View>
+
+            {/* OTROS PUNTOS */}
+            <View style={contactS.detailRow}>
+              <Text style={contactS.detailLabel}>Otros Puntos de Partida</Text>
+              <Text style={contactS.detailFullValue}>
+                {detalleServicio.otrosPuntos || "-"}
+              </Text>
+            </View>
+
+            {/* VISITAS */}
+            <View style={contactS.detailRow}>
+              <Text style={contactS.detailLabel}>
+                Visitas y{"\n"}Excursiones
+              </Text>
+              <Text style={contactS.detailFullValue}>
+                {detalleServicio.visitas || "-"}
+              </Text>
+            </View>
+          </View>
+          <View style={contactS.tarifaSection}>
+            {/* HEADER */}
+            <View style={contactS.tarifaHeaderRow}>
+              <Text style={contactS.tarifaTitle}>DETALLE DE TARIFA :</Text>
+              <Text style={contactS.tarifaColHeader}>Precio Unit.</Text>
+              <Text style={contactS.tarifaColHeader}>Cant.</Text>
+              <Text style={contactS.tarifaColHeader}>Sub Total</Text>
+            </View>
+
+            {/* ITEMS */}
+            {items.map((it, idx) => (
+              <View key={idx} style={contactS.tarifaRow}>
+                <Text style={contactS.tarifaLabel}>{it.label}</Text>
+                <Text style={contactS.tarifaDesc}>{it.descripcion}</Text>
+                <Text style={contactS.tarifaUnit}>
+                  {it.precio != null ? it.precio.toFixed(2) : ""}
+                </Text>
+                <Text style={contactS.tarifaCant}>{it.cantidad ?? ""}</Text>
+                <Text style={contactS.tarifaSub}>
+                  {it.subtotal != null ? it.subtotal.toFixed(2) : ""}
+                </Text>
+              </View>
+            ))}
+
+            {/* DIVIDER */}
+            <View style={contactS.divider} />
+
+            {/* IMPUESTOS */}
+            <View style={contactS.taxRow}>
+              <Text style={contactS.taxLabel}>Impuestos (I.G.V.) :</Text>
+              <Text style={contactS.taxValue}>N/A</Text>
+              <Text style={contactS.taxAmount}>{impuestos.toFixed(2)}</Text>
+            </View>
+
+            {/* CARGOS */}
+            <View style={contactS.taxRow}>
+              <Text style={contactS.taxLabel}>Cargos :</Text>
+              <Text style={contactS.taxValue}>N/A</Text>
+              <Text style={contactS.taxAmount}>{cargos.toFixed(2)}</Text>
+            </View>
+
+            {/* EXTRAS */}
+            <View style={contactS.extraRow}>
+              <Text style={contactS.taxLabel}>Cobros Extras :</Text>
+              <Text style={contactS.taxValue}>
+                En Soles ( S/ ) {extraSoles.toFixed(2)}
+                {"   |   "}
+                En Dolares ( US$ ) {extraDolares.toFixed(2)}
+              </Text>
+              <Text style={contactS.taxAmount}></Text>
+            </View>
+            <View>
+              <Text style={contactS.liquidationTitle}>
+                PRECIO DE LA LIQUIDACION
+              </Text>
+
+              <View style={contactS.liquidationSection}>
+                {/* IZQUIERDA */}
+                <View style={contactS.liquidationTable}>
+                  {[
+                    ["TOTAL A PAGAR:", "S/", total],
+                    ["A CUENTA:", "S/", acuenta],
+                    ["SALDO:", "S/", saldo],
+                    ["Cobro Extra Soles:", "S/", extraSoles],
+                    ["Cobro Extra Dolares:", "US$", extraDolares],
+                  ].map(([label, curr, value], i) => (
+                    <View key={i} style={contactS.liquidationRow}>
+                      <Text style={contactS.liquidationLabel}>{label}</Text>
+                      <Text style={contactS.liquidationCurrency}>{curr}</Text>
+                      <Text style={contactS.liquidationAmount}>
+                        {(value as number).toFixed(2)}
+                      </Text>
+                    </View>
+                  ))}
+
+                  {/* ESTADO */}
+                  {saldo === 0 && (
+                    <View style={contactS.noDebtBox}>
+                      <Text style={contactS.noDebtText}>
+                        El Pasajero No{"\n"}Tiene Deuda
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* DERECHA */}
+                <View style={contactS.paymentInfoBox}>
+                  {[
+                    ["Fecha Adelanto:", fechaAdelanto || "-"],
+                    ["Medio de Pago:", medioPago || "-"],
+                    ["Documento de Vta:", documento || "-"],
+                    ["Nro Documento:", nroDocumento || "-"],
+                  ].map(([label, value], i) => (
+                    <View key={i} style={contactS.paymentRow}>
+                      <Text style={contactS.paymentLabel}>{label}</Text>
+                      <Text style={contactS.paymentValue}>{value}</Text>
+                    </View>
+                  ))}
+
+                  {/* OBSERVACIONES */}
+                  <View style={contactS.obsBox}>
+                    <Text style={contactS.obsTitle}>OBSERVACIONES</Text>
+                    <Text style={contactS.obsContent}>
+                      {observaciones || "-"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
           </View>
         </View>
-      </View>
-    </Page>
-  </Document>
-);
+      </Page>
+    </Document>
+  );
+};
 
 export default PdfDocument;

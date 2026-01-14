@@ -40,7 +40,7 @@ const Dashboard = () => {
       <div className="h-[500px]">
         {" "}
         <PDFViewer style={{ width: "100%", height: "100%" }}>
-          <MyPDFDocument />
+          <PdfDocument />
         </PDFViewer>
       </div>
       <Stack spacing={0.5}>

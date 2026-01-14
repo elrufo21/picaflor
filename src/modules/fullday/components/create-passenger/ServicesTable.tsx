@@ -4,6 +4,7 @@ import {
   type UseFormRegister,
   type FieldErrors,
 } from "react-hook-form";
+import { useRef } from "react";
 import type { KeyboardEvent } from "react";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
@@ -55,6 +56,8 @@ export const ServicesTable = ({
   const editablePositions = [0, 1, 3, 4, 5, 6];
   const maxCantidad = Number(cantPaxValue) || 0;
   const isCantValid = maxCantidad >= 1;
+  const otrosPartidasRef = useRef<HTMLInputElement | null>(null);
+  const otrosPartidasRegister = register("otrosPartidas");
   const selectedActivityValues = new Set(
     Object.values(activitySelections ?? {})
       .map((value) => String(value ?? "").trim())
@@ -230,6 +233,11 @@ export const ServicesTable = ({
                     onChange={(e, value) => {
                       field.onChange(value ? value.value : "-");
                       handleAdvanceAfterChange(e as any);
+                      if (value) {
+                        requestAnimationFrame(() => {
+                          otrosPartidasRef.current?.focus();
+                        });
+                      }
                     }}
                     disabled={!enableHotelHora}
                     size="small"
@@ -255,7 +263,11 @@ export const ServicesTable = ({
             <input
               className="rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               placeholder="Ingresa punto alterno"
-              {...register("otrosPartidas")}
+              {...otrosPartidasRegister}
+              ref={(el) => {
+                otrosPartidasRegister.ref(el);
+                otrosPartidasRef.current = el;
+              }}
             />
           </label>
 
@@ -398,14 +410,12 @@ export const ServicesTable = ({
                 const precioCellError = isTarifaRow && precioError;
                 return (
                   <tr key={row.id} className="hover:bg-slate-50">
-                    {/* LABEL */}
                     <td className="border px-2 py-1">
                       <span className="bg-orange-500 text-white px-2 py-0.5 rounded text-[11px] font-semibold">
                         {row.label}
                       </span>
                     </td>
 
-                    {/* SELECT / INPUT */}
                     <td className="border px-2 py-1">
                       {row.type === "select" ? (
                         <div className="relative">
@@ -436,7 +446,7 @@ export const ServicesTable = ({
                       ) : (
                         <div className="relative">
                           <input
-                            className="w-full h-7 rounded border px-1 text-[11px]"
+                            className="w-full h-7 text-xl rounded border px-1 text-[11px]"
                             disabled
                             {...register(row.id)}
                           />
@@ -462,7 +472,7 @@ export const ServicesTable = ({
                             }
                             updateRow(row.id, "precioUnit", Number(raw));
                           }}
-                          className={`w-full h-7 rounded border px-1 text-right text-[11px] ${
+                          className={`w-full h-7 rounded border px-1 text-right text-[16px] ${
                             !isCantValid ? "bg-slate-50 text-slate-600" : ""
                           } ${precioCellError ? errorBorderClass : ""}`}
                           aria-invalid={precioCellError || undefined}
@@ -500,7 +510,7 @@ export const ServicesTable = ({
                             }
                             updateRow(row.id, "cantidad", Math.max(next, 0));
                           }}
-                          className={`w-full h-7 rounded border px-1 text-center text-[11px] ${
+                          className={`w-full h-7 rounded border px-1 text-center text-[16px] ${
                             !isCantValid ? "bg-slate-50 text-slate-600" : ""
                           }`}
                         />
@@ -509,7 +519,7 @@ export const ServicesTable = ({
                     </td>
 
                     {/* SUBTOTAL */}
-                    <td className="border px-2 py-1 text-right font-semibold">
+                    <td className="border px-2 py-1 text-right font-semibold text-[16px]">
                       {(row.precioUnit * row.cantidad).toFixed(2)}
                     </td>
                   </tr>

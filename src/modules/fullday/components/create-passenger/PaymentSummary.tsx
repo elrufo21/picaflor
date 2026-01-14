@@ -3,7 +3,7 @@ import {
   SelectControlled,
   DateInput,
 } from "@/components/ui/inputs";
-import { useEffect } from "react";
+import { useEffect, type KeyboardEvent } from "react";
 import {
   useWatch,
   type Control,
@@ -22,6 +22,7 @@ interface PaymentSummaryProps {
   bancoOptions: any[];
   isSubmitting?: boolean;
   documentoCobranzaOptions: any[];
+  watch: any;
 }
 
 export const PaymentSummary = ({
@@ -35,7 +36,9 @@ export const PaymentSummary = ({
   medioPagoOptions,
   bancoOptions,
   isSubmitting,
+  watch,
 }: PaymentSummaryProps) => {
+  console.log("watch", watch());
   const condicionSelected = useWatch({ control, name: "condicion" });
   const medioPagoValue = useWatch({ control, name: "medioPago" });
   const acuentaValue = useWatch({ control, name: "acuenta" });
@@ -60,6 +63,10 @@ export const PaymentSummary = ({
     String(medioPagoValue ?? "")
       .trim()
       .toUpperCase() === "DEPOSITO";
+  const isEfectivo =
+    String(medioPagoValue ?? "")
+      .trim()
+      .toUpperCase() === "EFECTIVO";
 
   useEffect(() => {
     if (isCancelado) {
@@ -100,7 +107,7 @@ export const PaymentSummary = ({
 
   useEffect(() => {
     if (isDeposito) return;
-    setValue("entidadBancaria", "", {
+    setValue("entidadBancaria", isEfectivo ? "-" : "", {
       shouldDirty: false,
       shouldTouch: false,
     });
@@ -143,6 +150,29 @@ export const PaymentSummary = ({
     return "border-red-700 bg-red-600 text-white";
   })();
 
+  const handleArrowNavigate = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+
+    const current = event.currentTarget;
+    const group =
+      current.closest('[data-arrow-group="liquidacion"]') ??
+      current.closest("form") ??
+      current.ownerDocument;
+    if (!group) return;
+
+    const inputs = Array.from(
+      group.querySelectorAll<HTMLInputElement>(
+        '[data-arrow-input="liquidacion"]'
+      )
+    ).filter((input) => !input.disabled);
+
+    const index = inputs.indexOf(current);
+    if (index === -1) return;
+    const nextIndex = event.key === "ArrowDown" ? index + 1 : index - 1;
+    inputs[nextIndex]?.focus();
+  };
+
   return (
     <div className="lg:col-span-2 space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
@@ -156,17 +186,30 @@ export const PaymentSummary = ({
           />
         </div>
         <div className="col-span-1">
-          <TextControlled name="nserie" control={control} size="small" />
+          <TextControlled
+            name="nserie"
+            disabled={watch("documentoCobranza") === "DOCUMENTO DE COBRANZA"}
+            control={control}
+            size="small"
+          />
         </div>
         <div className="col-span-2">
-          <TextControlled name="ndocumento" control={control} size="small" />
+          <TextControlled
+            name="ndocumento"
+            control={control}
+            size="small"
+            disabled={watch("documentoCobranza") === "DOCUMENTO DE COBRANZA"}
+          />
         </div>
       </div>
       <div>
         <p className="text-sm font-semibold text-slate-800 mb-2">
           Precio De Liquidación
         </p>
-        <div className="border border-slate-300 rounded-lg overflow-hidden">
+        <div
+          className="border border-slate-300 rounded-lg overflow-hidden"
+          data-arrow-group="liquidacion"
+        >
           <div className="grid grid-cols-3 border-b border-slate-300">
             <div className="bg-amber-300 text-amber-900 font-semibold px-3 py-2 col-span-2">
               TOTAL A PAGAR S/ :
@@ -186,6 +229,8 @@ export const PaymentSummary = ({
                 step="0.01"
                 disabled={!isACuenta}
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
+                data-arrow-input="liquidacion"
+                onKeyDown={handleArrowNavigate}
                 {...register("acuenta", { valueAsNumber: true })}
               />
             </div>
@@ -208,6 +253,8 @@ export const PaymentSummary = ({
                 min={0}
                 step="0.01"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
+                data-arrow-input="liquidacion"
+                onKeyDown={handleArrowNavigate}
                 {...register("cobroExtraSol", { valueAsNumber: true })}
               />
             </div>
@@ -222,6 +269,8 @@ export const PaymentSummary = ({
                 min={0}
                 step="0.01"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
+                data-arrow-input="liquidacion"
+                onKeyDown={handleArrowNavigate}
                 {...register("cobroExtraDol", { valueAsNumber: true })}
               />
             </div>

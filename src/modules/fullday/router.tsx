@@ -2,6 +2,7 @@ import PackageCreate from "./pages/fulldayCreate";
 import PackageList from "./pages/fulldayList";
 import PackagePassengerCreate from "./pages/fulldayPassengerCreate";
 import FulldayListado from "./pages/fulldayListado";
+import InvoicePreview from "./pages/fulldayInvoicePreview";
 
 export default [
   {
@@ -25,6 +26,16 @@ export default [
       breadcrumb: [
         { label: "Full Day", to: "/fullday" },
         { label: "Nuevo pasajero" },
+      ],
+    },
+  },
+  {
+    path: "fullday/:id/passengers/preview",
+    element: <InvoicePreview />,
+    handle: {
+      breadcrumb: [
+        { label: "Full Day", to: "/fullday" },
+        { label: "Factura" },
       ],
     },
   },

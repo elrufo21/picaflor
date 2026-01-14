@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useForm } from "react-hook-form";
+import { pdf } from "@react-pdf/renderer";
 import { Plus, Save, Printer } from "lucide-react";
 import { showToast } from "../../../components/ui/AppToast";
+import PdfDocument, { buildInvoiceData } from "@/components/invoice/Invoice";
 import { usePackageStore } from "../store/fulldayStore";
 import { useDialogStore } from "../../../app/store/dialogStore";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -19,6 +21,7 @@ import {
   parseLegacyPayloadString,
 } from "../utils/payloadBuilder";
 import type { CanalOption, SelectOption } from "../hooks/canalUtils";
+import { DateInput, TextControlled } from "@/components/ui/inputs";
 
 type FormValues = {
   nombreCompleto: string;
@@ -96,6 +99,7 @@ const medioPagoOptions = [
 
 const bancoOptions = [
   { value: "", label: "(SELECCIONE)" },
+  { value: "-", label: "-" },
   { value: "BCP", label: "BCP" },
   { value: "BBVA", label: "BBVA" },
   { value: "INTERBANK", label: "Interbank" },
@@ -759,6 +763,18 @@ const PackagePassengerCreate = () => {
       tarifaRows,
       tarifaTotal,
     });
+    const invoiceData = buildInvoiceData({
+      values,
+      pkg,
+      tarifaRows,
+      tarifaTotal,
+      totalPagar,
+      saldo,
+      partidas,
+      almuerzos,
+      actividades,
+      trasladosOptions,
+    });
     console.log("PAYLOAD FOR BACKEND:", JSON.stringify(ordenPayload, null, 2));
     const legacyPayload = buildLegacyPayloadString(ordenPayload);
     console.log("LEGACY PAYLOAD:", legacyPayload);
@@ -793,6 +809,12 @@ const PackagePassengerCreate = () => {
         title: "Enviado",
         description: responseText || "Viaje registrado correctamente",
         type: "success",
+      });
+      navigate(`/fullday/${id}/passengers/preview`, {
+        state: {
+          invoiceData,
+          backendPayload: responseText,
+        },
       });
     } catch (error: any) {
       showToast({
@@ -842,6 +864,46 @@ const PackagePassengerCreate = () => {
     setTimeout(() => {
       setFocus("canalVenta");
     }, 0);
+  };
+
+  const handlePrint = async () => {
+    try {
+      const values = getValues();
+      const invoiceData = buildInvoiceData({
+        values,
+        pkg,
+        tarifaRows,
+        tarifaTotal,
+        totalPagar,
+        saldo,
+        partidas,
+        almuerzos,
+        actividades,
+        trasladosOptions,
+      });
+      const blob = await pdf(<PdfDocument data={invoiceData} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const popup = window.open(url, "_blank");
+      if (!popup) {
+        URL.revokeObjectURL(url);
+        showToast({
+          title: "Atención",
+          description: "Permite las ventanas emergentes para ver la factura.",
+          type: "warning",
+        });
+        return;
+      }
+      popup.focus();
+      const revoke = () => URL.revokeObjectURL(url);
+      popup.addEventListener("beforeunload", revoke);
+      setTimeout(revoke, 60000);
+    } catch (error: any) {
+      showToast({
+        title: "Error",
+        description: error?.message ?? "No se pudo generar la factura.",
+        type: "error",
+      });
+    }
   };
 
   const focusNext = (
@@ -932,57 +994,89 @@ const PackagePassengerCreate = () => {
             <input type="hidden" {...register("precioVenta")} />
             <input type="hidden" {...register("mensajePasajero")} />
 
-            {/* =========================
-            CABECERA / TOOLBAR
-        ========================== */}
             <div
-              className="
-            flex justify-end gap-2
-            border-b border-slate-200
-            bg-[#DCFCE7] from-slate-50 to-white
-            p-3
-          "
+              className="flex items-center justify-between gap-3
+  rounded-xl border border-emerald-200 bg-emerald-50/70
+  px-4 py-2 shadow-sm"
             >
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center 
-              rounded-lg bg-emerald-600 p-2 text-white
-              shadow-sm ring-1 ring-emerald-600/30
-              hover:bg-emerald-700 hover:ring-emerald-600/50
-              transition"
-                title="Guardar"
-              >
-                <Save size={16} />
-              </button>
+              {/* ================= INFO ================= */}
+              <div className="flex items-center gap-4 min-w-0">
+                {/* DESTINO */}
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-slate-500 text-xs">Destino:</span>
+                  <span className="font-semibold text-slate-800 truncate max-w-[460px]">
+                    {watch("destino")}
+                  </span>
+                </div>
 
-              <button
-                type="button"
-                onClick={handleNew}
-                className="inline-flex items-center justify-center 
-              rounded-lg bg-slate-100 p-2 text-slate-700
-              shadow-sm ring-1 ring-slate-200
-              hover:bg-slate-200 transition"
-                title="Nuevo"
-              >
-                <Plus size={16} />
-              </button>
+                {/* FECHA VIAJE */}
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <span className="text-slate-500 text-xs">Viaje:</span>
+                  <span className="text-sm font-medium text-slate-700">
+                    {watch("fechaViaje")}
+                  </span>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex items-center justify-center 
-              rounded-lg bg-white p-2 text-slate-700
-              shadow-sm ring-1 ring-slate-200
-              hover:bg-slate-50 transition"
-                title="Imprimir"
-              >
-                <Printer size={16} />
-              </button>
+                {/* FECHA EMISIÓN */}
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <span className="text-slate-500 text-xs">Emisión:</span>
+                  <span className="text-sm font-medium text-slate-700">
+                    {watch("fechaEmision")}
+                  </span>
+                </div>
+
+                {/* DISPONIBLES */}
+                <div
+                  className="flex items-center gap-1 rounded-md bg-white px-2 py-1
+                   border border-emerald-200 whitespace-nowrap"
+                >
+                  <span className="text-xs text-slate-500">Disp:</span>
+                  <span className="text-sm font-bold text-emerald-700">
+                    {pkg.disponibles}
+                  </span>
+                </div>
+              </div>
+
+              {/* ================= ACCIONES ================= */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="submit"
+                  title="Guardar"
+                  className="inline-flex items-center gap-1 rounded-lg
+                  bg-emerald-600 px-3 py-2 text-white
+                  shadow-sm ring-1 ring-emerald-600/30
+                  hover:bg-emerald-700 transition"
+                >
+                  <Save size={16} />
+                  <span className="text-sm hidden sm:inline">Guardar</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNew}
+                  title="Nuevo"
+                  className="inline-flex items-center gap-1 rounded-lg
+        bg-slate-100 px-3 py-2 text-slate-700
+        ring-1 ring-slate-200 hover:bg-slate-200 transition"
+                >
+                  <Plus size={16} />
+                  <span className="text-sm hidden sm:inline">Nuevo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  title="Imprimir"
+                  className="inline-flex items-center gap-1 rounded-lg
+        bg-white px-3 py-2 text-slate-700
+        ring-1 ring-slate-200 hover:bg-slate-50 transition"
+                >
+                  <Printer size={16} />
+                  <span className="text-sm hidden sm:inline">Imprimir</span>
+                </button>
+              </div>
             </div>
 
-            {/* =========================
-            CUERPO DEL FORMULARIO
-        ========================== */}
             <div className="p-4 sm:p-5 space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
                 <div className="lg:col-span-4 space-y-3">
@@ -995,7 +1089,7 @@ const PackagePassengerCreate = () => {
                     handleAddCanalVenta={handleAddCanalVenta}
                   />
 
-                <PassengerDetails control={control} setValue={setValue} />
+                  <PassengerDetails control={control} setValue={setValue} />
 
                   <ServicesTable
                     partidas={partidas}
@@ -1033,6 +1127,7 @@ const PackagePassengerCreate = () => {
                   medioPagoOptions={medioPagoOptions}
                   bancoOptions={bancoOptions}
                   isSubmitting={isSubmitting}
+                  watch={watch}
                   documentoCobranzaOptions={[
                     {
                       label: "Documento de Cobranza",

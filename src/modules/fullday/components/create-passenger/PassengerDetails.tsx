@@ -1,11 +1,7 @@
 import { useEffect, useRef } from "react";
 import { TextControlled } from "@/components/ui/inputs";
 import Divider from "@mui/material/Divider";
-import {
-  useWatch,
-  type Control,
-  type UseFormSetValue,
-} from "react-hook-form";
+import { useWatch, type Control, type UseFormSetValue } from "react-hook-form";
 import { API_BASE_URL } from "@/config";
 
 interface PassengerDetailsProps {
@@ -31,7 +27,10 @@ type ClientLookupResponse = {
 
 const normalizeText = (value: unknown) => String(value ?? "").trim();
 
-export const PassengerDetails = ({ control, setValue }: PassengerDetailsProps) => {
+export const PassengerDetails = ({
+  control,
+  setValue,
+}: PassengerDetailsProps) => {
   const documentoNumero = useWatch({ control, name: "documentoNumero" });
   const lastRequestedRef = useRef<string>("");
 
@@ -61,10 +60,7 @@ export const PassengerDetails = ({ control, setValue }: PassengerDetailsProps) =
           data = null;
         }
         if (!data || controller.signal.aborted) return;
-        if (
-          data.clienteDni &&
-          normalizeText(data.clienteDni) !== dni
-        ) {
+        if (data.clienteDni && normalizeText(data.clienteDni) !== dni) {
           return;
         }
 
@@ -136,8 +132,7 @@ export const PassengerDetails = ({ control, setValue }: PassengerDetailsProps) =
               name="documentoNumero"
               control={control}
               label="Número de documento"
-              transform={(value) => value.replace(/\D+/g, "")}
-              inputProps={{ inputMode: "numeric", pattern: "\\d*" }}
+              transform={(value) => value.toUpperCase()}
               required
               size="small"
             />
@@ -147,8 +142,7 @@ export const PassengerDetails = ({ control, setValue }: PassengerDetailsProps) =
               name="celular"
               control={control}
               label="Celular Pax"
-              transform={(value) => value.replace(/\D+/g, "")}
-              inputProps={{ inputMode: "numeric", pattern: "\\d*" }}
+              transform={(value) => value.toUpperCase()}
               required
               size="small"
             />
