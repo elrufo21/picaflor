@@ -59,14 +59,9 @@ export const PaymentSummary = ({
   const isCancelado = condicionKey.includes("cancel");
   const isACuenta = condicionKey.includes("cuenta");
   const isCredito = condicionKey.includes("credit");
-  const isDeposito =
-    String(medioPagoValue ?? "")
-      .trim()
-      .toUpperCase() === "DEPOSITO";
-  const isEfectivo =
-    String(medioPagoValue ?? "")
-      .trim()
-      .toUpperCase() === "EFECTIVO";
+  const normalizedMedioPago = String(medioPagoValue ?? "").trim().toUpperCase();
+  const isDeposito = normalizedMedioPago === "DEPOSITO";
+  const isEfectivo = normalizedMedioPago === "EFECTIVO";
 
   useEffect(() => {
     if (isCancelado) {
@@ -115,7 +110,7 @@ export const PaymentSummary = ({
       shouldDirty: false,
       shouldTouch: false,
     });
-  }, [isDeposito, setValue]);
+  }, [isDeposito, isEfectivo, setValue]);
 
   const panelText = (() => {
     if (isCancelado) {

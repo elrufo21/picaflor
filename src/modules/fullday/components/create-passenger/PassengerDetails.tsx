@@ -3,10 +3,12 @@ import { TextControlled } from "@/components/ui/inputs";
 import Divider from "@mui/material/Divider";
 import { useWatch, type Control, type UseFormSetValue } from "react-hook-form";
 import { API_BASE_URL } from "@/config";
+import { showToast } from "@/components/ui/AppToast";
 
 interface PassengerDetailsProps {
   control: Control<any>;
   setValue: UseFormSetValue<any>;
+  disponibles?: number;
 }
 
 type ClientLookupResponse = {
@@ -30,6 +32,7 @@ const normalizeText = (value: unknown) => String(value ?? "").trim();
 export const PassengerDetails = ({
   control,
   setValue,
+  disponibles,
 }: PassengerDetailsProps) => {
   const documentoNumero = useWatch({ control, name: "documentoNumero" });
   const lastRequestedRef = useRef<string>("");
@@ -104,6 +107,22 @@ export const PassengerDetails = ({
       controller.abort();
     };
   }, [documentoNumero, setValue]);
+
+  const cantPax = useWatch({ control, name: "cantPax" });
+  useEffect(() => {
+    if (disponibles == null) return;
+    const next = Number(cantPax) || 0;
+    if (next <= disponibles) return;
+    showToast({
+      title: "Disponibilidad limitada",
+      description: `Solo quedan ${disponibles} espacio${disponibles === 1 ? "" : "s"} disponibles.`,
+      type: "warning",
+    });
+    setValue("cantPax", disponibles, {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  }, [cantPax, disponibles, setValue]);
 
   return (
     <>

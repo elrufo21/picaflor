@@ -229,7 +229,8 @@ const resolveSelectLabel = (value: unknown) => {
 
 const resolveCanal = (value: unknown) => {
   if (!value) return { auxiliar: "", telefono: "" };
-  if (typeof value === "string") return { auxiliar: value.trim(), telefono: "" };
+  if (typeof value === "string")
+    return { auxiliar: value.trim(), telefono: "" };
   const typed = value as {
     auxiliar?: string;
     label?: string;
@@ -245,10 +246,7 @@ const resolveCanal = (value: unknown) => {
   };
 };
 
-const resolvePartida = (
-  value: unknown,
-  partidas: OptionItem[] | undefined
-) => {
+const resolvePartida = (value: unknown, partidas: OptionItem[] | undefined) => {
   const key = textValue(value);
   if (!key) return "";
   if (key === "HOTEL" || key === "OTROS") return key;
@@ -778,7 +776,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
               </View>
             </View>
           </View>
-          <View>
+          <View style={{ marginTop: 10 }}>
             {actividades.map((item, index) => (
               <View key={index} style={contactS.activityRowFixed}>
                 {/* IZQUIERDA */}
@@ -841,7 +839,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
               </Text>
             </View>
           </View>
-          <View style={contactS.tarifaSection}>
+          <View style={[contactS.tarifaSection]}>
             {/* HEADER */}
             <View style={contactS.tarifaHeaderRow}>
               <Text style={contactS.tarifaTitle}>DETALLE DE TARIFA :</Text>
@@ -868,21 +866,19 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
             {/* DIVIDER */}
             <View style={contactS.divider} />
 
-            {/* IMPUESTOS */}
+            {/* IMPUESTOS 
             <View style={contactS.taxRow}>
               <Text style={contactS.taxLabel}>Impuestos (I.G.V.) :</Text>
               <Text style={contactS.taxValue}>N/A</Text>
               <Text style={contactS.taxAmount}>{impuestos.toFixed(2)}</Text>
             </View>
 
-            {/* CARGOS */}
             <View style={contactS.taxRow}>
               <Text style={contactS.taxLabel}>Cargos :</Text>
               <Text style={contactS.taxValue}>N/A</Text>
               <Text style={contactS.taxAmount}>{cargos.toFixed(2)}</Text>
             </View>
 
-            {/* EXTRAS */}
             <View style={contactS.extraRow}>
               <Text style={contactS.taxLabel}>Cobros Extras :</Text>
               <Text style={contactS.taxValue}>
@@ -891,7 +887,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 En Dolares ( US$ ) {extraDolares.toFixed(2)}
               </Text>
               <Text style={contactS.taxAmount}></Text>
-            </View>
+            </View>*/}
             <View>
               <Text style={contactS.liquidationTitle}>
                 PRECIO DE LA LIQUIDACION

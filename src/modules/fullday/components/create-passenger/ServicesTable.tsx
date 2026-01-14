@@ -182,6 +182,13 @@ export const ServicesTable = ({
     return chars.join("");
   };
 
+  const moveCursorToStart = (input: HTMLInputElement) => {
+    const first = editablePositions[0] ?? 0;
+    requestAnimationFrame(() => {
+      input.setSelectionRange(first, first);
+    });
+  };
+
   return (
     <div className="p-2.5">
       <div className="space-y-3">
@@ -278,7 +285,6 @@ export const ServicesTable = ({
               control={control}
               render={({ field }) => (
                 <input
-                  placeholder="__:____"
                   readOnly={!enableHotelHora}
                   value={buildHoraMask(field.value)}
                   onKeyDown={(e) => {
@@ -375,6 +381,13 @@ export const ServicesTable = ({
                     enableHotelHora ? "" : "bg-slate-50 text-slate-600"
                   } ${horaPresentacionError ? errorBorderClass : ""}`}
                   aria-invalid={horaPresentacionError || undefined}
+                  onFocus={(e) => {
+                    if (!enableHotelHora) return;
+                    const target = e.currentTarget;
+                    setTimeout(() => {
+                      target.setSelectionRange(0, target.value.length);
+                    }, 0);
+                  }}
                 />
               )}
             />

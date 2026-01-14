@@ -192,12 +192,21 @@ const PackagePassengerCreate = () => {
     preciosAlmuerzo,
     preciosTraslado,
   } = usePackageData(id, setValue);
+  const loadPackages = usePackageStore((s) => s.loadPackages);
 
   useEffect(() => {
     if (pkg?.destino) {
       setValue("destino", pkg.destino);
     }
   }, [pkg, setValue]);
+
+  useEffect(() => {
+    if (!pkg && Number.isFinite(Number(id))) {
+      loadPackages(date).catch(() => {
+        // swallow; error handled in store
+      });
+    }
+  }, [pkg, id, loadPackages, date]);
 
   useEffect(() => {
     if (pkg) {
@@ -656,6 +665,14 @@ const PackagePassengerCreate = () => {
     setValue("horaPresentacion", hora);
   };
 
+  const isEmptyText = (value: unknown) => !String(value ?? "").trim();
+  const hasSelectedOption = (option: unknown) => {
+    if (!option) return false;
+    if (typeof option === "string") return option.trim() !== "";
+    const typed = option as { value?: string; label?: string };
+    return Boolean(String(typed.value ?? typed.label ?? "").trim());
+  };
+
   const validateRequired = (values: FormValues) => {
     clearErrors([
       "canalVenta",
@@ -670,14 +687,6 @@ const PackagePassengerCreate = () => {
     ]);
 
     const missing: string[] = [];
-    const isEmptyText = (value: unknown) => !String(value ?? "").trim();
-    const hasSelectedOption = (option: unknown) => {
-      if (!option) return false;
-      if (typeof option === "string") return option.trim() !== "";
-      const typed = option as { value?: string; label?: string };
-      return Boolean(String(typed.value ?? typed.label ?? "").trim());
-    };
-
     const markMissing = (field: keyof FormValues, label: string) => {
       missing.push(label);
       setError(field as any, {
@@ -711,11 +720,71 @@ const PackagePassengerCreate = () => {
     return missing;
   };
 
-  const renderMissingList = (missing: string[]) => (
+  const getCondicionKey = (value: unknown) => {
+    const text =
+      typeof value === "string"
+        ? value
+        : typeof value === "object"
+        ? String((value as { label?: string; value?: string }).label ?? "")
+        : "";
+    return text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  };
+
+  const validateBusinessRules = (values: FormValues, total: number) => {
+    const errors: string[] = [];
+
+    if (!pkg) {
+      errors.push("Selecciona un Full Day válido antes de continuar.");
+    }
+
+    if (!hasSelectedOption(values.canalVenta)) {
+      errors.push("Asocia un canal de venta para proceder con la reserva.");
+    }
+
+    if (!hasSelectedOption(values.condicion)) {
+      errors.push("Define la condición comercial del servicio.");
+    }
+
+    const medioPago = String(values.medioPago ?? "").trim().toUpperCase();
+    if (!medioPago) {
+      errors.push("Indica el medio de pago elegido para esta operación.");
+    }
+
+    if (medioPago === "DEPOSITO") {
+      if (!String(values.entidadBancaria ?? "").trim()) {
+        errors.push("Especifica la entidad bancaria cuando seleccionas depósito.");
+      }
+      if (!String(values.nroOperacion ?? "").trim()) {
+        errors.push("Anota el número de operación bancario para respaldar el depósito.");
+      }
+    }
+
+    if (total <= 0) {
+      errors.push("El total a pagar debe ser mayor que cero antes de guardar.");
+    }
+
+    const condicionKey = getCondicionKey(values.condicion);
+    if (condicionKey.includes("cuenta")) {
+      const acuentaAmount = Number(values.acuenta) || 0;
+      if (acuentaAmount <= 0) {
+        errors.push("Ingresa el monto del adelanto cuando la condición es a cuenta.");
+      }
+      if (acuentaAmount > total) {
+        errors.push("El adelanto no puede superar el total a pagar.");
+      }
+    }
+
+    return errors;
+  };
+
+  const renderValidationList = (items: string[]) => (
     <div>
-      <p className="text-xs text-slate-600">Completa los campos:</p>
+      <p className="text-xs text-slate-600">Corrige los siguientes puntos:</p>
       <ul className="mt-1 list-disc pl-4 text-xs text-slate-600 space-y-0.5">
-        {missing.map((field) => (
+        {items.map((field) => (
           <li key={field}>{field}</li>
         ))}
       </ul>
@@ -727,7 +796,7 @@ const PackagePassengerCreate = () => {
     if (missing.length > 0) {
       showToast({
         title: "Campos obligatorios",
-        description: renderMissingList(missing),
+      description: renderValidationList(missing),
         type: "warning",
       });
       return;
@@ -744,7 +813,17 @@ const PackagePassengerCreate = () => {
     if (missing.length > 0) {
       showToast({
         title: "Campos obligatorios",
-        description: renderMissingList(missing),
+      description: renderValidationList(missing),
+        type: "warning",
+      });
+      return;
+    }
+
+    const businessMessages = validateBusinessRules(values, Number(totalPagar));
+    if (businessMessages.length > 0) {
+      showToast({
+        title: "Validaciones previas",
+        description: renderValidationList(businessMessages),
         type: "warning",
       });
       return;
@@ -802,6 +881,14 @@ const PackagePassengerCreate = () => {
           title: "Error",
           description: responseText || "Error al enviar el viaje",
           type: "error",
+        });
+        return;
+      }
+      if (String(responseText ?? "").trim().toLowerCase() === "false") {
+        showToast({
+          title: "Caja cerrada",
+          description: "La caja está cerrada y no se puede registrar el viaje.",
+          type: "warning",
         });
         return;
       }
@@ -1089,7 +1176,11 @@ const PackagePassengerCreate = () => {
                     handleAddCanalVenta={handleAddCanalVenta}
                   />
 
-                  <PassengerDetails control={control} setValue={setValue} />
+                  <PassengerDetails
+                    control={control}
+                    setValue={setValue}
+                    disponibles={pkg?.disponibles}
+                  />
 
                   <ServicesTable
                     partidas={partidas}
