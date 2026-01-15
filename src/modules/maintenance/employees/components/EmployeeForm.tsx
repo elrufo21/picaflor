@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { handleEnterFocus } from "@/shared/helpers/formFocus";
+import { formatDateForInput, getTodayDateInputValue } from "@/shared/helpers/formatDate";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Personal } from "@/types/employees";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -24,27 +25,16 @@ type EmployeeFormProps = {
   onDelete?: () => void;
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
-
-const formatDateForInput = (value?: string | null) => {
-  if (!value) return "";
-  const trimmed = value.toString().trim();
-  if (!trimmed) return "";
-  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
-  const parsed = new Date(trimmed);
-  return Number.isNaN(parsed.getTime())
-    ? ""
-    : parsed.toISOString().slice(0, 10);
-};
-
 const buildDefaults = (data?: Partial<Personal>): Personal => ({
   personalId: data?.personalId ?? 0,
   personalNombres: data?.personalNombres ?? "",
   personalApellidos: data?.personalApellidos ?? "",
   areaId: data?.areaId ?? 0,
   personalCodigo: data?.personalCodigo ?? "",
-  personalNacimiento: formatDateForInput(data?.personalNacimiento) || today(),
-  personalIngreso: formatDateForInput(data?.personalIngreso) || today(),
+  personalNacimiento:
+    formatDateForInput(data?.personalNacimiento) || getTodayDateInputValue(),
+  personalIngreso:
+    formatDateForInput(data?.personalIngreso) || getTodayDateInputValue(),
   personalDni: data?.personalDni ?? "",
   personalDireccion: data?.personalDireccion ?? "",
   personalTelefono: data?.personalTelefono ?? "",

@@ -1,5 +1,6 @@
 import type { PackageItem } from "../store/fulldayStore";
 import { API_BASE_URL } from "@/config";
+import { apiRequest } from "@/shared/helpers/apiRequest";
 export type CreateProgramacionPayload = {
   idDetalle: number;
   idProducto: number;
@@ -137,3 +138,58 @@ export const editarCantMax = async (Valores: string) => {
 
   return res.json();
 };
+
+export async function fetchLiquidaciones(
+  areaId: number | string,
+  usuarioId: number | string
+) {
+  try {
+    const response = await apiRequest<string>({
+      url: `${API_BASE_URL}/Programacion/listar-liquidaciones`,
+      method: "POST",
+      data: {
+        areaId,
+        usuarioId,
+      },
+      config: {
+        headers: {
+          accept: "text/plain",
+          "Content-Type": "application/json",
+        },
+        responseType: "text",
+      },
+      fallback: "",
+    });
+    return response ?? "";
+  } catch (error) {
+    console.error("Error al listar liquidaciones", error);
+    throw error;
+  }
+}
+
+export async function fetchPedidosFecha(payload: {
+  fechaInicio: string;
+  fechaFin: string;
+  areaId: number | string;
+  usuarioId: number | string;
+}) {
+  try {
+    const response = await apiRequest<string>({
+      url: `${API_BASE_URL}/Programacion/lista-pedidos-fecha`,
+      method: "POST",
+      data: payload,
+      config: {
+        headers: {
+          accept: "text/plain",
+          "Content-Type": "application/json",
+        },
+        responseType: "text",
+      },
+      fallback: "",
+    });
+    return response ?? "";
+  } catch (error) {
+    console.error("Error al listar pedidos por fecha", error);
+    throw error;
+  }
+}

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { useForm } from "react-hook-form";
 import { pdf } from "@react-pdf/renderer";
-import { Plus, Save, Printer } from "lucide-react";
+import { Backdrop, CircularProgress } from "@mui/material";
+import { Loader2, Plus, Save, Printer } from "lucide-react";
 import { showToast } from "../../../components/ui/AppToast";
 import PdfDocument, { buildInvoiceData } from "@/components/invoice/Invoice";
 import { usePackageStore } from "../store/fulldayStore";
@@ -22,6 +23,7 @@ import {
 } from "../utils/payloadBuilder";
 import type { CanalOption, SelectOption } from "../hooks/canalUtils";
 import { DateInput, TextControlled } from "@/components/ui/inputs";
+import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
 
 type FormValues = {
   nombreCompleto: string;
@@ -105,13 +107,39 @@ const bancoOptions = [
   { value: "INTERBANK", label: "Interbank" },
 ];
 
+const normalizeStringValue = (value?: string) => String(value ?? "").trim();
+
+const parseMoneyValue = (value?: string) => {
+  if (!value) return 0;
+  const normalized = String(value).replace(/,/g, "").trim();
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseLegacyDate = (value?: string) => {
+  if (!value) return "";
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!match) return trimmed;
+  const [, day, month, year] = match;
+  return `${year}-${month}-${day}`;
+};
+
 const PackagePassengerCreate = () => {
   const { user } = useAuthStore();
-  const { id } = useParams();
+  const location = useLocation();
+  const { id, liquidacionId } = useParams<{
+    id: string;
+    liquidacionId?: string;
+  }>();
   const navigate = useNavigate();
   const addPassenger = usePackageStore((s) => s.addPassenger);
   const openDialog = useDialogStore((s) => s.openDialog);
   const { date } = usePackageStore();
+  const viewLiquidacion =
+    (location.state as { liquidacion?: Partial<FormValues> | null } | null)
+      ?.liquidacion ?? null;
+  const isViewMode = Boolean(liquidacionId);
 
   const {
     control,
@@ -135,8 +163,8 @@ const PackagePassengerCreate = () => {
       email: "",
       cantPax: 0,
       fechaViaje: date,
-      fechaPago: new Date().toISOString().slice(0, 10),
-      fechaEmision: new Date().toISOString().slice(0, 10),
+      fechaPago: getTodayDateInputValue(),
+      fechaEmision: getTodayDateInputValue(),
       moneda: "PEN",
       origen: "LIMA",
       canalVenta: null,
@@ -214,9 +242,24 @@ const PackagePassengerCreate = () => {
     }
   }, [pkg, setFocus]);
 
+  const availableCount = pkg?.disponibles ?? 0;
+
+  useEffect(() => {
+    if (!isViewMode || !viewLiquidacion) return;
+    Object.entries(viewLiquidacion).forEach(([key, value]) => {
+      if (value !== undefined) {
+        setValue(key as keyof FormValues, value, {
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+      }
+    });
+  }, [isViewMode, viewLiquidacion, setValue]);
+
   const canalVentaSelected = watch("canalVenta");
 
   useEffect(() => {
+    if (!isEditable) return;
     if (!canalVentaSelected) return;
     if (canalVentaSelected.telefono)
       setValue("telefono", canalVentaSelected.telefono);
@@ -420,9 +463,17 @@ const PackagePassengerCreate = () => {
 
         addCanalToList(newOption, editingValue);
         setValue("canalVenta", newOption);
-      },
-    });
+    },
+  });
   };
+
+  const isEditable = !isViewMode;
+  const fieldsetDisabled = isSubmitting || isViewMode;
+  const saveButtonLabel = isViewMode
+    ? "Solo lectura"
+    : isSubmitting
+    ? "Guardando..."
+    : "Guardar";
 
   const [tarifaRows, setTarifaRows] = useState([
     {
@@ -514,6 +565,7 @@ const PackagePassengerCreate = () => {
   };
 
   useEffect(() => {
+    if (!isEditable) return;
     if (!hotelValue || hotelValue === "-") {
       setValue("otrosPartidas", "", {
         shouldDirty: false,
@@ -536,6 +588,7 @@ const PackagePassengerCreate = () => {
   }, [hotelValue, direccionHotelMap, setValue]);
 
   useEffect(() => {
+    if (!isEditable) return;
     const pax = Number(cantPaxValue) || 0;
     const prevPax = prevCantPaxRef.current;
     setTarifaRows((rows) =>
@@ -562,6 +615,7 @@ const PackagePassengerCreate = () => {
 
   // Pricing synchronization effects
   useEffect(() => {
+    if (!isEditable) return;
     if (!preciosActividades) return;
     const map = new Map(preciosActividades.map((p) => [String(p.idActi), p]));
 
@@ -580,6 +634,7 @@ const PackagePassengerCreate = () => {
   }, [actividad1Value, actividad2Value, actividad3Value, preciosActividades]);
 
   useEffect(() => {
+    if (!isEditable) return;
     const map = new Map((preciosAlmuerzo ?? []).map((p) => [String(p.id), p]));
     const key = String(tarifaTourValue ?? "").trim();
     const precioObj = map.get(key);
@@ -595,6 +650,7 @@ const PackagePassengerCreate = () => {
   }, [tarifaTourValue, preciosAlmuerzo, precioVentaValue]);
 
   useEffect(() => {
+    if (!isEditable) return;
     if (!preciosTraslado) return;
     const map = new Map(preciosTraslado.map((p) => [String(p.id), p]));
     const key = String(trasladosValue ?? "").trim();
@@ -607,6 +663,7 @@ const PackagePassengerCreate = () => {
   }, [trasladosValue, preciosTraslado]);
 
   useEffect(() => {
+    if (!isEditable) return;
     if (!isIslasSelected) {
       setValue("entradas", "", {
         shouldDirty: false,
@@ -748,17 +805,23 @@ const PackagePassengerCreate = () => {
       errors.push("Define la condición comercial del servicio.");
     }
 
-    const medioPago = String(values.medioPago ?? "").trim().toUpperCase();
+    const medioPago = String(values.medioPago ?? "")
+      .trim()
+      .toUpperCase();
     if (!medioPago) {
       errors.push("Indica el medio de pago elegido para esta operación.");
     }
 
     if (medioPago === "DEPOSITO") {
       if (!String(values.entidadBancaria ?? "").trim()) {
-        errors.push("Especifica la entidad bancaria cuando seleccionas depósito.");
+        errors.push(
+          "Especifica la entidad bancaria cuando seleccionas depósito."
+        );
       }
       if (!String(values.nroOperacion ?? "").trim()) {
-        errors.push("Anota el número de operación bancario para respaldar el depósito.");
+        errors.push(
+          "Anota el número de operación bancario para respaldar el depósito."
+        );
       }
     }
 
@@ -770,7 +833,9 @@ const PackagePassengerCreate = () => {
     if (condicionKey.includes("cuenta")) {
       const acuentaAmount = Number(values.acuenta) || 0;
       if (acuentaAmount <= 0) {
-        errors.push("Ingresa el monto del adelanto cuando la condición es a cuenta.");
+        errors.push(
+          "Ingresa el monto del adelanto cuando la condición es a cuenta."
+        );
       }
       if (acuentaAmount > total) {
         errors.push("El adelanto no puede superar el total a pagar.");
@@ -792,11 +857,12 @@ const PackagePassengerCreate = () => {
   );
 
   const handleInvalidSubmit = () => {
+    if (isViewMode) return;
     const missing = validateRequired(getValues());
     if (missing.length > 0) {
       showToast({
         title: "Campos obligatorios",
-      description: renderValidationList(missing),
+        description: renderValidationList(missing),
         type: "warning",
       });
       return;
@@ -809,11 +875,14 @@ const PackagePassengerCreate = () => {
   };
 
   const onSubmit = handleSubmit(async (values) => {
+    if (isViewMode) {
+      return;
+    }
     const missing = validateRequired(values);
     if (missing.length > 0) {
       showToast({
         title: "Campos obligatorios",
-      description: renderValidationList(missing),
+        description: renderValidationList(missing),
         type: "warning",
       });
       return;
@@ -884,7 +953,11 @@ const PackagePassengerCreate = () => {
         });
         return;
       }
-      if (String(responseText ?? "").trim().toLowerCase() === "false") {
+      if (
+        String(responseText ?? "")
+          .trim()
+          .toLowerCase() === "false"
+      ) {
         showToast({
           title: "Caja cerrada",
           description: "La caja está cerrada y no se puede registrar el viaje.",
@@ -946,11 +1019,12 @@ const PackagePassengerCreate = () => {
       setValue("destino", pkg.destino);
     }
     setValue("fechaViaje", date);
-    setValue("fechaPago", new Date().toISOString().slice(0, 10));
-    setValue("fechaEmision", new Date().toISOString().slice(0, 10));
+    setValue("fechaPago", getTodayDateInputValue());
+    setValue("fechaEmision", getTodayDateInputValue());
     setTimeout(() => {
       setFocus("canalVenta");
     }, 0);
+    navigate("/fullday");
   };
 
   const handlePrint = async () => {
@@ -1045,7 +1119,9 @@ const PackagePassengerCreate = () => {
     }
   };
 
-  if (!pkg) {
+  const shouldShowNotFound = !pkg && !isViewMode;
+
+  if (shouldShowNotFound) {
     return (
       <div className="p-6 bg-white rounded-xl shadow-sm">
         <p className="text-sm text-rose-600">Full Day no encontrado.</p>
@@ -1060,180 +1136,202 @@ const PackagePassengerCreate = () => {
   }
 
   return (
-    <div className="max-w-8xl mx-auto">
-      {/* CARD GENERAL */}
-      <div
-        className="
+    <>
+      <Backdrop
+        open={isSubmitting ?? false}
+        sx={{
+          color: "#fff",
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backdropFilter: "blur(2px)",
+        }}
+      >
+        <div className="flex flex-col items-center gap-2">
+          <CircularProgress color="inherit" />
+          <p className="text-sm text-white">Guardando...</p>
+        </div>
+      </Backdrop>
+      <div className="max-w-8xl mx-auto">
+        {/* CARD GENERAL */}
+        <div
+          className="
           rounded-2xl 
           border border-slate-200 
           bg-white 
           shadow-sm
           overflow-hidden
     "
-      >
-        <form
-          onSubmit={onSubmit}
-          onKeyDown={handleEnterFocus}
-          onChangeCapture={handleSelectAdvanceCapture}
-          noValidate
         >
-          <fieldset disabled={isSubmitting} className="contents">
-            <input type="hidden" {...register("precioVenta")} />
-            <input type="hidden" {...register("mensajePasajero")} />
+          <form
+            onSubmit={onSubmit}
+            onKeyDown={handleEnterFocus}
+            onChangeCapture={handleSelectAdvanceCapture}
+            noValidate
+          >
+            <fieldset disabled={fieldsetDisabled} className="contents">
+              <input type="hidden" {...register("precioVenta")} />
+              <input type="hidden" {...register("mensajePasajero")} />
 
-            <div
-              className="flex items-center justify-between gap-3
+              <div
+                className="flex items-center justify-between gap-3
   rounded-xl border border-emerald-200 bg-emerald-50/70
   px-4 py-2 shadow-sm"
-            >
-              {/* ================= INFO ================= */}
-              <div className="flex items-center gap-4 min-w-0">
-                {/* DESTINO */}
-                <div className="flex items-center gap-1 min-w-0">
-                  <span className="text-slate-500 text-xs">Destino:</span>
-                  <span className="font-semibold text-slate-800 truncate max-w-[460px]">
-                    {watch("destino")}
-                  </span>
-                </div>
+              >
+                {/* ================= INFO ================= */}
+                <div className="flex items-center gap-4 min-w-0">
+                  {/* DESTINO */}
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="text-slate-500 text-xs">Destino:</span>
+                    <span className="font-semibold text-slate-800 truncate max-w-[460px]">
+                      {watch("destino")}
+                    </span>
+                  </div>
 
-                {/* FECHA VIAJE */}
-                <div className="flex items-center gap-1 whitespace-nowrap">
-                  <span className="text-slate-500 text-xs">Viaje:</span>
-                  <span className="text-sm font-medium text-slate-700">
-                    {watch("fechaViaje")}
-                  </span>
-                </div>
+                  {/* FECHA VIAJE */}
+                  <div className="flex items-center gap-1 whitespace-nowrap">
+                    <span className="text-slate-500 text-xs">Viaje:</span>
+                    <span className="text-sm font-medium text-slate-700">
+                      {watch("fechaViaje")}
+                    </span>
+                  </div>
 
-                {/* FECHA EMISIÓN */}
-                <div className="flex items-center gap-1 whitespace-nowrap">
-                  <span className="text-slate-500 text-xs">Emisión:</span>
-                  <span className="text-sm font-medium text-slate-700">
-                    {watch("fechaEmision")}
-                  </span>
-                </div>
+                  {/* FECHA EMISIÓN */}
+                  <div className="flex items-center gap-1 whitespace-nowrap">
+                    <span className="text-slate-500 text-xs">Emisión:</span>
+                    <span className="text-sm font-medium text-slate-700">
+                      {watch("fechaEmision")}
+                    </span>
+                  </div>
 
-                {/* DISPONIBLES */}
+                  {/* DISPONIBLES */}
                 <div
                   className="flex items-center gap-1 rounded-md bg-white px-2 py-1
                    border border-emerald-200 whitespace-nowrap"
                 >
                   <span className="text-xs text-slate-500">Disp:</span>
                   <span className="text-sm font-bold text-emerald-700">
-                    {pkg.disponibles}
+                    {availableCount}
                   </span>
                 </div>
-              </div>
+                </div>
 
-              {/* ================= ACCIONES ================= */}
-              <div className="flex items-center gap-2 shrink-0">
+                {/* ================= ACCIONES ================= */}
+                <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="submit"
-                  title="Guardar"
+                  title={saveButtonLabel}
+                  disabled={fieldsetDisabled}
                   className="inline-flex items-center gap-1 rounded-lg
                   bg-emerald-600 px-3 py-2 text-white
                   shadow-sm ring-1 ring-emerald-600/30
-                  hover:bg-emerald-700 transition"
+                  hover:bg-emerald-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  <Save size={16} />
-                  <span className="text-sm hidden sm:inline">Guardar</span>
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  <span className="text-sm hidden sm:inline">{saveButtonLabel}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleNew}
                   title="Nuevo"
+                  disabled={fieldsetDisabled}
                   className="inline-flex items-center gap-1 rounded-lg
         bg-slate-100 px-3 py-2 text-slate-700
-        ring-1 ring-slate-200 hover:bg-slate-200 transition"
+        ring-1 ring-slate-200 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Plus size={16} />
-                  <span className="text-sm hidden sm:inline">Nuevo</span>
-                </button>
+                    <Plus size={16} />
+                    <span className="text-sm hidden sm:inline">Nuevo</span>
+                  </button>
 
                 <button
                   type="button"
                   onClick={handlePrint}
                   title="Imprimir"
+                  disabled={fieldsetDisabled}
                   className="inline-flex items-center gap-1 rounded-lg
         bg-white px-3 py-2 text-slate-700
-        ring-1 ring-slate-200 hover:bg-slate-50 transition"
+        ring-1 ring-slate-200 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Printer size={16} />
-                  <span className="text-sm hidden sm:inline">Imprimir</span>
-                </button>
+                    <Printer size={16} />
+                    <span className="text-sm hidden sm:inline">Imprimir</span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="p-4 sm:p-5 space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
-                <div className="lg:col-span-4 space-y-3">
-                  <PackageHeader
-                    pkg={pkg}
-                    control={control}
-                    monedaOptions={monedaOptions}
-                    canalVentaList={canalVentaList}
-                    estadoPagoOptions={estadoPagoOptions}
-                    handleAddCanalVenta={handleAddCanalVenta}
-                  />
+              <div className="p-4 sm:p-5 space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
+                  <div className="lg:col-span-4 space-y-3">
+                    <PackageHeader
+                      pkg={pkg}
+                      control={control}
+                      monedaOptions={monedaOptions}
+                      canalVentaList={canalVentaList}
+                      estadoPagoOptions={estadoPagoOptions}
+                      handleAddCanalVenta={handleAddCanalVenta}
+                    />
 
-                  <PassengerDetails
-                    control={control}
-                    setValue={setValue}
-                    disponibles={pkg?.disponibles}
-                  />
+                    <PassengerDetails
+                      control={control}
+                      setValue={setValue}
+                  disponibles={availableCount}
+                    />
 
-                  <ServicesTable
-                    partidas={partidas}
-                    hoteles={hoteles}
-                    almuerzos={almuerzos}
-                    trasladosOptions={trasladosOptions}
-                    actividades={actividades}
-                    tarifaRows={tarifaRows}
-                    cantPaxValue={Number(cantPaxValue) || 0}
+                    <ServicesTable
+                      partidas={partidas}
+                      hoteles={hoteles}
+                      almuerzos={almuerzos}
+                      trasladosOptions={trasladosOptions}
+                      actividades={actividades}
+                      tarifaRows={tarifaRows}
+                      cantPaxValue={Number(cantPaxValue) || 0}
+                      control={control}
+                      register={register}
+                      errors={errors}
+                      precioError={precioError}
+                      updateRow={updateRow}
+                      handleAdvanceAfterChange={handleAdvanceAfterChange}
+                      onPartidaChange={handlePartidaChange}
+                      activitySelections={{
+                        actividad1: actividad1Value,
+                        actividad2: actividad2Value,
+                        actividad3: actividad3Value,
+                      }}
+                      enableHotelHora={
+                        partidaValue === "HOTEL" || partidaValue === "OTROS"
+                      }
+                    />
+                  </div>
+
+                  <PaymentSummary
                     control={control}
                     register={register}
-                    errors={errors}
-                    precioError={precioError}
-                    updateRow={updateRow}
-                    handleAdvanceAfterChange={handleAdvanceAfterChange}
-                    onPartidaChange={handlePartidaChange}
-                    activitySelections={{
-                      actividad1: actividad1Value,
-                      actividad2: actividad2Value,
-                      actividad3: actividad3Value,
-                    }}
-                    enableHotelHora={
-                      partidaValue === "HOTEL" || partidaValue === "OTROS"
-                    }
+                    setValue={setValue}
+                    documentoOptions={documentoOptions}
+                    totalPagar={totalPagar}
+                    saldo={saldo}
+                    medioPagoOptions={medioPagoOptions}
+                    bancoOptions={bancoOptions}
+                    isSubmitting={isSubmitting}
+                    watch={watch}
+                    documentoCobranzaOptions={[
+                      {
+                        label: "Documento de Cobranza",
+                        value: "DOCUMENTO DE COBRANZA",
+                      },
+                      { label: "Boleta", value: "BOLETA" },
+                      { label: "Factura", value: "FACTURA" },
+                    ]}
                   />
                 </div>
-
-                <PaymentSummary
-                  control={control}
-                  register={register}
-                  setValue={setValue}
-                  documentoOptions={documentoOptions}
-                  totalPagar={totalPagar}
-                  saldo={saldo}
-                  medioPagoOptions={medioPagoOptions}
-                  bancoOptions={bancoOptions}
-                  isSubmitting={isSubmitting}
-                  watch={watch}
-                  documentoCobranzaOptions={[
-                    {
-                      label: "Documento de Cobranza",
-                      value: "DOCUMENTO DE COBRANZA",
-                    },
-                    { label: "Boleta", value: "BOLETA" },
-                    { label: "Factura", value: "FACTURA" },
-                  ]}
-                />
               </div>
-            </div>
-          </fieldset>
-        </form>
+            </fieldset>
+          </form>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

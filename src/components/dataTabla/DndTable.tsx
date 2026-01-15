@@ -27,9 +27,9 @@ import {
 const DndTable = ({
   data = [],
   columns = [],
-  enableSorting = true,
-  enableFiltering = true,
-  enableDateFilter = true,
+  enableSorting = false,
+  enableFiltering = false,
+  enableDateFilter = false,
   dateField = "fecha",
   enablePagination = true,
   enableRowSelection = false,
@@ -42,6 +42,7 @@ const DndTable = ({
   dataFilterFn = null,
   enableSearching = true,
   onSelectionChange = null,
+  searchColumns = null,
 }) => {
   const [sorting, setSorting] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -52,6 +53,11 @@ const DndTable = ({
     pageSize: pageSize,
   });
   const [dateFilter, setDateFilter] = useState("");
+  const searchColumnsKey = (searchColumns ?? []).join(",");
+  const searchColumnSet = useMemo(() => {
+    if (!searchColumnsKey) return null;
+    return new Set(searchColumns);
+  }, [searchColumnsKey, searchColumns]);
 
   const filteredData = useMemo(() => {
     if (!enableDateFilter || !dateField) return data;
@@ -83,6 +89,33 @@ const DndTable = ({
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   }, [dateFilter]);
 
+  const shouldFilter =
+    enableFiltering || // actual column filters
+    enableSearching; // allow string search even without filtering
+
+  const customGlobalFilterFn = useMemo(() => {
+    if (!enableSearching) return undefined;
+    return (row, columnId, filterValue) => {
+      const rawValue = String(filterValue ?? "").trim();
+      if (!rawValue) return true;
+      const targetColumns = searchColumnSet
+        ? Array.from(searchColumnSet)
+        : row
+            .getVisibleCells()
+            .map((cell) => cell.column.id)
+            .filter(Boolean);
+      const normalizedFilter = rawValue.toLowerCase();
+      return targetColumns.some((colId) => {
+        const value =
+          searchColumnSet && row.original
+            ? row.original[colId]
+            : row.getValue(colId);
+        if (value === null || value === undefined) return false;
+        return String(value).toLowerCase().includes(normalizedFilter);
+      });
+    };
+  }, [enableSearching, searchColumnSet]);
+
   const table = useReactTable({
     data: filteredData,
     columns,
@@ -102,7 +135,8 @@ const DndTable = ({
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
-    getFilteredRowModel: enableFiltering ? getFilteredRowModel() : undefined,
+    getFilteredRowModel: shouldFilter ? getFilteredRowModel() : undefined,
+    globalFilterFn: customGlobalFilterFn,
     getPaginationRowModel: enablePagination
       ? getPaginationRowModel()
       : undefined,
@@ -112,7 +146,7 @@ const DndTable = ({
   return (
     <div className={`bg-white rounded-xl shadow-sm ${className}`}>
       {/* Header con búsqueda y acciones */}
-      {enableFiltering && (
+      {(enableFiltering || enableSearching) && (
         <TableHeader
           globalFilter={globalFilter}
           setGlobalFilter={setGlobalFilter}
@@ -122,6 +156,7 @@ const DndTable = ({
           setDateFilter={setDateFilter}
           enableDateFilter={enableDateFilter && Boolean(dateField)}
           enableSearching={enableSearching}
+          enableFiltering={enableFiltering}
         />
       )}
 
@@ -160,6 +195,7 @@ const TableHeader = ({
   setDateFilter,
   enableDateFilter,
   enableSearching,
+  enableFiltering,
 }) => {
   return (
     <div className="p-4 sm:p-6 border-b border-slate-200">
@@ -213,12 +249,16 @@ const TableHeader = ({
               {selectedRows} seleccionado{selectedRows > 1 ? "s" : ""}
             </span>
           )}
-          <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <Filter className="w-5 h-5 text-slate-600" />
-          </button>
-          <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <Download className="w-5 h-5 text-slate-600" />
-          </button>
+          {enableFiltering && (
+            <>
+              <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <Filter className="w-5 h-5 text-slate-600" />
+              </button>
+              <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <Download className="w-5 h-5 text-slate-600" />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

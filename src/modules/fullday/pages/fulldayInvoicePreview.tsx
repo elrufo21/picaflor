@@ -81,7 +81,7 @@ const InvoicePreview = () => {
 
   const handleRegisterAnother = () => {
     if (!id) return;
-    navigate(`/fullday/${id}/passengers/new`);
+    navigate(`/fullday`);
   };
 
   return (

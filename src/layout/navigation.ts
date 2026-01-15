@@ -1,11 +1,19 @@
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Package, Wrench, Plane, Car } from "lucide-react";
+import {
+  LayoutDashboard,
+  Package,
+  Wrench,
+  Plane,
+  Car,
+  CalendarDays,
+} from "lucide-react";
 
 export type NavigationItem = {
   label: string;
   to: string;
   icon: LucideIcon;
   description?: string;
+  children?: NavigationItem[];
 };
 
 export const navigationItems: NavigationItem[] = [
@@ -20,6 +28,14 @@ export const navigationItems: NavigationItem[] = [
     to: "/fullday",
     icon: Plane,
     description: "Experiencias de dia completo",
+    children: [
+      {
+        label: "Programación",
+        to: "/fullday/programacion/liquidaciones",
+        icon: CalendarDays,
+        description: "Listado de liquidaciones",
+      },
+    ],
   },
   {
     label: "City Tour",

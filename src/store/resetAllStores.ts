@@ -6,8 +6,9 @@ import { useUsersStore } from "@/store/users/users.store";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import { useClientsStore } from "@/store/clients/clients.store";
 import { queryClient } from "@/shared/queryClient";
+import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
 
-const getDefaultPackageDate = () => new Date().toISOString().slice(0, 10);
+const getDefaultPackageDate = () => getTodayDateInputValue();
 
 export const resetAllStores = () => {
   useLayoutStore.setState({ isSidebarOpen: false });

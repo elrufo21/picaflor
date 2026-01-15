@@ -2,9 +2,17 @@ import { useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Save, Plus, Trash2 } from "lucide-react";
 
-import { DateInput, SelectControlled, TextControlled } from "@/components/ui/inputs";
+import {
+  DateInput,
+  SelectControlled,
+  TextControlled,
+} from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { handleEnterFocus } from "@/shared/helpers/formFocus";
+import {
+  formatDateForInput,
+  getTodayDateInputValue,
+} from "@/shared/helpers/formatDate";
 import { useDialogStore } from "@/app/store/dialogStore";
 import type { Client } from "@/types/maintenance";
 
@@ -14,19 +22,6 @@ type ClientFormProps = {
   onSave: (data: Client) => void | Promise<void>;
   onNew?: () => void;
   onDelete?: () => void;
-};
-
-const today = () => new Date().toISOString().slice(0, 10);
-
-const formatDateForInput = (value?: string | null) => {
-  if (!value) return "";
-  const trimmed = value.toString().trim();
-  if (!trimmed) return "";
-  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
-  const parsed = new Date(trimmed);
-  return Number.isNaN(parsed.getTime())
-    ? ""
-    : parsed.toISOString().slice(0, 10);
 };
 
 const buildDefaults = (data?: Partial<Client>): Client => ({
@@ -42,7 +37,8 @@ const buildDefaults = (data?: Partial<Client>): Client => ({
   clienteEstado: data?.clienteEstado ?? "ACTIVO",
   clienteDespacho: data?.clienteDespacho ?? "",
   clienteUsuario: data?.clienteUsuario ?? "",
-  clienteFecha: formatDateForInput(data?.clienteFecha) || today(),
+  clienteFecha:
+    formatDateForInput(data?.clienteFecha) || getTodayDateInputValue(),
   companiaId: data?.companiaId ?? 1,
 });
 
@@ -190,16 +186,6 @@ export default function ClientForm({
 
           <div className="p-6 sm:p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <SelectControlled
-                name="companiaId"
-                control={control}
-                label="Compania"
-                options={companyOptions}
-                size="small"
-                defaultValue={companyOptions[0]?.value ?? 1}
-                autoAdvance
-              />
-
               <TextControlled
                 name="clienteRazon"
                 control={control}
@@ -250,13 +236,6 @@ export default function ClientForm({
                 name="clienteCorreo"
                 control={control}
                 label="Correo"
-                size="small"
-              />
-
-              <TextControlled
-                name="clienteDespacho"
-                control={control}
-                label="Despacho"
                 size="small"
               />
 

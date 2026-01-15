@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import { X, LogOutIcon, MenuIcon } from "lucide-react";
 import BreadCrumb from "./BreadCrumb";
@@ -94,47 +94,77 @@ const MainLayout = () => {
           const Icon = item.icon;
 
           return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                [
-                  "group relative flex items-center px-3 py-2 text-sm transition-all rounded-lg",
-                  isSidebarOpen ? "gap-3" : "gap-0 justify-center px-2",
-                  isActive
-                    ? isSidebarOpen
-                      ? "bg-white/10 text-white border-l-4 border-[#E8612A]"
-                      : "text-[#E8612A]"
-                    : "text-white/80 hover:bg-[#E8612A]/10 hover:text-white",
-                ].join(" ")
-              }
-            >
-              <Icon
-                size={18}
-                className={`shrink-0 transition-all text-white ${
-                  !isSidebarOpen ? "scale-110" : ""
-                }`}
-              />
-
-              <div
-                className={`flex flex-col leading-tight transition-opacity text-white duration-200 ${
-                  isSidebarOpen
-                    ? "opacity-100"
-                    : "opacity-0 pointer-events-none w-0 overflow-hidden"
-                }`}
+            <div key={item.to} className="flex flex-col gap-1">
+              <NavLink
+                to={item.to}
+                className={({ isActive }) =>
+                  [
+                    "group relative flex items-center px-3 py-2 text-sm transition-all rounded-lg",
+                    isSidebarOpen ? "gap-3" : "gap-0 justify-center px-2",
+                    isActive
+                      ? isSidebarOpen
+                        ? "bg-white/10 text-white border-l-4 border-[#E8612A]"
+                        : "text-[#E8612A]"
+                      : "text-white/80 hover:bg-[#E8612A]/10 hover:text-white",
+                  ].join(" ")
+                }
               >
-                <span className="font-medium">{item.label}</span>
-                {item.description && (
-                  <span className="text-xs text-white/60">
-                    {item.description}
-                  </span>
-                )}
-              </div>
+                <Icon
+                  size={18}
+                  className={`shrink-0 transition-all text-white ${
+                    !isSidebarOpen ? "scale-110" : ""
+                  }`}
+                />
 
-              {!isSidebarOpen && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-[#E8612A] opacity-0 group-[.active]:opacity-100" />
-              )}
-            </NavLink>
+                <div
+                  className={`flex flex-col leading-tight transition-opacity text-white duration-200 ${
+                    isSidebarOpen
+                      ? "opacity-100"
+                      : "opacity-0 pointer-events-none w-0 overflow-hidden"
+                  }`}
+                >
+                  <span className="font-medium">{item.label}</span>
+                  {item.description && (
+                    <span className="text-xs text-white/60">
+                      {item.description}
+                    </span>
+                  )}
+                </div>
+
+                {!isSidebarOpen && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-[#E8612A] opacity-0 group-[.active]:opacity-100" />
+                )}
+              </NavLink>
+              {isSidebarOpen &&
+                item.children?.map((child) => {
+                  const ChildIcon = child.icon;
+                  return (
+                    <NavLink
+                      key={child.to}
+                      to={child.to}
+                      end
+                      className={({ isActive }) =>
+                        [
+                          "group relative flex items-center px-3 py-2 text-sm transition-all rounded-lg ml-6 gap-2",
+                          isActive
+                            ? "bg-white/10 text-white border-l-4 border-[#E8612A]"
+                            : "text-white/80 hover:bg-[#E8612A]/10 hover:text-white",
+                        ].join(" ")
+                      }
+                    >
+                      <ChildIcon size={16} className="text-white/80" />
+                      <div className="flex flex-col leading-tight text-white">
+                        <span className="font-medium">{child.label}</span>
+                        {child.description && (
+                          <span className="text-[11px] text-white/60">
+                            {child.description}
+                          </span>
+                        )}
+                      </div>
+                    </NavLink>
+                  );
+                })}
+            </div>
           );
         })}
       </nav>
@@ -173,29 +203,58 @@ const MainLayout = () => {
         {filteredNavigationItems.map((item) => {
           const Icon = item.icon;
           return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={closeSidebar}
-              className={({ isActive }) =>
-                [
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-                  isActive
-                    ? "bg-paper/15 text-paper border-l-4 border-paper"
-                    : "text-paper/90 hover:bg-paper/10",
-                ].join(" ")
-              }
-            >
-              <Icon size={18} />
-              <div className="flex flex-col leading-tight">
-                <span className="font-medium">{item.label}</span>
-                {item.description && (
-                  <span className="text-xs text-paper/70">
-                    {item.description}
-                  </span>
-                )}
-              </div>
-            </NavLink>
+            <Fragment key={item.to}>
+              <NavLink
+                to={item.to}
+                onClick={closeSidebar}
+                className={({ isActive }) =>
+                  [
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                    isActive
+                      ? "bg-paper/15 text-paper border-l-4 border-paper"
+                      : "text-paper/90 hover:bg-paper/10",
+                  ].join(" ")
+                }
+              >
+                <Icon size={18} />
+                <div className="flex flex-col leading-tight">
+                  <span className="font-medium">{item.label}</span>
+                  {item.description && (
+                    <span className="text-xs text-paper/70">
+                      {item.description}
+                    </span>
+                  )}
+                </div>
+              </NavLink>
+              {item.children?.map((child) => {
+                const ChildIcon = child.icon;
+                return (
+                  <NavLink
+                    key={child.to}
+                    to={child.to}
+                    onClick={closeSidebar}
+                    className={({ isActive }) =>
+                      [
+                        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all ml-4",
+                        isActive
+                          ? "bg-paper/15 text-paper border-l-4 border-paper"
+                          : "text-paper/90 hover:bg-paper/10",
+                      ].join(" ")
+                    }
+                  >
+                    <ChildIcon size={16} />
+                    <div className="flex flex-col leading-tight">
+                      <span className="font-medium">{child.label}</span>
+                      {child.description && (
+                        <span className="text-xs text-paper/70">
+                          {child.description}
+                        </span>
+                      )}
+                    </div>
+                  </NavLink>
+                );
+              })}
+            </Fragment>
           );
         })}
       </nav>

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { AxiosError } from "axios";
 
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
@@ -11,6 +12,7 @@ export interface AuthUser {
   id: string;
   personalId: string;
   area: string;
+  areaId?: string | null;
   username: string;
   displayName: string;
   companyId: string;
@@ -32,6 +34,7 @@ interface LoginResponse {
   id: string;
   personalId: string;
   area: string;
+  areaId?: string;
   usuario: string;
   companiaId: string;
   razonSocial: string;
@@ -182,18 +185,55 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
       set({ loading: true, error: null });
 
-      const response = await apiRequest<LoginResponse>({
-        url: `${API_BASE_URL}/User/acceso`,
-        method: "POST",
-        data: {
-          email: usernameSafe,
-          password: passwordSafe,
-        },
-      });
+      let parsed: LoginResponse | null = null;
+      try {
+        const response = await apiRequest<LoginResponse, unknown, null>({
+          url: `${API_BASE_URL}/User/acceso`,
+          method: "POST",
+          data: {
+            email: usernameSafe,
+            password: passwordSafe,
+          },
+          fallback: null,
+        });
+        parsed = response as LoginResponse | null;
+      } catch (error: unknown) {
+        let message = "Error de comunicación con el servidor";
+        if (error instanceof AxiosError) {
+          const status = error.response?.status;
+          if (status && status >= 400 && status < 500) {
+            message = "Credenciales incorrectas";
+          } else if (status && status >= 500) {
+            message =
+              "El servidor no responde. Intenta de nuevo más tarde.";
+          }
+        } else if (error instanceof Error) {
+          message = error.message;
+        }
+        set({
+          loading: false,
+          isAuthenticated: false,
+          user: null,
+          token: null,
+          error: message,
+          hydrated: true,
+        });
+        return false;
+      }
 
-      const parsed = response as LoginResponse | null;
+      if (parsed === null) {
+        set({
+          loading: false,
+          isAuthenticated: false,
+          user: null,
+          token: null,
+          error: "El servidor no responde. Intenta de nuevo más tarde.",
+          hydrated: true,
+        });
+        return false;
+      }
 
-      if (!parsed || typeof parsed !== "object" || !parsed.token) {
+      if (typeof parsed !== "object" || !parsed.token) {
         set({
           loading: false,
           isAuthenticated: false,
@@ -218,6 +258,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           id: parsed.id,
           personalId: parsed.personalId,
           area: parsed.area,
+          areaId: parsed.areaId ?? null,
           username: usernameSafe,
           displayName: parsed.usuario ?? usernameSafe,
           companyId: parsed.companiaId,

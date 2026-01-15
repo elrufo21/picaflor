@@ -101,7 +101,13 @@ export const PaymentSummary = ({
   }, [acuentaValue, isDeposito, setValue]);
 
   useEffect(() => {
-    if (isDeposito) return;
+    if (isDeposito) {
+      setValue("entidadBancaria", "", {
+        shouldDirty: false,
+        shouldTouch: false,
+      });
+      return;
+    }
     setValue("entidadBancaria", isEfectivo ? "-" : "", {
       shouldDirty: false,
       shouldTouch: false,
@@ -324,7 +330,11 @@ export const PaymentSummary = ({
                 <SelectControlled
                   name="entidadBancaria"
                   control={control}
-                  options={bancoOptions}
+                  options={
+                    isDeposito
+                      ? bancoOptions.filter((option) => option.value !== "-")
+                      : bancoOptions
+                  }
                   size="small"
                   disabled={isCredito || !isDeposito}
                   SelectProps={{ displayEmpty: true }}

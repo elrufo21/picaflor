@@ -9,6 +9,7 @@ import {
 } from "../api/fulldayApi";
 import { transformServiciosData } from "@/shared/helpers/helpers";
 import { getServiciosFromDB, serviciosDB } from "@/app/db/serviciosDB";
+import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
 
 export type ServiciosData = {
   productos: { id: number; nombre: string }[];
@@ -184,7 +185,7 @@ export const usePackageStore = create<PackageState>()(
       selectedFullDayName: "",
       loading: false,
       listadoLoading: false,
-      date: new Date().toISOString().slice(0, 10),
+      date: getTodayDateInputValue(),
       setDate: (date) => set({ date }),
       setSelectedFullDayName: (name) =>
         set({ selectedFullDayName: (name ?? "").trim() }),

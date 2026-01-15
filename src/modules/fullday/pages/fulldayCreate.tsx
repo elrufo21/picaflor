@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
 import { usePackageStore } from "../store/fulldayStore";
 
 type FormValues = {
@@ -22,7 +23,7 @@ const PackageCreate = () => {
   } = useForm<FormValues>({
     defaultValues: {
       destino: "",
-      fecha: new Date().toISOString().slice(0, 10),
+      fecha: getTodayDateInputValue(),
       cantTotalPax: 0,
       cantMaxPax: 0,
       disponibles: 0,

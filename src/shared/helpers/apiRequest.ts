@@ -77,7 +77,7 @@ export async function apiRequest<
     let result = response.data;
 
     if (typeof result === "string" && result.includes("<!doctype html")) {
-      console.warn("⚠️ El api no existe");
+      console.warn("⚠️ El api no existe", url);
       return fallback as TFallback;
     }
     console.log("response", result);
@@ -85,6 +85,9 @@ export async function apiRequest<
     return result;
   } catch (err) {
     console.error("⚠️ Error del api", err);
-    return err;
+    if (typeof fallback !== "undefined") {
+      return fallback;
+    }
+    throw err;
   }
 }
