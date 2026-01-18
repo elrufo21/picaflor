@@ -8,38 +8,40 @@ import type {
   DireccionHotel,
 } from "@/app/db/serviciosDB";
 
+type Option = { value: string; label: string };
+
 export const usePackageData = (id: string | undefined, setValue: any) => {
-  const [partidas, setPartidas] = useState<
-    { value: string; label: string }[] | undefined
-  >();
-  const [hoteles, setHoteles] = useState<
-    { value: string; label: string }[] | undefined
-  >();
-  const [actividades, setActividades] = useState<
-    { value: string; label: string }[] | undefined
-  >();
-  const [almuerzos, setAlmuerzos] = useState<
-    { value: string; label: string }[] | undefined
-  >();
-  const [trasladosOptions, setTrasladosOptions] = useState<
-    { value: string; label: string }[] | undefined
-  >();
-  const [horasPartida, setHorasPartida] = useState<
-    { idParti: string; hora: string }[] | undefined
-  >();
-  
-  const [direccionesHotel, setDireccionesHotel] = useState<
-    DireccionHotel[] | undefined
-  >();
+  /* =========================
+     STATE
+  ========================= */
+  const [partidas, setPartidas] = useState<Option[]>();
+  const [hoteles, setHoteles] = useState<Option[]>();
+  const [actividades, setActividades] = useState<Option[]>();
+  const [almuerzos, setAlmuerzos] = useState<Option[]>();
+  const [trasladosOptions, setTrasladosOptions] = useState<Option[]>();
+  const [horasPartida, setHorasPartida] =
+    useState<{ idParti: string; hora: string }[]>();
+  const [direccionesHotel, setDireccionesHotel] = useState<DireccionHotel[]>();
 
-  const [preciosActividades, setPreciosActividades] = useState<PrecioActividad[] | undefined>();
-  const [preciosAlmuerzo, setPreciosAlmuerzo] = useState<PrecioAlmuerzo[] | undefined>();
-  const [preciosTraslado, setPreciosTraslado] = useState<PrecioTraslado[] | undefined>();
+  const [preciosActividades, setPreciosActividades] =
+    useState<PrecioActividad[]>();
+  const [preciosAlmuerzo, setPreciosAlmuerzo] = useState<PrecioAlmuerzo[]>();
+  const [preciosTraslado, setPreciosTraslado] = useState<PrecioTraslado[]>();
 
+  const [precioProducto, setPrecioProducto] = useState<any>();
+
+  /* =========================
+     STORE
+  ========================= */
   const pkg = usePackageStore((s) => s.getPackageById(Number(id)));
   const { loadServiciosFromDB, loadServicios } = usePackageStore();
 
+  /* =========================
+     EFFECT
+  ========================= */
   useEffect(() => {
+    if (!id) return;
+
     let cancelled = false;
 
     const init = async () => {
@@ -56,7 +58,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           dataHoteles,
           dataDireccionesHotel,
           dataActividades,
-          precioProducto,
+          precioProductoFromDB,
           dataPreciosActividades,
           dataAlmuerzos,
           dataPreciosAlmuerzo,
@@ -79,73 +81,85 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
 
         if (cancelled) return;
 
-        // 3️⃣ PARTIDAS (por producto)
+        /* =========================
+           MAP DATA
+        ========================= */
+
+        // PARTIDAS
         setPartidas(
-           dataPartidas
+          dataPartidas
             .filter((p) => Number(p.idProducto) === Number(id))
-            .map((d) => ({
-              value: String(d.id),
-              label: d.partida,
-            }))
+            .map((p) => ({
+              value: p.partida,
+              label: p.partida,
+              id: p.id,
+            })),
         );
 
-        // 4 HOTELES (todos)
+        // HOTELES
         setHoteles(
           dataHoteles.map((h) => ({
             value: String(h.id),
             label: h.nombre,
-          }))
+          })),
         );
 
         setDireccionesHotel(dataDireccionesHotel);
 
-        // 5️⃣ ACTIVIDADES (por producto)
+        // ACTIVIDADES
         setActividades(
           dataActividades
             .filter((a) => Number(a.idProducto) === Number(id))
             .map((a) => ({
-              value: String(a.id),
+              value: a.actividad,
               label: a.actividad,
-            }))
+              id: String(a.id),
+            })),
         );
 
+        // ALMUERZOS
         setAlmuerzos(
           dataAlmuerzos.map((a) => ({
-            value: String(a.id),
+            value: a.nombre,
             label: a.nombre,
-          }))
+            id: String(a.id),
+          })),
         );
 
+        // TRASLADOS
         setTrasladosOptions(
           dataTraslados.map((t) => ({
-            value: String(t.id),
+            value: t.nombre,
             label: t.nombre,
-          }))
+            id: String(t.id),
+          })),
         );
 
+        // HORAS PARTIDA
         setHorasPartida(
           dataHorasPartida.map((h) => ({
             idParti: String(h.idParti),
             hora: String(h.hora ?? "").trim(),
-          }))
+          })),
         );
 
-        // 6️⃣ VISITAS
-        const precio = precioProducto;
+        // PRECIOS
+        setPreciosActividades(dataPreciosActividades);
+        setPreciosAlmuerzo(dataPreciosAlmuerzo);
+        setPreciosTraslado(dataPreciosTraslado);
 
-        if (precio?.precioVenta != null) {
-          setValue("precioVenta", Number(precio.precioVenta) || 0, {
+        // PRECIO PRODUCTO
+        setPrecioProducto(precioProductoFromDB);
+
+        if (precioProductoFromDB?.precioVenta != null) {
+          setValue("precioVenta", Number(precioProductoFromDB.precioVenta), {
             shouldDirty: false,
             shouldTouch: false,
           });
         }
 
-        setPreciosActividades(dataPreciosActividades as PrecioActividad[]);
-        setPreciosAlmuerzo(dataPreciosAlmuerzo as PrecioAlmuerzo[]);
-        setPreciosTraslado(dataPreciosTraslado as PrecioTraslado[]);
-
-        if (precio?.visitas) {
-          setValue("visitas", precio.visitas, {
+        if (precioProductoFromDB?.visitas) {
+          setValue("visitas", precioProductoFromDB.visitas, {
             shouldDirty: false,
             shouldTouch: false,
           });
@@ -156,15 +170,16 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
       }
     };
 
-    if (id) {
-      init();
-    }
+    init();
 
     return () => {
       cancelled = true;
     };
   }, [id, pkg?.region, loadServicios, loadServiciosFromDB, setValue]);
 
+  /* =========================
+     RETURN
+  ========================= */
   return {
     pkg,
     partidas,
@@ -177,5 +192,6 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
     preciosActividades,
     preciosAlmuerzo,
     preciosTraslado,
+    precioProducto, // ✅ AQUÍ ESTÁ
   };
 };

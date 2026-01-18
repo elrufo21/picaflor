@@ -1,7 +1,9 @@
 import { Navigate } from "react-router";
 import PackageCreate from "./pages/fulldayCreate";
 import PackageList from "./pages/fulldayList";
-import PackagePassengerCreate from "./pages/fulldayPassengerCreate";
+import Pscreate from "./pages/fulldayPassengerCreate";
+
+import ViajeForm from "./pages/viajeForm";
 import FulldayListado from "./pages/fulldayListado";
 import InvoicePreview from "./pages/fulldayInvoicePreview";
 import ProgramacionLiquidaciones from "./pages/programacionLiquidaciones";
@@ -22,8 +24,8 @@ export default [
     },
   },
   {
-    path: "fullday/:id/passengers/new",
-    element: <PackagePassengerCreate />,
+    path: "fullday/:idProduct/passengers/new",
+    element: <ViajeForm />,
     handle: {
       breadcrumb: [
         { label: "Full Day", to: "/fullday" },
@@ -32,8 +34,8 @@ export default [
     },
   },
   {
-    path: "fullday/:id/passengers/view/:liquidacionId",
-    element: <PackagePassengerCreate />,
+    path: "fullday/:idProduct/passengers/view/:liquidacionId",
+    element: <ViajeForm />,
     handle: {
       breadcrumb: [
         { label: "Full Day", to: "/fullday" },
@@ -46,20 +48,14 @@ export default [
     path: "fullday/:id/passengers/preview",
     element: <InvoicePreview />,
     handle: {
-      breadcrumb: [
-        { label: "Full Day", to: "/fullday" },
-        { label: "Factura" },
-      ],
+      breadcrumb: [{ label: "Full Day", to: "/fullday" }, { label: "Factura" }],
     },
   },
   {
     path: "fullday/:id/listado",
     element: <FulldayListado />,
     handle: {
-      breadcrumb: [
-        { label: "Full Day", to: "/fullday" },
-        { label: "Listado" },
-      ],
+      breadcrumb: [{ label: "Full Day", to: "/fullday" }, { label: "Listado" }],
     },
   },
   {

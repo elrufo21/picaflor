@@ -9,6 +9,7 @@ interface PassengerDetailsProps {
   control: Control<any>;
   setValue: UseFormSetValue<any>;
   disponibles?: number;
+  isEditable?: boolean;
 }
 
 type ClientLookupResponse = {
@@ -33,6 +34,7 @@ export const PassengerDetails = ({
   control,
   setValue,
   disponibles,
+  isEditable = true,
 }: PassengerDetailsProps) => {
   const documentoNumero = useWatch({ control, name: "documentoNumero" });
   const lastRequestedRef = useRef<string>("");
@@ -111,6 +113,7 @@ export const PassengerDetails = ({
   const cantPax = useWatch({ control, name: "cantPax" });
   useEffect(() => {
     if (disponibles == null) return;
+    if (!isEditable) return;
     const next = Number(cantPax) || 0;
     if (next <= disponibles) return;
     showToast({

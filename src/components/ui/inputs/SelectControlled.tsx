@@ -37,11 +37,14 @@ function SelectControlled<T extends FieldValues>({
       render={({ field, fieldState }) => (
         <TextField
           {...rest}
-          {...field}
           select
           fullWidth
+          value={field.value ?? ""}
           onChange={(e) => {
-            field.onChange(e);
+            const value = e.target.value;
+
+            field.onChange(value);
+            rest.onChange?.(e);
 
             const nextSelector = (rest as any)["data-focus-next"];
             if (nextSelector) {
@@ -52,6 +55,7 @@ function SelectControlled<T extends FieldValues>({
               }, 0);
               return;
             }
+
             if (autoAdvance) {
               const target = e.target as HTMLElement | null;
               setTimeout(() => {
@@ -74,4 +78,3 @@ function SelectControlled<T extends FieldValues>({
 }
 
 export default SelectControlled;
-

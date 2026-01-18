@@ -13,7 +13,7 @@ import { useDialogStore } from "@/app/store/dialogStore";
 ========================= */
 
 const buildCantMaxString = (
-  data: { idDetalle: number; cantMax: number }[]
+  data: { idDetalle: number; cantMax: number }[],
 ): string => {
   return data.map((item) => `${item.idDetalle}|${item.cantMax}`).join(";");
 };
@@ -105,7 +105,6 @@ const PackageList = () => {
     setDate,
     setSelectedFullDayName,
   } = usePackageStore();
-  console.log("cantMaxChanges", cantMaxChanges);
   const navigate = useNavigate();
   const openDialog = useDialogStore((state) => state.openDialog);
 
@@ -142,7 +141,7 @@ const PackageList = () => {
         navigate(`/fullday/${row.id}/passengers/new`);
       }
     },
-    [navigate]
+    [navigate],
   );
 
   const handleListadoClick = useCallback(
@@ -152,11 +151,10 @@ const PackageList = () => {
       setSelectedFullDayName(row?.destino ?? "");
       navigate(`/fullday/${idProducto}/listado`);
     },
-    [navigate, setSelectedFullDayName]
+    [navigate, setSelectedFullDayName],
   );
 
   const handleCantMaxChange = (id: number, value: number, row: any) => {
-    console.log("Row", row.original);
     const idDetalle = row.original.idDetalle;
 
     setCantMaxChanges((prev) => {
@@ -164,7 +162,7 @@ const PackageList = () => {
 
       if (exists) {
         return prev.map((p) =>
-          p.idDetalle === idDetalle ? { ...p, cantMax: value } : p
+          p.idDetalle === idDetalle ? { ...p, cantMax: value } : p,
         );
       }
 
@@ -180,7 +178,6 @@ const PackageList = () => {
 
   const handleGuardarCambios = async () => {
     const rs = buildCantMaxString(cantMaxChanges);
-    console.log("rs", rs);
     if (cantMaxChanges.length === 0) {
       showToast({
         title: "Sin cambios",
@@ -271,7 +268,7 @@ const PackageList = () => {
                 handleCantMaxChange(
                   row.original.id,
                   Number(e.target.value),
-                  row
+                  row,
                 )
               }
               onKeyDown={(e) => {
@@ -335,7 +332,7 @@ const PackageList = () => {
         ),
       },
     ],
-    [handleRowClick, handleListadoClick]
+    [handleRowClick, handleListadoClick],
   );
 
   const confirmDeleteSelected = useCallback(() => {
@@ -356,7 +353,6 @@ const PackageList = () => {
             await deleteProgramacion(idToDelete, date);
           }
 
-          console.log("Eliminados:", selectedPackages);
           setSelectedPackages([]);
         } catch (err) {
           console.error("Error eliminando:", err);

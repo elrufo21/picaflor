@@ -31,7 +31,6 @@ const UserEdit = () => {
 
   const handleSave = async (data: Omit<User, "id">) => {
     const updated = await updateUser(Number(id), data);
-    console.log("updated", updated);
     if (!updated) {
       toast.error("No se pudo guardar el usuario.");
       return false;

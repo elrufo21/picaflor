@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { useForm } from "react-hook-form";
@@ -22,8 +22,86 @@ import {
   parseLegacyPayloadString,
 } from "../utils/payloadBuilder";
 import type { CanalOption, SelectOption } from "../hooks/canalUtils";
-import { DateInput, TextControlled } from "@/components/ui/inputs";
 import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
+
+export const DEFAULT_FORM_PAYLOAD = {
+  canalVenta: {
+    value: "1292",
+    label: "WALIKI TOURS",
+    telefono: "972960088",
+    auxiliar: "WALIKI TOURS",
+  },
+  counter: "ESTEBAN AYALA",
+  moneda: "PEN",
+  origen: "LIMA",
+  documentoTipo: "DNI",
+  documentoNumero: "85634275",
+  nombreCompleto: "VALERIA VASQUEZ",
+  celular: "972960088",
+  telefono: "972960088",
+  cantPax: 3,
+  viajeId: "74487",
+  puntoPartida: "PARADERO TOMAS VALLE (FRENTE C.C. PLAZA NORTE)",
+  horaPresentacion: "04:30AM",
+  hotel: "-",
+  visitas:
+    "BALNEARIO DE PARACAS + ISLAS BALLESTAS + BODEGA ARTESANAL NIETTO + ICA + DEGUSTACIÓN DE VINOS, PISCO Y MACERDADOS + OASIS DE HUACACHINAS",
+  tarifaTour: "3",
+  actividad1: "1",
+  actividad2: "2",
+  actividad3: "9",
+  traslados: "4",
+  entradas: "IMPTOS DE ISLAS + MUELLE",
+  documentoCobranza: "DOCUMENTO DE COBRANZA",
+  nroOperacion: "",
+  entidadBancaria: "-",
+  medioPago: "EFECTIVO",
+  acuenta: 615,
+  efectivo: 615,
+  deposito: 0,
+  cobroExtraSol: 0,
+  cobroExtraDol: 0,
+  precioVenta: 615,
+  cursoActividades: [
+    {
+      actividad: "INCLUYE ALMUERZO",
+      cantidad: 3,
+      precio: 124,
+    },
+    {
+      actividad: "EXCURSIÓN ISLAS BALLESTAS",
+      cantidad: 3,
+    },
+    {
+      actividad: "AVENTURA EN TUBULARES Y SANDBOARD",
+      cantidad: 3,
+      precio: 35,
+    },
+    {
+      actividad: "RESERVA NACIONAL PARACAS",
+      cantidad: 3,
+    },
+    {
+      actividad: "RECOJO Y RETORNO DE HOTEL O ALOJAMI.",
+      cantidad: 3,
+      precio: 30,
+    },
+    {
+      actividad: "IMPTOS DE ISLAS + MUELLE",
+      cantidad: 3,
+      precio: 16,
+    },
+  ],
+  visitasExCur:
+    "BALNEARIO DE PARACAS + ISLAS BALLESTAS + BODEGA ARTESANAL NIETTO + ICA + DEGUSTACIÓN DE VINOS, PISCO Y MACERDADOS + OASIS DE HUACACHINAS",
+};
+
+export type ActivityDetail = {
+  detalleId?: number;
+  actividades?: string;
+  precio?: number | null;
+  cantidad?: number | null;
+};
 
 type FormValues = {
   nombreCompleto: string;
@@ -73,6 +151,7 @@ type FormValues = {
   mensajePasajero?: string;
   salida?: string;
   destino?: string;
+  detalleActividades?: ActivityDetail[];
 };
 
 const documentoOptions = [
@@ -243,18 +322,82 @@ const PackagePassengerCreate = () => {
   }, [pkg, setFocus]);
 
   const availableCount = pkg?.disponibles ?? 0;
+  const pendingPartidaRef = useRef<string | null>(null);
+  const pendingLiquidacionRef = useRef<Partial<FormValues> | null>(null);
 
   useEffect(() => {
     if (!isViewMode || !viewLiquidacion) return;
-    Object.entries(viewLiquidacion).forEach(([key, value]) => {
-      if (value !== undefined) {
-        setValue(key as keyof FormValues, value, {
-          shouldDirty: true,
-          shouldTouch: true,
-        });
-      }
+    reset(viewLiquidacion);
+
+    const target = normalizeStringValue(
+      viewLiquidacion.puntoPartida ?? viewLiquidacion.fullPunto ?? "",
+    );
+    pendingPartidaRef.current = target || null;
+    pendingLiquidacionRef.current = viewLiquidacion;
+  }, [isViewMode, viewLiquidacion, reset, partidas, setValue]);
+
+  useEffect(() => {
+    if (!partidas?.length) return;
+    const pending = pendingPartidaRef.current;
+    const pendingLiquidacion = pendingLiquidacionRef.current;
+    if (!pending || !pendingLiquidacion) return;
+    const match = partidas.find((option) => {
+      if (!option) return false;
+      return (
+        normalizeStringValue(option.label) === pending ||
+        normalizeStringValue(option.value) === pending
+      );
     });
-  }, [isViewMode, viewLiquidacion, setValue]);
+    if (!match) return;
+    const normalizedPayload = {
+      ...pendingLiquidacion,
+      puntoPartida: match.value,
+    };
+    reset(normalizedPayload);
+    pendingPartidaRef.current = null;
+    pendingLiquidacionRef.current = null;
+  }, [partidas, reset]);
+
+  useEffect(() => {
+    if (viewLiquidacion?.detalleActividades?.length) {
+      setDetalleActividades(viewLiquidacion.detalleActividades);
+      return;
+    }
+    if (!isViewMode || !liquidacionId) {
+      setDetalleActividades([]);
+      return;
+    }
+    let canceled = false;
+    const controller = new AbortController();
+
+    const loadDetails = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:5000/api/v1/Programacion/traer-actividades/${liquidacionId}`,
+          {
+            signal: controller.signal,
+            headers: {
+              accept: "text/plain",
+            },
+          },
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        if (canceled) return;
+        setDetalleActividades(Array.isArray(data) ? data : []);
+      } catch (error: any) {
+        if (controller.signal.aborted) return;
+        console.error("Error cargando actividades", error);
+      }
+    };
+
+    loadDetails();
+
+    return () => {
+      canceled = true;
+      controller.abort();
+    };
+  }, [isViewMode, liquidacionId, viewLiquidacion?.detalleActividades]);
 
   const canalVentaSelected = watch("canalVenta");
 
@@ -266,6 +409,30 @@ const PackagePassengerCreate = () => {
     if (canalVentaSelected.email) setValue("email", canalVentaSelected.email);
     setFocus("telefono");
   }, [canalVentaSelected, setFocus, setValue]);
+
+  const [detalleActividades, setDetalleActividades] = useState<
+    ActivityDetail[]
+  >([]);
+  const activityLabels = useMemo(() => {
+    const rows = [
+      "tarifaTour",
+      "actividad1",
+      "actividad2",
+      "actividad3",
+      "traslados",
+      "entradas",
+    ];
+    return detalleActividades.reduce<Record<string, string>>(
+      (acc, detail, index) => {
+        const key = rows[index];
+        if (key && detail.actividades) {
+          acc[key] = detail.actividades;
+        }
+        return acc;
+      },
+      {},
+    );
+  }, [detalleActividades]);
 
   const handleAddCanalVenta = () => {
     openDialog({
@@ -463,8 +630,8 @@ const PackagePassengerCreate = () => {
 
         addCanalToList(newOption, editingValue);
         setValue("canalVenta", newOption);
-    },
-  });
+      },
+    });
   };
 
   const isEditable = !isViewMode;
@@ -472,8 +639,8 @@ const PackagePassengerCreate = () => {
   const saveButtonLabel = isViewMode
     ? "Solo lectura"
     : isSubmitting
-    ? "Guardando..."
-    : "Guardar";
+      ? "Guardando..."
+      : "Guardar";
 
   const [tarifaRows, setTarifaRows] = useState([
     {
@@ -537,7 +704,7 @@ const PackagePassengerCreate = () => {
       [actividad1Value, actividad2Value, actividad3Value]
         .map((value) => String(value ?? "").trim())
         .includes("1"),
-    [actividad1Value, actividad2Value, actividad3Value]
+    [actividad1Value, actividad2Value, actividad3Value],
   );
 
   const direccionHotelMap = useMemo(
@@ -546,23 +713,38 @@ const PackagePassengerCreate = () => {
         (direccionesHotel ?? []).map((direccion) => [
           String(direccion.idHotel),
           direccion.direccion,
-        ])
+        ]),
       ),
-    [direccionesHotel]
+    [direccionesHotel],
   );
   const prevCantPaxRef = useRef(0);
 
   const updateRow = (
     id: string,
     key: "precioUnit" | "cantidad",
-    value: number
+    value: number,
   ) => {
     setTarifaRows((rows) =>
       rows.map((row) =>
-        row.id === id ? { ...row, [key]: Number(value) || 0 } : row
-      )
+        row.id === id ? { ...row, [key]: Number(value) || 0 } : row,
+      ),
     );
   };
+
+  useEffect(() => {
+    if (!detalleActividades.length) return;
+    setTarifaRows((rows) =>
+      rows.map((row, index) => {
+        const detail = detalleActividades[index];
+        if (!detail) return row;
+        return {
+          ...row,
+          precioUnit: Number(detail.precio) || 0,
+          cantidad: Number(detail.cantidad) || 0,
+        };
+      }),
+    );
+  }, [detalleActividades]);
 
   useEffect(() => {
     if (!isEditable) return;
@@ -608,7 +790,7 @@ const PackagePassengerCreate = () => {
 
         if (nextCantidad === current) return row;
         return { ...row, cantidad: nextCantidad };
-      })
+      }),
     );
     prevCantPaxRef.current = pax;
   }, [cantPaxValue]);
@@ -624,7 +806,7 @@ const PackagePassengerCreate = () => {
       const precioObj = map.get(key);
       const precio = precioObj ? Number(precioObj.precioSol ?? 0) : 0;
       setTarifaRows((rows) =>
-        rows.map((r) => (r.id === rowId ? { ...r, precioUnit: precio } : r))
+        rows.map((r) => (r.id === rowId ? { ...r, precioUnit: precio } : r)),
       );
     };
 
@@ -644,8 +826,8 @@ const PackagePassengerCreate = () => {
 
     setTarifaRows((rows) =>
       rows.map((r) =>
-        r.id === "tarifaTour" ? { ...r, precioUnit: precio } : r
-      )
+        r.id === "tarifaTour" ? { ...r, precioUnit: precio } : r,
+      ),
     );
   }, [tarifaTourValue, preciosAlmuerzo, precioVentaValue]);
 
@@ -658,7 +840,9 @@ const PackagePassengerCreate = () => {
     const precio = precioObj ? Number(precioObj.precioSol ?? 0) : 0;
 
     setTarifaRows((rows) =>
-      rows.map((r) => (r.id === "traslados" ? { ...r, precioUnit: precio } : r))
+      rows.map((r) =>
+        r.id === "traslados" ? { ...r, precioUnit: precio } : r,
+      ),
     );
   }, [trasladosValue, preciosTraslado]);
 
@@ -671,8 +855,8 @@ const PackagePassengerCreate = () => {
       });
       setTarifaRows((rows) =>
         rows.map((row) =>
-          row.id === "entradas" ? { ...row, precioUnit: 0 } : row
-        )
+          row.id === "entradas" ? { ...row, precioUnit: 0 } : row,
+        ),
       );
       return;
     }
@@ -683,8 +867,8 @@ const PackagePassengerCreate = () => {
     });
     setTarifaRows((rows) =>
       rows.map((row) =>
-        row.id === "entradas" ? { ...row, precioUnit: 16 } : row
-      )
+        row.id === "entradas" ? { ...row, precioUnit: 16 } : row,
+      ),
     );
   }, [isIslasSelected, setValue]);
 
@@ -692,14 +876,14 @@ const PackagePassengerCreate = () => {
     () =>
       tarifaRows.reduce(
         (acc, row) => acc + (row.precioUnit ?? 0) * (row.cantidad ?? 0),
-        0
+        0,
       ),
-    [tarifaRows]
+    [tarifaRows],
   );
 
   const totalPagar = useMemo(
     () => tarifaTotal + Number(cobroExtraSol ?? 0),
-    [tarifaTotal, cobroExtraSol]
+    [tarifaTotal, cobroExtraSol],
   );
 
   const saldo = totalPagar - acuenta;
@@ -782,8 +966,8 @@ const PackagePassengerCreate = () => {
       typeof value === "string"
         ? value
         : typeof value === "object"
-        ? String((value as { label?: string; value?: string }).label ?? "")
-        : "";
+          ? String((value as { label?: string; value?: string }).label ?? "")
+          : "";
     return text
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -815,12 +999,12 @@ const PackagePassengerCreate = () => {
     if (medioPago === "DEPOSITO") {
       if (!String(values.entidadBancaria ?? "").trim()) {
         errors.push(
-          "Especifica la entidad bancaria cuando seleccionas depósito."
+          "Especifica la entidad bancaria cuando seleccionas depósito.",
         );
       }
       if (!String(values.nroOperacion ?? "").trim()) {
         errors.push(
-          "Anota el número de operación bancario para respaldar el depósito."
+          "Anota el número de operación bancario para respaldar el depósito.",
         );
       }
     }
@@ -834,7 +1018,7 @@ const PackagePassengerCreate = () => {
       const acuentaAmount = Number(values.acuenta) || 0;
       if (acuentaAmount <= 0) {
         errors.push(
-          "Ingresa el monto del adelanto cuando la condición es a cuenta."
+          "Ingresa el monto del adelanto cuando la condición es a cuenta.",
         );
       }
       if (acuentaAmount > total) {
@@ -923,10 +1107,8 @@ const PackagePassengerCreate = () => {
       actividades,
       trasladosOptions,
     });
-    console.log("PAYLOAD FOR BACKEND:", JSON.stringify(ordenPayload, null, 2));
     const legacyPayload = buildLegacyPayloadString(ordenPayload);
-    console.log("LEGACY PAYLOAD:", legacyPayload);
-    console.log("LEGACY PARSED:", parseLegacyPayloadString(legacyPayload));
+
     try {
       const response = await fetch(
         "http://localhost:5000/api/v1/programacion/agregar-viaje",
@@ -934,7 +1116,7 @@ const PackagePassengerCreate = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ valores: legacyPayload }),
-        }
+        },
       );
       if (!response) {
         showToast({
@@ -1069,15 +1251,15 @@ const PackagePassengerCreate = () => {
 
   const focusNext = (
     current?: HTMLElement | null,
-    form?: HTMLElement | null
+    form?: HTMLElement | null,
   ) => {
     if (!current) return;
     const scope = form ?? current.closest("form");
     if (!scope) return;
     const focusables = Array.from(
       scope.querySelectorAll<HTMLElement>(
-        'input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex="-1"])'
-      )
+        'input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      ),
     ).filter((el) => el.offsetParent !== null);
     const currentIndex = focusables.indexOf(current);
     if (currentIndex >= 0) {
@@ -1158,8 +1340,7 @@ const PackagePassengerCreate = () => {
           border border-slate-200 
           bg-white 
           shadow-sm
-          overflow-hidden
-    "
+          overflow-hidden"
         >
           <form
             onSubmit={onSubmit}
@@ -1173,8 +1354,8 @@ const PackagePassengerCreate = () => {
 
               <div
                 className="flex items-center justify-between gap-3
-  rounded-xl border border-emerald-200 bg-emerald-50/70
-  px-4 py-2 shadow-sm"
+                          rounded-xl border border-emerald-200 bg-emerald-50/70
+                          px-4 py-2 shadow-sm"
               >
                 {/* ================= INFO ================= */}
                 <div className="flex items-center gap-4 min-w-0">
@@ -1203,58 +1384,60 @@ const PackagePassengerCreate = () => {
                   </div>
 
                   {/* DISPONIBLES */}
-                <div
-                  className="flex items-center gap-1 rounded-md bg-white px-2 py-1
+                  <div
+                    className="flex items-center gap-1 rounded-md bg-white px-2 py-1
                    border border-emerald-200 whitespace-nowrap"
-                >
-                  <span className="text-xs text-slate-500">Disp:</span>
-                  <span className="text-sm font-bold text-emerald-700">
-                    {availableCount}
-                  </span>
-                </div>
+                  >
+                    <span className="text-xs text-slate-500">Disp:</span>
+                    <span className="text-sm font-bold text-emerald-700">
+                      {availableCount}
+                    </span>
+                  </div>
                 </div>
 
                 {/* ================= ACCIONES ================= */}
                 <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="submit"
-                  title={saveButtonLabel}
-                  disabled={fieldsetDisabled}
-                  className="inline-flex items-center gap-1 rounded-lg
+                  <button
+                    type="submit"
+                    title={saveButtonLabel}
+                    disabled={fieldsetDisabled}
+                    className="inline-flex items-center gap-1 rounded-lg
                   bg-emerald-600 px-3 py-2 text-white
                   shadow-sm ring-1 ring-emerald-600/30
                   hover:bg-emerald-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save size={16} />
-                  )}
-                  <span className="text-sm hidden sm:inline">{saveButtonLabel}</span>
-                </button>
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    <span className="text-sm hidden sm:inline">
+                      {saveButtonLabel}
+                    </span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleNew}
-                  title="Nuevo"
-                  disabled={fieldsetDisabled}
-                  className="inline-flex items-center gap-1 rounded-lg
-        bg-slate-100 px-3 py-2 text-slate-700
-        ring-1 ring-slate-200 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                  <button
+                    type="button"
+                    onClick={handleNew}
+                    title="Nuevo"
+                    disabled={fieldsetDisabled}
+                    className="inline-flex items-center gap-1 rounded-lg
+                            bg-slate-100 px-3 py-2 text-slate-700
+                              ring-1 ring-slate-200 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <Plus size={16} />
                     <span className="text-sm hidden sm:inline">Nuevo</span>
                   </button>
 
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  title="Imprimir"
-                  disabled={fieldsetDisabled}
-                  className="inline-flex items-center gap-1 rounded-lg
-        bg-white px-3 py-2 text-slate-700
-        ring-1 ring-slate-200 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    title="Imprimir"
+                    disabled={fieldsetDisabled}
+                    className="inline-flex items-center gap-1 rounded-lg
+                    bg-white px-3 py-2 text-slate-700
+                      ring-1 ring-slate-200 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <Printer size={16} />
                     <span className="text-sm hidden sm:inline">Imprimir</span>
                   </button>
@@ -1276,7 +1459,7 @@ const PackagePassengerCreate = () => {
                     <PassengerDetails
                       control={control}
                       setValue={setValue}
-                  disponibles={availableCount}
+                      disponibles={availableCount}
                     />
 
                     <ServicesTable
@@ -1299,6 +1482,7 @@ const PackagePassengerCreate = () => {
                         actividad2: actividad2Value,
                         actividad3: actividad3Value,
                       }}
+                      activityLabels={activityLabels}
                       enableHotelHora={
                         partidaValue === "HOTEL" || partidaValue === "OTROS"
                       }

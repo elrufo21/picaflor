@@ -6,9 +6,75 @@ import DndTable from "@/components/dataTabla/DndTable";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { fetchPedidosFecha } from "../api/fulldayApi";
 import { usePackageStore } from "../store/fulldayStore";
+import {
+  DEFAULT_FORM_PAYLOAD,
+  type ActivityDetail,
+} from "./fulldayPassengerCreate";
 import type { Producto } from "@/app/db/serviciosDB";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
+import { useCanalVenta } from "../hooks/useCanalVenta";
 
+//detalle
+type BackendDetalle = {
+  actividades: string;
+  precio: number | null;
+  cantidad: number;
+  importe: number | null;
+};
+
+export function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
+  const emptyRow = {
+    servicio: null,
+    precio: 0,
+    cant: 0,
+    total: 0,
+  };
+
+  const rows = {
+    tarifa: { ...emptyRow },
+    act1: { ...emptyRow },
+    act2: { ...emptyRow },
+    act3: { ...emptyRow },
+    traslado: { ...emptyRow },
+    entrada: { ...emptyRow },
+  };
+
+  detalles.forEach((d, index) => {
+    const base = {
+      detalleId: d.detalleId,
+      servicio: {
+        value: d.actividades,
+        label: d.actividades,
+      },
+      precio: Number(d.precio ?? 0),
+      cant: Number(d.cantidad ?? 0),
+      total: Number(d.importe ?? 0),
+    };
+
+    // 1️⃣ Tarifa principal
+    if (index === 0) {
+      rows.tarifa = base;
+      return;
+    }
+
+    // 2️⃣ Traslado
+    if (d.actividades.toUpperCase().includes("RECOJO")) {
+      rows.traslado = base;
+      return;
+    }
+
+    // 3️⃣ Actividades (máx 3)
+    const actKeys = ["act1", "act2", "act3"] as const;
+    const freeKey = actKeys.find((k) => rows[k].servicio === null);
+    if (freeKey) {
+      rows[freeKey] = base;
+    }
+  });
+
+  return rows;
+}
+
+//fin detalle
 const LEGACY_ROW_SEPARATOR = "\u00ac";
 
 const normalizeStringValue = (value?: string) => String(value ?? "").trim();
@@ -97,7 +163,7 @@ const EXPECTED_FIELDS =
 
 const parseLiquidacionRow = (
   rowText: string,
-  index: number
+  index: number,
 ): LiquidacionRow => {
   const rawValues = rowText.split("|");
   const normalizedValues =
@@ -107,11 +173,14 @@ const parseLiquidacionRow = (
           .concat(rawValues.slice(EXPECTED_FIELDS - 1).join("|"))
       : rawValues;
 
-  const rowRecord = LIQUIDACION_FIELDS.reduce((acc, field) => {
-    const value = normalizedValues[field.sourceIndex] ?? "";
-    acc[field.key] = value.trim();
-    return acc;
-  }, {} as Record<LiquidacionFieldKey, string>);
+  const rowRecord = LIQUIDACION_FIELDS.reduce(
+    (acc, field) => {
+      const value = normalizedValues[field.sourceIndex] ?? "";
+      acc[field.key] = value.trim();
+      return acc;
+    },
+    {} as Record<LiquidacionFieldKey, string>,
+  );
 
   return {
     ...rowRecord,
@@ -164,13 +233,110 @@ const buildLiquidacionFormData = (row: LiquidacionRow) => {
       normalizeStringValue(row.notaDocu) || "DOCUMENTO DE COBRANZA",
     notaDocu: normalizeStringValue(row.notaDocu),
     destinoNombre: normalizedName,
+    canalVenta: normalizeStringValue(row.auxiliar),
+    condicion: normalizeStringValue(row.condicion),
+    clienteId: normalizeStringValue(row.clienteId),
   };
 };
 
+type PartidaRecord = {
+  id: number;
+  partida: string;
+};
+
+const resolvePartidaId = (label?: string, partidas?: PartidaRecord[]) => {
+  if (!label) return undefined;
+  const normalizedLabel = normalizeStringValue(label);
+  return partidas?.find(
+    (partidaOption) =>
+      normalizeStringValue(partidaOption.partida) === normalizedLabel,
+  )?.id;
+};
+
+const normalizeLiquidacionForForm = (
+  row: LiquidacionRow,
+  detalle?: ActivityDetail[],
+  partidas?: PartidaRecord[],
+) => {
+  const base = {
+    ...DEFAULT_FORM_PAYLOAD,
+    ...buildLiquidacionFormData(row),
+  };
+  const canalLabel = normalizeStringValue(row.auxiliar);
+  base.canalVenta = {
+    value: canalLabel
+      ? canalLabel.toUpperCase().replace(/\s+/g, "_")
+      : (base.canalVenta?.value ?? ""),
+    label: canalLabel || base.canalVenta?.label || "",
+    telefono: normalizeStringValue(row.telefonoAuxiliar),
+    auxiliar: canalLabel,
+  };
+  const condicionValue = normalizeStringValue(row.condicion);
+  const normalizedCondicion =
+    condicionValue.charAt(0).toUpperCase() +
+    condicionValue.slice(1).toLowerCase();
+  base.condicion = {
+    value: condicionValue.toUpperCase(),
+    label: normalizedCondicion || base.condicion?.label || "",
+  };
+  base.acuenta = parseMoneyValue(row.acuenta);
+  base.efectivo = parseMoneyValue(row.efectivo);
+  base.deposito = parseMoneyValue(row.deposito);
+  base.cobroExtraSol = parseMoneyValue(row.cobroExtraSol);
+  base.cobroExtraDol = parseMoneyValue(row.cobroExtraDol);
+  const resolvedPartida = resolvePartidaId(
+    row.puntoPartida ?? row.fullPunto,
+    partidas,
+  );
+  base.puntoPartida = resolvedPartida
+    ? String(resolvedPartida)
+    : normalizeStringValue(row.puntoPartida);
+  base.horaPresentacion = normalizeStringValue(row.horaPartida);
+  base.otrosPartidas = normalizeStringValue(row.otrasPartidas);
+  base.hotel = normalizeStringValue(row.hotel);
+  base.visitas = normalizeStringValue(row.visitasExCur);
+  base.destino = normalizeStringValue(row.productoNombre);
+  base.medioPago = normalizeStringValue(row.formaPago).toUpperCase();
+  base.documentoCobranza =
+    normalizeStringValue(row.notaDocu) || base.documentoCobranza;
+  base.notaDocu = normalizeStringValue(row.notaDocu);
+  if (detalle?.length) {
+    base.detalleActividades = detalle;
+  }
+  return base;
+};
+
+const fetchDetalleActividades = async (notaId: string) => {
+  if (!notaId) return [];
+  try {
+    const response = await fetch(
+      `http://localhost:5000/api/v1/Programacion/traer-actividades/${notaId}`,
+      {
+        method: "GET",
+        headers: {
+          accept: "text/plain",
+        },
+      },
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Error cargando actividades", error);
+    return [];
+  }
+};
+function parseFechaBackend(value?: string) {
+  if (!value || value === "-") return "";
+  const [d, m, y] = value.split("/");
+  return `${y}-${m}-${d}`;
+}
+
 const LiquidacionesPage = () => {
+  const { canalVentaList, addCanalToList } = useCanalVenta();
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const { loadServicios, loadServiciosFromDB } = usePackageStore();
+  const { loadServicios, loadServiciosFromDB, setFormData } = usePackageStore();
   const [rows, setRows] = useState<LiquidacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,7 +345,7 @@ const LiquidacionesPage = () => {
   const priorDate = new Date();
   priorDate.setDate(priorDate.getDate() - 7);
   const [pendingStartDate, setPendingStartDate] = useState(
-    priorDate.toISOString().slice(0, 10)
+    priorDate.toISOString().slice(0, 10),
   );
   const [pendingEndDate, setPendingEndDate] = useState(todayValue);
 
@@ -211,28 +377,97 @@ const LiquidacionesPage = () => {
     const normalizedRowName = normalizeProductName(row.productoNombre);
     if (!normalizedRowName) return 0;
     const exactMatch = productos.find(
-      (product) => normalizeProductName(product.nombre) === normalizedRowName
+      (product) => normalizeProductName(product.nombre) === normalizedRowName,
     );
     if (exactMatch) return exactMatch.id;
     const containsMatch = productos.find((product) =>
-      normalizedRowName.includes(normalizeProductName(product.nombre))
+      normalizedRowName.includes(normalizeProductName(product.nombre)),
     );
     if (containsMatch) return containsMatch.id;
     return 0;
   };
 
-  const handleView = (row: LiquidacionRow) => {
-    const productId = resolveProductId(row);
+  const handleView = async (row: LiquidacionRow) => {
+    const data = row;
+    const detalle = await fetchDetalleActividades(row.notaId);
+    const canalDeVenta = canalVentaList.find(
+      (c) => c.auxiliar === row.auxiliar,
+    );
+    const normalizedData = {
+      notaId: Number(data.notaId ?? data.id),
+
+      destino: data.productoNombre,
+      region: data.regionProducto,
+
+      fechaViaje: parseFechaBackend(data.fechaViaje),
+      fechaEmision: parseFechaBackend(data.fechaRegistro?.split(" ")[0]),
+
+      counter: data.notaUsuario,
+      canalVenta: data.auxiliar,
+      canalDeVentaTelefono: data.telefonoAuxiliar,
+
+      nombreCompleto: data.clienteNombre,
+      documentoNumero: data.clienteDni,
+      celular: data.clienteTelefono,
+      cantPax: Number(data.cantidadPax),
+
+      horaPartida: data.horaPartida,
+      visitas: data.visitasExCur,
+
+      medioPago: data.formaPago,
+      condicion: {
+        value: data.condicion,
+        label: data.condicion,
+      },
+      moneda: data.moneda,
+
+      acuenta: Number(data.acuenta),
+      saldo: Number(data.saldo),
+      precioTotal: Number(data.totalPagar),
+      totalGeneral: Number(data.totalPagar),
+
+      entidadBancaria: data.entidadBancaria,
+      nroOperacion: data.nroOperacion,
+      efectivo: Number(data.efectivo),
+      deposito: Number(data.deposito),
+
+      documentoCobranza: data.notaDocu,
+
+      precioExtra: Number(data.adicional),
+      observaciones: data.observaciones,
+
+      detalle: normalizeBackendDetalleToForm(detalle),
+      canalDeVenta,
+      puntoPartida: data.puntoPartida,
+      nserie: data.serie,
+      ndocumento: data.numero,
+      clienteId: data.clienteId,
+      _editMode: true,
+    };
+
+    setFormData(normalizedData);
+    /*const productId = resolveProductId(row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
     if (!targetId) {
       setError("No se pudo determinar la programación asociada");
       return;
     }
     setError(null);
-    const formData = buildLiquidacionFormData(row);
-    navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`, {
-      state: { liquidacion: formData },
-    });
+    const actividadesDetalle = await fetchDetalleActividades(row.notaId);
+    const partidasList = await serviciosDB.partidas.toArray();
+    const normalizedPayload = normalizeLiquidacionForForm(
+      row,
+      actividadesDetalle,
+      partidasList,
+    );*/
+    //console.log("Payload normalizado para el formulario:", normalizedPayload);
+    const productId = resolveProductId(row);
+    const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
+    if (!targetId) {
+      setError("No se pudo determinar la programación asociada");
+      return;
+    }
+    navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`);
   };
 
   const columnHelper = createColumnHelper<LiquidacionRow>();
@@ -245,7 +480,7 @@ const LiquidacionesPage = () => {
         cell: ({ row }) => (
           <button
             type="button"
-            onClick={() => handleView(row.original)}
+            onClick={() => void handleView(row.original)}
             className="text-sm font-semibold text-emerald-600 hover:text-emerald-700"
           >
             Ver
@@ -297,12 +532,12 @@ const LiquidacionesPage = () => {
         cell: (info) => info.getValue(),
       }),
     ],
-    [columnHelper, navigate]
+    [columnHelper, navigate],
   );
 
   const reload = async (
     startDate = pendingStartDate || priorDate.toISOString().slice(0, 10),
-    endDate = pendingEndDate || todayValue
+    endDate = pendingEndDate || todayValue,
   ) => {
     if (!user) {
       setError("Usuario no autenticado");
@@ -353,6 +588,45 @@ const LiquidacionesPage = () => {
   useEffect(() => {
     reload();
   }, [user]);
+  const DateRangeFilter = () => (
+    <div className="flex items-center gap-4">
+      <div className="text-sm font-semibold text-slate-900">Buscar por</div>
+      <div className="flex flex-col text-xs text-slate-500">
+        <span>Fecha Inicio</span>
+        <input
+          type="date"
+          value={pendingStartDate}
+          onChange={(e) => setPendingStartDate(e.target.value)}
+          className="w-32 rounded-md border border-slate-200 bg-white/80 px-2 py-1 text-xs text-slate-700"
+        />
+      </div>
+      <div className="flex flex-col text-xs text-slate-500">
+        <span>Fecha Fin</span>
+        <input
+          type="date"
+          value={pendingEndDate}
+          onChange={(e) => setPendingEndDate(e.target.value)}
+          className="w-32 rounded-md border border-slate-200 bg-white/80 px-2 py-1 text-xs text-slate-700"
+        />
+      </div>
+      <button
+        type="button"
+        onClick={handleRangeSearch}
+        disabled={loading}
+        className="text-sm font-semibold text-slate-700 underline-offset-2 hover:underline disabled:opacity-60"
+      >
+        Buscar
+      </button>
+      <button
+        type="button"
+        onClick={handleListAll}
+        className="text-sm font-semibold text-slate-500 underline-offset-2 hover:underline"
+      >
+        Listar todo
+      </button>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -361,42 +635,6 @@ const LiquidacionesPage = () => {
           <p className="text-xs text-slate-500">
             Listado generado desde el módulo de programación.
           </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm font-semibold text-slate-900">Buscar por</div>
-          <div className="flex flex-col text-xs text-slate-500">
-            <span>Fecha Inicio</span>
-            <input
-              type="date"
-              value={pendingStartDate}
-              onChange={(e) => setPendingStartDate(e.target.value)}
-              className="w-32 rounded-md border border-slate-200 bg-white/80 px-2 py-1 text-xs text-slate-700"
-            />
-          </div>
-          <div className="flex flex-col text-xs text-slate-500">
-            <span>Fecha Fin</span>
-            <input
-              type="date"
-              value={pendingEndDate}
-              onChange={(e) => setPendingEndDate(e.target.value)}
-              className="w-32 rounded-md border border-slate-200 bg-white/80 px-2 py-1 text-xs text-slate-700"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={handleRangeSearch}
-            disabled={loading}
-            className="text-sm font-semibold text-slate-700 underline-offset-2 hover:underline disabled:opacity-60"
-          >
-            Buscar
-          </button>
-          <button
-            type="button"
-            onClick={handleListAll}
-            className="text-sm font-semibold text-slate-500 underline-offset-2 hover:underline"
-          >
-            Listar todo
-          </button>
         </div>
       </div>
 
@@ -420,6 +658,7 @@ const LiquidacionesPage = () => {
         enableSearching
         isLoading={loading}
         emptyMessage="No se encontraron liquidaciones"
+        dateFilterComponent={DateRangeFilter}
       />
     </div>
   );

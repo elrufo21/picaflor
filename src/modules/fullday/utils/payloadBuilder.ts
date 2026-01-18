@@ -41,11 +41,13 @@ const normalizeCondicion = (value: unknown) => {
     .toLowerCase()
     .trim();
   if (!raw) return "";
-  if (raw.includes("cancel")) return "CONTADO";
+  if (raw.includes("cancel")) return "CANCELADO";
   if (raw.includes("cuenta")) return "ACUENTA";
   if (raw.includes("credit")) return "CREDITO";
   return String(value ?? "").trim();
 };
+
+const normalizeStringValue = (value: unknown) => String(value ?? "").trim();
 
 const buildDetalle = ({
   values,
@@ -60,7 +62,7 @@ const buildDetalle = ({
   actividades: any[];
   trasladosOptions: any[];
 }) => {
-  const resolveActividad = (rowId: string) => {
+  const resolveActividadLabel = (rowId: string) => {
     if (rowId === "tarifaTour") {
       return getLabelByValue(almuerzos, values.tarifaTour);
     }
@@ -82,14 +84,23 @@ const buildDetalle = ({
     return "";
   };
 
+  const resolveActividadId = (rowId: string) => {
+    const raw = String(values[rowId] ?? "").trim();
+    if (!raw || raw === "-") return "";
+    return raw;
+  };
+
   return tarifaRows
     .map((row) => {
-      const actividad = resolveActividad(row.id);
+      const actividadLabel = resolveActividadLabel(row.id);
+      const actividadId = resolveActividadId(row.id);
       const cantidadRow = toNumber(row.cantidad);
       const precioRow = toNumber(row.precioUnit);
-      if (!actividad || cantidadRow <= 0) return null;
+      if (!actividadId || cantidadRow <= 0) return null;
       return {
-        actividad,
+        rowId: row.id,
+        actividadId,
+        actividadLabel,
         precio: precioRow,
         cantidad: cantidadRow,
         importe: Number((precioRow * cantidadRow).toFixed(2)),
@@ -140,10 +151,15 @@ export const buildOrdenPayload = ({
   const condicionRaw = extractOptionValue(values.condicion);
   const notaCondicion = normalizeCondicion(condicionRaw);
 
+  const clienteNombre = normalizeStringValue(values.nombreCompleto);
+  const clienteDni = normalizeStringValue(values.documentoNumero);
+
   return {
     orden: {
       notaDocu: notaDocuValue || "DOCUMENTO COBRANZA",
-      clienteId: 1,
+      clienteNombre,
+      clienteDni,
+      clienteId: 0,
       notaUsuario: user?.displayName ?? "",
       notaFormaPago: values.medioPago ?? "",
       notaCondicion,
@@ -158,7 +174,7 @@ export const buildOrdenPayload = ({
 
       notaEstado,
       companiaId: toNumber(user?.companyId),
-      incluyeIGV: igv > 0 ? "SI" : "N/A",
+      incluyeIGV: igv > 0 ? "SI" : "NO",
       serie: values.nserie ?? "",
       numero: values.ndocumento ?? "",
       notaGanancia: 0,
@@ -218,6 +234,8 @@ export const buildOrdenPayload = ({
 
 const ordenFieldOrder = [
   "notaDocu",
+  "clienteNombre",
+  "clienteDni",
   "clienteId",
   "notaUsuario",
   "notaFormaPago",
@@ -304,10 +322,46 @@ const serializeLegacyValue = (key: string, value: unknown) => {
   return normalized;
 };
 
+const buildDetalleString = (
+  detalle?: Array<{
+    rowId?: string;
+    actividadId?: unknown;
+    actividadLabel?: unknown;
+    precio?: unknown;
+    cantidad?: unknown;
+    importe?: unknown;
+  }>,
+  options?: {
+    includeDetailId?: boolean;
+    detailIdMap?: Record<string, number>;
+    includeActividadLabel?: boolean;
+  }
+) =>
+  (detalle ?? [])
+    .map((row) => {
+      const parts: string[] = [];
+      if (options?.includeDetailId) {
+        const detailId = options.detailIdMap?.[row.rowId ?? ""] ?? 0;
+        parts.push(String(detailId));
+      }
+      parts.push(serializeValue(row.actividadId));
+      if (options?.includeActividadLabel) {
+        parts.push(serializeValue(row.actividadLabel));
+      }
+      parts.push(
+        serializeValue(row.precio),
+        serializeValue(row.cantidad),
+        serializeValue(row.importe),
+      );
+      return parts.join("|");
+    })
+    .join(";");
+
 export const buildLegacyPayloadString = (payload: {
   orden: Record<string, unknown>;
   detalle: Array<{
-    actividad?: unknown;
+    actividadId?: unknown;
+    actividadLabel?: unknown;
     precio?: unknown;
     cantidad?: unknown;
     importe?: unknown;
@@ -317,16 +371,113 @@ export const buildLegacyPayloadString = (payload: {
     serializeLegacyValue(key, payload.orden?.[key])
   );
 
-  const detalle = (payload.detalle ?? [])
-    .map((row) =>
-      [
-        serializeValue(row.actividad),
-        serializeValue(row.precio),
-        serializeValue(row.cantidad),
-        serializeValue(row.importe),
-      ].join("|")
-    )
-    .join(";");
+  const detalle = buildDetalleString(payload.detalle, {
+    includeActividadLabel: true,
+  });
+
+  return `${values.join("|")}[${detalle}`;
+};
+
+const editFieldOrder = [
+  "notaDocu",
+  "clienteId",
+  "notaUsuario",
+  "notaFormaPago",
+  "notaCondicion",
+  "notaTelefono",
+  "notaSubtotal",
+  "notaTotal",
+  "notaAcuenta",
+  "notaSaldo",
+  "notaAdicional",
+  "notaPagar",
+  "notaEstado",
+  "companiaId",
+  "incluyeIGV",
+  "serie",
+  "numero",
+  "notaGanancia",
+  "usuarioId",
+  "entidadBancaria",
+  "nroOperacion",
+  "efectivo",
+  "deposito",
+  "idProducto",
+  "auxiliar",
+  "telefonoAuxiliar",
+  "cantidadPax",
+  "puntoPartida",
+  "horaPartida",
+  "otrasPartidas",
+  "visitasExCur",
+  "cobroExtraSol",
+  "cobroExtraDol",
+  "fechaAdelanto",
+  "mensajePasajero",
+  "observaciones",
+  "islas",
+  "tubulares",
+  "otros",
+  "fechaViaje",
+  "igv",
+  "incluyeCargos",
+  "notaId",
+  "aviso",
+  "monedas",
+  "incluyeAlmuerzo",
+  "notaImagen",
+  "hotel",
+  "region",
+];
+
+interface BuildEditPayloadExtras {
+  clienteId?: number;
+  notaId: number;
+  aviso?: number;
+  monedas?: string;
+  incluyeAlmuerzo?: string;
+  notaImagen?: string;
+  hotel?: string;
+  region?: string;
+}
+
+export const buildEditLegacyPayloadString = (
+  payload: {
+    orden: Record<string, unknown>;
+    detalle: Array<{
+      rowId?: string;
+      actividadId?: unknown;
+      actividadLabel?: unknown;
+      precio?: unknown;
+      cantidad?: unknown;
+      importe?: unknown;
+    }>;
+  },
+  extras: BuildEditPayloadExtras,
+  detailIdMap?: Record<string, number>
+) => {
+  const baseOrden = { ...payload.orden };
+  const editOrden: Record<string, unknown> = {
+    ...baseOrden,
+    clienteId: extras.clienteId ?? baseOrden.clienteId ?? 0,
+    notaId: extras.notaId,
+    aviso: extras.aviso ?? 0,
+    monedas: extras.monedas ?? baseOrden.monedas ?? "",
+    incluyeAlmuerzo:
+      extras.incluyeAlmuerzo ?? baseOrden.incluyeAlmuerzo ?? "",
+    notaImagen: extras.notaImagen ?? baseOrden.notaImagen ?? "",
+    hotel: extras.hotel ?? baseOrden.hotel ?? "",
+    region: extras.region ?? baseOrden.region ?? "",
+  };
+
+  const values = editFieldOrder.map((key) =>
+    serializeLegacyValue(key, editOrden[key])
+  );
+  const detalle = buildDetalleString(payload.detalle, {
+    includeDetailId: true,
+    detailIdMap,
+    includeActividadLabel: true,
+  });
 
   return `${values.join("|")}[${detalle}`;
 };

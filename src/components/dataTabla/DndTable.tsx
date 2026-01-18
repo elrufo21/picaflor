@@ -43,6 +43,7 @@ const DndTable = ({
   enableSearching = true,
   onSelectionChange = null,
   searchColumns = null,
+  dateFilterComponent = null,
 }) => {
   const [sorting, setSorting] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -157,6 +158,7 @@ const DndTable = ({
           enableDateFilter={enableDateFilter && Boolean(dateField)}
           enableSearching={enableSearching}
           enableFiltering={enableFiltering}
+          dateFilterComponent={dateFilterComponent}
         />
       )}
 
@@ -196,6 +198,7 @@ const TableHeader = ({
   enableDateFilter,
   enableSearching,
   enableFiltering,
+  dateFilterComponent,
 }) => {
   return (
     <div className="p-4 sm:p-6 border-b border-slate-200">
@@ -226,24 +229,26 @@ const TableHeader = ({
 
         {/* Acciones */}
         <div className="flex items-center gap-2">
-          {enableDateFilter && (
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-              <input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              {dateFilter && (
-                <button
-                  onClick={() => setDateFilter("")}
-                  className="text-xs text-slate-600 underline"
-                >
-                  Limpiar
-                </button>
+          {dateFilterComponent
+            ? dateFilterComponent()
+            : enableDateFilter && (
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  {dateFilter && (
+                    <button
+                      onClick={() => setDateFilter("")}
+                      className="text-xs text-slate-600 underline"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
               )}
-            </div>
-          )}
           {selectedRows > 0 && (
             <span className="text-sm text-slate-600 bg-emerald-50 px-3 py-1.5 rounded-lg">
               {selectedRows} seleccionado{selectedRows > 1 ? "s" : ""}

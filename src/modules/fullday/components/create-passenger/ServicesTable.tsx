@@ -3,6 +3,7 @@ import {
   type Control,
   type UseFormRegister,
   type FieldErrors,
+  useWatch,
 } from "react-hook-form";
 import { useRef } from "react";
 import type { KeyboardEvent } from "react";
@@ -25,12 +26,13 @@ interface ServicesTableProps {
   updateRow: (
     id: string,
     key: "precioUnit" | "cantidad",
-    value: number
+    value: number,
   ) => void;
   handleAdvanceAfterChange: (e: any) => void;
   onPartidaChange?: (value: string) => void;
   enableHotelHora?: boolean;
   activitySelections?: Record<string, string | number | undefined>;
+  activityLabels?: Record<string, string>;
 }
 
 export const ServicesTable = ({
@@ -50,6 +52,7 @@ export const ServicesTable = ({
   onPartidaChange,
   enableHotelHora = false,
   activitySelections,
+  activityLabels,
 }: ServicesTableProps) => {
   const horaTemplate = "__:____";
   const digitPositions = [0, 1, 3, 4];
@@ -61,7 +64,7 @@ export const ServicesTable = ({
   const selectedActivityValues = new Set(
     Object.values(activitySelections ?? {})
       .map((value) => String(value ?? "").trim())
-      .filter(Boolean)
+      .filter(Boolean),
   );
   const isActivityRow = (rowId: string) =>
     rowId === "actividad1" || rowId === "actividad2" || rowId === "actividad3";
@@ -119,6 +122,12 @@ export const ServicesTable = ({
         aria-label="Cantidad requerida"
       />
     ) : null;
+
+  const rowIds = tarifaRows.map((row) => row.id);
+  const watchedValues = useWatch({
+    control,
+    name: rowIds,
+  });
 
   const buildHoraMask = (value: string | undefined) => {
     const raw = String(value ?? "").toUpperCase();
@@ -296,7 +305,7 @@ export const ServicesTable = ({
 
                     const setValueAndCursor = (
                       nextMask: string,
-                      cursor: number
+                      cursor: number,
                     ) => {
                       field.onChange(nextMask);
                       requestAnimationFrame(() => {
@@ -365,7 +374,7 @@ export const ServicesTable = ({
                     const text = e.clipboardData.getData("text");
                     const nextMask = applyPaste(
                       buildHoraMask(field.value),
-                      text
+                      text,
                     );
                     field.onChange(nextMask);
                     requestAnimationFrame(() => {
@@ -417,7 +426,7 @@ export const ServicesTable = ({
             </thead>
 
             <tbody>
-              {tarifaRows.map((row) => {
+              {tarifaRows.map((row, index) => {
                 const isTarifaRow = row.id === "tarifaTour";
                 const selectError = isTarifaRow && tarifaTourError;
                 const precioCellError = isTarifaRow && precioError;
@@ -441,18 +450,38 @@ export const ServicesTable = ({
                             aria-invalid={selectError || undefined}
                           >
                             <option value="-">(SELECCIONE)</option>
-                            {(row.id === "tarifaTour"
-                              ? almuerzos
-                              : row.id === "traslados"
-                              ? trasladosOptions
-                              : isActivityRow(row.id)
-                              ? getActivityOptions(row.id)
-                              : actividades
-                            )?.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
+                            {(() => {
+                              const baseOptions =
+                                row.id === "tarifaTour"
+                                  ? (almuerzos ?? [])
+                                  : row.id === "traslados"
+                                    ? (trasladosOptions ?? [])
+                                    : isActivityRow(row.id)
+                                      ? getActivityOptions(row.id)
+                                      : (actividades ?? []);
+                              const currentValue = watchedValues?.[index];
+                              const needsFallback =
+                                currentValue &&
+                                currentValue !== "-" &&
+                                !baseOptions.some(
+                                  (opt) =>
+                                    String(opt.value) === String(currentValue),
+                                );
+                              const options = needsFallback
+                                ? [
+                                    ...baseOptions,
+                                    {
+                                      value: currentValue,
+                                      label: currentValue,
+                                    },
+                                  ]
+                                : baseOptions;
+                              return options.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ));
+                            })()}
                           </select>
                           {renderCantGuard()}
                         </div>

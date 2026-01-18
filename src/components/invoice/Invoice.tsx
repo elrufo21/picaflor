@@ -116,90 +116,6 @@ type BuildInvoiceDataInput = {
   trasladosOptions?: OptionItem[];
 };
 
-const DEFAULT_INVOICE_DATA: InvoiceData = {
-  destino: "FULL DAY PARACAS",
-  fechaViaje: "17/02/2023",
-  auxiliar: "**DIRECTO",
-  telefonos: "924228332",
-  fechaEmision: "17/02/2023 03:39:57",
-  counter: "ANDRE RAMIREZ",
-  condicion: "CANCELADO",
-  pasajeroNombre: "Ruben Vasquez",
-  pasajeroDocumento: "75614167",
-  pasajeroContacto: "987654321",
-  pasajeroCant: 3,
-  actividades: [
-    {
-      label: "Actividades Opcionales 1",
-      actividad: "EXCURSION ISLAS BALLESTAS",
-      cantidad: 5,
-    },
-    {
-      label: "Actividades Opcionales 2",
-      actividad: "AVENTURA EN TUBULARES Y SANDBOARD",
-      cantidad: 5,
-    },
-    {
-      label: "Actividades Opcionales 3",
-      actividad: "-",
-      cantidad: null,
-    },
-  ],
-  detalleServicio: {
-    puntoPartida: "puntoPartida",
-    horaPartida: "horaPartida",
-    otrosPuntos: "otrosPuntos",
-    visitas: "visitas",
-  },
-  items: [
-    {
-      label: "Tarifa de Tour :",
-      descripcion: "NO INCLUYE ALMUERZO",
-      precio: 74,
-      cantidad: 5,
-      subtotal: 370,
-    },
-    {
-      label: "Actividad 01 :",
-      descripcion: "EXCURSION ISLAS BALLESTAS",
-    },
-    {
-      label: "Actividad 02 :",
-      descripcion: "AVENTURA EN TUBULARES Y SANDBOARD",
-      precio: 35,
-      cantidad: 5,
-      subtotal: 175,
-    },
-    {
-      label: "Actividad 03 :",
-      descripcion: "-",
-    },
-    {
-      label: "Traslados :",
-      descripcion: "-",
-    },
-    {
-      label: "Entradas :",
-      descripcion: "IMPTOS DE ISLAS + MUELLE",
-      precio: 16,
-      cantidad: 5,
-      subtotal: 80,
-    },
-  ],
-  impuestos: 0,
-  cargos: 0,
-  extraSoles: 0,
-  extraDolares: 0,
-  total: 625,
-  acuenta: 625,
-  saldo: 0,
-  fechaAdelanto: "13/01/2026",
-  medioPago: "EFECTIVO",
-  documento: "DOCUMENTO COBRANZA",
-  nroDocumento: "0001-00024585",
-  observaciones: "RECOJO Y RETORNO",
-};
-
 const toNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -209,7 +125,7 @@ const textValue = (value: unknown) => String(value ?? "").trim();
 
 const resolveOptionLabel = (
   options: OptionItem[] | undefined,
-  value: unknown
+  value: unknown,
 ) => {
   const key = textValue(value);
   if (!key || key === "-") return "";
@@ -240,7 +156,7 @@ const resolveCanal = (value: unknown) => {
   };
   return {
     auxiliar: textValue(
-      typed.auxiliar ?? typed.label ?? typed.value ?? typed.contacto
+      typed.auxiliar ?? typed.label ?? typed.value ?? typed.contacto,
     ),
     telefono: textValue(typed.telefono),
   };
@@ -317,27 +233,27 @@ export const buildInvoiceData = ({
     buildItem(
       "tarifaTour",
       "Tarifa de Tour :",
-      resolveOptionLabel(almuerzos, values.tarifaTour) || "-"
+      resolveOptionLabel(almuerzos, values.tarifaTour) || "-",
     ),
     buildItem(
       "actividad1",
       "Actividad 01 :",
-      resolveOptionLabel(actividades, values.actividad1) || "-"
+      resolveOptionLabel(actividades, values.actividad1) || "-",
     ),
     buildItem(
       "actividad2",
       "Actividad 02 :",
-      resolveOptionLabel(actividades, values.actividad2) || "-"
+      resolveOptionLabel(actividades, values.actividad2) || "-",
     ),
     buildItem(
       "actividad3",
       "Actividad 03 :",
-      resolveOptionLabel(actividades, values.actividad3) || "-"
+      resolveOptionLabel(actividades, values.actividad3) || "-",
     ),
     buildItem(
       "traslados",
       "Traslados :",
-      resolveOptionLabel(trasladosOptions, values.traslados) || "-"
+      resolveOptionLabel(trasladosOptions, values.traslados) || "-",
     ),
     buildItem("entradas", "Entradas :", textValue(values.entradas) || "-"),
   ];

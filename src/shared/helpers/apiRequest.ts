@@ -57,7 +57,7 @@ const normalizeDatePayload = (value: unknown): unknown => {
 export async function apiRequest<
   TResponse = unknown,
   TBody = unknown,
-  TFallback = unknown
+  TFallback = unknown,
 >({
   url,
   method = "GET",
@@ -80,7 +80,6 @@ export async function apiRequest<
       console.warn("⚠️ El api no existe", url);
       return fallback as TFallback;
     }
-    console.log("response", result);
 
     return result;
   } catch (err) {

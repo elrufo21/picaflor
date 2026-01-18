@@ -1,179 +1,65 @@
 import {
-  TextControlled,
-  SelectControlled,
   DateInput,
+  SelectControlled,
+  TextControlled,
 } from "@/components/ui/inputs";
-import { useEffect, type KeyboardEvent } from "react";
-import {
-  useWatch,
-  type Control,
-  type UseFormRegister,
-  type UseFormSetValue,
-} from "react-hook-form";
+import { useEffect } from "react";
 
-interface PaymentSummaryProps {
-  control: Control<any>;
-  register: UseFormRegister<any>;
-  setValue: UseFormSetValue<any>;
-  documentoOptions: any[];
-  totalPagar: number;
-  saldo: number;
-  medioPagoOptions: any[];
-  bancoOptions: any[];
-  isSubmitting?: boolean;
-  documentoCobranzaOptions: any[];
-  watch: any;
-}
+const PaimentDetailComponent = ({ control, setValue, watch }) => {
+  const documentoCobranzaOptions = [
+    {
+      label: "Documento de Cobranza",
+      value: "DOCUMENTO COBRANZA",
+    },
+    { label: "Boleta", value: "BOLETA" },
+    { label: "Factura", value: "FACTURA" },
+  ];
+  const medioPagoOptions = [
+    { value: "", label: "(SELECCIONE)" },
+    { value: "EFECTIVO", label: "Efectivo" },
+    { value: "DEPOSITO", label: "Deposito" },
+    { value: "YAPE", label: "Yape" },
+  ];
+  const bancoOptions = [
+    { value: "", label: "(SELECCIONE)" },
+    { value: `-`, label: "-" },
+    { value: "BCP", label: "BCP" },
+    { value: "BBVA", label: "BBVA" },
+    { value: "INTERBANK", label: "Interbank" },
+  ];
 
-export const PaymentSummary = ({
-  control,
-  register,
-  setValue,
-  documentoOptions,
-  documentoCobranzaOptions,
-  totalPagar,
-  saldo,
-  medioPagoOptions,
-  bancoOptions,
-  isSubmitting,
-  watch,
-}: PaymentSummaryProps) => {
-  const condicionSelected = useWatch({ control, name: "condicion" });
-  const medioPagoValue = useWatch({ control, name: "medioPago" });
-  const acuentaValue = useWatch({ control, name: "acuenta" });
-  const saldoAmount = Number(saldo) || 0;
-  const deudaAmount = Math.max(saldoAmount, 0);
-  const hasDebt = deudaAmount > 0;
-
-  const condicionLabel =
-    typeof condicionSelected === "string"
-      ? condicionSelected
-      : String(
-          condicionSelected?.label ?? condicionSelected?.value ?? "",
-        ).trim();
-  const condicionKey = condicionLabel
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  const isCancelado = condicionKey.includes("cancel");
-  const isACuenta = condicionKey.includes("cuenta");
-  const isCredito = condicionKey.includes("credit");
-  const normalizedMedioPago = String(medioPagoValue ?? "")
-    .trim()
-    .toUpperCase();
-  const isDeposito = normalizedMedioPago === "DEPOSITO";
-  const isEfectivo = normalizedMedioPago === "EFECTIVO";
+  const medioPago = watch("medioPago");
+  const condicion = watch("condicion.value");
+  const total = watch("precioTotal");
+  const acuenta = watch("acuenta");
 
   useEffect(() => {
-    if (isCancelado) {
-      setValue("acuenta", Number(totalPagar) || 0, {
-        shouldDirty: true,
-        shouldTouch: true,
-      });
-      return;
+    if (condicion === "CANCELADO") {
+      setValue("acuenta", total);
     }
-    setValue("acuenta", 0, {
-      shouldDirty: true,
-      shouldTouch: true,
-    });
-  }, [isCancelado, setValue, totalPagar]);
+    if (condicion === "ACUENTA" || condicion == "CREDITO") {
+      //  setValue("acuenta", 0);
+      //setValue("deposito", 0);
+      //setValue("efectivo", 0);
+    }
+    if (medioPago === "EFECTIVO" && condicion === "CANCELADO") {
+      setValue("efectivo", total || 0);
 
+      setValue("deposito", 0);
+
+      setValue("entidadBancaria", "-");
+      setValue("nroOperacion", "-");
+    }
+
+    if (medioPago === "DEPOSITO" && condicion == "CANCELADO") {
+      setValue("efectivo", 0);
+      setValue("entidadBancaria", null);
+      setValue("deposito", total);
+    }
+  }, [medioPago, condicion, total, setValue]);
   useEffect(() => {
-    const acuentaAmount = Number(acuentaValue) || 0;
-    if (isDeposito) {
-      setValue("deposito", acuentaAmount, {
-        shouldDirty: true,
-        shouldTouch: true,
-      });
-      setValue("efectivo", 0, {
-        shouldDirty: true,
-        shouldTouch: true,
-      });
-      return;
-    }
-    setValue("deposito", 0, {
-      shouldDirty: true,
-      shouldTouch: true,
-    });
-    setValue("efectivo", acuentaAmount, {
-      shouldDirty: true,
-      shouldTouch: true,
-    });
-  }, [acuentaValue, isDeposito, setValue]);
-
-  useEffect(() => {
-    if (isDeposito) {
-      setValue("entidadBancaria", "", {
-        shouldDirty: false,
-        shouldTouch: false,
-      });
-      return;
-    }
-    setValue("entidadBancaria", isEfectivo ? "-" : "", {
-      shouldDirty: false,
-      shouldTouch: false,
-    });
-    setValue("nroOperacion", "", {
-      shouldDirty: false,
-      shouldTouch: false,
-    });
-  }, [isDeposito, isEfectivo, setValue]);
-
-  const panelText = (() => {
-    if (isCancelado) {
-      return "El Pasajero No Tiene Deuda";
-    }
-    if (condicionKey.includes("cuenta")) {
-      return hasDebt
-        ? `El Pasajero Si Tiene Deuda S/ -${deudaAmount.toFixed(2)}`
-        : "El Pasajero No Tiene Deuda";
-    }
-    if (condicionKey.includes("credit")) {
-      return hasDebt
-        ? `El Pasajero Si Tiene Deuda S/ ${deudaAmount.toFixed(2)}`
-        : "El Pasajero No Tiene Deuda";
-    }
-    return hasDebt
-      ? `El Pasajero Si Tiene Deuda S/ ${deudaAmount.toFixed(2)}`
-      : "El Pasajero No Tiene Deuda";
-  })();
-
-  useEffect(() => {
-    setValue("mensajePasajero", panelText, {
-      shouldDirty: false,
-      shouldTouch: false,
-    });
-  }, [panelText, setValue]);
-
-  const toneClass = (() => {
-    if (condicionKey.includes("cancel") || !hasDebt) {
-      return "border-blue-800 bg-blue-700 text-white";
-    }
-    return "border-red-700 bg-red-600 text-white";
-  })();
-
-  const handleArrowNavigate = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-    event.preventDefault();
-
-    const current = event.currentTarget;
-    const group =
-      current.closest('[data-arrow-group="liquidacion"]') ??
-      current.closest("form") ??
-      current.ownerDocument;
-    if (!group) return;
-
-    const inputs = Array.from(
-      group.querySelectorAll<HTMLInputElement>(
-        '[data-arrow-input="liquidacion"]',
-      ),
-    ).filter((input) => !input.disabled);
-
-    const index = inputs.indexOf(current);
-    if (index === -1) return;
-    const nextIndex = event.key === "ArrowDown" ? index + 1 : index - 1;
-    inputs[nextIndex]?.focus();
-  };
+    setValue("saldo", Number(watch("precioTotal")) - Number(acuenta));
+  }, [acuenta]);
 
   return (
     <div className="lg:col-span-2 space-y-3">
@@ -190,7 +76,7 @@ export const PaymentSummary = ({
         <div className="col-span-1">
           <TextControlled
             name="nserie"
-            disabled={watch("documentoCobranza") === "DOCUMENTO DE COBRANZA"}
+            disabled={watch("documentoCobranza" === "DOCUMENTO COBRANZA")}
             control={control}
             size="small"
           />
@@ -198,9 +84,9 @@ export const PaymentSummary = ({
         <div className="col-span-2">
           <TextControlled
             name="ndocumento"
+            disabled={watch("documentoCobranza" === "DOCUMENTO COBRANZA")}
             control={control}
             size="small"
-            disabled={watch("documentoCobranza") === "DOCUMENTO DE COBRANZA"}
           />
         </div>
       </div>
@@ -217,7 +103,7 @@ export const PaymentSummary = ({
               TOTAL A PAGAR S/ :
             </div>
             <div className="px-3 py-2 text-right font-semibold">
-              {totalPagar.toFixed(2)}
+              {watch("precioTotal")}
             </div>
           </div>
           <div className="grid grid-cols-3 border-b border-slate-300">
@@ -225,15 +111,29 @@ export const PaymentSummary = ({
               ACUENTA:
             </div>
             <div className="px-3 py-2">
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                disabled={!isACuenta}
+              <TextControlled
+                name="acuenta"
+                control={control}
+                onChange={(e) => {
+                  if (
+                    watch("medioPago") === "DEPOSITO" &&
+                    condicion == "ACUENTA"
+                  ) {
+                    setValue("efectivo", 0);
+                    setValue("entidadBancaria", null);
+                    setValue("deposito", e.target.value);
+                    if (
+                      watch("medioPago") === "EFECTIVO" &&
+                      condicion == "ACUENTA"
+                    ) {
+                      setValue("deposito", 0);
+                      setValue("entidadBancaria", null);
+                      setValue("efectivo", e.target.value);
+                    }
+                  }
+                }}
+                size="small"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
-                data-arrow-input="liquidacion"
-                onKeyDown={handleArrowNavigate}
-                {...register("acuenta", { valueAsNumber: true })}
               />
             </div>
           </div>
@@ -242,7 +142,8 @@ export const PaymentSummary = ({
               SALDO S/ :
             </div>
             <div className="px-3 py-2 text-right font-semibold">
-              {saldo.toFixed(2)}
+              {/*saldo.toFixed(2)*/}
+              {watch("saldo")}
             </div>
           </div>
           <div className="grid grid-cols-3 border-b border-slate-300">
@@ -250,14 +151,11 @@ export const PaymentSummary = ({
               Cobro Extra Sol:
             </div>
             <div className="px-3 py-2">
-              <input
-                type="number"
-                min={0}
-                step="0.01"
+              <TextControlled
+                name="precioExtra"
+                control={control}
+                size="small"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
-                data-arrow-input="liquidacion"
-                onKeyDown={handleArrowNavigate}
-                {...register("cobroExtraSol", { valueAsNumber: true })}
               />
             </div>
           </div>
@@ -272,8 +170,10 @@ export const PaymentSummary = ({
                 step="0.01"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
                 data-arrow-input="liquidacion"
-                onKeyDown={handleArrowNavigate}
-                {...register("cobroExtraDol", { valueAsNumber: true })}
+                // onKeyDown={handleArrowNavigate}
+                /*{...register("cobroExtraDol", {
+                                    valueAsNumber: true,
+                                  })}*/
               />
             </div>
           </div>
@@ -288,9 +188,7 @@ export const PaymentSummary = ({
         </div>
         <div className="p-3">
           <div
-            className={`grid grid-cols-1 divide-y divide-slate-200 border border-slate-200 rounded-lg overflow-hidden ${
-              isCredito ? "opacity-70" : ""
-            }`}
+            className={`grid grid-cols-1 divide-y divide-slate-200 border border-slate-200 rounded-lg overflow-hidden`}
           >
             <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
               <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
@@ -301,9 +199,11 @@ export const PaymentSummary = ({
                   name="fechaPago"
                   control={control}
                   size="small"
-                  disabled={isCredito}
+                  //disabled={isCredito}
                   InputLabelProps={{ shrink: false }}
-                  inputProps={{ "aria-label": "Fecha de adelanto" }}
+                  inputProps={{
+                    "aria-label": "Fecha de adelanto",
+                  }}
                 />
               </div>
             </div>
@@ -316,10 +216,22 @@ export const PaymentSummary = ({
                   name="medioPago"
                   control={control}
                   options={medioPagoOptions}
+                  /* onChange={(e) => {
+                    console.log("eeeeeee", e.target.value);
+                    if (e.target.value === "") {
+                      setValue("deposito", 0);
+                      setValue("efectivo", 0);
+                    }
+                    if (e.target.value === "DEPOSITO") {
+                      setValue("deposito", acuenta);
+                      setValue("efectivo", 0);
+                    }
+                    if (e.target.value === "EFECTIVO") {
+                      setValue("efectivo", acuenta);
+                      setValue("deposito", 0);
+                    }
+                  }}*/
                   size="small"
-                  disabled={isCredito}
-                  SelectProps={{ displayEmpty: true }}
-                  inputProps={{ "aria-label": "Medio de pago" }}
                 />
               </div>
             </div>
@@ -331,15 +243,13 @@ export const PaymentSummary = ({
                 <SelectControlled
                   name="entidadBancaria"
                   control={control}
-                  options={
-                    isDeposito
-                      ? bancoOptions.filter((option) => option.value !== "-")
-                      : bancoOptions
-                  }
+                  options={bancoOptions}
                   size="small"
-                  disabled={isCredito || !isDeposito}
+                  //disabled={isCredito || !isDeposito}
                   SelectProps={{ displayEmpty: true }}
-                  inputProps={{ "aria-label": "Entidad bancaria" }}
+                  inputProps={{
+                    "aria-label": "Entidad bancaria",
+                  }}
                 />
               </div>
             </div>
@@ -352,8 +262,10 @@ export const PaymentSummary = ({
                   name="nroOperacion"
                   control={control}
                   size="small"
-                  disabled={isCredito || !isDeposito}
-                  inputProps={{ "aria-label": "Nro Operacion" }}
+                  // disabled={isCredito || !isDeposito}
+                  inputProps={{
+                    "aria-label": "Nro Operacion",
+                  }}
                 />
               </div>
             </div>
@@ -397,20 +309,16 @@ export const PaymentSummary = ({
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.6fr] gap-3">
-        <div
-          className={`rounded-lg border px-4 py-3 shadow-sm min-h-[88px] ${toneClass}`}
-        >
-          <p className="text-sm font-semibold italic leading-snug">
-            {panelText}
-          </p>
+        <div className={`rounded-lg border px-4 py-3 shadow-sm min-h-[88px] `}>
+          <p className="text-sm font-semibold italic leading-snug"></p>
         </div>
         <textarea
           rows={3}
           className="w-full min-h-[88px] rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
           placeholder="Observaciones"
-          {...register("notas")}
         />
       </div>
     </div>
   );
 };
+export default PaimentDetailComponent;
