@@ -14,6 +14,7 @@ import EmployeeEdit from "./employees/pages/employeeEdit";
 import ClientList from "./clients/pages/clientList";
 import ClientCreate from "./clients/pages/clientCreate";
 import ClientEdit from "./clients/pages/clientEdit";
+import SalesChannelPage from "./salesChannel/pages/salesChannelPage";
 
 // Por ahora dejamos solo usuarios y áreas activas en mantenimiento.
 export default [
@@ -205,6 +206,16 @@ export default [
         { label: "Mantenimiento", to: "/maintenance" },
         { label: "Empleados", to: "/maintenance/employees" },
         { label: "Editar empleado" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/salesChannel",
+    element: <SalesChannelPage />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Canal de venta", to: "/maintenance/salesChannel" },
       ],
     },
   },

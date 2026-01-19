@@ -4,6 +4,7 @@ import {
   Users2,
   UserCheck2Icon,
   Building2,
+  Handshake,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -40,6 +41,12 @@ export default function MaintenanceDashboard() {
       desc: "Registra y controla los usuarios",
       icon: <UserCheck2Icon className="w-10 h-10 text-shadow-rose-600" />,
       route: "/maintenance/users",
+    },
+    {
+      title: "Canal de venta",
+      desc: "Registra y controla los canales de venta",
+      icon: <Handshake className="w-10 h-10 text-shadow-rose-600" />,
+      route: "/maintenance/salesChannel",
     },
   ];
 

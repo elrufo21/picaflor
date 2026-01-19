@@ -30,10 +30,10 @@ export const useCanalVenta = () => {
         const mapped: CanalOption[] = parseCanalPayload(parsed);
 
         if (mapped.length === 0) return;
-        
+
         setCanalVentaList((prev) => {
           const existing = new Map(
-            prev?.map((opt) => [opt.value.toLowerCase(), opt])
+            prev?.map((opt) => [opt.value.toLowerCase(), opt]),
           );
           mapped.forEach((opt) => {
             const key = opt.value.toLowerCase();
@@ -58,7 +58,7 @@ export const useCanalVenta = () => {
     setCanalVentaList((prev) => {
       const targetIndex = editingValue
         ? prev.findIndex(
-            (opt) => opt.value.toLowerCase() === editingValue.toLowerCase()
+            (opt) => opt.value.toLowerCase() === editingValue.toLowerCase(),
           )
         : -1;
 
@@ -71,7 +71,7 @@ export const useCanalVenta = () => {
       const exists = prev.some(
         (opt) =>
           opt.value.toLowerCase() === newOption.value.toLowerCase() ||
-          opt.label.toLowerCase() === newOption.label.toLowerCase()
+          opt.label.toLowerCase() === newOption.label.toLowerCase(),
       );
       if (exists) return prev;
       return [...prev, newOption];

@@ -390,6 +390,8 @@ const LiquidacionesPage = () => {
   const handleView = async (row: LiquidacionRow) => {
     const data = row;
     const detalle = await fetchDetalleActividades(row.notaId);
+    const hoteles = await serviciosDB.hoteles.toArray();
+    const hotel = hoteles.find((h) => h.nombre === row.hotel);
     const canalDeVenta = canalVentaList.find(
       (c) => c.auxiliar === row.auxiliar,
     );
@@ -420,7 +422,7 @@ const LiquidacionesPage = () => {
         label: data.condicion,
       },
       moneda: data.moneda,
-
+      otrosPartidas: data.otrasPartidas,
       acuenta: Number(data.acuenta),
       saldo: Number(data.saldo),
       precioTotal: Number(data.totalPagar),
@@ -438,6 +440,7 @@ const LiquidacionesPage = () => {
 
       detalle: normalizeBackendDetalleToForm(detalle),
       canalDeVenta,
+      hotel: hotel ? { label: hotel?.nombre, value: Number(hotel?.id) } : null,
       puntoPartida: data.puntoPartida,
       nserie: data.serie,
       ndocumento: data.numero,
@@ -588,6 +591,7 @@ const LiquidacionesPage = () => {
   useEffect(() => {
     reload();
   }, [user]);
+  console.log("row", rows);
   const DateRangeFilter = () => (
     <div className="flex items-center gap-4">
       <div className="text-sm font-semibold text-slate-900">Buscar por</div>

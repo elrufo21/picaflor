@@ -4,6 +4,7 @@ import {
   TextControlled,
 } from "@/components/ui/inputs";
 import { useEffect } from "react";
+import { Controller } from "react-hook-form";
 
 const PaimentDetailComponent = ({ control, setValue, watch }) => {
   const documentoCobranzaOptions = [
@@ -16,13 +17,14 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
   ];
   const medioPagoOptions = [
     { value: "", label: "(SELECCIONE)" },
+    { value: "-", label: "-" },
     { value: "EFECTIVO", label: "Efectivo" },
     { value: "DEPOSITO", label: "Deposito" },
     { value: "YAPE", label: "Yape" },
   ];
   const bancoOptions = [
     { value: "", label: "(SELECCIONE)" },
-    { value: `-`, label: "-" },
+    { value: "-", label: "-" },
     { value: "BCP", label: "BCP" },
     { value: "BBVA", label: "BBVA" },
     { value: "INTERBANK", label: "Interbank" },
@@ -53,13 +55,43 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
 
     if (medioPago === "DEPOSITO" && condicion == "CANCELADO") {
       setValue("efectivo", 0);
-      setValue("entidadBancaria", null);
+      setValue("entidadBancaria", "");
       setValue("deposito", total);
     }
+    if (medioPago === "DEPOSITO") {
+      setValue("entidadBancaria", "");
+    }
   }, [medioPago, condicion, total, setValue]);
+  useEffect(() => {}, [condicion, total, acuenta]);
   useEffect(() => {
-    setValue("saldo", Number(watch("precioTotal")) - Number(acuenta));
+    setValue("saldo", Number(watch("precioTotal") ?? 0) - Number(acuenta ?? 0));
   }, [acuenta]);
+
+  const buildMessagePassenger = ({ value }: { value: string }) => {
+    let message;
+    if (value == "CANCELADO") {
+      message = "El pasajero no tiene deuda.";
+    } else if (value == "CREDITO") {
+      message = "El pasajero si tiene deuda S/ " + watch("precioTotal");
+    } else {
+      message = "El pasajero si tiene deuda S/" + watch("saldo");
+    }
+    setValue("mensajePasajero", message);
+  };
+  //Estado para detectar el cambio de condicion
+  useEffect(() => {
+    if (condicion === "ACUENTA") {
+      setValue("saldo", total - acuenta);
+    }
+    if (condicion === "CREDITO") {
+      setValue("medioPago", "-");
+      setValue("entidadBancaria", "-");
+    }
+    buildMessagePassenger({ value: condicion });
+
+    // console.log("condicion", condicion);
+  }, [condicion, total, acuenta]);
+  console.log("Watch", watch());
 
   return (
     <div className="lg:col-span-2 space-y-3">
@@ -76,7 +108,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
         <div className="col-span-1">
           <TextControlled
             name="nserie"
-            disabled={watch("documentoCobranza" === "DOCUMENTO COBRANZA")}
+            disabled={watch("documentoCobranza") === "DOCUMENTO COBRANZA"}
             control={control}
             size="small"
           />
@@ -84,7 +116,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
         <div className="col-span-2">
           <TextControlled
             name="ndocumento"
-            disabled={watch("documentoCobranza" === "DOCUMENTO COBRANZA")}
+            disabled={watch("documentoCobranza") === "DOCUMENTO COBRANZA"}
             control={control}
             size="small"
           />
@@ -114,6 +146,8 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               <TextControlled
                 name="acuenta"
                 control={control}
+                disabled={condicion != "ACUENTA"}
+                inputProps={{ style: { textAlign: "right" } }}
                 onChange={(e) => {
                   if (
                     watch("medioPago") === "DEPOSITO" &&
@@ -133,7 +167,6 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                   }
                 }}
                 size="small"
-                className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
           </div>
@@ -152,7 +185,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             </div>
             <div className="px-3 py-2">
               <TextControlled
-                name="precioExtra"
+                name="precioExtraSoles"
                 control={control}
                 size="small"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -164,16 +197,11 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               Cobro Extra Dol:
             </div>
             <div className="px-3 py-2">
-              <input
-                type="number"
-                min={0}
-                step="0.01"
+              <TextControlled
+                name="precioExtraDolares"
+                control={control}
+                size="small"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
-                data-arrow-input="liquidacion"
-                // onKeyDown={handleArrowNavigate}
-                /*{...register("cobroExtraDol", {
-                                    valueAsNumber: true,
-                                  })}*/
               />
             </div>
           </div>
@@ -196,7 +224,8 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               </div>
               <div className="bg-white px-2 py-1">
                 <DateInput
-                  name="fechaPago"
+                  name="fechaAdelanto"
+                  disabled={condicion == "CREDITO"}
                   control={control}
                   size="small"
                   //disabled={isCredito}
@@ -215,6 +244,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 <SelectControlled
                   name="medioPago"
                   control={control}
+                  disabled={condicion == "CREDITO"}
                   options={medioPagoOptions}
                   /* onChange={(e) => {
                     console.log("eeeeeee", e.target.value);
@@ -242,6 +272,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               <div className="bg-white px-2 py-1">
                 <SelectControlled
                   name="entidadBancaria"
+                  disabled={condicion == "CREDITO" || medioPago !== "DEPOSITO"}
                   control={control}
                   options={bancoOptions}
                   size="small"
@@ -260,6 +291,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               <div className="bg-white px-2 py-1">
                 <TextControlled
                   name="nroOperacion"
+                  disabled={condicion == "CREDITO" || medioPago !== "DEPOSITO"}
                   control={control}
                   size="small"
                   // disabled={isCredito || !isDeposito}
@@ -310,12 +342,21 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.6fr] gap-3">
         <div className={`rounded-lg border px-4 py-3 shadow-sm min-h-[88px] `}>
-          <p className="text-sm font-semibold italic leading-snug"></p>
+          <p className="text-sm font-semibold italic leading-snug">
+            {watch("mensajePasajero")}
+          </p>
         </div>
-        <textarea
-          rows={3}
-          className="w-full min-h-[88px] rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
-          placeholder="Observaciones"
+        <Controller
+          name="observaciones"
+          control={control}
+          render={({ field }) => (
+            <textarea
+              {...field}
+              rows={3}
+              className="w-full min-h-[88px] rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              placeholder="Observaciones"
+            />
+          )}
         />
       </div>
     </div>

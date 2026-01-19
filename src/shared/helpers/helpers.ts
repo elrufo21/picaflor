@@ -6,7 +6,7 @@ function parseLegacyData(raw: string): string[][][] {
       .split("¬")
       .map((row) => row.trim())
       .filter(Boolean)
-      .map((row) => row.split("|"))
+      .map((row) => row.split("|")),
   );
 }
 
@@ -114,4 +114,23 @@ export function transformServiciosData(raw: string) {
         nombre,
       })) ?? [],
   };
+}
+
+// shared/helpers/helpers.ts
+export function moveFocus(current: HTMLElement, direction: "next" | "prev") {
+  const container = current.closest("[data-grid-form]");
+  if (!container) return;
+
+  // 👇 SOLO inputs de precio
+  const focusables = Array.from(
+    container.querySelectorAll<HTMLElement>(
+      "input[data-precio]:not([disabled])",
+    ),
+  );
+
+  const index = focusables.indexOf(current);
+  if (index === -1) return;
+
+  const nextIndex = direction === "next" ? index + 1 : index - 1;
+  focusables[nextIndex]?.focus();
 }

@@ -267,23 +267,23 @@ function buildListaOrdenCreate(data) {
     data.cantPax,
     n(data.puntoPartida),
     n(data.horaPartida),
-    "-",
+    n(data.otrosPartidas ?? ""), //otros partidas
     n(data.visitas),
-    0,
-    0,
-    data.fechaEmision,
-    "-",
-    "-",
-    "NO",
-    "NO",
-    "NO",
+    n(data.precioExtraSoles ?? 0),
+    n(data.precioExtraDolares ?? 0),
+    data.fechaAdelanto,
+    n(data.mensajePasajero ?? ""),
+    n(data.observaciones ?? ""),
+    "NO", //islas
+    "NO", //tubulares
+    "NO", //otros
     data.fechaViaje,
     0,
     "NO",
     data.moneda,
-    "SI",
+    n(data.detalle.tarifa.servicio.label ?? ""),
     "-",
-    "-",
+    n(data.hotel.label),
     data.region,
   ].join("|");
 
@@ -473,6 +473,22 @@ export function adaptViajeJsonToInvoice(
     observaciones: viajeJson.observaciones ?? "",
   };
 }
+export function parseDateForInput(
+  value?: Date | string | number | null,
+): string {
+  if (!value) return "";
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (isNaN(date.getTime())) return "";
+
+  // YYYY-MM-DD (sin timezone bugs)
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 const ViajeForm = () => {
   const { formData, setFormData } = usePackageStore();
@@ -492,6 +508,7 @@ const ViajeForm = () => {
       destino: "",
       fechaViaje: "",
       fechaEmision: "",
+      cantPax: 1,
       canalVenta: null,
       documentoCobranza: "DOCUMENTO COBRANZA",
       disponibles: 0,
@@ -499,6 +516,8 @@ const ViajeForm = () => {
       counter: "",
       moneda: "SOLES",
       canalDeVentaTelefono: "",
+      fechaAdelanto: parseDateForInput(Date()),
+      saldo: "0",
       medioPago: "",
       detalle: {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
@@ -794,6 +813,7 @@ const ViajeForm = () => {
                       <CanalVentaComponent
                         control={control}
                         setValue={setValue}
+                        watch={watch}
                       />
                       <Divider />
                       <PaxDetailComponent
