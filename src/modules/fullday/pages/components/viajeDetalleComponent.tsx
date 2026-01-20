@@ -69,15 +69,23 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
      INICIAL TARIFA
   ========================= */
   useEffect(() => {
+    if (!isEditing) return;
     if (!precioProducto?.precioVenta) return;
 
     const base = Number(precioProducto.precioVenta);
+    const currentPrecio = Number(getValues("detalle.tarifa.precio") ?? 0);
 
     setValue("detalle.tarifa.precioBase", base);
-    setValue("detalle.tarifa.precio", base);
     setValue("detalle.tarifa.cant", cantPax);
+
+    if (currentPrecio > 0) {
+      setValue("detalle.tarifa.total", currentPrecio * cantPax);
+      return;
+    }
+
+    setValue("detalle.tarifa.precio", base);
     setValue("detalle.tarifa.total", base * cantPax);
-  }, [precioProducto, cantPax, setValue]);
+  }, [precioProducto, cantPax, getValues, setValue, isEditing]);
 
   /* =========================
      ACTIVIDADES YA USADAS
@@ -142,6 +150,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   }, [cantPax, isBallestasSelected, setValue]);
 
   useEffect(() => {
+    if (!isEditing) return;
     if (isBallestasSelected) return;
 
     const currentServicio = getValues("detalle.entrada.servicio") ?? "";
@@ -168,7 +177,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         shouldDirty: true,
       });
     }
-  }, [cantPax, getValues, isBallestasSelected, setValue]);
+  }, [cantPax, getValues, isBallestasSelected, setValue, isEditing]);
 
   const handleHotelChange = (idHotel: string) => {
     console.log("idHotel", idHotel);
@@ -346,33 +355,34 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 name="detalle.tarifa.servicio"
                 control={control}
                 render={({ field }) => (
-                  <select
-                    className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
-                    value={field.value?.value ?? ""}
-                    onChange={(e) => {
-                      if (cantPax <= 0) {
-                        showToast({
-                          title: "Alerta",
-                          description: "Añade un pasajero por lo menos.",
-                          type: "error",
-                        });
-                        return;
-                      }
+                    <select
+                      className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                      value={field.value?.value ?? ""}
+                      onChange={(e) => {
+                        if (!isEditing) return;
+                        if (cantPax <= 0) {
+                          showToast({
+                            title: "Alerta",
+                            description: "Añade un pasajero por lo menos.",
+                            type: "error",
+                          });
+                          return;
+                        }
 
-                      const sel =
-                        almuerzos?.find((a) => a.value === e.target.value) ??
-                        null;
-                      field.onChange(sel);
+                        const sel =
+                          almuerzos?.find((a) => a.value === e.target.value) ??
+                          null;
+                        field.onChange(sel);
 
-                      const adicional = sel ? getPrecioAlmuerzo(sel.id) : 0;
-                      const base =
-                        Number(getValues("detalle.tarifa.precioBase")) || 0;
-                      const precio = base + adicional;
+                        const adicional = sel ? getPrecioAlmuerzo(sel.id) : 0;
+                        const base =
+                          Number(getValues("detalle.tarifa.precioBase")) || 0;
+                        const precio = base + adicional;
 
-                      setValue("detalle.tarifa.precio", precio);
-                      setValue("detalle.tarifa.cant", cantPax);
-                      setValue("detalle.tarifa.total", precio * cantPax);
-                    }}
+                        setValue("detalle.tarifa.precio", precio);
+                        setValue("detalle.tarifa.cant", cantPax);
+                        setValue("detalle.tarifa.total", precio * cantPax);
+                      }}
                   >
                     <option value="">(SELECCIONE)</option>
                     {almuerzos?.map((a) => (
@@ -400,6 +410,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       onKeyDown={handleKeyNav}
                       value={field.value === 0 ? "" : (field.value ?? "")}
                       onChange={(e) => {
+                        if (!isEditing) return;
                         const raw = e.target.value;
                         field.onChange(raw === "" ? 0 : Number(raw));
                       }}
@@ -441,11 +452,12 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 name="detalle.tarifa.servicio"
                 control={control}
                 render={({ field }) => (
-                  <select
-                    className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
-                    value={field.value?.value ?? ""}
-                    onChange={(e) => {
-                      if (cantPax <= 0) {
+                    <select
+                      className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                      value={field.value?.value ?? ""}
+                      onChange={(e) => {
+                        if (!isEditing) return;
+                        if (cantPax <= 0) {
                         showToast({
                           title: "Alerta",
                           description: "Añade un pasajero por lo menos.",
@@ -490,8 +502,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                     className="w-full border px-2 py-1 text-right bg-slate-100"
                     onKeyDown={handleKeyNav}
                     value={field.value === 0 ? "" : (field.value ?? "")}
-                    onChange={(e) => {
-                      const raw = e.target.value;
+                      onChange={(e) => {
+                        if (!isEditing) return;
+                        const raw = e.target.value;
                       field.onChange(raw === "" ? 0 : Number(raw));
                     }}
                   />
@@ -543,6 +556,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
                         value={field.value?.value ?? ""}
                         onChange={(e) => {
+                          if (!isEditing) return;
                           if (cantPax <= 0 && e.target.value !== "") {
                             showToast({
                               title: "Alerta",
@@ -612,6 +626,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         onKeyDown={handleKeyNav}
                         value={field.value === 0 ? "" : (field.value ?? "")}
                         onChange={(e) => {
+                          if (!isEditing) return;
                           const raw = e.target.value;
                           const precio = raw === "" ? 0 : Number(raw);
                           field.onChange(precio);
@@ -675,6 +690,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
                         value={field.value?.value ?? ""}
                         onChange={(e) => {
+                          if (!isEditing) return;
                           if (cantPax <= 0 && e.target.value !== "") {
                             showToast({
                               title: "Alerta",
@@ -740,6 +756,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       onKeyDown={handleKeyNav}
                       value={field.value === 0 ? "" : (field.value ?? "")}
                       onChange={(e) => {
+                        if (!isEditing) return;
                         const raw = e.target.value;
                         const precio = raw === "" ? 0 : Number(raw);
                         field.onChange(precio);
