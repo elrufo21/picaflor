@@ -283,7 +283,7 @@ function buildListaOrdenCreate(data) {
     data.moneda,
     n(data.detalle.tarifa.servicio.label ?? ""),
     "-",
-    n(data.hotel.label),
+    n(data?.hotel?.label ?? ""),
     data.region,
   ].join("|");
 
@@ -311,7 +311,7 @@ function buildListaOrdenEdit(data) {
     n(data.nserie), // 16
     n(data.ndocumento), // 17
     0, // 18 NotaGanancia
-    Number(data.usuarioId), // 19 🔴 CLAVE
+    Number(data.usuarioId), // 19
     n(data.entidadBancaria), // 20
     n(data.nroOperacion), // 21
     d(data.efectivo), // 22
@@ -322,25 +322,25 @@ function buildListaOrdenEdit(data) {
     Number(data.cantPax), // 27
     n(data.puntoPartida), // 28
     n(data.horaPartida), // 29
-    "-", // 30 otrasPartidas
+    n(data.otrosPartidas ?? ""), // 30 otrasPartidas
     n(data.visitas), // 31
-    0, // 32
-    0, // 33
+    n(data.precioExtraSoles ?? 0), // 32
+    n(data.precioExtraDolares ?? 0), // 33
     n(data.fechaEmision), // 34
-    "-", // 35
-    "-", // 36
-    "NO", // 37
-    "NO", // 38
-    "NO", // 39
+    n(data.mensajePasajero ?? ""), // 35
+    n(data.observaciones ?? ""), // 36
+    "-", // 37
+    "-", // 38
+    "-", // 39
     n(data.fechaViaje), // 40
     0, // 41
     "NO", // 42
     Number(data.notaId), // 43 🔴 OBLIGATORIO
     0, // 44 Aviso
     n(data.moneda), // 45
-    "SI", // 46
+    n(data.detalle.tarifa.servicio.label ?? ""), // 46
     "-", // 47
-    "-", // 48
+    n(data?.hotel?.label ?? ""), // 48
     n(data.region), // 49
   ].join("|");
 
@@ -431,7 +431,7 @@ export function adaptViajeJsonToInvoice(
   return {
     destino: viajeJson.destino,
     fechaViaje: viajeJson.fechaViaje,
-
+    otrosPartidas: viajeJson.otrosPartidas,
     auxiliar: viajeJson.canalVenta,
     telefonos: viajeJson.canalDeVentaTelefono || viajeJson.celular,
 
@@ -471,6 +471,7 @@ export function adaptViajeJsonToInvoice(
     nroDocumento: backend.nroDocumento,
 
     observaciones: viajeJson.observaciones ?? "",
+    mensajePasajero: viajeJson.mensajePasajero ?? "",
   };
 }
 export function parseDateForInput(
@@ -491,7 +492,7 @@ export function parseDateForInput(
 }
 
 const ViajeForm = () => {
-  const { formData, setFormData } = usePackageStore();
+  const { formData, setFormData, isEditing, setIsEditing } = usePackageStore();
   //Precargar los valores en modo edicion
 
   const {
@@ -508,7 +509,7 @@ const ViajeForm = () => {
       destino: "",
       fechaViaje: "",
       fechaEmision: "",
-      cantPax: 1,
+      cantPax: 0,
       canalVenta: null,
       documentoCobranza: "DOCUMENTO COBRANZA",
       disponibles: 0,
@@ -572,7 +573,9 @@ const ViajeForm = () => {
       loadPackages(date);
     }
   }, [date, loadPackages]);
-
+  useEffect(() => {
+    setIsEditing(!liquidacionId);
+  }, [liquidacionId, setIsEditing]);
   useEffect(() => {
     if (!packages.length) return;
 
@@ -601,10 +604,11 @@ const ViajeForm = () => {
   const fechaViaje = watch("fechaViaje");
   const fechaEmision = watch("fechaEmision");
 
-  const fieldsetDisabled = isSubmitting || isSaving;
+  const fieldsetDisabled = isSubmitting || isSaving || !isEditing;
   const saveButtonLabel = isSaving ? "Guardando..." : "Guardar";
 
   const onSubmit = async (data) => {
+    console.log("data", data);
     const validationError = validateViajeValues(data);
     if (validationError) {
       showToast({
@@ -676,7 +680,27 @@ const ViajeForm = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    try {
+      const formValues = getValues();
+      console.log("formValues", formValues);
+      const invoiceData = adaptViajeJsonToInvoice(formValues, true);
+      const backendPayload = `${formValues.nserie ?? ""}-${
+        formValues.ndocumento ?? ""
+      }¬¬¬${formValues.fechaEmision ?? ""}`;
+
+      navigate(`/fullday/${idProduct}/passengers/preview`, {
+        state: {
+          invoiceData,
+          backendPayload,
+        },
+      });
+    } catch (error) {
+      console.error("Error al preparar impresión:", error);
+    }
+  };
+
+  const handleUnlockEditing = () => {
+    setIsEditing(true);
   };
 
   const handleEnterFocus = (e) => {
@@ -714,98 +738,97 @@ const ViajeForm = () => {
             onKeyDown={handleEnterFocus}
             noValidate
           >
-            <fieldset disabled={fieldsetDisabled} className="contents">
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2 shadow-sm">
-                {/* ================= INFO ================= */}
-                <div className="flex items-center gap-4 min-w-0">
-                  {/* DESTINO */}
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="text-slate-500 text-xs">Destino:</span>
-                    <span className="font-semibold text-slate-800 truncate max-w-[460px]">
-                      {destino || "-"}
-                    </span>
-                  </div>
-
-                  {/* FECHA VIAJE */}
-                  <div className="flex items-center gap-1 whitespace-nowrap">
-                    <span className="text-slate-500 text-xs">Viaje:</span>
-                    <span className="text-sm font-medium text-slate-700">
-                      {fechaViaje || "-"}
-                    </span>
-                  </div>
-
-                  {/* FECHA EMISIÓN */}
-                  <div className="flex items-center gap-1 whitespace-nowrap">
-                    <span className="text-slate-500 text-xs">Emisión:</span>
-                    <span className="text-sm font-medium text-slate-700">
-                      {fechaEmision || "-"}
-                    </span>
-                  </div>
-
-                  {/* DISPONIBLES */}
-                  <div className="flex items-center gap-1 rounded-md bg-white px-2 py-1 border border-emerald-200 whitespace-nowrap">
-                    <span className="text-xs text-slate-500">Disp:</span>
-                    <span className="text-sm font-bold text-emerald-700">
-                      {watch("disponibles")}
-                    </span>
-                  </div>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2 shadow-sm">
+              {/* ================= INFO ================= */}
+              <div className="flex items-center gap-4 min-w-0">
+                {/* DESTINO */}
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-slate-500 text-xs">Destino:</span>
+                  <span className="font-semibold text-slate-800 truncate max-w-[460px]">
+                    {destino || "-"}
+                  </span>
                 </div>
 
-                {/* ================= ACCIONES ================= */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="submit"
-                    title={saveButtonLabel}
-                    disabled={fieldsetDisabled}
-                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-white shadow-sm ring-1 ring-emerald-600/30 hover:bg-emerald-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save size={16} />
-                    )}
-                    <span className="text-sm hidden sm:inline">
-                      {saveButtonLabel}
-                    </span>
-                  </button>
+                {/* FECHA VIAJE */}
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <span className="text-slate-500 text-xs">Viaje:</span>
+                  <span className="text-sm font-medium text-slate-700">
+                    {fechaViaje || "-"}
+                  </span>
+                </div>
 
-                  <button
-                    type="button"
-                    onClick={handleNew}
-                    title="Nuevo"
-                    disabled={fieldsetDisabled}
-                    className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Plus size={16} />
-                    <span className="text-sm hidden sm:inline">Nuevo</span>
-                  </button>
+                {/* FECHA EMISIÓN */}
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <span className="text-slate-500 text-xs">Emisión:</span>
+                  <span className="text-sm font-medium text-slate-700">
+                    {fechaEmision || "-"}
+                  </span>
+                </div>
 
-                  <button
-                    type="button"
-                    onClick={handlePrint}
-                    title="Imprimir"
-                    disabled={fieldsetDisabled}
-                    className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Printer size={16} />
-                    <span className="text-sm hidden sm:inline">Imprimir</span>
-                  </button>
-                  {liquidacionId && (
-                    <div>
-                      <button
-                        type="button"
-                        //onClick={handlePrint}
-                        title="Imprimir"
-                        //disabled={fieldsetDisabled}
-                        className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Lock size={16} />
-                      </button>
-                    </div>
-                  )}
+                {/* DISPONIBLES */}
+                <div className="flex items-center gap-1 rounded-md bg-white px-2 py-1 border border-emerald-200 whitespace-nowrap">
+                  <span className="text-xs text-slate-500">Disp:</span>
+                  <span className="text-sm font-bold text-emerald-700">
+                    {watch("disponibles")}
+                  </span>
                 </div>
               </div>
 
+              {/* ================= ACCIONES ================= */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="submit"
+                  title={saveButtonLabel}
+                  disabled={fieldsetDisabled}
+                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-white shadow-sm ring-1 ring-emerald-600/30 hover:bg-emerald-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  <span className="text-sm hidden sm:inline">
+                    {saveButtonLabel}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNew}
+                  title="Nuevo"
+                  disabled={fieldsetDisabled}
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus size={16} />
+                  <span className="text-sm hidden sm:inline">Nuevo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  title="Imprimir"
+                  disabled={isEditing && (fieldsetDisabled || !liquidacionId)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Printer size={16} />
+                  <span className="text-sm hidden sm:inline">Imprimir</span>
+                </button>
+                {liquidacionId && !isEditing && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleUnlockEditing}
+                      title="Desbloquear edición"
+                      className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Lock size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <fieldset disabled={fieldsetDisabled} className="contents">
               <div className="p-4 sm:p-5 space-y-4">
                 <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
                   <div className="lg:col-span-4 space-y-3">

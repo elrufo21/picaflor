@@ -405,7 +405,7 @@ const LiquidacionesPage = () => {
       fechaEmision: parseFechaBackend(data.fechaRegistro?.split(" ")[0]),
 
       counter: data.notaUsuario,
-      canalVenta: data.auxiliar,
+      canalVenta: null,
       canalDeVentaTelefono: data.telefonoAuxiliar,
 
       nombreCompleto: data.clienteNombre,
@@ -437,7 +437,6 @@ const LiquidacionesPage = () => {
 
       precioExtra: Number(data.adicional),
       observaciones: data.observaciones,
-
       detalle: normalizeBackendDetalleToForm(detalle),
       canalDeVenta,
       hotel: hotel ? { label: hotel?.nombre, value: Number(hotel?.id) } : null,
@@ -447,7 +446,7 @@ const LiquidacionesPage = () => {
       clienteId: data.clienteId,
       _editMode: true,
     };
-
+    console.log("normalizedData", normalizedData);
     setFormData(normalizedData);
     /*const productId = resolveProductId(row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;

@@ -1,15 +1,17 @@
 import { Autocomplete, TextField } from "@mui/material";
 import { Controller, useWatch } from "react-hook-form";
-import { useParams } from "react-router";
 import { useEffect } from "react";
 import { usePackageData } from "../../hooks/usePackageData";
 import { TextControlled } from "@/components/ui/inputs";
 import { showToast } from "@/components/ui/AppToast";
 import { moveFocus } from "@/shared/helpers/helpers";
+import { usePackageStore } from "../../store/fulldayStore";
+import { TimeAMPMInput } from "@/components/ui/inputs/TimeAMPMInput";
+import { useParams } from "react-router";
 
 const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const { idProduct } = useParams();
-
+  const { isEditing } = usePackageStore();
   const {
     partidas,
     hoteles,
@@ -29,6 +31,13 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   ========================= */
   const cantPax = Number(watch("cantPax") || 0);
   const disabledByCantPax = cantPax <= 0;
+  const TIME_EDITABLE_POSITIONS = [0, 1, 3, 4, 5, 6];
+  const TIME_DEFAULT_VALUE = "__:____";
+  const getTimeChars = (value: string = TIME_DEFAULT_VALUE) => {
+    const normalized = value.padEnd(7, "_").slice(0, 7).split("");
+    normalized[2] = ":";
+    return normalized;
+  };
 
   /* =========================
      PRECIOS
@@ -78,6 +87,12 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     getValues("detalle.act2.servicio")?.value,
     getValues("detalle.act3.servicio")?.value,
   ].filter(Boolean);
+  const BALLESTAS_LABEL = "EXCURSIÓN ISLAS BALLESTAS";
+  const isBallestasSelected = actividadesSeleccionadas.some(
+    (value) =>
+      String(value || "").toLocaleUpperCase() ===
+      BALLESTAS_LABEL.toLocaleUpperCase(),
+  );
 
   const rows = [
     { key: "act1", label: "Actividad 1", options: actividades },
@@ -106,6 +121,55 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     setValue("precioTotal", Number(suma.toFixed(2)));
   }, [totales, setValue]);
 
+  const BALLESTAS_ENTRADA_DETAIL = "IMPTOS DE ISLAS + MUELLE";
+  const BALLESTAS_ENTRADA_PRICE = 16;
+
+  useEffect(() => {
+    if (!isBallestasSelected) return;
+
+    setValue("detalle.entrada.servicio", BALLESTAS_ENTRADA_DETAIL, {
+      shouldDirty: true,
+    });
+    setValue("detalle.entrada.precio", BALLESTAS_ENTRADA_PRICE, {
+      shouldDirty: true,
+    });
+    setValue("detalle.entrada.cant", cantPax, {
+      shouldDirty: true,
+    });
+    setValue("detalle.entrada.total", BALLESTAS_ENTRADA_PRICE * cantPax, {
+      shouldDirty: true,
+    });
+  }, [cantPax, isBallestasSelected, setValue]);
+
+  useEffect(() => {
+    if (isBallestasSelected) return;
+
+    const currentServicio = getValues("detalle.entrada.servicio") ?? "";
+    const currentPrecio = Number(getValues("detalle.entrada.precio") ?? 0);
+    const currentCant = Number(getValues("detalle.entrada.cant") ?? 0);
+    const currentTotal = Number(getValues("detalle.entrada.total") ?? 0);
+
+    if (
+      currentServicio === BALLESTAS_ENTRADA_DETAIL &&
+      currentPrecio === BALLESTAS_ENTRADA_PRICE &&
+      currentCant === cantPax &&
+      currentTotal === BALLESTAS_ENTRADA_PRICE * cantPax
+    ) {
+      setValue("detalle.entrada.servicio", "", {
+        shouldDirty: true,
+      });
+      setValue("detalle.entrada.precio", 0, {
+        shouldDirty: true,
+      });
+      setValue("detalle.entrada.cant", 0, {
+        shouldDirty: true,
+      });
+      setValue("detalle.entrada.total", 0, {
+        shouldDirty: true,
+      });
+    }
+  }, [cantPax, getValues, isBallestasSelected, setValue]);
+
   const handleHotelChange = (idHotel: string) => {
     console.log("idHotel", idHotel);
     const direccion = direccionesHotel?.find(
@@ -126,6 +190,24 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       moveFocus(e.currentTarget, "prev");
     }
   };
+  const puntoPartida = watch("puntoPartida");
+
+  const isHotel = puntoPartida === "HOTEL";
+  const isOtros = puntoPartida === "OTROS";
+  useEffect(() => {
+    if (!isEditing) return;
+    if (isHotel) {
+      setValue("otrosPartidas", "", { shouldDirty: true });
+      return;
+    }
+
+    if (isOtros) {
+      setValue("hotel", null, { shouldDirty: true });
+      return;
+    }
+    setValue("hotel", null, { shouldDirty: true });
+    setValue("otrosPartidas", "", { shouldDirty: true });
+  }, [isHotel, isOtros, setValue]);
 
   return (
     <div className="p-2.5 space-y-3">
@@ -146,7 +228,6 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 className="rounded-lg border px-2.5 py-1.5"
                 onChange={(e) => {
                   const selectedValue = e.target.value;
-
                   field.onChange(selectedValue);
 
                   const partida = partidas?.find(
@@ -175,6 +256,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         </label>
         <label className="flex flex-col text-sm col-span-2">
           <span className="font-semibold mb-1">Hotel</span>
+
           <Controller
             name="hotel"
             control={control}
@@ -185,7 +267,13 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 isOptionEqualToValue={(o, v) => o.value === v?.value}
                 size="small"
                 value={field.value || null}
+                disabled={!isHotel && !isOtros}
                 onChange={(_, option) => {
+                  if (!option) {
+                    field.onChange(null);
+                    return;
+                  }
+
                   handleHotelChange(option.value);
                   field.onChange(option);
                 }}
@@ -210,94 +298,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         <label className="flex flex-col text-sm">
           <span className="font-semibold mb-1">Hora P.</span>
 
-          <Controller
-            name="horaPartida"
-            control={control}
-            defaultValue="__:____"
-            render={({ field }) => (
-              <input
-                {...field}
-                className="rounded-lg border px-2 py-1.5 font-mono tracking-widest"
-                value={field.value || "__:____"}
-                onClick={(e) => {
-                  const input = e.currentTarget;
-                  const pos = input.selectionStart ?? 0;
-
-                  // saltar el :
-                  if (pos === 2) {
-                    input.setSelectionRange(3, 3);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  const input = e.currentTarget;
-                  const pos = input.selectionStart ?? 0;
-
-                  const editablePositions = [0, 1, 3, 4, 5, 6];
-
-                  // 🔙 Backspace
-                  if (e.key === "Backspace") {
-                    e.preventDefault();
-
-                    const prevPos =
-                      editablePositions.filter((p) => p < pos).slice(-1)[0] ??
-                      0;
-
-                    const chars = field.value.split("");
-                    chars[prevPos] = "_";
-                    field.onChange(chars.join(""));
-
-                    requestAnimationFrame(() =>
-                      input.setSelectionRange(prevPos, prevPos),
-                    );
-                  }
-
-                  // ❌ Delete
-                  if (e.key === "Delete") {
-                    e.preventDefault();
-                    if (!editablePositions.includes(pos)) return;
-
-                    const chars = field.value.split("");
-                    chars[pos] = "_";
-                    field.onChange(chars.join(""));
-
-                    requestAnimationFrame(() =>
-                      input.setSelectionRange(pos, pos),
-                    );
-                  }
-
-                  // ⛔ bloquear texto libre
-                  if (e.key.length > 1) return;
-
-                  // permitir solo números y A P M
-                  if (!/[0-9APM]/i.test(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
-                onChange={(e) => {
-                  const input = e.currentTarget;
-                  const pos = input.selectionStart ?? 0;
-                  const char = e.nativeEvent.data;
-
-                  if (!char) return;
-
-                  const editablePositions = [0, 1, 3, 4, 5, 6];
-                  if (!editablePositions.includes(pos - 1)) return;
-
-                  const chars = field.value.split("");
-                  chars[pos - 1] = char.toUpperCase();
-
-                  field.onChange(chars.join(""));
-
-                  const nextPos =
-                    editablePositions.find((p) => p > pos - 1) ?? pos;
-
-                  requestAnimationFrame(() =>
-                    input.setSelectionRange(nextPos, nextPos),
-                  );
-                }}
-              />
-            )}
-          />
+          <TimeAMPMInput name="horaPartida" control={control} />
         </label>
 
         <label className="flex flex-col text-sm md:col-span-5">
@@ -532,7 +533,11 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                   control={control}
                   render={({ field }) =>
                     row.input ? (
-                      <input {...field} className="w-full border px-2 py-1" />
+                      <input
+                        {...field}
+                        className="w-full border px-2 py-1"
+                        disabled={row.key === "entrada" && isBallestasSelected}
+                      />
                     ) : (
                       <select
                         className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
@@ -618,6 +623,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         onBlur={() => {
                           if (!field.value) field.onChange(0);
                         }}
+                        disabled={row.key === "entrada" && isBallestasSelected}
                       />
                     )}
                   />
@@ -659,7 +665,11 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                   control={control}
                   render={({ field }) =>
                     row.input ? (
-                      <input {...field} className="w-full border px-2 py-1" />
+                      <input
+                        {...field}
+                        className="w-full border px-2 py-1"
+                        disabled={row.key === "entrada" && isBallestasSelected}
+                      />
                     ) : (
                       <select
                         className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
@@ -738,6 +748,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       onBlur={() => {
                         if (!field.value) field.onChange(0);
                       }}
+                      disabled={row.key === "entrada" && isBallestasSelected}
                     />
                   )}
                 />

@@ -29,6 +29,7 @@ export type InvoiceData = {
   destino: string;
   fechaViaje: string;
   auxiliar: string;
+  otrosPartidas?: string;
   telefonos: string;
   fechaEmision: string;
   counter: string;
@@ -579,6 +580,7 @@ const contactS = StyleSheet.create({
 ========================= */
 
 const PdfDocument = ({ data }: { data?: InvoiceData }) => {
+  console.log("data", data);
   const invoiceData = data ?? DEFAULT_INVOICE_DATA;
   const {
     destino,
@@ -608,6 +610,8 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
     nroDocumento,
     observaciones,
   } = invoiceData;
+  const formatMoney = (value: unknown) =>
+    Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "0.00";
 
   return (
     <Document>
@@ -741,7 +745,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
             <View style={contactS.detailRow}>
               <Text style={contactS.detailLabel}>Otros Puntos de Partida</Text>
               <Text style={contactS.detailFullValue}>
-                {detalleServicio.otrosPuntos || "-"}
+                {detalleServicio.otrosPartidas || "-"}
               </Text>
             </View>
 
@@ -823,16 +827,23 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                       <Text style={contactS.liquidationLabel}>{label}</Text>
                       <Text style={contactS.liquidationCurrency}>{curr}</Text>
                       <Text style={contactS.liquidationAmount}>
-                        {(value as number).toFixed(2)}
+                        {formatMoney(value)}
                       </Text>
                     </View>
                   ))}
 
                   {/* ESTADO */}
-                  {saldo === 0 && (
-                    <View style={contactS.noDebtBox}>
+                  {data.mensajePasajero && (
+                    <View
+                      style={[
+                        contactS.noDebtBox,
+                        data.mensajePasajero.includes("si") && {
+                          backgroundColor: "#A93226",
+                        },
+                      ]}
+                    >
                       <Text style={contactS.noDebtText}>
-                        El Pasajero No{"\n"}Tiene Deuda
+                        {data.mensajePasajero}
                       </Text>
                     </View>
                   )}

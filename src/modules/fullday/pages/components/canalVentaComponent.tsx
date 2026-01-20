@@ -6,8 +6,10 @@ import {
 import { useCanalVenta } from "../../hooks/useCanalVenta";
 import { showToast } from "@/components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
+import { usePackageStore } from "../../store/fulldayStore";
 
 const CanalVentaComponent = ({ control, setValue, watch }) => {
+  const { isEditing } = usePackageStore();
   const { openDialog } = useDialogStore();
   const { canalVentaList, addCanalToList } = useCanalVenta();
   const handleAddCanalVenta = () => {
@@ -270,6 +272,7 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
           control={control}
           label="Moneda"
           options={monedaOptions}
+          disabled={!isEditing}
           required
           size="small"
           inputProps={{

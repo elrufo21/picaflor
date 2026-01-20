@@ -100,6 +100,8 @@ export type PackageItem = {
 type PackageState = {
   packages: PackageItem[];
   formData: any;
+  isEditing: boolean;
+  setIsEditing: (isEditing: boolean) => void;
   setFormData: (formData: any) => void;
   listado: any;
   selectedFullDayName: string;
@@ -187,7 +189,8 @@ export const usePackageStore = create<PackageState>()(
     (set, get) => ({
       formData: null,
       setFormData: (formData) => set({ formData }),
-
+      isEditing: false,
+      setIsEditing: (isEditing) => set({ isEditing }),
       packages: [],
       listado: [],
       selectedFullDayName: "",

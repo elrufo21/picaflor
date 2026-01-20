@@ -16,6 +16,7 @@ const PaxDetailComponent = ({ control, setValue }) => {
         <div className="col-span-4">
           <TextControlled
             name="nombreCompleto"
+            disableHistory
             control={control}
             label="Nombre completo"
             transform={(value) => value.toUpperCase()}
@@ -27,6 +28,7 @@ const PaxDetailComponent = ({ control, setValue }) => {
         <div className="col-span-3">
           <TextControlled
             name="documentoNumero"
+            disableHistory
             control={control}
             label="Número de documento"
             transform={(value) => value.toUpperCase()}
@@ -38,6 +40,7 @@ const PaxDetailComponent = ({ control, setValue }) => {
         <div className="col-span-3">
           <TextControlled
             name="celular"
+            disableHistory
             control={control}
             label="Celular Pax"
             transform={(value) => value.toUpperCase()}

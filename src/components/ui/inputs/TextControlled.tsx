@@ -41,6 +41,8 @@ type Props<T extends FieldValues> = Omit<
   defaultValue?: T[Path<T>];
   transform?: (value: string) => string;
   displayZeroAsEmpty?: boolean;
+
+  disableHistory?: boolean;
 };
 
 function TextControlled<T extends FieldValues>({
@@ -49,6 +51,7 @@ function TextControlled<T extends FieldValues>({
   defaultValue,
   transform,
   displayZeroAsEmpty,
+  disableHistory,
   ...rest
 }: Props<T>) {
   return (
@@ -99,9 +102,8 @@ function TextControlled<T extends FieldValues>({
             {...fieldProps}
             value={displayValue}
             inputRef={ref}
-            onChange={(
-              event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-            ) => {
+            autoComplete={disableHistory ? "off" : rest.autoComplete}
+            onChange={(event) => {
               if (transform) {
                 const nextValue = transform(event.target.value);
                 onChange(nextValue);
@@ -112,6 +114,13 @@ function TextControlled<T extends FieldValues>({
             inputProps={{
               ...rest.inputProps,
               onKeyDown: handleKeyDown,
+
+              ...(disableHistory && {
+                autoComplete: "off",
+                autoCorrect: "off",
+                spellCheck: false,
+                "aria-autocomplete": "none",
+              }),
             }}
             fullWidth
             error={!!fieldState.error}

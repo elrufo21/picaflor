@@ -5,8 +5,10 @@ import {
 } from "@/components/ui/inputs";
 import { useEffect } from "react";
 import { Controller } from "react-hook-form";
+import { usePackageStore } from "../../store/fulldayStore";
 
 const PaimentDetailComponent = ({ control, setValue, watch }) => {
+  const { isEditing } = usePackageStore();
   const documentoCobranzaOptions = [
     {
       label: "Documento de Cobranza",
@@ -36,21 +38,23 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
   const acuenta = watch("acuenta");
 
   useEffect(() => {
+    if (isEditing === false) return;
     if (condicion === "CANCELADO") {
       setValue("acuenta", total);
     }
     if (condicion === "ACUENTA" || condicion == "CREDITO") {
-      //  setValue("acuenta", 0);
-      //setValue("deposito", 0);
-      //setValue("efectivo", 0);
-    }
-    if (medioPago === "EFECTIVO" && condicion === "CANCELADO") {
-      setValue("efectivo", total || 0);
-
+      setValue("acuenta", 0);
       setValue("deposito", 0);
-
+      setValue("efectivo", 0);
+    }
+    if (medioPago === "EFECTIVO") {
       setValue("entidadBancaria", "-");
-      setValue("nroOperacion", "-");
+      if (condicion === "CANCELADO") {
+        setValue("efectivo", total || 0);
+        setValue("deposito", 0);
+        console.log("EFECTIVO CANCELADO");
+        setValue("nroOperacion", "-");
+      }
     }
 
     if (medioPago === "DEPOSITO" && condicion == "CANCELADO") {
@@ -244,7 +248,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 <SelectControlled
                   name="medioPago"
                   control={control}
-                  disabled={condicion == "CREDITO"}
+                  disabled={condicion == "CREDITO" || !isEditing}
                   options={medioPagoOptions}
                   /* onChange={(e) => {
                     console.log("eeeeeee", e.target.value);
@@ -272,11 +276,14 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               <div className="bg-white px-2 py-1">
                 <SelectControlled
                   name="entidadBancaria"
-                  disabled={condicion == "CREDITO" || medioPago !== "DEPOSITO"}
+                  disabled={
+                    condicion == "CREDITO" ||
+                    medioPago !== "DEPOSITO" ||
+                    !isEditing
+                  }
                   control={control}
                   options={bancoOptions}
                   size="small"
-                  //disabled={isCredito || !isDeposito}
                   SelectProps={{ displayEmpty: true }}
                   inputProps={{
                     "aria-label": "Entidad bancaria",
@@ -341,8 +348,10 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.6fr] gap-3">
-        <div className={`rounded-lg border px-4 py-3 shadow-sm min-h-[88px] `}>
-          <p className="text-sm font-semibold italic leading-snug">
+        <div
+          className={`rounded-lg border ${condicion === "CANCELADO" ? "bg-green-600" : "bg-red-600"} px-4 py-3 shadow-sm min-h-[88px] `}
+        >
+          <p className={`text-lg font-semibold italic text-white leading-snug`}>
             {watch("mensajePasajero")}
           </p>
         </div>
