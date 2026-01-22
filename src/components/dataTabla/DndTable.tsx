@@ -87,6 +87,11 @@ const DndTable = ({
   }, [rowSelection]);
 
   useEffect(() => {
+    if (enableRowSelection) return;
+    setRowSelection({});
+  }, [enableRowSelection]);
+
+  useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   }, [dateFilter]);
 
@@ -173,6 +178,7 @@ const DndTable = ({
             onRowClick={onRowClick}
             rowSelection={rowSelection}
             setRowSelection={setRowSelection}
+            enableRowSelection={enableRowSelection}
           />
         </table>
       </div>
@@ -285,8 +291,8 @@ const TableHead = ({ table, enableSorting }) => {
                 header.column.columnDef.meta?.align === "center"
                   ? "text-center"
                   : header.column.columnDef.meta?.align === "right"
-                  ? "text-right"
-                  : "text-left"
+                    ? "text-right"
+                    : "text-left"
               }`}
             >
               {header.isPlaceholder ? null : (
@@ -295,8 +301,8 @@ const TableHead = ({ table, enableSorting }) => {
                     header.column.columnDef.meta?.align === "center"
                       ? "justify-center"
                       : header.column.columnDef.meta?.align === "right"
-                      ? "justify-end"
-                      : "justify-start"
+                        ? "justify-end"
+                        : "justify-start"
                   } ${
                     header.column.getCanSort() && enableSorting
                       ? "cursor-pointer select-none hover:text-emerald-600"
@@ -306,7 +312,7 @@ const TableHead = ({ table, enableSorting }) => {
                 >
                   {flexRender(
                     header.column.columnDef.header,
-                    header.getContext()
+                    header.getContext(),
                   )}
                   {enableSorting && header.column.getCanSort() && (
                     <SortIcon sorted={header.column.getIsSorted()} />
@@ -344,6 +350,7 @@ const TableBody = ({
   onRowClick,
   rowSelection,
   setRowSelection,
+  enableRowSelection,
 }) => {
   if (isLoading) {
     return (
@@ -381,12 +388,13 @@ const TableBody = ({
         <tr
           key={row.id}
           onClick={() => {
-            // Limitar selección a solo un row
-            setRowSelection(row.getIsSelected() ? {} : { [row.id]: true });
+            if (enableRowSelection) {
+              setRowSelection(row.getIsSelected() ? {} : { [row.id]: true });
+            }
             onRowClick && onRowClick(row.original);
           }}
           className={`
-    cursor-pointer
+    
     transition-colors
     ${row.getIsSelected() ? "bg-emerald-50" : "hover:bg-slate-50"}
   `}
@@ -398,8 +406,8 @@ const TableBody = ({
                 cell.column.columnDef.meta?.align === "center"
                   ? "text-center"
                   : cell.column.columnDef.meta?.align === "right"
-                  ? "text-right"
-                  : "text-left"
+                    ? "text-right"
+                    : "text-left"
               }`}
             >
               {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -469,7 +477,7 @@ const TablePagination = ({ table, pageSizeOptions }) => {
               {Math.min(
                 (table.getState().pagination.pageIndex + 1) *
                   table.getState().pagination.pageSize,
-                table.getFilteredRowModel().rows.length
+                table.getFilteredRowModel().rows.length,
               )}
             </span>{" "}
             de{" "}

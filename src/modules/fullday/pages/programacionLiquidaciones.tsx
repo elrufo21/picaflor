@@ -13,6 +13,7 @@ import {
 import type { Producto } from "@/app/db/serviciosDB";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
 import { useCanalVenta } from "../hooks/useCanalVenta";
+import { ChevronLeft } from "lucide-react";
 
 //detalle
 type BackendDetalle = {
@@ -342,11 +343,7 @@ const LiquidacionesPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const todayValue = new Date().toISOString().slice(0, 10);
-  const priorDate = new Date();
-  priorDate.setDate(priorDate.getDate() - 7);
-  const [pendingStartDate, setPendingStartDate] = useState(
-    priorDate.toISOString().slice(0, 10),
-  );
+  const [pendingStartDate, setPendingStartDate] = useState(todayValue);
   const [pendingEndDate, setPendingEndDate] = useState(todayValue);
 
   useEffect(() => {
@@ -483,7 +480,7 @@ const LiquidacionesPage = () => {
           <button
             type="button"
             onClick={() => void handleView(row.original)}
-            className="text-sm font-semibold text-emerald-600 hover:text-emerald-700"
+            className="text-sm cursor-pointer font-semibold text-emerald-600 hover:text-emerald-700"
           >
             Ver
           </button>
@@ -538,7 +535,7 @@ const LiquidacionesPage = () => {
   );
 
   const reload = async (
-    startDate = pendingStartDate || priorDate.toISOString().slice(0, 10),
+    startDate = pendingStartDate || todayValue,
     endDate = pendingEndDate || todayValue,
   ) => {
     if (!user) {
@@ -633,12 +630,12 @@ const LiquidacionesPage = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Liquidaciones</p>
-          <p className="text-xs text-slate-500">
-            Listado generado desde el módulo de programación.
-          </p>
-        </div>
+        <ChevronLeft
+          className="cursor-pointer"
+          onClick={() => {
+            navigate("/fullday");
+          }}
+        />
       </div>
 
       {error && (
@@ -662,6 +659,7 @@ const LiquidacionesPage = () => {
         isLoading={loading}
         emptyMessage="No se encontraron liquidaciones"
         dateFilterComponent={DateRangeFilter}
+        enableRowSelection={false}
       />
     </div>
   );

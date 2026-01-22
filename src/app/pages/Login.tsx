@@ -32,13 +32,9 @@ const Login = () => {
 
   useEffect(() => {
     if (token) {
-      const redirectTo =
-        (location.state as any)?.from?.pathname ||
-        (location.state as any)?.from ||
-        "/";
-      navigate(redirectTo, { replace: true });
+      navigate("/fullday", { replace: true });
     }
-  }, [location.state, navigate, token]);
+  }, [navigate, token]);
 
   const onSubmit = async (values: LoginForm) => {
     const ok = await login({
@@ -47,11 +43,7 @@ const Login = () => {
     });
     if (ok) {
       toast.success("Bienvenido");
-      const redirectTo =
-        (location.state as any)?.from?.pathname ||
-        (location.state as any)?.from ||
-        "/";
-      navigate(redirectTo, { replace: true });
+      navigate("/fullday", { replace: true });
     } else {
       toast.error("Credenciales invalidas");
     }

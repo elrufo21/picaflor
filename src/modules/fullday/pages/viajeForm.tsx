@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 
 import { Backdrop, CircularProgress, Divider } from "@mui/material";
-import { Loader2, Lock, Plus, Printer, Save } from "lucide-react";
+import { ChevronLeft, Loader2, Lock, Plus, Printer, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import CanalVentaComponent from "./components/canalVentaComponent";
 import PaxDetailComponent from "./components/paxDetailComponent";
@@ -11,6 +11,7 @@ import { useNavigate, useParams } from "react-router";
 import { usePackageStore } from "../store/fulldayStore";
 import axios from "axios";
 import type { InvoiceData } from "@/components/invoice/Invoice";
+import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
 function parseFecha(fecha: string): string {
   if (!fecha) return "";
@@ -81,6 +82,22 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
+  const puntoSelected = String(values.puntoPartida ?? "")
+    .trim()
+    .toUpperCase();
+  const requiereTrasladoEdit =
+    puntoSelected === "HOTEL" || puntoSelected === "OTROS";
+  if (requiereTrasladoEdit) {
+    const trasladoField = values.detalle?.traslado;
+    const trasladoValue = trasladoField?.servicio?.value;
+    if (!trasladoValue || trasladoValue === "-") {
+      return {
+        message: "SELECCIONE TRASLADO VALIDO CUANDO INCLUYE HOTEL U OTROS",
+        focus: "detalle.traslado.servicio",
+      };
+    }
+  }
+
   if (!values.detalle?.traslado?.servicio?.value) {
     return {
       message: "SELECCIONE SI INCLUYE TRASLADO",
@@ -90,6 +107,13 @@ const validateViajeValues = (values: any): ValidationError | null => {
 
   if (!values.medioPago) {
     return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
+  }
+
+  if (values.medioPago === "DEPOSITO" && !values.nroOperacion?.trim()) {
+    return {
+      message: "DEPOSITO REQUIERE NUMERO DE OPERACION",
+      focus: "nroOperacion",
+    };
   }
 
   if (!values.entidadBancaria) {
@@ -157,7 +181,11 @@ const validateViajeValues = (values: any): ValidationError | null => {
   }
 
   const traslado = getDetailField(values, "traslado");
-  if (traslado.servicio?.value && Number(traslado.precio) <= 0) {
+  if (
+    traslado.servicio?.value &&
+    traslado.servicio?.value !== "-" &&
+    Number(traslado.precio) <= 0
+  ) {
     return {
       message: "SI SELECCIONO QUE INCLUYE TRASLADO...INGRESE EL PRECIO",
       focus: "detalle.traslado.precio",
@@ -269,8 +297,8 @@ function buildListaOrdenCreate(data) {
     n(data.horaPartida),
     n(data.otrosPartidas ?? ""), //otros partidas
     n(data.visitas),
-    n(data.precioExtraSoles ?? 0),
-    n(data.precioExtraDolares ?? 0),
+    n(Number(data.precioExtraSoles ?? 0)),
+    n(Number(data.precioExtraDolares ?? 0)),
     data.fechaAdelanto,
     n(data.mensajePasajero ?? ""),
     n(data.observaciones ?? ""),
@@ -324,8 +352,8 @@ function buildListaOrdenEdit(data) {
     n(data.horaPartida), // 29
     n(data.otrosPartidas ?? ""), // 30 otrasPartidas
     n(data.visitas), // 31
-    n(data.precioExtraSoles ?? 0), // 32
-    n(data.precioExtraDolares ?? 0), // 33
+    n(Number(data.precioExtraSoles ?? 0)), // 32
+    n(Number(data.precioExtraDolares ?? 0)), // 33
     n(data.fechaEmision), // 34
     n(data.mensajePasajero ?? ""), // 35
     n(data.observaciones ?? ""), // 36
@@ -394,6 +422,18 @@ export function parseBackendResponse(response: string) {
     nroDocumento: `${serie.trim()}-${numero.trim()}`,
   };
 }
+export function parseFechaToYMD(fecha: string): string {
+  if (!fecha) return fecha;
+
+  // solo acepta: DD/MM/YYYY HH:mm:ss
+  const match = fecha.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+\d{2}:\d{2}:\d{2}$/);
+
+  if (!match) return fecha; // ← no tocar si no coincide
+
+  const [, day, month, year] = match;
+
+  return `${year}-${month}-${day}`;
+}
 
 export function adaptViajeJsonToInvoice(
   viajeJson: any,
@@ -410,23 +450,54 @@ export function adaptViajeJsonToInvoice(
       }
     : parseBackendResponse(String(backendResponse));
 
-  const actividades = Object.values(viajeJson.detalle)
-    .filter((i: any) => i?.servicio?.label && i.cant > 0)
-    .map((i: any, idx: number) => ({
-      label: `Actividad ${idx + 1}`,
-      actividad: i.servicio.label,
-      cantidad: i.cant,
-    }));
+  const actividadesKeys = ["act1", "act2", "act3"];
 
-  const items = Object.values(viajeJson.detalle)
-    .filter((i: any) => i?.servicio?.label && i.cant > 0)
-    .map((i: any) => ({
-      label: "Servicio",
-      descripcion: i.servicio.label,
-      precio: i.precio,
-      cantidad: i.cant,
-      subtotal: i.total,
-    }));
+  const actividades = actividadesKeys.map((key, idx) => {
+    const act = viajeJson.detalle?.[key];
+
+    const servicioLabel =
+      act?.servicio && typeof act.servicio === "object" && act.servicio.label
+        ? act.servicio.label
+        : "";
+
+    return {
+      label: `Actividad ${idx + 1}`,
+      actividad: servicioLabel,
+      cantidad: act && Number(act.cant) > 0 ? Number(act.cant) : null,
+    };
+  });
+
+  const detalle = viajeJson.detalle || {};
+  const detalleRows = [
+    { key: "tarifa", label: "Tarifa de Tour :" },
+    { key: "act1", label: "Actividad 01 :" },
+    { key: "act2", label: "Actividad 02 :" },
+    { key: "act3", label: "Actividad 03 :" },
+    { key: "traslado", label: "Traslados :" },
+    { key: "entrada", label: "Entradas :" },
+  ];
+
+  const items = detalleRows.map(({ key, label }) => {
+    const row = detalle[key] || {};
+    const servicio = row.servicio;
+    const descripcion =
+      typeof servicio === "object"
+        ? (servicio?.label ?? "-")
+        : (servicio ?? "-");
+    const precioValue = Number(row.precio ?? 0);
+    const cantidadValue = Number(row.cant ?? 0);
+    const subtotalValue = Number(row.total ?? 0);
+    const hasAmounts =
+      precioValue > 0 || cantidadValue > 0 || subtotalValue > 0;
+
+    return {
+      label,
+      descripcion: descripcion || "-",
+      precio: hasAmounts ? roundCurrency(precioValue) : null,
+      cantidad: hasAmounts ? cantidadValue || null : null,
+      subtotal: hasAmounts ? roundCurrency(subtotalValue) : null,
+    };
+  });
 
   return {
     destino: viajeJson.destino,
@@ -472,6 +543,7 @@ export function adaptViajeJsonToInvoice(
 
     observaciones: viajeJson.observaciones ?? "",
     mensajePasajero: viajeJson.mensajePasajero ?? "",
+    precioTotal: viajeJson.precioTotal,
   };
 }
 export function parseDateForInput(
@@ -645,17 +717,36 @@ const ViajeForm = () => {
         : buildListaOrdenCreate(payload);
 
       const result = await agregarViaje(listaOrden, payload._editMode);
-
+      if (result == "error") {
+        showToast({
+          title: "Error",
+          description: "Error en el servidor",
+          type: "error",
+        });
+      }
       if (result === "false") {
-        throw new Error("No hay caja activa");
+        showToast({
+          title: "Error",
+          description: "No se pudo procesar la solicitud",
+          type: "error",
+        });
       }
 
       if (result === "OPERACION") {
-        throw new Error("Número de operación duplicado");
+        showToast({
+          title: "Error",
+          description: "Error en la operación, verifique los datos",
+          type: "error",
+        });
       }
 
       if (payload._editMode && result !== true) {
-        throw new Error("Error al editar viaje");
+        showToast({
+          title: "Error",
+          description: "Respuesta inválida del servidor en edición",
+          type: "error",
+        });
+        return;
       }
 
       const pdfData = adaptViajeJsonToInvoice(payload, result);
@@ -676,7 +767,7 @@ const ViajeForm = () => {
   };
 
   const handleNew = () => {
-    reset();
+    navigate(`/fullday`);
   };
 
   const handlePrint = () => {
@@ -732,6 +823,14 @@ const ViajeForm = () => {
       </Backdrop>
 
       <div className="max-w-8xl mx-auto">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <ChevronLeft
+            className="cursor-pointer"
+            onClick={() => {
+              navigate("/fullday");
+            }}
+          />
+        </div>
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <form
             onSubmit={handleSubmit(onSubmit)}
@@ -776,32 +875,36 @@ const ViajeForm = () => {
 
               {/* ================= ACCIONES ================= */}
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="submit"
-                  title={saveButtonLabel}
-                  disabled={fieldsetDisabled}
-                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-white shadow-sm ring-1 ring-emerald-600/30 hover:bg-emerald-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {isSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save size={16} />
-                  )}
-                  <span className="text-sm hidden sm:inline">
-                    {saveButtonLabel}
-                  </span>
-                </button>
+                {isEditing && (
+                  <>
+                    <button
+                      type="submit"
+                      title={saveButtonLabel}
+                      disabled={fieldsetDisabled}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-white shadow-sm ring-1 ring-emerald-600/30 hover:bg-emerald-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                      {isSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save size={16} />
+                      )}
+                      <span className="text-sm hidden sm:inline">
+                        {saveButtonLabel}
+                      </span>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={handleNew}
-                  title="Nuevo"
-                  disabled={fieldsetDisabled}
-                  className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus size={16} />
-                  <span className="text-sm hidden sm:inline">Nuevo</span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={handleNew}
+                      title="Nuevo"
+                      disabled={fieldsetDisabled}
+                      className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus size={16} />
+                      <span className="text-sm hidden sm:inline">Nuevo</span>
+                    </button>
+                  </>
+                )}
 
                 <button
                   type="button"

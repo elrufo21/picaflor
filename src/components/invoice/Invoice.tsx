@@ -1,3 +1,4 @@
+import { parseFechaToYMD } from "@/modules/fullday/pages/viajeForm";
 import {
   Document,
   Page,
@@ -538,7 +539,7 @@ const contactS = StyleSheet.create({
   },
   noDebtBox: {
     marginTop: 8,
-    backgroundColor: "#2F5597",
+    backgroundColor: "#305496",
     paddingVertical: 8,
     alignItems: "center",
   },
@@ -609,6 +610,8 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
     documento,
     nroDocumento,
     observaciones,
+    otrosPartidas,
+    precioTotal,
   } = invoiceData;
   const formatMoney = (value: unknown) =>
     Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "0.00";
@@ -630,7 +633,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 ["Telefonos:", telefonos || "-"],
               ],
               [
-                ["Fecha de Emision:", fechaEmision || "-"],
+                ["Fecha de Emision:", parseFechaToYMD(fechaEmision) || "-"],
                 ["Counter:", counter || "-"],
                 ["Condicion:", condicion || "-"],
               ],
@@ -701,7 +704,9 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
               <View key={index} style={contactS.activityRowFixed}>
                 {/* IZQUIERDA */}
                 <View style={contactS.activityLeft}>
-                  <Text style={contactS.activityLabelFixed}>{item.label}</Text>
+                  <Text style={contactS.activityLabelFixed}>
+                    Actividad opcional {index + 1}
+                  </Text>
 
                   <Text style={contactS.activityValueFixed}>
                     {item.actividad || "-"}
@@ -745,7 +750,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
             <View style={contactS.detailRow}>
               <Text style={contactS.detailLabel}>Otros Puntos de Partida</Text>
               <Text style={contactS.detailFullValue}>
-                {detalleServicio.otrosPartidas || "-"}
+                {otrosPartidas || "-"}
               </Text>
             </View>
 
@@ -774,11 +779,17 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 <Text style={contactS.tarifaLabel}>{it.label}</Text>
                 <Text style={contactS.tarifaDesc}>{it.descripcion}</Text>
                 <Text style={contactS.tarifaUnit}>
-                  {it.precio != null ? it.precio.toFixed(2) : ""}
+                  {it.precio != null && it.precio != 0
+                    ? it.precio.toFixed(2)
+                    : ""}
                 </Text>
-                <Text style={contactS.tarifaCant}>{it.cantidad ?? ""}</Text>
+                <Text style={contactS.tarifaCant}>
+                  {it.precio != null && it.precio != 0 ? it.cantidad : ""}
+                </Text>
                 <Text style={contactS.tarifaSub}>
-                  {it.subtotal != null ? it.subtotal.toFixed(2) : ""}
+                  {it.subtotal != null && it.precio != 0
+                    ? it.subtotal.toFixed(2)
+                    : ""}
                 </Text>
               </View>
             ))}
@@ -817,7 +828,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 {/* IZQUIERDA */}
                 <View style={contactS.liquidationTable}>
                   {[
-                    ["TOTAL A PAGAR:", "S/", total],
+                    ["TOTAL A PAGAR:", "S/", precioTotal],
                     ["A CUENTA:", "S/", acuenta],
                     ["SALDO:", "S/", saldo],
                     ["Cobro Extra Soles:", "S/", extraSoles],
@@ -838,7 +849,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                       style={[
                         contactS.noDebtBox,
                         data.mensajePasajero.includes("si") && {
-                          backgroundColor: "#A93226",
+                          backgroundColor: "#C00000",
                         },
                       ]}
                     >

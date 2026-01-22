@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router";
 import { X, LogOutIcon, MenuIcon } from "lucide-react";
 import BreadCrumb from "./BreadCrumb";
 import { useLayoutStore } from "../app/store/layoutStore";
@@ -25,6 +25,7 @@ const MainLayout = () => {
   };
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuthStore();
 
   useEffect(() => {
@@ -97,6 +98,7 @@ const MainLayout = () => {
             <div key={item.to} className="flex flex-col gap-1">
               <NavLink
                 to={item.to}
+                end={item.end ?? false}
                 className={({ isActive }) =>
                   [
                     "group relative flex items-center px-3 py-2 text-sm transition-all rounded-lg",
@@ -139,9 +141,10 @@ const MainLayout = () => {
                 item.children?.map((child) => {
                   const ChildIcon = child.icon;
                   return (
-                    <NavLink
-                      key={child.to}
-                      to={child.to}
+                      <NavLink
+                        key={child.to}
+                        to={child.to}
+                        end={child.end ?? false}
                       end
                       className={({ isActive }) =>
                         [
@@ -206,6 +209,7 @@ const MainLayout = () => {
             <Fragment key={item.to}>
               <NavLink
                 to={item.to}
+                end={item.end ?? false}
                 onClick={closeSidebar}
                 className={({ isActive }) =>
                   [
@@ -229,9 +233,10 @@ const MainLayout = () => {
               {item.children?.map((child) => {
                 const ChildIcon = child.icon;
                 return (
-                  <NavLink
-                    key={child.to}
-                    to={child.to}
+                    <NavLink
+                      key={child.to}
+                      to={child.to}
+                      end={child.end ?? false}
                     onClick={closeSidebar}
                     className={({ isActive }) =>
                       [
@@ -349,7 +354,7 @@ const MainLayout = () => {
 
         <main className="flex-1 overflow-y-auto bg-paper">
           <div className="mx-auto max-w-8xl px-4 sm:px-6 lg:px-8 py-4">
-            <BreadCrumb />
+            {location.pathname.startsWith("/maintenance") && <BreadCrumb />}
             <div className="mt-2 w-full">
               <Outlet />
             </div>

@@ -5,6 +5,7 @@ import { usePackageData } from "../../hooks/usePackageData";
 import { TextControlled } from "@/components/ui/inputs";
 import { showToast } from "@/components/ui/AppToast";
 import { moveFocus } from "@/shared/helpers/helpers";
+import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import { usePackageStore } from "../../store/fulldayStore";
 import { TimeAMPMInput } from "@/components/ui/inputs/TimeAMPMInput";
 import { useParams } from "react-router";
@@ -31,6 +32,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   ========================= */
   const cantPax = Number(watch("cantPax") || 0);
   const disabledByCantPax = cantPax <= 0;
+  const disponibles = Number(watch("disponibles") ?? 0);
   const TIME_EDITABLE_POSITIONS = [0, 1, 3, 4, 5, 6];
   const TIME_DEFAULT_VALUE = "__:____";
   const getTimeChars = (value: string = TIME_DEFAULT_VALUE) => {
@@ -57,12 +59,24 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     return Number(p?.precioSol || 0);
   };
 
+  useEffect(() => {
+    if (disponibles <= 0) return;
+    if (cantPax <= disponibles) return;
+
+    showToast({
+      title: "Alerta",
+      description: "No puedes superar la cantidad de asientos disponibles.",
+      type: "error",
+    });
+    setValue("cantPax", 0);
+  }, [cantPax, disponibles, setValue]);
+
   /* =========================
      SUBTOTAL
   ========================= */
   const SubTotal = ({ name }) => {
     const total = useWatch({ control, name });
-    return <>{Number(total || 0).toFixed(2)}</>;
+    return <>{formatCurrency(total ?? 0)}</>;
   };
 
   /* =========================
@@ -72,19 +86,21 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     if (!isEditing) return;
     if (!precioProducto?.precioVenta) return;
 
-    const base = Number(precioProducto.precioVenta);
-    const currentPrecio = Number(getValues("detalle.tarifa.precio") ?? 0);
+    const base = roundCurrency(Number(precioProducto.precioVenta));
+    const currentPrecio = roundCurrency(
+      getValues("detalle.tarifa.precio") ?? 0,
+    );
 
     setValue("detalle.tarifa.precioBase", base);
     setValue("detalle.tarifa.cant", cantPax);
 
     if (currentPrecio > 0) {
-      setValue("detalle.tarifa.total", currentPrecio * cantPax);
+      setValue("detalle.tarifa.total", roundCurrency(currentPrecio * cantPax));
       return;
     }
 
     setValue("detalle.tarifa.precio", base);
-    setValue("detalle.tarifa.total", base * cantPax);
+    setValue("detalle.tarifa.total", roundCurrency(base * cantPax));
   }, [precioProducto, cantPax, getValues, setValue, isEditing]);
 
   /* =========================
@@ -126,7 +142,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       0,
     );
 
-    setValue("precioTotal", Number(suma.toFixed(2)));
+    setValue("precioTotal", roundCurrency(suma));
   }, [totales, setValue]);
 
   const BALLESTAS_ENTRADA_DETAIL = "IMPTOS DE ISLAS + MUELLE";
@@ -138,15 +154,19 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     setValue("detalle.entrada.servicio", BALLESTAS_ENTRADA_DETAIL, {
       shouldDirty: true,
     });
-    setValue("detalle.entrada.precio", BALLESTAS_ENTRADA_PRICE, {
+    setValue("detalle.entrada.precio", roundCurrency(BALLESTAS_ENTRADA_PRICE), {
       shouldDirty: true,
     });
     setValue("detalle.entrada.cant", cantPax, {
       shouldDirty: true,
     });
-    setValue("detalle.entrada.total", BALLESTAS_ENTRADA_PRICE * cantPax, {
-      shouldDirty: true,
-    });
+    setValue(
+      "detalle.entrada.total",
+      roundCurrency(BALLESTAS_ENTRADA_PRICE * cantPax),
+      {
+        shouldDirty: true,
+      },
+    );
   }, [cantPax, isBallestasSelected, setValue]);
 
   useEffect(() => {
@@ -167,13 +187,13 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       setValue("detalle.entrada.servicio", "", {
         shouldDirty: true,
       });
-      setValue("detalle.entrada.precio", 0, {
+      setValue("detalle.entrada.precio", roundCurrency(0), {
         shouldDirty: true,
       });
       setValue("detalle.entrada.cant", 0, {
         shouldDirty: true,
       });
-      setValue("detalle.entrada.total", 0, {
+      setValue("detalle.entrada.total", roundCurrency(0), {
         shouldDirty: true,
       });
     }
@@ -217,7 +237,23 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     setValue("hotel", null, { shouldDirty: true });
     setValue("otrosPartidas", "", { shouldDirty: true });
   }, [isHotel, isOtros, setValue]);
-
+  const getTrasladoDashOption = () =>
+    trasladosOptions?.find((o) => o.value === "-") ?? {
+      value: "-",
+      label: "-",
+      id: "6", // fallback por seguridad
+    };
+  const isDissabled = () => {
+    const puntoPartida = watch("puntoPartida");
+    if (
+      puntoPartida !== "HOTEL" &&
+      puntoPartida !== "OTROS" &&
+      puntoPartida !== ""
+    ) {
+      return true;
+    }
+    return false;
+  };
   return (
     <div className="p-2.5 space-y-3">
       {/* =========================
@@ -238,6 +274,23 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 onChange={(e) => {
                   const selectedValue = e.target.value;
                   field.onChange(selectedValue);
+                  if (
+                    selectedValue === "" ||
+                    selectedValue === "HOTEL" ||
+                    selectedValue === "OTROS"
+                  ) {
+                    setValue("detalle.traslado.servicio", null);
+                    setValue("detalle.traslado.precio", 0);
+                    setValue("detalle.traslado.cant", 0);
+                    setValue("detalle.traslado.total", 0);
+                  } else {
+                    const dashOption = getTrasladoDashOption();
+
+                    setValue("detalle.traslado.servicio", dashOption);
+                    setValue("detalle.traslado.precio", 0);
+                    setValue("detalle.traslado.cant", 0);
+                    setValue("detalle.traslado.total", 0);
+                  }
 
                   const partida = partidas?.find(
                     (p) => p.value === selectedValue,
@@ -355,34 +408,38 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 name="detalle.tarifa.servicio"
                 control={control}
                 render={({ field }) => (
-                    <select
-                      className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
-                      value={field.value?.value ?? ""}
-                      onChange={(e) => {
-                        if (!isEditing) return;
-                        if (cantPax <= 0) {
-                          showToast({
-                            title: "Alerta",
-                            description: "Añade un pasajero por lo menos.",
-                            type: "error",
-                          });
-                          return;
-                        }
+                  <select
+                    className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                    value={field.value?.value ?? ""}
+                    onChange={(e) => {
+                      if (!isEditing) return;
+                      if (cantPax <= 0) {
+                        showToast({
+                          title: "Alerta",
+                          description: "Añade un pasajero por lo menos.",
+                          type: "error",
+                        });
+                        return;
+                      }
 
-                        const sel =
-                          almuerzos?.find((a) => a.value === e.target.value) ??
-                          null;
-                        field.onChange(sel);
+                      const sel =
+                        almuerzos?.find((a) => a.value === e.target.value) ??
+                        null;
+                      field.onChange(sel);
 
-                        const adicional = sel ? getPrecioAlmuerzo(sel.id) : 0;
-                        const base =
-                          Number(getValues("detalle.tarifa.precioBase")) || 0;
-                        const precio = base + adicional;
+                      const adicional = sel ? getPrecioAlmuerzo(sel.id) : 0;
+                      const base =
+                        Number(getValues("detalle.tarifa.precioBase")) || 0;
+                      const precio = base + adicional;
+                      const roundedPrecio = roundCurrency(precio);
 
-                        setValue("detalle.tarifa.precio", precio);
-                        setValue("detalle.tarifa.cant", cantPax);
-                        setValue("detalle.tarifa.total", precio * cantPax);
-                      }}
+                      setValue("detalle.tarifa.precio", roundedPrecio);
+                      setValue("detalle.tarifa.cant", cantPax);
+                      setValue(
+                        "detalle.tarifa.total",
+                        roundCurrency(roundedPrecio * cantPax),
+                      );
+                    }}
                   >
                     <option value="">(SELECCIONE)</option>
                     {almuerzos?.map((a) => (
@@ -408,11 +465,17 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       data-precio
                       className="w-full border px-2 py-1 text-right bg-slate-100"
                       onKeyDown={handleKeyNav}
-                      value={field.value === 0 ? "" : (field.value ?? "")}
+                      value={formatCurrency(field.value)}
                       onChange={(e) => {
                         if (!isEditing) return;
                         const raw = e.target.value;
-                        field.onChange(raw === "" ? 0 : Number(raw));
+                        const precio = raw === "" ? 0 : Number(raw);
+                        const roundedPrecio = roundCurrency(precio);
+                        field.onChange(roundedPrecio);
+                        setValue(
+                          "detalle.tarifa.total",
+                          roundCurrency(roundedPrecio * cantPax),
+                        );
                       }}
                     />
                   )}
@@ -452,12 +515,12 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 name="detalle.tarifa.servicio"
                 control={control}
                 render={({ field }) => (
-                    <select
-                      className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
-                      value={field.value?.value ?? ""}
-                      onChange={(e) => {
-                        if (!isEditing) return;
-                        if (cantPax <= 0) {
+                  <select
+                    className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                    value={field.value?.value ?? ""}
+                    onChange={(e) => {
+                      if (!isEditing) return;
+                      if (cantPax <= 0) {
                         showToast({
                           title: "Alerta",
                           description: "Añade un pasajero por lo menos.",
@@ -475,10 +538,14 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       const base =
                         Number(getValues("detalle.tarifa.precioBase")) || 0;
                       const precio = base + adicional;
+                      const roundedPrecio = roundCurrency(precio);
 
-                      setValue("detalle.tarifa.precio", precio);
+                      setValue("detalle.tarifa.precio", roundedPrecio);
                       setValue("detalle.tarifa.cant", cantPax);
-                      setValue("detalle.tarifa.total", precio * cantPax);
+                      setValue(
+                        "detalle.tarifa.total",
+                        roundCurrency(roundedPrecio * cantPax),
+                      );
                     }}
                   >
                     <option value="">(SELECCIONE)</option>
@@ -501,11 +568,17 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                     data-precio
                     className="w-full border px-2 py-1 text-right bg-slate-100"
                     onKeyDown={handleKeyNav}
-                    value={field.value === 0 ? "" : (field.value ?? "")}
-                      onChange={(e) => {
-                        if (!isEditing) return;
-                        const raw = e.target.value;
-                      field.onChange(raw === "" ? 0 : Number(raw));
+                    value={field.value}
+                    onChange={(e) => {
+                      if (!isEditing) return;
+                      const raw = e.target.value;
+                      const precio = raw === "" ? 0 : Number(raw);
+                      const roundedPrecio = roundCurrency(precio);
+                      field.onChange(roundedPrecio);
+                      setValue(
+                        "detalle.tarifa.total",
+                        roundCurrency(roundedPrecio * cantPax),
+                      );
                     }}
                   />
                 )}
@@ -549,7 +622,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       <input
                         {...field}
                         className="w-full border px-2 py-1"
-                        disabled={row.key === "entrada" && isBallestasSelected}
+                        disabled={row.key === "entrada"}
                       />
                     ) : (
                       <select
@@ -582,12 +655,13 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                               ? getPrecioActividad(selected.id)
                               : 0;
                           }
+                          const roundedPrecio = roundCurrency(precio);
 
-                          setValue(`detalle.${row.key}.precio`, precio);
+                          setValue(`detalle.${row.key}.precio`, roundedPrecio);
                           setValue(`detalle.${row.key}.cant`, cantPax);
                           setValue(
                             `detalle.${row.key}.total`,
-                            precio * cantPax,
+                            roundCurrency(roundedPrecio * cantPax),
                           );
                         }}
                       >
@@ -624,21 +698,22 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         data-precio
                         className="w-full border px-2 py-1 text-right"
                         onKeyDown={handleKeyNav}
-                        value={field.value === 0 ? "" : (field.value ?? "")}
+                        value={formatCurrency(field.value)}
                         onChange={(e) => {
                           if (!isEditing) return;
                           const raw = e.target.value;
                           const precio = raw === "" ? 0 : Number(raw);
-                          field.onChange(precio);
+                          const roundedPrecio = roundCurrency(precio);
+                          field.onChange(roundedPrecio);
                           setValue(
                             `detalle.${row.key}.total`,
-                            precio * cantPax,
+                            roundCurrency(roundedPrecio * cantPax),
                           );
                         }}
                         onBlur={() => {
                           if (!field.value) field.onChange(0);
                         }}
-                        disabled={row.key === "entrada" && isBallestasSelected}
+                        disabled={row.key === "entrada"}
                       />
                     )}
                   />
@@ -683,11 +758,12 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       <input
                         {...field}
                         className="w-full border px-2 py-1"
-                        disabled={row.key === "entrada" && isBallestasSelected}
+                        disabled={row.key === "entrada"}
                       />
                     ) : (
                       <select
                         className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                        disabled={row.key === "traslado" && isDissabled()}
                         value={field.value?.value ?? ""}
                         onChange={(e) => {
                           if (!isEditing) return;
@@ -716,16 +792,21 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                               ? getPrecioActividad(selected.id)
                               : 0;
                           }
+                          const roundedPrecio = roundCurrency(precio);
 
-                          setValue(`detalle.${row.key}.precio`, precio);
+                          setValue(`detalle.${row.key}.precio`, roundedPrecio);
                           setValue(`detalle.${row.key}.cant`, cantPax);
                           setValue(
                             `detalle.${row.key}.total`,
-                            precio * cantPax,
+                            roundCurrency(roundedPrecio * cantPax),
                           );
                         }}
                       >
-                        <option value="-">-</option>
+                        {row.key === "traslado" ? (
+                          <option value="">(SELECCIONE)</option>
+                        ) : (
+                          <option value="-">-</option>
+                        )}
                         {row.options
                           ?.filter(
                             (o) =>
@@ -754,18 +835,22 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       data-precio
                       className="w-full border px-2 py-1 text-right"
                       onKeyDown={handleKeyNav}
-                      value={field.value === 0 ? "" : (field.value ?? "")}
+                      value={field.value}
                       onChange={(e) => {
                         if (!isEditing) return;
                         const raw = e.target.value;
                         const precio = raw === "" ? 0 : Number(raw);
-                        field.onChange(precio);
-                        setValue(`detalle.${row.key}.total`, precio * cantPax);
+                        const roundedPrecio = roundCurrency(precio);
+                        field.onChange(roundedPrecio);
+                        setValue(
+                          `detalle.${row.key}.total`,
+                          roundCurrency(roundedPrecio * cantPax),
+                        );
                       }}
                       onBlur={() => {
                         if (!field.value) field.onChange(0);
                       }}
-                      disabled={row.key === "entrada" && isBallestasSelected}
+                      disabled={row.key === "entrada"}
                     />
                   )}
                 />

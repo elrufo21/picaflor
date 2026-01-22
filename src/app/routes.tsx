@@ -22,13 +22,13 @@ const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Dashboard /> },
+      { index: true, element: <Navigate to="/fullday" replace /> },
       { path: "projects", element: <Projects /> },
       { path: "reports", element: <Reports /> },
       { path: "settings", element: <Settings /> },
       ...fulldayRoutes,
       ...maintenanceRoutes,
-      { path: "*", element: <Navigate to="/" replace /> },
+      { path: "*", element: <Navigate to="/fullday" replace /> },
     ],
   },
 ]);

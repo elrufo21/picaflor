@@ -40,6 +40,7 @@ type Props<T extends FieldValues> = Omit<
   control: Control<T>;
   defaultValue?: T[Path<T>];
   transform?: (value: string) => string;
+  formatter?: (value: string | number) => string;
   displayZeroAsEmpty?: boolean;
 
   disableHistory?: boolean;
@@ -50,10 +51,13 @@ function TextControlled<T extends FieldValues>({
   control,
   defaultValue,
   transform,
+  formatter,
   displayZeroAsEmpty,
   disableHistory,
   ...rest
 }: Props<T>) {
+  const { onChange: restOnChange, inputProps: restInputProps, ...restProps } =
+    rest;
   return (
     <Controller
       name={name}
@@ -62,10 +66,14 @@ function TextControlled<T extends FieldValues>({
       render={({ field, fieldState }) => {
         const { ref, onChange, value, ...fieldProps } = field;
 
-        const displayValue =
+        const rawDisplayValue =
           displayZeroAsEmpty && (value === 0 || value === "0")
             ? ""
             : (value ?? "");
+        const displayValue =
+          formatter && rawDisplayValue !== "" && rawDisplayValue !== null
+            ? formatter(rawDisplayValue)
+            : rawDisplayValue;
 
         const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
           const target = e.currentTarget;
@@ -98,21 +106,23 @@ function TextControlled<T extends FieldValues>({
 
         return (
           <TextField
-            {...rest}
+            {...restProps}
             {...fieldProps}
             value={displayValue}
             inputRef={ref}
-            autoComplete={disableHistory ? "off" : rest.autoComplete}
+            autoComplete={disableHistory ? "off" : restProps.autoComplete}
             onChange={(event) => {
               if (transform) {
                 const nextValue = transform(event.target.value);
                 onChange(nextValue);
+                restOnChange?.(event);
                 return;
               }
               onChange(event);
+              restOnChange?.(event);
             }}
             inputProps={{
-              ...rest.inputProps,
+              ...restInputProps,
               onKeyDown: handleKeyDown,
 
               ...(disableHistory && {
