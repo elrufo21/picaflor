@@ -100,22 +100,6 @@ const InvoicePreview = () => {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={handleDownload}
-            disabled={!invoiceData}
-            className="rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400 disabled:opacity-50"
-          >
-            Descargar
-          </button>
-          <button
-            type="button"
-            onClick={handlePrint}
-            disabled={!invoiceData}
-            className="rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-700 transition hover:border-emerald-500 disabled:opacity-50"
-          >
-            Imprimir
-          </button>
-          <button
-            type="button"
             onClick={handleRegisterAnother}
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
           >

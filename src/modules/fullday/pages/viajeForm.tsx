@@ -136,6 +136,10 @@ const validateViajeValues = (values: any): ValidationError | null => {
   if (!values.medioPago) {
     return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
   }
+  
+  if (condicionValue !=="Crédito" && values.medioPago==="-") {
+    return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
+  }
 
   if (values.medioPago === "DEPOSITO" && !values.nroOperacion?.trim()) {
     return {
