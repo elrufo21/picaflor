@@ -227,7 +227,6 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
   const handleCanalDeVentaChange = (e: any) => {
     setValue("canalDeVentaTelefono", e.telefono);
   };
-
   return (
     <div className="p-3 space-y-2">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -304,6 +303,16 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
               setValue("acuenta", 0);
               setValue("deposito", 0);
               setValue("efectivo", 0);
+            }
+            if (e?.value === "CANCELADO") {
+              setValue("acuenta", watch("precioTotal"));
+              setValue("medioPago", "");
+            }
+            if (e?.value === "ACUENTA") {
+              setValue("medioPago", "");
+            }
+            if (e?.value === "CREDITO") {
+              setValue("entidadBancaria", "-");
             }
           }}
           options={estadoPagoOptions}

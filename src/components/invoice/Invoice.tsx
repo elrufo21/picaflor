@@ -1,4 +1,3 @@
-import { parseFechaToYMD } from "@/modules/fullday/pages/viajeForm";
 import {
   Document,
   Page,
@@ -59,9 +58,34 @@ export type InvoiceData = {
   documento: string;
   nroDocumento: string;
   observaciones: string;
+  fechaRegistro?: string;
 };
 
 type OptionItem = { value: string; label: string };
+
+const ISO_DATE_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}:\d{2}:\d{2}))?$/;
+const DMY_DATE_PATTERN =
+  /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}:\d{2}:\d{2}))?$/;
+
+function formatFechaParaMostrar(value?: string): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+
+  const isoMatch = trimmed.match(ISO_DATE_PATTERN);
+  if (isoMatch) {
+    const [, year, month, day, time] = isoMatch;
+    return time ? `${day}/${month}/${year} ${time}` : `${day}/${month}/${year}`;
+  }
+
+  const dmyMatch = trimmed.match(DMY_DATE_PATTERN);
+  if (dmyMatch) {
+    const [, day, month, year, time] = dmyMatch;
+    return time ? `${day}/${month}/${year} ${time}` : `${day}/${month}/${year}`;
+  }
+
+  return trimmed;
+}
 
 type TarifaRow = {
   id: string;
@@ -581,7 +605,6 @@ const contactS = StyleSheet.create({
 ========================= */
 
 const PdfDocument = ({ data }: { data?: InvoiceData }) => {
-  console.log("data", data);
   const invoiceData = data ?? DEFAULT_INVOICE_DATA;
   const {
     destino,
@@ -612,9 +635,16 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
     observaciones,
     otrosPartidas,
     precioTotal,
+    fechaRegistro,
   } = invoiceData;
-  const formatMoney = (value: unknown) =>
-    Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "0.00";
+  const formatNumber = (value: unknown) => {
+    const parsed = Number(value ?? 0);
+    if (!Number.isFinite(parsed)) return "";
+    return parsed.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   return (
     <Document>
@@ -628,12 +658,15 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
           <View style={{ flexDirection: "row", marginBottom: 10 }}>
             {[
               [
-                ["Fecha de Viaje:", fechaViaje || "-"],
+                ["Fecha de Viaje:", formatFechaParaMostrar(fechaViaje) || "-"],
                 ["Auxiliar:", auxiliar || "-"],
                 ["Telefonos:", telefonos || "-"],
               ],
               [
-                ["Fecha de Emision:", parseFechaToYMD(fechaEmision) || "-"],
+                [
+                  "Fecha de Emision:",
+                  formatFechaParaMostrar(fechaRegistro ?? fechaEmision) || "-",
+                ],
                 ["Counter:", counter || "-"],
                 ["Condicion:", condicion || "-"],
               ],
@@ -780,7 +813,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 <Text style={contactS.tarifaDesc}>{it.descripcion}</Text>
                 <Text style={contactS.tarifaUnit}>
                   {it.precio != null && it.precio != 0
-                    ? it.precio.toFixed(2)
+                    ? formatNumber(it.precio)
                     : ""}
                 </Text>
                 <Text style={contactS.tarifaCant}>
@@ -788,7 +821,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 </Text>
                 <Text style={contactS.tarifaSub}>
                   {it.subtotal != null && it.precio != 0
-                    ? it.subtotal.toFixed(2)
+                    ? formatNumber(it.subtotal)
                     : ""}
                 </Text>
               </View>
@@ -830,18 +863,31 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                   {[
                     ["TOTAL A PAGAR:", "S/", precioTotal],
                     ["A CUENTA:", "S/", acuenta],
-                    ["SALDO:", "S/", saldo],
+                    [
+                      "SALDO:",
+                      "S/",
+                      condicion === "CREDITO" ? precioTotal : saldo,
+                    ],
                     ["Cobro Extra Soles:", "S/", extraSoles],
                     ["Cobro Extra Dolares:", "US$", extraDolares],
-                  ].map(([label, curr, value], i) => (
-                    <View key={i} style={contactS.liquidationRow}>
-                      <Text style={contactS.liquidationLabel}>{label}</Text>
-                      <Text style={contactS.liquidationCurrency}>{curr}</Text>
-                      <Text style={contactS.liquidationAmount}>
-                        {formatMoney(value)}
-                      </Text>
-                    </View>
-                  ))}
+                  ].map(([label, curr, value], i) => {
+                    const emphasize =
+                      label === "TOTAL A PAGAR:" || label === "SALDO:";
+                    return (
+                      <View key={i} style={contactS.liquidationRow}>
+                        <Text style={contactS.liquidationLabel}>{label}</Text>
+                        <Text style={contactS.liquidationCurrency}>{curr}</Text>
+                        <Text
+                          style={[
+                            contactS.liquidationAmount,
+                            emphasize && { fontWeight: "bold" },
+                          ]}
+                        >
+                          {formatNumber(value)}
+                        </Text>
+                      </View>
+                    );
+                  })}
 
                   {/* ESTADO */}
                   {data.mensajePasajero && (

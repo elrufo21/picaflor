@@ -62,7 +62,6 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       if (condicion === "CANCELADO") {
         setValue("efectivo", roundCurrency(total || 0));
         setValue("deposito", 0);
-        console.log("EFECTIVO CANCELADO");
         setValue("nroOperacion", "");
       }
     }
@@ -80,7 +79,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       setValue("nroOperacion", "");
     }
 
-    if (medioPago === "DEPOSITO") {
+    if (medioPago === "DEPOSITO" && watch("entidadBancaria") === "-") {
       setValue("entidadBancaria", "");
     }
   }, [medioPago, isEditing]);
@@ -107,7 +106,6 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
     }
     setValue("mensajePasajero", message);
   };
-  //Estado para detectar el cambio de condicion
   useEffect(() => {
     if (condicion === "ACUENTA") {
       setValue("saldo", roundCurrency(total - acuenta));
@@ -116,10 +114,20 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       setValue("medioPago", "-");
     }
     buildMessagePassenger({ value: condicion });
-
-    // console.log("condicion", condicion);
   }, [condicion, total, acuenta]);
-  console.log("Watch", watch());
+
+  useEffect(() => {
+    if (medioPago === "EFECTIVO" || medioPago === "YAPE") {
+      setValue("efectivo", acuenta);
+    }
+    if (medioPago === "DEPOSITO") {
+      setValue("deposito", acuenta);
+    }
+    if (medioPago === "-" || medioPago === "") {
+      setValue("efectivo", 0);
+      setValue("deposito", 0);
+    }
+  }, [acuenta, medioPago]);
 
   return (
     <div className="lg:col-span-2 space-y-3">
@@ -192,14 +200,14 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                     setValue("efectivo", 0);
                     //  setValue("entidadBancaria", null);
                     setValue("deposito", roundCurrency(e.target.value));
-                    if (
-                      watch("medioPago") === "EFECTIVO" &&
-                      condicion == "ACUENTA"
-                    ) {
-                      setValue("deposito", 0);
-                      //   setValue("entidadBancaria", null);
-                      setValue("efectivo", roundCurrency(e.target.value));
-                    }
+                  }
+                  if (
+                    watch("medioPago") === "EFECTIVO" &&
+                    condicion == "ACUENTA"
+                  ) {
+                    setValue("deposito", 0);
+                    //   setValue("entidadBancaria", null);
+                    setValue("efectivo", roundCurrency(e.target.value));
                   }
                 }}
                 size="small"
@@ -353,7 +361,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 Deposito S/
               </div>
               <div className="bg-white px-2 py-1">
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1.4fr_auto_1.4fr] items-center">
                   <TextControlled
                     name="deposito"
                     control={control}
@@ -366,9 +374,10 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                     }}
                     size="small"
                     formatter={formatCurrency}
+                    className="w-full"
                   />
                   <span className="text-xs font-semibold text-slate-600">
-                    Efecti.
+                    Efec.
                   </span>
                   <TextControlled
                     name="efectivo"
@@ -382,6 +391,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                     }}
                     size="small"
                     formatter={formatCurrency}
+                    className="w-full"
                   />
                 </div>
               </div>

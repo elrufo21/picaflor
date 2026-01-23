@@ -1,7 +1,25 @@
 import { useForm } from "react-hook-form";
 
-import { Backdrop, CircularProgress, Divider } from "@mui/material";
-import { ChevronLeft, Loader2, Lock, Plus, Printer, Save } from "lucide-react";
+import {
+  Backdrop,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+} from "@mui/material";
+import {
+  ChevronLeft,
+  Loader2,
+  Lock,
+  Plus,
+  Printer,
+  Save,
+  Trash,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import CanalVentaComponent from "./components/canalVentaComponent";
 import PaxDetailComponent from "./components/paxDetailComponent";
@@ -13,6 +31,7 @@ import axios from "axios";
 import type { InvoiceData } from "@/components/invoice/Invoice";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
+import { toISODate } from "@/shared/helpers/helpers";
 function parseFecha(fecha: string): string {
   if (!fecha) return "";
 
@@ -36,6 +55,15 @@ function n(v: any) {
 
 function d(v: any) {
   return Number(v || 0).toFixed(2);
+}
+
+function isIslasBallestasActivity(servicio: any) {
+  const label =
+    servicio && typeof servicio === "object"
+      ? (servicio.label ?? servicio.value)
+      : servicio;
+  if (!label) return false;
+  return String(label).toLowerCase().includes("islas ballestas");
 }
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -161,7 +189,8 @@ const validateViajeValues = (values: any): ValidationError | null => {
   const primeraActividad = getDetailField(values, "act1");
   if (
     primeraActividad.servicio?.value &&
-    Number(primeraActividad.precio) <= 0
+    Number(primeraActividad.precio) <= 0 &&
+    !isIslasBallestasActivity(primeraActividad.servicio)
   ) {
     return {
       message: "SI SELECCIONO UNA PRIMERA ACTIVIDAD INGRESE EL PRECIO",
@@ -172,7 +201,8 @@ const validateViajeValues = (values: any): ValidationError | null => {
   const segundaActividad = getDetailField(values, "act2");
   if (
     segundaActividad.servicio?.value &&
-    Number(segundaActividad.precio) <= 0
+    Number(segundaActividad.precio) <= 0 &&
+    !isIslasBallestasActivity(segundaActividad.servicio)
   ) {
     return {
       message: "SI SELECCIONO UNA SEGUNDA ACTIVIDAD INGRESE EL PRECIO",
@@ -212,13 +242,13 @@ const validateViajeValues = (values: any): ValidationError | null => {
     const totalBase = Number(values.precioTotal ?? totalToPay ?? 0);
     const sumaAcuenta = Number(values.acuenta ?? 0);
     const sumaEfectivo = Number(values.efectivo ?? 0);
-    if (totalBase > 0 && sumaAcuenta + sumaEfectivo > totalBase) {
+    /* if (totalBase > 0 && sumaAcuenta + sumaEfectivo > totalBase) {
       return {
         message:
           "LA SUMA DEL ACUENTA CON EL EFECTIVO SUPERA AL MONTO TOTAL DE PAGO..!!!",
         focus: "acuenta",
       };
-    }
+    }*/
   }
 
   /*if (values.horaPartida && !TIME_PATTERN.test(values.horaPartida)) {
@@ -231,15 +261,29 @@ const validateViajeValues = (values: any): ValidationError | null => {
   return null;
 };
 
+function resolveServicioLabel(servicio: any) {
+  if (!servicio) return "";
+  if (typeof servicio === "object") {
+    return servicio.label?.trim() ?? servicio.value?.trim() ?? "";
+  }
+  return String(servicio).trim();
+}
+
 function normalizarDetalleCreate(detalle: any): string {
   return Object.values(detalle)
-    .filter((i: any) => i?.servicio?.label && Number(i.cant) > 0)
-    .map((i: any) =>
+    .map((i: any) => ({
+      servicioLabel: resolveServicioLabel(i?.servicio),
+      cant: Number(i?.cant),
+      precio: i?.precio,
+      total: i?.total,
+    }))
+    .filter((item) => item.servicioLabel && item.cant > 0)
+    .map((item) =>
       [
-        i.servicio.label.trim(), // 👈 PRIMER CAMPO TEXTO
-        d(i.precio),
-        Number(i.cant),
-        d(i.total),
+        item.servicioLabel, // 👈 PRIMER CAMPO TEXTO
+        d(item.precio),
+        item.cant,
+        d(item.total),
       ].join("|"),
     )
     .join(";");
@@ -247,14 +291,26 @@ function normalizarDetalleCreate(detalle: any): string {
 
 function normalizarDetalleEdit(detalle: any): string {
   return Object.values(detalle)
-    .filter((i: any) => i?.servicio?.label && Number(i.cant) > 0)
-    .map((i: any) =>
+    .map((i: any) => {
+      const hasServicioObject = i?.servicio && typeof i.servicio === "object";
+      const detalleId =
+        i?.detalleId ?? (hasServicioObject ? i.servicio.detalleId : undefined);
+      return {
+        servicioLabel: resolveServicioLabel(i?.servicio),
+        cant: Number(i?.cant),
+        precio: i?.precio,
+        total: i?.total,
+        detalleId,
+      };
+    })
+    .filter((item) => item.servicioLabel && item.cant > 0)
+    .map((item) =>
       [
-        Number(i.detalleId), // 👈 SOLO EN EDIT
-        i.servicio.label.trim(),
-        d(i.precio),
-        Number(i.cant),
-        d(i.total),
+        item.detalleId ?? "", // 👈 SOLO EN EDIT
+        item.servicioLabel,
+        d(item.precio),
+        item.cant,
+        d(item.total),
       ].join("|"),
     )
     .join(";");
@@ -354,13 +410,13 @@ function buildListaOrdenEdit(data) {
     n(data.visitas), // 31
     n(Number(data.precioExtraSoles ?? 0)), // 32
     n(Number(data.precioExtraDolares ?? 0)), // 33
-    n(data.fechaEmision), // 34
+    n(toISODate(data.fechaEmision)), // 34
     n(data.mensajePasajero ?? ""), // 35
     n(data.observaciones ?? ""), // 36
     "-", // 37
     "-", // 38
     "-", // 39
-    n(data.fechaViaje), // 40
+    n(toISODate(data.fechaViaje)), // 40
     0, // 41
     "NO", // 42
     Number(data.notaId), // 43 🔴 OBLIGATORIO
@@ -425,14 +481,15 @@ export function parseBackendResponse(response: string) {
 export function parseFechaToYMD(fecha: string): string {
   if (!fecha) return fecha;
 
-  // solo acepta: DD/MM/YYYY HH:mm:ss
-  const match = fecha.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+\d{2}:\d{2}:\d{2}$/);
+  const match = fecha.match(
+    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}:\d{2}:\d{2}))?$/,
+  );
 
-  if (!match) return fecha; // ← no tocar si no coincide
+  if (!match) return fecha;
 
-  const [, day, month, year] = match;
+  const [, day, month, year, time] = match;
 
-  return `${year}-${month}-${day}`;
+  return time ? `${year}-${month}-${day} ${time}` : `${year}-${month}-${day}`;
 }
 
 export function adaptViajeJsonToInvoice(
@@ -503,7 +560,7 @@ export function adaptViajeJsonToInvoice(
     destino: viajeJson.destino,
     fechaViaje: viajeJson.fechaViaje,
     otrosPartidas: viajeJson.otrosPartidas,
-    auxiliar: viajeJson.canalVenta,
+    auxiliar: viajeJson.canalVenta ?? viajeJson.auxiliar,
     telefonos: viajeJson.canalDeVentaTelefono || viajeJson.celular,
 
     fechaEmision: backend.fechaEmision,
@@ -525,7 +582,7 @@ export function adaptViajeJsonToInvoice(
     },
 
     items,
-
+    fechaRegistro: viajeJson?.fechaRegistro || null,
     impuestos: 0,
     cargos: 0,
     extraSoles: viajeJson.precioExtra ?? 0,
@@ -639,6 +696,7 @@ const ViajeForm = () => {
   const { packages, date, loadPackages } = usePackageStore();
 
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (packages.length === 0) {
@@ -680,7 +738,6 @@ const ViajeForm = () => {
   const saveButtonLabel = isSaving ? "Guardando..." : "Guardar";
 
   const onSubmit = async (data) => {
-    console.log("data", data);
     const validationError = validateViajeValues(data);
     if (validationError) {
       showToast({
@@ -697,10 +754,14 @@ const ViajeForm = () => {
     setIsSaving(true);
 
     try {
+      const fechaViajeValue = liquidacionId
+        ? data.fechaViaje
+        : parseFecha(data.fechaViaje);
+
       const payload = {
         ...data,
         _editMode: data._editMode === true,
-        fechaViaje: parseFecha(data.fechaViaje),
+        fechaViaje: fechaViajeValue,
         fechaEmision: fechaEmisionYMD(),
         precioExtra: data.precioExtra === "" ? 0 : data.precioExtra,
         totalGeneral: Number(data.totalGeneral ?? data.precioTotal),
@@ -773,7 +834,6 @@ const ViajeForm = () => {
   const handlePrint = () => {
     try {
       const formValues = getValues();
-      console.log("formValues", formValues);
       const invoiceData = adaptViajeJsonToInvoice(formValues, true);
       const backendPayload = `${formValues.nserie ?? ""}-${
         formValues.ndocumento ?? ""
@@ -788,6 +848,59 @@ const ViajeForm = () => {
     } catch (error) {
       console.error("Error al preparar impresión:", error);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!liquidacionId) return;
+
+    try {
+      setIsSaving(true);
+      const response = await axios.delete(
+        `http://localhost:5000/api/v1/Nota/${liquidacionId}`,
+      );
+
+      const deleted = response?.data === true || response?.data === "true";
+
+      if (deleted) {
+        showToast({
+          title: "Eliminado",
+          description: "La liquidación se eliminó correctamente.",
+          type: "success",
+        });
+        navigate("/fullday/programacion/liquidaciones", {
+          state: { refresh: Date.now() },
+        });
+      } else {
+        showToast({
+          title: "Error",
+          description: "No se pudo eliminar la liquidación.",
+          type: "error",
+        });
+      }
+    } catch (error) {
+      console.error("Error al eliminar:", error);
+      showToast({
+        title: "Error",
+        description: "Algo salió mal al intentar eliminar.",
+        type: "error",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    closeDeleteDialog();
+    await handleDelete();
+  };
+
+  const openDeleteDialog = () => {
+    if (!liquidacionId) return;
+    setDeleteDialogOpen(true);
   };
 
   const handleUnlockEditing = () => {
@@ -905,6 +1018,17 @@ const ViajeForm = () => {
                     </button>
                   </>
                 )}
+                {isEditing && liquidacionId && (
+                  <button
+                    type="button"
+                    onClick={openDeleteDialog}
+                    disabled={isSaving}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 text-white px-3 py-2 ring-1 ring-slate-200 hover:bg-red-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash size={16} />
+                    <span className="text-sm hidden sm:inline">Eliminar</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -966,6 +1090,33 @@ const ViajeForm = () => {
           </form>
         </div>
       </div>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={closeDeleteDialog}
+        aria-labelledby="delete-liquidacion-title"
+        aria-describedby="delete-liquidacion-description"
+      >
+        <DialogTitle id="delete-liquidacion-title">
+          ¿Eliminar liquidación?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-liquidacion-description">
+            Esta acción no se puede deshacer. ¿Estás seguro de eliminar esta
+            liquidación?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteDialog}>Cancelar</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleConfirmDelete}
+            disabled={isSaving}
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

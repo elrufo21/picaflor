@@ -337,7 +337,6 @@ const PackageList = () => {
 
   const confirmDeleteSelected = useCallback(() => {
     if (selectedPackages.length === 0) {
-      console.log("No hay filas seleccionadas");
       return;
     }
 

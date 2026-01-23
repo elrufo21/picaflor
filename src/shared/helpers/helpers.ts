@@ -134,3 +134,27 @@ export function moveFocus(current: HTMLElement, direction: "next" | "prev") {
   const nextIndex = direction === "next" ? index + 1 : index - 1;
   focusables[nextIndex]?.focus();
 }
+
+export function toISODate(value?: string | Date | null): string {
+  if (!value) return "";
+
+  // Si ya es Date
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === "string") {
+    // dd/MM/yyyy
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+      const [dd, mm, yyyy] = value.split("/");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // yyyy-MM-dd
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+  }
+
+  return "";
+}

@@ -5,7 +5,10 @@ export const formatCurrency = (value?: number | string | null) => {
       ? value
       : Number(String(value).replace(",", "."));
   if (Number.isFinite(parsed)) {
-    return parsed.toFixed(2);
+    return parsed.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   }
   return "";
 };

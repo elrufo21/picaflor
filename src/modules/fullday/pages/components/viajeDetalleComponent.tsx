@@ -40,13 +40,32 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     normalized[2] = ":";
     return normalized;
   };
+  const isPrecioDisabled = (rowKey: string) => {
+    const servicio = getValues(`detalle.${rowKey}.servicio`);
+
+    if (!servicio || servicio.value === "-" || servicio.value === "") {
+      return true;
+    }
+
+    if (
+      String(servicio.value).toUpperCase() === BALLESTAS_LABEL.toUpperCase()
+    ) {
+      return true;
+    }
+
+    return false;
+  };
 
   /* =========================
      PRECIOS
   ========================= */
-  const getPrecioActividad = (id) => {
+  const getPrecioActividad = (id, label?: string) => {
+    if (String(label || "").toUpperCase() === BALLESTAS_LABEL.toUpperCase()) {
+      return 0;
+    }
+
     const p = preciosActividades?.find((x) => String(x.idActi) === String(id));
-    return p ? Number(p.precioSol || 0) + Number(p.entradaSol || 0) : 0;
+    return p ? Number(p.precioSol || 0) : 0;
   };
 
   const getPrecioAlmuerzo = (id) => {
@@ -60,6 +79,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   };
 
   useEffect(() => {
+    if (!isEditing) return;
     if (disponibles <= 0) return;
     if (cantPax <= disponibles) return;
 
@@ -151,10 +171,14 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   useEffect(() => {
     if (!isBallestasSelected) return;
 
+    const currentServicio = getValues("detalle.entrada.servicio");
+
+    if (currentServicio) return;
+
     setValue("detalle.entrada.servicio", BALLESTAS_ENTRADA_DETAIL, {
       shouldDirty: true,
     });
-    setValue("detalle.entrada.precio", roundCurrency(BALLESTAS_ENTRADA_PRICE), {
+    setValue("detalle.entrada.precio", BALLESTAS_ENTRADA_PRICE, {
       shouldDirty: true,
     });
     setValue("detalle.entrada.cant", cantPax, {
@@ -163,11 +187,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     setValue(
       "detalle.entrada.total",
       roundCurrency(BALLESTAS_ENTRADA_PRICE * cantPax),
-      {
-        shouldDirty: true,
-      },
+      { shouldDirty: true },
     );
-  }, [cantPax, isBallestasSelected, setValue]);
+  }, [cantPax, isBallestasSelected, setValue, getValues]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -200,12 +222,10 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   }, [cantPax, getValues, isBallestasSelected, setValue, isEditing]);
 
   const handleHotelChange = (idHotel: string) => {
-    console.log("idHotel", idHotel);
     const direccion = direccionesHotel?.find(
       (d) => d.idHotel == Number(idHotel),
     );
     setValue("otrosPartidas", direccion?.direccion);
-    console.log("direccion", direccion);
   };
 
   const handleKeyNav = (e: React.KeyboardEvent<HTMLElement>) => {
@@ -254,6 +274,11 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     }
     return false;
   };
+  const isTarifaPrecioDisabled = () => {
+    const servicio = getValues("detalle.tarifa.servicio");
+    return !servicio || !servicio.value;
+  };
+
   return (
     <div className="p-2.5 space-y-3">
       {/* =========================
@@ -477,6 +502,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                           roundCurrency(roundedPrecio * cantPax),
                         );
                       }}
+                      disabled={isTarifaPrecioDisabled()}
                     />
                   )}
                 />
@@ -566,7 +592,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 render={({ field }) => (
                   <input
                     data-precio
-                    className="w-full border px-2 py-1 text-right bg-slate-100"
+                    className={`w-full border px-2 py-1 text-right ${isTarifaPrecioDisabled() ? "bg-slate-100" : ""}`}
                     onKeyDown={handleKeyNav}
                     value={field.value}
                     onChange={(e) => {
@@ -580,6 +606,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         roundCurrency(roundedPrecio * cantPax),
                       );
                     }}
+                    disabled={isTarifaPrecioDisabled()}
                   />
                 )}
               />
@@ -696,14 +723,19 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       <input
                         type="number"
                         data-precio
-                        className="w-full border px-2 py-1 text-right"
+                        className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
                         onKeyDown={handleKeyNav}
-                        value={formatCurrency(field.value)}
+                        disabled={
+                          row.key === "entrada" || isPrecioDisabled(row.key)
+                        }
+                        value={field.value === 0 ? "" : field.value}
                         onChange={(e) => {
                           if (!isEditing) return;
+
                           const raw = e.target.value;
                           const precio = raw === "" ? 0 : Number(raw);
                           const roundedPrecio = roundCurrency(precio);
+
                           field.onChange(roundedPrecio);
                           setValue(
                             `detalle.${row.key}.total`,
@@ -713,7 +745,6 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         onBlur={() => {
                           if (!field.value) field.onChange(0);
                         }}
-                        disabled={row.key === "entrada"}
                       />
                     )}
                   />
@@ -833,14 +864,19 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                     <input
                       type="number"
                       data-precio
-                      className="w-full border px-2 py-1 text-right"
+                      className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
                       onKeyDown={handleKeyNav}
-                      value={field.value}
+                      disabled={
+                        row.key === "entrada" || isPrecioDisabled(row.key)
+                      }
+                      value={field.value === 0 ? "" : field.value}
                       onChange={(e) => {
                         if (!isEditing) return;
+
                         const raw = e.target.value;
                         const precio = raw === "" ? 0 : Number(raw);
                         const roundedPrecio = roundCurrency(precio);
+
                         field.onChange(roundedPrecio);
                         setValue(
                           `detalle.${row.key}.total`,
@@ -850,7 +886,6 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       onBlur={() => {
                         if (!field.value) field.onChange(0);
                       }}
-                      disabled={row.key === "entrada"}
                     />
                   )}
                 />

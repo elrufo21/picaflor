@@ -1,5 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
+import {
+  type ColumnDef,
+  type Table,
+  type SortingState,
+  type ColumnFiltersState,
+  type RowSelectionState,
+  type PaginationState,
   useReactTable,
   getCoreRowModel,
   getPaginationRowModel,
@@ -20,11 +34,38 @@ import {
   Filter,
   X,
 } from "lucide-react";
+type RowColorRule<T = Record<string, any>> = {
+  when: (row: T) => boolean;
+  className: string;
+};
+
+type DndTableProps<TData extends Record<string, any>> = {
+  data?: TData[];
+  columns?: ColumnDef<TData, any>[];
+  enableSorting?: boolean;
+  enableFiltering?: boolean;
+  enableDateFilter?: boolean;
+  dateField?: string;
+  enablePagination?: boolean;
+  enableRowSelection?: boolean;
+  pageSize?: number;
+  pageSizeOptions?: number[];
+  onRowClick?: ((row: TData) => void) | null;
+  isLoading?: boolean;
+  emptyMessage?: string;
+  className?: string;
+  dataFilterFn?: ((row: TData) => boolean) | null;
+  enableSearching?: boolean;
+  onSelectionChange?: ((rows: TData[]) => void) | null;
+  searchColumns?: string[] | null;
+  dateFilterComponent?: (() => ReactNode) | null;
+  rowColorRules?: RowColorRule<TData>[];
+};
 
 // ============================================
 // TABLA PRINCIPAL - COMPONENTE REUTILIZABLE
 // ============================================
-const DndTable = ({
+const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   data = [],
   columns = [],
   enableSorting = false,
@@ -44,14 +85,15 @@ const DndTable = ({
   onSelectionChange = null,
   searchColumns = null,
   dateFilterComponent = null,
-}) => {
-  const [sorting, setSorting] = useState([]);
+  rowColorRules = [] as RowColorRule<TData>[],
+}: DndTableProps<TData>) => {
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [columnFilters, setColumnFilters] = useState([]);
-  const [rowSelection, setRowSelection] = useState({});
-  const [pagination, setPagination] = useState({
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: pageSize,
+    pageSize,
   });
   const [dateFilter, setDateFilter] = useState("");
   const searchColumnsKey = (searchColumns ?? []).join(",");
@@ -59,6 +101,14 @@ const DndTable = ({
     if (!searchColumnsKey) return null;
     return new Set(searchColumns);
   }, [searchColumnsKey, searchColumns]);
+  const getRowClassName = useCallback(
+    (rowOriginal: TData, rules: RowColorRule<TData>[]) => {
+      if (!rules?.length) return "";
+      const rule = rules.find((r) => r.when(rowOriginal));
+      return rule?.className ?? "";
+    },
+    [],
+  );
 
   const filteredData = useMemo(() => {
     if (!enableDateFilter || !dateField) return data;
@@ -76,16 +126,6 @@ const DndTable = ({
       return valueDate.toDateString() === filterDate.toDateString();
     });
   }, [data, dateField, dateFilter, enableDateFilter]);
-  useEffect(() => {
-    if (!onSelectionChange) return;
-
-    const selectedRows = table
-      .getSelectedRowModel()
-      .rows.map((r) => r.original);
-
-    onSelectionChange(selectedRows);
-  }, [rowSelection]);
-
   useEffect(() => {
     if (enableRowSelection) return;
     setRowSelection({});
@@ -149,6 +189,16 @@ const DndTable = ({
     enableRowSelection,
   });
 
+  useEffect(() => {
+    if (!onSelectionChange) return;
+
+    const selectedRows = table
+      .getSelectedRowModel()
+      .rows.map((r) => r.original);
+
+    onSelectionChange(selectedRows);
+  }, [rowSelection, onSelectionChange, table]);
+
   return (
     <div className={`bg-white rounded-xl shadow-sm ${className}`}>
       {/* Header con búsqueda y acciones */}
@@ -157,7 +207,6 @@ const DndTable = ({
           globalFilter={globalFilter}
           setGlobalFilter={setGlobalFilter}
           selectedRows={Object.keys(rowSelection).length}
-          totalRows={filteredData.length}
           dateFilter={dateFilter}
           setDateFilter={setDateFilter}
           enableDateFilter={enableDateFilter && Boolean(dateField)}
@@ -179,6 +228,8 @@ const DndTable = ({
             rowSelection={rowSelection}
             setRowSelection={setRowSelection}
             enableRowSelection={enableRowSelection}
+            rowColorRules={rowColorRules}
+            getRowClassName={getRowClassName}
           />
         </table>
       </div>
@@ -194,18 +245,29 @@ const DndTable = ({
 // ============================================
 // HEADER DE LA TABLA
 // ============================================
+type TableHeaderProps = {
+  globalFilter: string;
+  setGlobalFilter: (value: string) => void;
+  selectedRows: number;
+  dateFilter: string;
+  setDateFilter: (value: string) => void;
+  enableDateFilter: boolean;
+  enableSearching: boolean;
+  enableFiltering: boolean;
+  dateFilterComponent: (() => ReactNode) | null;
+};
+
 const TableHeader = ({
   globalFilter,
   setGlobalFilter,
   selectedRows,
-  totalRows,
   dateFilter,
   setDateFilter,
   enableDateFilter,
   enableSearching,
   enableFiltering,
   dateFilterComponent,
-}) => {
+}: TableHeaderProps) => {
   return (
     <div className="p-4 sm:p-6 border-b border-slate-200">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -279,7 +341,15 @@ const TableHeader = ({
 // ============================================
 // HEAD DE LA TABLA
 // ============================================
-const TableHead = ({ table, enableSorting }) => {
+type TableHeadProps<TData extends Record<string, any>> = {
+  table: Table<TData>;
+  enableSorting: boolean;
+};
+
+const TableHead = <TData extends Record<string, any>>({
+  table,
+  enableSorting,
+}: TableHeadProps<TData>) => {
   return (
     <thead className="bg-slate-50 border-b border-slate-200">
       {table.getHeaderGroups().map((headerGroup) => (
@@ -343,7 +413,19 @@ const SortIcon = ({ sorted }) => {
 // ============================================
 // BODY DE LA TABLA
 // ============================================
-const TableBody = ({
+type TableBodyProps<TData extends Record<string, any>> = {
+  table: Table<TData>;
+  isLoading: boolean;
+  emptyMessage: string;
+  onRowClick?: ((row: TData) => void) | null;
+  rowSelection: RowSelectionState;
+  setRowSelection: Dispatch<SetStateAction<RowSelectionState>>;
+  enableRowSelection: boolean;
+  rowColorRules: RowColorRule<TData>[];
+  getRowClassName: (rowOriginal: TData, rules: RowColorRule<TData>[]) => string;
+};
+
+const TableBody = <TData extends Record<string, any>>({
   table,
   isLoading,
   emptyMessage,
@@ -351,7 +433,9 @@ const TableBody = ({
   rowSelection,
   setRowSelection,
   enableRowSelection,
-}) => {
+  rowColorRules = [],
+  getRowClassName,
+}: TableBodyProps<TData>) => {
   if (isLoading) {
     return (
       <tbody>
@@ -394,9 +478,9 @@ const TableBody = ({
             onRowClick && onRowClick(row.original);
           }}
           className={`
-    
     transition-colors
-    ${row.getIsSelected() ? "bg-emerald-50" : "hover:bg-slate-50"}
+    ${getRowClassName(row.original, rowColorRules)}
+    ${row.getIsSelected() ? "bg-emerald-100" : "hover:bg-slate-50"}
   `}
         >
           {row.getVisibleCells().map((cell) => (
@@ -448,7 +532,12 @@ const EmptyState = ({ message }) => {
 // ============================================
 // PAGINACIÓN
 // ============================================
-const TablePagination = ({ table, pageSizeOptions }) => {
+type TablePaginationProps = {
+  table: Table<Record<string, any>>;
+  pageSizeOptions: number[];
+};
+
+const TablePagination = ({ table, pageSizeOptions }: TablePaginationProps) => {
   return (
     <div className="px-4 sm:px-6 py-4 border-t border-slate-200">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

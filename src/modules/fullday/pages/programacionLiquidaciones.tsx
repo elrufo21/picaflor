@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import DndTable from "@/components/dataTabla/DndTable";
@@ -58,9 +58,23 @@ export function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
       return;
     }
 
+    const actividadTexto = d.actividades.toUpperCase();
+
     // 2️⃣ Traslado
-    if (d.actividades.toUpperCase().includes("RECOJO")) {
+    if (actividadTexto.includes("RECOJO")) {
       rows.traslado = base;
+      return;
+    }
+
+    // 3️⃣ Entrada / impuestos
+    if (
+      actividadTexto.includes("IMPTOS") ||
+      actividadTexto.includes("ENTRAD")
+    ) {
+      rows.entrada = {
+        ...base,
+        servicio: d.actividades,
+      };
       return;
     }
 
@@ -337,14 +351,27 @@ const LiquidacionesPage = () => {
   const { canalVentaList, addCanalToList } = useCanalVenta();
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const { loadServicios, loadServiciosFromDB, setFormData } = usePackageStore();
   const [rows, setRows] = useState<LiquidacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
-  const todayValue = new Date().toISOString().slice(0, 10);
+  const todayValue = useMemo(() => {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+    return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+  }, []);
   const [pendingStartDate, setPendingStartDate] = useState(todayValue);
   const [pendingEndDate, setPendingEndDate] = useState(todayValue);
+  const pendingStartDateRef = useRef(pendingStartDate);
+  const pendingEndDateRef = useRef(pendingEndDate);
+  useEffect(() => {
+    pendingStartDateRef.current = pendingStartDate;
+  }, [pendingStartDate]);
+  useEffect(() => {
+    pendingEndDateRef.current = pendingEndDate;
+  }, [pendingEndDate]);
 
   useEffect(() => {
     let canceled = false;
@@ -400,7 +427,7 @@ const LiquidacionesPage = () => {
 
       fechaViaje: parseFechaBackend(data.fechaViaje),
       fechaEmision: parseFechaBackend(data.fechaRegistro?.split(" ")[0]),
-
+      fechaRegistro: data.fechaRegistro,
       counter: data.notaUsuario,
       canalVenta: null,
       canalDeVentaTelefono: data.telefonoAuxiliar,
@@ -409,7 +436,7 @@ const LiquidacionesPage = () => {
       documentoNumero: data.clienteDni,
       celular: data.clienteTelefono,
       cantPax: Number(data.cantidadPax),
-
+      auxiliar: data.auxiliar,
       horaPartida: data.horaPartida,
       visitas: data.visitasExCur,
 
@@ -443,7 +470,6 @@ const LiquidacionesPage = () => {
       clienteId: data.clienteId,
       _editMode: true,
     };
-    console.log("normalizedData", normalizedData);
     setFormData(normalizedData);
     /*const productId = resolveProductId(row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
@@ -534,43 +560,43 @@ const LiquidacionesPage = () => {
     [columnHelper, navigate],
   );
 
-  const reload = async (
-    startDate = pendingStartDate || todayValue,
-    endDate = pendingEndDate || todayValue,
-  ) => {
-    if (!user) {
-      setError("Usuario no autenticado");
-      return;
-    }
-    const areaId = Number(user.areaId ?? user.area ?? 0);
-    const usuarioId = Number(user.id ?? 0);
-    const rangeStart = startDate || todayValue;
-    const rangeEnd = endDate || todayValue;
-    if (!areaId || !usuarioId) {
-      setError("Falta área o usuario");
-      return;
-    }
+  const reload = useCallback(
+    async (startDate?: string, endDate?: string) => {
+      if (!user) {
+        setError("Usuario no autenticado");
+        return;
+      }
+      const areaId = Number(user.areaId ?? user.area ?? 0);
+      const usuarioId = Number(user.id ?? 0);
+      const rangeStart = startDate ?? pendingStartDateRef.current ?? todayValue;
+      const rangeEnd = endDate ?? pendingEndDateRef.current ?? todayValue;
+      if (!areaId || !usuarioId) {
+        setError("Falta área o usuario");
+        return;
+      }
 
-    setLoading(true);
-    setError(null);
-    try {
-      const payload = await fetchPedidosFecha({
-        fechaInicio: rangeStart,
-        fechaFin: rangeEnd,
-        areaId,
-        usuarioId,
-      });
-      setRows(parseLiquidacionesPayload(payload));
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "No se pudo cargar las liquidaciones";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  };
+      setLoading(true);
+      setError(null);
+      try {
+        const payload = await fetchPedidosFecha({
+          fechaInicio: rangeStart,
+          fechaFin: rangeEnd,
+          areaId,
+          usuarioId,
+        });
+        setRows(parseLiquidacionesPayload(payload));
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar las liquidaciones";
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [todayValue, user],
+  );
 
   const handleRangeSearch = () => {
     reload(pendingStartDate, pendingEndDate);
@@ -586,8 +612,13 @@ const LiquidacionesPage = () => {
 
   useEffect(() => {
     reload();
-  }, [user]);
-  console.log("row", rows);
+  }, [reload]);
+  const refreshKey = location.state?.refresh;
+  useEffect(() => {
+    if (refreshKey) {
+      reload();
+    }
+  }, [refreshKey, reload]);
   const DateRangeFilter = () => (
     <div className="flex items-center gap-4">
       <div className="text-sm font-semibold text-slate-900">Buscar por</div>
@@ -660,6 +691,20 @@ const LiquidacionesPage = () => {
         emptyMessage="No se encontraron liquidaciones"
         dateFilterComponent={DateRangeFilter}
         enableRowSelection={false}
+        rowColorRules={[
+          {
+            when: (row) => row.estado === "ANULADO",
+            className: "bg-red-50 text-red-700",
+          },
+          {
+            when: (row) => row.estado === "PENDIENTE",
+            className: "bg-yellow-50 text-yellow-800",
+          },
+          {
+            when: (row) => row.estado === "CANCELADO",
+            className: "bg-white text-slate-900",
+          },
+        ]}
       />
     </div>
   );

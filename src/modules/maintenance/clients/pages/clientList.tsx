@@ -90,19 +90,12 @@ const ClientList = () => {
         ),
       }),
     ],
-    [columnHelper, deleteClient, navigate, openDialog]
+    [columnHelper, deleteClient, navigate, openDialog],
   );
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">Clientes</h1>
-          <p className="text-sm text-slate-600">
-            Listado de clientes registrados.
-          </p>
-        </div>
-
         <button
           type="button"
           className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
