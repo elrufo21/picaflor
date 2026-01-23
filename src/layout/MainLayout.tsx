@@ -141,11 +141,10 @@ const MainLayout = () => {
                 item.children?.map((child) => {
                   const ChildIcon = child.icon;
                   return (
-                      <NavLink
-                        key={child.to}
-                        to={child.to}
-                        end={child.end ?? false}
-                      end
+                    <NavLink
+                      key={child.to}
+                      to={child.to}
+                      end={child.end ?? false}
                       className={({ isActive }) =>
                         [
                           "group relative flex items-center px-3 py-2 text-sm transition-all rounded-lg ml-6 gap-2",
@@ -233,10 +232,10 @@ const MainLayout = () => {
               {item.children?.map((child) => {
                 const ChildIcon = child.icon;
                 return (
-                    <NavLink
-                      key={child.to}
-                      to={child.to}
-                      end={child.end ?? false}
+                  <NavLink
+                    key={child.to}
+                    to={child.to}
+                    end={child.end ?? false}
                     onClick={closeSidebar}
                     className={({ isActive }) =>
                       [
