@@ -463,55 +463,57 @@ function buildListaOrdenEdit(data) {
     data.idProducto,
   );
   const orden = [
-    n(data.documentoCobranza), // 1
-    Number(data.clienteId), // 2
-    n(data.counter), // 3
-    n(data.medioPago), // 4
-    n(data.condicion?.value), // 5
-    n(data.celular), // 6
-    d(data.totalGeneral), // 7
-    d(data.precioTotal), // 8
-    d(data.acuenta), // 9
-    d(data.saldo), // 10
-    d(data.precioExtra), // 11
-    d(data.precioTotal), // 12
-    n(data.condicion?.value), // 13
-    Number(data.companiaId), // 14
-    "NO", // 15 IncluyeIGV
-    n(data.nserie), // 16
-    n(data.ndocumento), // 17
-    0, // 18 NotaGanancia
-    Number(data.usuarioId), // 19
-    n(data.entidadBancaria), // 20
-    n(data.nroOperacion), // 21
-    d(data.efectivo), // 22
-    d(data.deposito), // 23
-    Number(data.idProducto), // 24
-    n(data.canalVenta), // 25
-    n(data.canalDeVentaTelefono), // 26
-    Number(data.cantPax), // 27
-    n(data.puntoPartida), // 28
-    n(data.horaPartida), // 29
-    n(data.otrosPartidas ?? ""), // 30 otrasPartidas
-    n(data.visitas), // 31
-    n(Number(data.precioExtraSoles ?? 0)), // 32
-    n(Number(data.precioExtraDolares ?? 0)), // 33
-    n(toISODate(data.fechaEmision)), // 34
-    n(data.mensajePasajero ?? ""), // 35
-    n(data.observaciones ?? ""), // 36
-    islas, // 37
-    tubulares, // 38
-    otros, // 39
-    n(toISODate(data.fechaViaje)), // 40
-    0, // 41
-    "NO", // 42
-    Number(data.notaId), // 43 🔴 OBLIGATORIO
-    0, // 44 Aviso
-    n(data.moneda), // 45
-    n(data.detalle.tarifa.servicio.label ?? ""), // 46
-    "-", // 47
-    n(data?.hotel?.label ?? ""), // 48
-    n(data.region), // 49
+    n(data.documentoCobranza), // 1  NotaDocu
+    n(data.nombreCompleto), // 2  nombrePax
+    n(data.documentoNumero), // 3  dniPax
+    Number(data.clienteId), // 4  ClienteId
+    n(data.counter), // 5  NotaUsuario
+    n(data.medioPago), // 6  NotaFormaPago
+    n(data.condicion?.value), // 7  NotaCondicion
+    n(data.celular), // 8  NotaTelefono
+    d(data.totalGeneral), // 9  NotaSubtotal
+    d(data.precioTotal), // 10 NotaTotal
+    d(data.acuenta), // 11 NotaAcuenta
+    d(data.saldo), // 12 NotaSaldo
+    d(data.precioExtra), // 13 NotaAdicional
+    d(data.precioTotal), // 14 NotaPagar
+    n(data.condicion?.value), // 15 NotaEstado
+    Number(data.companiaId), // 16 CompaniaId
+    "NO", // 17 IncluyeIGV
+    n(data.nserie), // 18 Serie
+    n(data.ndocumento), // 19 Numero
+    0, // 20 NotaGanancia
+    Number(data.usuarioId), // 21 UsuarioId
+    n(data.entidadBancaria), // 22 EntidadBancaria
+    n(data.nroOperacion), // 23 NroOperacion
+    d(data.efectivo), // 24 Efectivo
+    d(data.deposito), // 25 Deposito
+    Number(data.idProducto), // 26 IdProducto
+    n(data.canalVenta), // 27 Auxiliar
+    n(data.canalDeVentaTelefono), // 28 TelefonoAuxiliar
+    Number(data.cantPax), // 29 CantidadPax
+    n(data.puntoPartida), // 30 PuntoPartida
+    n(data.horaPartida), // 31 HoraPartida
+    n(data.otrosPartidas ?? ""), // 32 otrasPartidas
+    n(data.visitas), // 33 VisitasExCur
+    n(Number(data.precioExtraSoles ?? 0)), // 34 CobroExtraSol
+    n(Number(data.precioExtraDolares ?? 0)), // 35 CobroExtraDol
+    n(toISODate(data.fechaAdelanto)), // 36 FechaAdelanto 
+    n(data.mensajePasajero ?? ""), // 37 MensajePasajero
+    n(data.observaciones ?? ""), // 38 Observaciones
+    islas, // 39 Islas
+    tubulares, // 40 Tubulares
+    otros, // 41 otros
+    n(toISODate(data.fechaViaje)), // 42 FechaViaje
+    0, // 43 IGV
+    "NO", // 44 IncluyeCargos
+    Number(data.notaId), // 45 NotaId  
+    0, // 46 Aviso
+    n(data.moneda), // 47 Monedas
+    n(data.detalle.tarifa.servicio.label ?? ""), // 48 IncluyeALmuerzo
+    "-", // 49 NotaImagen
+    n(data?.hotel?.label ?? ""), // 50 Hotel
+    n(data.region), // 51 Region
   ].join("|");
 
   return `${orden}[${detalle}`;
