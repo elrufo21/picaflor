@@ -158,3 +158,26 @@ export function toISODate(value?: string | Date | null): string {
 
   return "";
 }
+
+const ISO_DATE_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}:\d{2}:\d{2}))?$/;
+const DMY_DATE_PATTERN =
+  /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}:\d{2}:\d{2}))?$/;
+export function formatFechaParaMostrar(value?: string): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+
+  const isoMatch = trimmed.match(ISO_DATE_PATTERN);
+  if (isoMatch) {
+    const [, year, month, day, time] = isoMatch;
+    return time ? `${day}/${month}/${year} ${time}` : `${day}/${month}/${year}`;
+  }
+
+  const dmyMatch = trimmed.match(DMY_DATE_PATTERN);
+  if (dmyMatch) {
+    const [, day, month, year, time] = dmyMatch;
+    return time ? `${day}/${month}/${year} ${time}` : `${day}/${month}/${year}`;
+  }
+
+  return trimmed;
+}

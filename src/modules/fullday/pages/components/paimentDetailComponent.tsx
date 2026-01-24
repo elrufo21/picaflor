@@ -128,7 +128,6 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       setValue("deposito", 0);
     }
   }, [acuenta, medioPago]);
-  console.log("efectivo", watch("efectivo"));
   return (
     <div className="lg:col-span-2 space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">

@@ -5,6 +5,14 @@ export type CanalOption = SelectOption & {
   email?: string;
   auxiliar?: string;
 };
+const cleanText = (value?: string) =>
+  value
+    ? value
+        .replace(/&#x0D;/gi, "")
+        .replace(/&amp;/gi, "&")
+        .replace(/\s+/g, " ")
+        .trim()
+    : undefined;
 
 export const parseCanalPayload = (payload: unknown): CanalOption[] => {
   const parseBlock = (block: string) =>
@@ -13,7 +21,7 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
       .map((item) => item.trim())
       .filter(Boolean)
       .map((item) => {
-        const [id, value] = item.split("|").map((part) => part.trim());
+        const [id, value] = item.split("|").map((part) => cleanText(part));
         if (!id && !value) return null;
         return { id: id ?? "", value: value ?? "" };
       })
@@ -23,8 +31,9 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
     if (!value) return null;
     const parts = value
       .split("|")
-      .map((s) => s.trim())
+      .map((s) => cleanText(s))
       .filter(Boolean);
+
     if (parts.length >= 2) {
       const [id, nombre, contacto, telefono, email] = parts;
       const val = id || nombre || `CANAL_${idx + 1}`;
@@ -54,7 +63,7 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
       const telefonoById = new Map(
         telefonos
           .filter((item) => item.id && item.value)
-          .map((item) => [item.id, item.value])
+          .map((item) => [item.id, item.value]),
       );
 
       return canales
@@ -87,32 +96,37 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
         if (typeof it === "string") return normalizeRow(it, i);
         if (it && typeof it === "object") {
           const o: any = it;
-          const valueCandidate =
+          const valueCandidate = cleanText(
             o.value ??
-            o.IdCanal ??
-            o.codigo ??
-            o.code ??
-            o.id ??
-            o.Id ??
-            o.slug ??
-            o.CanalNombre ??
-            o.nombre ??
-            o.name;
-          const labelCandidate =
+              o.IdCanal ??
+              o.codigo ??
+              o.code ??
+              o.id ??
+              o.Id ??
+              o.slug ??
+              o.CanalNombre ??
+              o.nombre ??
+              o.name,
+          );
+
+          const labelCandidate = cleanText(
             o.label ??
-            o.descripcion ??
-            o.descripcionCanal ??
-            o.CanalNombre ??
-            o.nombre ??
-            o.name ??
-            valueCandidate;
+              o.descripcion ??
+              o.descripcionCanal ??
+              o.CanalNombre ??
+              o.nombre ??
+              o.name ??
+              valueCandidate,
+          );
+
           if (!valueCandidate && !labelCandidate) return null;
           return {
             value: String(valueCandidate ?? labelCandidate),
             label: String(labelCandidate ?? valueCandidate),
-            contacto: o.Contacto ?? o.contacto ?? undefined,
-            telefono: o.Telefono ?? o.telefono ?? undefined,
-            email: o.Email ?? o.email ?? undefined,
+            contacto: cleanText(o.Contacto ?? o.contacto),
+            telefono: cleanText(o.Telefono ?? o.telefono),
+            email: cleanText(o.Email ?? o.email),
+
             auxiliar: o.auxiliar ?? undefined,
           } as CanalOption;
         }

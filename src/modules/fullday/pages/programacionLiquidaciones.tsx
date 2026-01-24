@@ -489,7 +489,9 @@ const LiquidacionesPage = () => {
     () => [
       columnHelper.display({
         id: "acciones",
-        header: "Acciones",
+        size: 80,
+
+        header: "Ver",
         cell: ({ row }) => (
           <button
             type="button"
@@ -501,27 +503,44 @@ const LiquidacionesPage = () => {
         ),
       }),
       columnHelper.accessor("notaId", {
-        header: "LQ",
+        header: "Número",
         cell: (info) => info.getValue(),
       }),
-      columnHelper.accessor("serieNumero", {
-        header: "Serie-Número",
-        cell: (info) => info.getValue(),
-      }),
-      columnHelper.accessor("clienteNombre", {
-        header: "Cliente",
-        cell: (info) => info.getValue(),
-      }),
-      columnHelper.accessor("clienteTelefono", {
-        header: "Teléfono",
+      columnHelper.accessor("productoNombre", {
+        header: "Tours",
         cell: (info) => info.getValue(),
       }),
       columnHelper.accessor("fechaViaje", {
-        header: "Fecha viaje",
+        header: "FechaViaje",
         cell: (info) => info.getValue(),
       }),
       columnHelper.accessor("fechaRegistro", {
-        header: "Registrado",
+        header: "Registro",
+        cell: (info) => info.getValue(),
+      }),
+
+      columnHelper.accessor("horaPartida", {
+        header: "Horapartida",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("auxiliar", {
+        header: "Canal de venta",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("clienteNombre", {
+        header: "Pasajero",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("clienteTelefono", {
+        header: "Celular",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("notaUsuario", {
+        header: "Counter",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("condicion", {
+        header: "Condicion",
         cell: (info) => info.getValue(),
       }),
       columnHelper.accessor("formaPago", {
@@ -531,14 +550,17 @@ const LiquidacionesPage = () => {
       columnHelper.accessor("totalPagar", {
         header: "Total",
         cell: (info) => info.getValue(),
+        meta: { align: "right" },
       }),
       columnHelper.accessor("acuenta", {
-        header: "A cuenta",
+        header: "Acuenta",
         cell: (info) => info.getValue(),
+        meta: { align: "right" },
       }),
       columnHelper.accessor("saldo", {
         header: "Saldo",
         cell: (info) => info.getValue(),
+        meta: { align: "right" },
       }),
       columnHelper.accessor("estado", {
         header: "Estado",
@@ -607,7 +629,6 @@ const LiquidacionesPage = () => {
       reload();
     }
   }, [refreshKey, reload]);
-  console.log("row", rows);
   const DateRangeFilter = () => (
     <div className="flex items-center gap-4">
       <div className="text-sm font-semibold text-slate-900">Buscar por</div>

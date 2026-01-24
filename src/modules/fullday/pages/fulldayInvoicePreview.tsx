@@ -3,6 +3,7 @@ import { PDFViewer, pdf } from "@react-pdf/renderer";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { showToast } from "@/components/ui/AppToast";
 import PdfDocument, { type InvoiceData } from "@/components/invoice/Invoice";
+import { formatFechaParaMostrar } from "@/shared/helpers/helpers";
 
 type LocationState = {
   invoiceData?: InvoiceData;
@@ -84,7 +85,6 @@ const InvoicePreview = () => {
     if (!id) return;
     navigate(`/fullday`);
   };
-  console.log("invoiceData", invoiceData);
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -94,8 +94,10 @@ const InvoicePreview = () => {
               <span className="font-semibold">Nro Liquidacion:</span>{" "}
               <span className="text-slate-900">{backendInfo.orden}</span>
               <span className="mx-2 text-slate-400">•</span>
-              <span className="font-semibold">Fecha:</span>{" "}
-              <span className="text-slate-700">{backendInfo.fecha}</span>
+              <span className="font-semibold">Fecha de Viaje:</span>{" "}
+              <span className="text-slate-700">
+                {formatFechaParaMostrar(invoiceData?.fechaViaje)}
+              </span>
             </p>
           ) : (
             <p className="text-slate-400 italic">No disponible</p>

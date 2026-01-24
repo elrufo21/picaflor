@@ -87,6 +87,11 @@ function formatFechaParaMostrar(value?: string): string {
   return trimmed;
 }
 
+const formatFechaSoloFecha = (value?: string) => {
+  const formatted = formatFechaParaMostrar(value);
+  return formatted.split(" ")[0];
+};
+
 type TarifaRow = {
   id: string;
   precioUnit?: number;
@@ -154,7 +159,7 @@ const resolveOptionLabel = (
   value: unknown,
 ) => {
   const key = textValue(value);
-  if (!key || key === "-") return "";
+  if (!key || key === "") return "";
   const found = options?.find((opt) => String(opt.value) === key);
   return found?.label ?? key;
 };
@@ -232,12 +237,12 @@ export const buildInvoiceData = ({
   ];
   const actividadesData = actividadRows.map((row) => {
     const value = (values as Record<string, unknown>)[row.key];
-    const actividad = resolveOptionLabel(actividades, value) || "-";
+    const actividad = resolveOptionLabel(actividades, value) || "";
     const cantidad = toNumber(findRow(row.key)?.cantidad);
     return {
       label: row.label,
       actividad,
-      cantidad: actividad === "-" ? null : cantidad || null,
+      cantidad: actividad === "" ? null : cantidad || null,
     };
   });
 
@@ -248,7 +253,7 @@ export const buildInvoiceData = ({
     const hasNumbers = precio > 0 || cantidad > 0;
     return {
       label,
-      descripcion: descripcion || "-",
+      descripcion: descripcion || "",
       precio: hasNumbers ? precio : null,
       cantidad: hasNumbers ? cantidad : null,
       subtotal: hasNumbers ? Number((precio * cantidad).toFixed(2)) : null,
@@ -259,29 +264,29 @@ export const buildInvoiceData = ({
     buildItem(
       "tarifaTour",
       "Tarifa de Tour :",
-      resolveOptionLabel(almuerzos, values.tarifaTour) || "-",
+      resolveOptionLabel(almuerzos, values.tarifaTour) || "",
     ),
     buildItem(
       "actividad1",
       "Actividad 01 :",
-      resolveOptionLabel(actividades, values.actividad1) || "-",
+      resolveOptionLabel(actividades, values.actividad1) || "",
     ),
     buildItem(
       "actividad2",
       "Actividad 02 :",
-      resolveOptionLabel(actividades, values.actividad2) || "-",
+      resolveOptionLabel(actividades, values.actividad2) || "",
     ),
     buildItem(
       "actividad3",
       "Actividad 03 :",
-      resolveOptionLabel(actividades, values.actividad3) || "-",
+      resolveOptionLabel(actividades, values.actividad3) || "",
     ),
     buildItem(
       "traslados",
       "Traslados :",
-      resolveOptionLabel(trasladosOptions, values.traslados) || "-",
+      resolveOptionLabel(trasladosOptions, values.traslados) || "",
     ),
-    buildItem("entradas", "Entradas :", textValue(values.entradas) || "-"),
+    buildItem("entradas", "Entradas :", textValue(values.entradas) || ""),
   ];
 
   const impuestos = toNumber(values.impuesto);
@@ -305,14 +310,14 @@ export const buildInvoiceData = ({
     counter: textValue(values.counter),
     condicion: resolveSelectLabel(values.condicion),
     pasajeroNombre: textValue(values.nombreCompleto),
-    pasajeroDocumento: pasajeroDocumento || "-",
-    pasajeroContacto: pasajeroContacto || "-",
+    pasajeroDocumento: pasajeroDocumento || "",
+    pasajeroContacto: pasajeroContacto || "",
     pasajeroCant: toNumber(values.cantPax) || null,
     actividades: actividadesData,
     detalleServicio: {
       puntoPartida: resolvePartida(values.puntoPartida, partidas),
       horaPartida: textValue(values.horaPresentacion),
-      otrosPuntos: textValue(values.otrosPartidas) || "-",
+      otrosPuntos: textValue(values.otrosPartidas) || "",
       visitas: textValue(values.visitas),
     },
     items,
@@ -652,23 +657,23 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
         <Image src="/images/invoice/header.jpeg" />
 
         <View style={styles.content}>
-          <Text style={styles.title}>{destino || "-"}</Text>
+          <Text style={styles.title}>{destino || ""}</Text>
 
           {/* Info Section */}
           <View style={{ flexDirection: "row", marginBottom: 10 }}>
             {[
               [
-                ["Fecha de Viaje:", formatFechaParaMostrar(fechaViaje) || "-"],
-                ["Auxiliar:", auxiliar || "-"],
-                ["Telefonos:", telefonos || "-"],
+                ["Fecha de Viaje:", formatFechaParaMostrar(fechaViaje) || ""],
+                ["Auxiliar:", auxiliar || ""],
+                ["Telefonos:", telefonos || ""],
               ],
               [
                 [
                   "Fecha de Emision:",
-                  formatFechaParaMostrar(fechaRegistro ?? fechaEmision) || "-",
+                  formatFechaParaMostrar(fechaRegistro ?? fechaEmision) || "",
                 ],
-                ["Counter:", counter || "-"],
-                ["Condicion:", condicion || "-"],
+                ["Counter:", counter || ""],
+                ["Condicion:", condicion || ""],
               ],
             ].map((col, i) => (
               <View key={i} style={{ width: "50%" }}>
@@ -712,13 +717,13 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
               {/* BODY */}
               <View style={contactS.bodyRow}>
                 <Text style={[contactS.bodyCell, { width: "35%" }]}>
-                  {pasajeroNombre || "-"}
+                  {pasajeroNombre || ""}
                 </Text>
                 <Text style={[contactS.bodyCell, { width: "20%" }]}>
-                  {pasajeroDocumento || "-"}
+                  {pasajeroDocumento || ""}
                 </Text>
                 <Text style={[contactS.bodyCell, { width: "25%" }]}>
-                  {pasajeroContacto || "-"}
+                  {pasajeroContacto || ""}
                 </Text>
                 <Text
                   style={[
@@ -771,19 +776,24 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
             <View style={contactS.detailRow}>
               <Text style={contactS.detailLabel}>Punto de Partida</Text>
               <Text style={contactS.detailValue}>
-                {detalleServicio.puntoPartida || "-"}
+                {detalleServicio.puntoPartida || ""}
               </Text>
               <Text style={contactS.detailHourLabel}>Hora de Partida</Text>
               <Text style={contactS.detailHourValue}>
-                {detalleServicio.horaPartida || "-"}
+                {detalleServicio.horaPartida || ""}
               </Text>
             </View>
 
             {/* OTROS PUNTOS */}
             <View style={contactS.detailRow}>
               <Text style={contactS.detailLabel}>Otros Puntos de Partida</Text>
-              <Text style={contactS.detailFullValue}>
-                {otrosPartidas || "-"}
+              <Text
+                style={[
+                  contactS.detailFullValue,
+                  { textTransform: "uppercase" },
+                ]}
+              >
+                {otrosPartidas || ""}
               </Text>
             </View>
 
@@ -793,7 +803,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 Visitas y{"\n"}Excursiones
               </Text>
               <Text style={contactS.detailFullValue}>
-                {detalleServicio.visitas || "-"}
+                {detalleServicio.visitas || ""}
               </Text>
             </View>
           </View>
@@ -909,10 +919,13 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 {/* DERECHA */}
                 <View style={contactS.paymentInfoBox}>
                   {[
-                    ["Fecha Adelanto:", fechaAdelanto || "-"],
-                    ["Medio de Pago:", medioPago || "-"],
-                    ["Documento de Vta:", documento || "-"],
-                    ["Nro Documento:", nroDocumento || "-"],
+                    [
+                      "Fecha Adelanto:",
+                      formatFechaSoloFecha(fechaAdelanto) || "",
+                    ],
+                    ["Medio de Pago:", medioPago || ""],
+                    ["Documento de Vta:", documento || ""],
+                    ["Nro Documento:", nroDocumento || ""],
                   ].map(([label, value], i) => (
                     <View key={i} style={contactS.paymentRow}>
                       <Text style={contactS.paymentLabel}>{label}</Text>
@@ -924,7 +937,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                   <View style={contactS.obsBox}>
                     <Text style={contactS.obsTitle}>OBSERVACIONES</Text>
                     <Text style={contactS.obsContent}>
-                      {observaciones || "-"}
+                      {observaciones || ""}
                     </Text>
                   </View>
                 </View>

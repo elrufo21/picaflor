@@ -51,7 +51,7 @@ function fechaEmisionYMD(): string {
 }
 
 function n(v: any) {
-  return v === null || v === undefined || v === "" ? "-" : String(v);
+  return v === null || v === undefined || v === "" ? "" : String(v);
 }
 
 function d(v: any) {
@@ -135,12 +135,10 @@ const validateViajeValues = (values: any): ValidationError | null => {
   }
 
   if (!values.medioPago) {
-    console.log("values.medioPago", values.medioPago);
     return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
   }
 
   if (condicionValue !== "CREDITO" && values.medioPago === "-") {
-    console.log("values.medioPago", values.medioPago, condicionValue);
     return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
   }
 
@@ -419,8 +417,8 @@ function buildListaOrdenCreate(data) {
     n(data.condicion?.value),
     data.companiaId,
     "NO",
-    "-",
-    "-",
+    "",
+    "",
     0,
     data.usuarioId,
     n(data.entidadBancaria),
@@ -448,7 +446,7 @@ function buildListaOrdenCreate(data) {
     "NO",
     data.moneda,
     n(data.detalle.tarifa.servicio.label ?? ""),
-    "-",
+    "",
     n(data?.hotel?.label ?? ""),
     data.region,
   ].join("|");
@@ -498,7 +496,7 @@ function buildListaOrdenEdit(data) {
     n(data.visitas), // 33 VisitasExCur
     n(Number(data.precioExtraSoles ?? 0)), // 34 CobroExtraSol
     n(Number(data.precioExtraDolares ?? 0)), // 35 CobroExtraDol
-    n(toISODate(data.fechaAdelanto)), // 36 FechaAdelanto 
+    n(toISODate(data.fechaAdelanto)), // 36 FechaAdelanto
     n(data.mensajePasajero ?? ""), // 37 MensajePasajero
     n(data.observaciones ?? ""), // 38 Observaciones
     islas, // 39 Islas
@@ -507,11 +505,11 @@ function buildListaOrdenEdit(data) {
     n(toISODate(data.fechaViaje)), // 42 FechaViaje
     0, // 43 IGV
     "NO", // 44 IncluyeCargos
-    Number(data.notaId), // 45 NotaId  
+    Number(data.notaId), // 45 NotaId
     0, // 46 Aviso
     n(data.moneda), // 47 Monedas
     n(data.detalle.tarifa.servicio.label ?? ""), // 48 IncluyeALmuerzo
-    "-", // 49 NotaImagen
+    "", // 49 NotaImagen
     n(data?.hotel?.label ?? ""), // 50 Hotel
     n(data.region), // 51 Region
   ].join("|");
@@ -748,7 +746,6 @@ const ViajeForm = () => {
       totalGeneral: 0,
     },
   });
-  console.log("watch", watch());
   useEffect(() => {
     return () => {
       setFormData(null);
@@ -933,7 +930,6 @@ const ViajeForm = () => {
         true,
       );
       const backendPayload = liquidacionId ?? formValues.nserie ?? "";
-      console.log("invoiceData", invoiceData, backendPayload);
       navigate(`/fullday/${idProduct}/passengers/preview`, {
         state: {
           invoiceData,

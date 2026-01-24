@@ -11,6 +11,7 @@ import { TimeAMPMInput } from "@/components/ui/inputs/TimeAMPMInput";
 import { useParams } from "react-router";
 
 const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
+  const { liquidacionId } = useParams();
   const { idProduct } = useParams();
   const { setFocus } = useForm();
   const { isEditing } = usePackageStore();
@@ -36,6 +37,11 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       "detalle.traslado.servicio",
     ],
   });
+
+  const isCreateMode = !liquidacionId && !isEditing;
+  const isEditMode = !!liquidacionId && isEditing;
+  const isViewMode = !!liquidacionId && !isEditing;
+
   const actividadesCantWatch = useWatch({
     control,
     name: ["detalle.act1", "detalle.act2", "detalle.act3"],
@@ -324,28 +330,50 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     );
   }, [actividadesCantWatch, isBallestasSelected, cantPax, setValue]);
 
-  //si cambia la cantidad se actualiza a todos
+  const prevCantPaxRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (!isEditing) return;
-    if (cantPax === null || cantPax === undefined) return;
+    // ❌ nunca en vista
+    if (isViewMode) {
+      prevCantPaxRef.current = cantPax;
+      return;
+    }
+
+    // 👉 al entrar a editar, inicializamos el ref pero NO sincronizamos
+    if (isEditMode && prevCantPaxRef.current === null) {
+      prevCantPaxRef.current = cantPax;
+      return;
+    }
+
+    // 👉 si NO cambió la cantidad, no hacer nada
+    if (prevCantPaxRef.current === cantPax) return;
+
+    prevCantPaxRef.current = cantPax;
 
     const keys = ["act1", "act2", "act3", "traslado", "entrada"];
 
+    // 🔥 CASO ESPECIAL: cantPax = 0 → limpiar cantidades
+    if (cantPax === 0) {
+      keys.forEach((key) => {
+        setValue(`detalle.${key}.cant`, 0, { shouldDirty: true });
+        setValue(`detalle.${key}.total`, 0, { shouldDirty: true });
+      });
+      return;
+    }
+
+    // 👉 cambio real de usuario con cantPax > 0
     keys.forEach((key) => {
       const servicio = getValues(`detalle.${key}.servicio`);
       if (!servicio || !servicio.value || servicio.value === "-") return;
 
       const precio = Number(getValues(`detalle.${key}.precio`)) || 0;
 
-      setValue(`detalle.${key}.cant`, cantPax, {
-        shouldDirty: true,
-      });
-
+      setValue(`detalle.${key}.cant`, cantPax, { shouldDirty: true });
       setValue(`detalle.${key}.total`, roundCurrency(precio * cantPax), {
         shouldDirty: true,
       });
     });
-  }, [cantPax, isEditing, getValues, setValue]);
+  }, [cantPax, isEditMode, isViewMode, getValues, setValue]);
 
   //detectar si se no hay nada en el row
   const isRowInactive = (rowKey: string) => {
@@ -494,6 +522,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
             id="otrosPartidas"
             name="otrosPartidas"
             className="rounded-lg "
+            transform={(value) => value.toUpperCase()}
             size="small"
             disableHistory
           />

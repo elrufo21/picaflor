@@ -313,6 +313,7 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
             }
             if (e?.value === "CREDITO") {
               setValue("entidadBancaria", "-");
+              setValue("nroOperacion", "-");
             }
           }}
           options={estadoPagoOptions}
