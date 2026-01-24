@@ -27,6 +27,10 @@ export const TimeAMPMInput = ({
           {...field}
           className="rounded-lg border px-2 py-1.5 font-mono tracking-widest"
           value={normalize(field.value)}
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-autocomplete="none"
           onFocus={(e) => {
             const el = e.currentTarget;
             requestAnimationFrame(() =>

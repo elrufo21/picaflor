@@ -32,6 +32,7 @@ import type { InvoiceData } from "@/components/invoice/Invoice";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
 import { toISODate } from "@/shared/helpers/helpers";
+import { formatDate } from "@/shared/helpers/formatDate";
 function parseFecha(fecha: string): string {
   if (!fecha) return "";
 
@@ -134,16 +135,24 @@ const validateViajeValues = (values: any): ValidationError | null => {
   }
 
   if (!values.medioPago) {
-    return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
-  }
-  
-  if (condicionValue !=="Crédito" && values.medioPago==="-") {
+    console.log("values.medioPago", values.medioPago);
     return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
   }
 
-  if (values.medioPago === "DEPOSITO" && !values.nroOperacion?.trim()) {
+  if (condicionValue !== "CREDITO" && values.medioPago === "-") {
+    console.log("values.medioPago", values.medioPago, condicionValue);
+    return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
+  }
+
+  const medioPagoValue = String(values.medioPago ?? "")
+    .trim()
+    .toUpperCase();
+  if (
+    (medioPagoValue === "DEPOSITO" || medioPagoValue === "YAPE") &&
+    !values.nroOperacion?.trim()
+  ) {
     return {
-      message: "DEPOSITO REQUIERE NUMERO DE OPERACION",
+      message: "DEPOSITO o YAPE requieren numero de operacion",
       focus: "nroOperacion",
     };
   }
@@ -190,9 +199,22 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
+  const saldo = Number(values.saldo ?? 0);
+  if (saldo < 0) {
+    return {
+      message: "EL SALDO NO PUEDE SER NEGATIVO",
+      focus: "saldo",
+    };
+  }
+
   const primeraActividad = getDetailField(values, "act1");
+  const primeraActividadTieneDetalle =
+    primeraActividad.detalleId !== undefined &&
+    primeraActividad.detalleId !== null &&
+    String(primeraActividad.detalleId).trim() !== "";
   if (
     primeraActividad.servicio?.value &&
+    !primeraActividadTieneDetalle &&
     Number(primeraActividad.precio) <= 0 &&
     !isIslasBallestasActivity(primeraActividad.servicio)
   ) {
@@ -203,8 +225,13 @@ const validateViajeValues = (values: any): ValidationError | null => {
   }
 
   const segundaActividad = getDetailField(values, "act2");
+  const segundaActividadTieneDetalle =
+    segundaActividad.detalleId !== undefined &&
+    segundaActividad.detalleId !== null &&
+    String(segundaActividad.detalleId).trim() !== "";
   if (
     segundaActividad.servicio?.value &&
+    !segundaActividadTieneDetalle &&
     Number(segundaActividad.precio) <= 0 &&
     !isIslasBallestasActivity(segundaActividad.servicio)
   ) {
@@ -215,7 +242,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
   }
 
   const traslado = getDetailField(values, "traslado");
-  if (
+  /*if (
     traslado.servicio?.value &&
     traslado.servicio?.value !== "-" &&
     Number(traslado.precio) <= 0
@@ -224,7 +251,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
       message: "SI SELECCIONO QUE INCLUYE TRASLADO...INGRESE EL PRECIO",
       focus: "detalle.traslado.precio",
     };
-  }
+  }*/
 
   if (condicionValue.includes("ACUENTA")) {
     if (!values.acuenta && values.acuenta !== 0) {
@@ -275,21 +302,10 @@ function resolveServicioLabel(servicio: any) {
 
 function normalizarDetalleCreate(detalle: any): string {
   return Object.values(detalle)
-    .map((i: any) => ({
-      servicioLabel: resolveServicioLabel(i?.servicio),
-      cant: Number(i?.cant),
-      precio: i?.precio,
-      total: i?.total,
-    }))
-    .filter((item) => item.servicioLabel && item.cant > 0)
-    .map((item) =>
-      [
-        item.servicioLabel, // 👈 PRIMER CAMPO TEXTO
-        d(item.precio),
-        item.cant,
-        d(item.total),
-      ].join("|"),
-    )
+    .map((i: any) => {
+      const label = resolveServicioLabel(i?.servicio) || "-";
+      return [label, d(i?.precio), Number(i?.cant), d(i?.total)].join("|");
+    })
     .join(";");
 }
 
@@ -299,15 +315,27 @@ function normalizarDetalleEdit(detalle: any): string {
       const hasServicioObject = i?.servicio && typeof i.servicio === "object";
       const detalleId =
         i?.detalleId ?? (hasServicioObject ? i.servicio.detalleId : undefined);
+      let resolvedServicioLabel = resolveServicioLabel(i?.servicio) || "";
+      const normalizedLabel = resolvedServicioLabel.trim().toUpperCase();
+      if (!resolvedServicioLabel || normalizedLabel === "N/A") {
+        resolvedServicioLabel = "-";
+      }
       return {
-        servicioLabel: resolveServicioLabel(i?.servicio),
+        servicioLabel: resolvedServicioLabel,
         cant: Number(i?.cant),
         precio: i?.precio,
         total: i?.total,
         detalleId,
       };
     })
-    .filter((item) => item.servicioLabel && item.cant > 0)
+    .filter(
+      (item) =>
+        item.detalleId !== undefined &&
+        item.detalleId !== null &&
+        item.servicioLabel &&
+        (item.cant > 0 ||
+          ["-", "N/A"].includes(item.servicioLabel.trim().toUpperCase())),
+    )
     .map((item) =>
       [
         item.detalleId ?? "", // 👈 SOLO EN EDIT
@@ -319,16 +347,66 @@ function normalizarDetalleEdit(detalle: any): string {
     )
     .join(";");
 }
+function resolveActividadesEspeciales(detalle: any, idProducto: number) {
+  if (Number(idProducto) !== 4) {
+    return { islas: "", tubulares: "", otros: "" };
+  }
+
+  let islas = "";
+  let tubulares = "";
+  let otros = "";
+
+  const actividades = ["act1", "act2", "act3"];
+
+  actividades.forEach((key) => {
+    const act = detalle?.[key];
+    if (!act?.servicio || Number(act.cant) <= 0) return;
+
+    const label =
+      typeof act.servicio === "object"
+        ? (act.servicio.label ?? act.servicio.value)
+        : act.servicio;
+
+    if (!label || label === "-" || label === "N/A") return;
+
+    const text = String(label).toLowerCase();
+
+    if (text.includes("islas ballestas")) {
+      islas = String(act.cant);
+    }
+
+    if (text.includes("tubulares")) {
+      tubulares = String(act.cant);
+    }
+  });
+
+  const act3 = detalle?.act3;
+  if (
+    act3?.servicio &&
+    act3.servicio !== "-" &&
+    act3.servicio !== "N/A" &&
+    Number(act3.cant) > 0
+  ) {
+    otros = String(act3.cant);
+  }
+
+  return { islas, tubulares, otros };
+}
 
 function buildListaOrdenCreate(data) {
   const detalle = normalizarDetalleCreate(data.detalle);
 
+  const { islas, tubulares, otros } = resolveActividadesEspeciales(
+    data.detalle,
+    data.idProducto,
+  );
+
   const orden = [
-    n(data.documentoCobranza), // NotaDocu
-    n(data.nombreCompleto), // 👈 Nombre Pax
-    n(data.documentoNumero), // 👈 DNI Pax
-    n(data.clienteId ?? 0), // ClienteId
-    n(data.counter), // NotaUsuario
+    n(data.documentoCobranza),
+    n(data.nombreCompleto),
+    n(data.documentoNumero),
+    n(data.clienteId ?? 0),
+    n(data.counter),
     n(data.medioPago),
     n(data.condicion?.value),
     n(data.celular),
@@ -341,8 +419,8 @@ function buildListaOrdenCreate(data) {
     n(data.condicion?.value),
     data.companiaId,
     "NO",
-    "-", // Serie
-    "-", // Numero
+    "-",
+    "-",
     0,
     data.usuarioId,
     n(data.entidadBancaria),
@@ -355,16 +433,16 @@ function buildListaOrdenCreate(data) {
     data.cantPax,
     n(data.puntoPartida),
     n(data.horaPartida),
-    n(data.otrosPartidas ?? ""), //otros partidas
+    n(data.otrosPartidas ?? ""),
     n(data.visitas),
     n(Number(data.precioExtraSoles ?? 0)),
     n(Number(data.precioExtraDolares ?? 0)),
     data.fechaAdelanto,
     n(data.mensajePasajero ?? ""),
     n(data.observaciones ?? ""),
-    "NO", //islas
-    "NO", //tubulares
-    "NO", //otros
+    islas,
+    tubulares,
+    otros,
     data.fechaViaje,
     0,
     "NO",
@@ -377,9 +455,13 @@ function buildListaOrdenCreate(data) {
 
   return `${orden}[${detalle}`;
 }
+
 function buildListaOrdenEdit(data) {
   const detalle = normalizarDetalleEdit(data.detalle);
-
+  const { islas, tubulares, otros } = resolveActividadesEspeciales(
+    data.detalle,
+    data.idProducto,
+  );
   const orden = [
     n(data.documentoCobranza), // 1
     Number(data.clienteId), // 2
@@ -417,9 +499,9 @@ function buildListaOrdenEdit(data) {
     n(toISODate(data.fechaEmision)), // 34
     n(data.mensajePasajero ?? ""), // 35
     n(data.observaciones ?? ""), // 36
-    "-", // 37
-    "-", // 38
-    "-", // 39
+    islas, // 37
+    tubulares, // 38
+    otros, // 39
     n(toISODate(data.fechaViaje)), // 40
     0, // 41
     "NO", // 42
@@ -596,7 +678,7 @@ export function adaptViajeJsonToInvoice(
     acuenta: viajeJson.acuenta,
     saldo: viajeJson.saldo,
 
-    fechaAdelanto: backend.fechaEmision,
+    fechaAdelanto: isEdit ? viajeJson?.fechaRegistro : backend.fechaEmision,
     medioPago: viajeJson.medioPago,
 
     documento: viajeJson.documentoCobranza,
@@ -664,6 +746,7 @@ const ViajeForm = () => {
       totalGeneral: 0,
     },
   });
+  console.log("watch", watch());
   useEffect(() => {
     return () => {
       setFormData(null);
@@ -815,13 +898,18 @@ const ViajeForm = () => {
       }
 
       const pdfData = adaptViajeJsonToInvoice(payload, result);
+      const backendPayload = payload._editMode
+        ? `${liquidacionId}¬¬¬${formatDate(payload.fechaAdelanto) ?? ""}`
+        : result;
 
       localStorage.setItem("invoiceData", JSON.stringify(pdfData));
       localStorage.setItem("invoiceBackend", result);
       navigate(`/fullday/${idProduct}/passengers/preview`, {
         state: {
           invoiceData: pdfData,
-          backendPayload: result,
+          backendPayload,
+          nserie: payload.nserie,
+          ndocumento: payload.ndocumento,
         },
       });
     } catch (error) {
@@ -838,15 +926,18 @@ const ViajeForm = () => {
   const handlePrint = () => {
     try {
       const formValues = getValues();
-      const invoiceData = adaptViajeJsonToInvoice(formValues, true);
-      const backendPayload = `${formValues.nserie ?? ""}-${
-        formValues.ndocumento ?? ""
-      }¬¬¬${formValues.fechaEmision ?? ""}`;
-
+      const invoiceData = adaptViajeJsonToInvoice(
+        { ...formValues, fechaAdelanto: watch("fechaAdelanto") },
+        true,
+      );
+      const backendPayload = liquidacionId ?? formValues.nserie ?? "";
+      console.log("invoiceData", invoiceData, backendPayload);
       navigate(`/fullday/${idProduct}/passengers/preview`, {
         state: {
           invoiceData,
           backendPayload,
+          nserie: formValues.nserie,
+          ndocumento: formValues.ndocumento,
         },
       });
     } catch (error) {

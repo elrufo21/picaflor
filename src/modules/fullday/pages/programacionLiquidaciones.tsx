@@ -15,20 +15,20 @@ import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
 import { useCanalVenta } from "../hooks/useCanalVenta";
 import { ChevronLeft } from "lucide-react";
 
-//detalle
 type BackendDetalle = {
+  detalleId: number; // ✅ faltaba
   actividades: string;
   precio: number | null;
-  cantidad: number;
+  cantidad: number | null;
   importe: number | null;
 };
-
-export function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
+function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
   const emptyRow = {
     servicio: null,
     precio: 0,
     cant: 0,
     total: 0,
+    detalleId: 0,
   };
 
   const rows = {
@@ -41,49 +41,36 @@ export function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
   };
 
   detalles.forEach((d, index) => {
-    const base = {
+    const rawLabel = String(d.actividades ?? "").trim();
+
+    const isEntrada = index === 5; // backend fijo
+
+    // 🔴 BASE NORMAL (OBJETO)
+    const baseNormal = {
       detalleId: d.detalleId,
       servicio: {
-        value: d.actividades,
-        label: d.actividades,
+        value: rawLabel || "-",
+        label: rawLabel || "-",
       },
-      precio: Number(d.precio ?? 0),
-      cant: Number(d.cantidad ?? 0),
-      total: Number(d.importe ?? 0),
+      precio: d.precio ?? 0,
+      cant: d.cantidad ?? 0,
+      total: d.importe ?? 0,
     };
 
-    // 1️⃣ Tarifa principal
-    if (index === 0) {
-      rows.tarifa = base;
-      return;
-    }
+    // 🔥 BASE ESPECIAL PARA ENTRADA (STRING)
+    const baseEntrada = {
+      detalleId: d.detalleId,
+      servicio: rawLabel && rawLabel !== "-" ? rawLabel : "N/A", // 👈 CLAVE
+      precio: d.precio ?? 0,
+      cant: d.cantidad ?? 0,
+      total: d.importe ?? 0,
+    };
 
-    const actividadTexto = d.actividades.toUpperCase();
-
-    // 2️⃣ Traslado
-    if (actividadTexto.includes("RECOJO")) {
-      rows.traslado = base;
-      return;
-    }
-
-    // 3️⃣ Entrada / impuestos
-    if (
-      actividadTexto.includes("IMPTOS") ||
-      actividadTexto.includes("ENTRAD")
-    ) {
-      rows.entrada = {
-        ...base,
-        servicio: d.actividades,
-      };
-      return;
-    }
-
-    // 3️⃣ Actividades (máx 3)
-    const actKeys = ["act1", "act2", "act3"] as const;
-    const freeKey = actKeys.find((k) => rows[k].servicio === null);
-    if (freeKey) {
-      rows[freeKey] = base;
-    }
+    if (index === 0) return (rows.tarifa = baseNormal);
+    if (index >= 1 && index <= 3)
+      return (rows[`act${index}` as "act1" | "act2" | "act3"] = baseNormal);
+    if (index === 4) return (rows.traslado = baseNormal);
+    if (index === 5) return (rows.entrada = baseEntrada); // 👈 AQUÍ
   });
 
   return rows;
@@ -462,6 +449,7 @@ const LiquidacionesPage = () => {
       precioExtra: Number(data.adicional),
       observaciones: data.observaciones,
       detalle: normalizeBackendDetalleToForm(detalle),
+      detallexd: normalizeBackendDetalleToForm(detalle),
       canalDeVenta,
       hotel: hotel ? { label: hotel?.nombre, value: Number(hotel?.id) } : null,
       puntoPartida: data.puntoPartida,
@@ -619,6 +607,7 @@ const LiquidacionesPage = () => {
       reload();
     }
   }, [refreshKey, reload]);
+  console.log("row", rows);
   const DateRangeFilter = () => (
     <div className="flex items-center gap-4">
       <div className="text-sm font-semibold text-slate-900">Buscar por</div>

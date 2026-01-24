@@ -19,10 +19,11 @@ const InvoicePreview = () => {
     {}) as LocationState;
 
   const backendInfo = useMemo(() => {
-    const parts = String(backendPayload ?? "").split("¬¬¬");
+    const parts = String(backendPayload ?? "").split("¬");
+
     return {
       orden: parts[0] || null,
-      fecha: parts[1] || null,
+      fecha: parts[3] || null,
     };
   }, [backendPayload]);
 
@@ -83,20 +84,24 @@ const InvoicePreview = () => {
     if (!id) return;
     navigate(`/fullday`);
   };
-
+  console.log("invoiceData", invoiceData);
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-lg font-semibold text-slate-900">
-            {backendInfo.orden ?? "No disponible"}
-          </p>
-          <p className="text-xs text-slate-500">
-            {backendInfo.fecha
-              ? `Fecha: ${backendInfo.fecha}`
-              : "Fecha no registrada"}
-          </p>
+        <div className="rounded-lg bg-slate-50 px-4 py-2">
+          {backendInfo.orden ? (
+            <p className="text-slate-800">
+              <span className="font-semibold">Nro Liquidacion:</span>{" "}
+              <span className="text-slate-900">{backendInfo.orden}</span>
+              <span className="mx-2 text-slate-400">•</span>
+              <span className="font-semibold">Fecha:</span>{" "}
+              <span className="text-slate-700">{backendInfo.fecha}</span>
+            </p>
+          ) : (
+            <p className="text-slate-400 italic">No disponible</p>
+          )}
         </div>
+
         <div className="flex flex-wrap gap-2">
           <button
             type="button"

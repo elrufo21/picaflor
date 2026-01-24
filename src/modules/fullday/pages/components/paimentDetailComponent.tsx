@@ -51,13 +51,6 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       setValue("efectivo", 0);
     }
 
-    if (condicion === "ACUENTA") {
-      // NO tocar acuenta
-      // aquí solo limpiamos medios (opcional, según tu regla)
-      setValue("deposito", 0);
-      setValue("efectivo", 0);
-    }
-
     if (medioPago === "EFECTIVO") {
       if (condicion === "CANCELADO") {
         setValue("efectivo", roundCurrency(total || 0));
@@ -71,6 +64,12 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       setValue("deposito", roundCurrency(total));
     }
   }, [medioPago, condicion, total, setValue]);
+  useEffect(() => {
+    if (condicion === "ACUENTA") {
+      setValue("deposito", 0);
+      setValue("efectivo", 0);
+    }
+  }, [medioPago, condicion, setValue]);
   useEffect(() => {
     if (!isEditing) return;
 
@@ -117,10 +116,11 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
   }, [condicion, total, acuenta]);
 
   useEffect(() => {
-    if (medioPago === "EFECTIVO" || medioPago === "YAPE") {
+    if (medioPago === "EFECTIVO") {
       setValue("efectivo", acuenta);
     }
-    if (medioPago === "DEPOSITO") {
+    if (medioPago === "DEPOSITO" || medioPago === "YAPE") {
+      setValue("efectivo", 0);
       setValue("deposito", acuenta);
     }
     if (medioPago === "-" || medioPago === "") {
@@ -128,7 +128,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       setValue("deposito", 0);
     }
   }, [acuenta, medioPago]);
-
+  console.log("efectivo", watch("efectivo"));
   return (
     <div className="lg:col-span-2 space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
@@ -138,6 +138,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             control={control}
             label="Tipo de Documento"
             options={documentoCobranzaOptions}
+            disabled={!isEditing}
             size="small"
           />
         </div>
@@ -184,6 +185,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 type="number"
                 control={control}
                 disabled={condicion != "ACUENTA"}
+                disableHistory
                 formatter={condicion != "ACUENTA" ? formatCurrency : undefined}
                 displayZeroAsEmpty={condicion == "ACUENTA"}
                 inputProps={{ style: { textAlign: "right" } }}
@@ -325,9 +327,8 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 <SelectControlled
                   name="entidadBancaria"
                   disabled={
-                    condicion == "CREDITO" ||
-                    medioPago !== "DEPOSITO" ||
-                    !isEditing
+                    condicion === "CREDITO" ||
+                    !["DEPOSITO", "YAPE"].includes(medioPago)
                   }
                   control={control}
                   options={bancoOptions}
@@ -346,7 +347,11 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               <div className="bg-white px-2 py-1">
                 <TextControlled
                   name="nroOperacion"
-                  disabled={condicion == "CREDITO" || medioPago !== "DEPOSITO"}
+                  disabled={
+                    condicion === "CREDITO" ||
+                    !["DEPOSITO", "YAPE"].includes(medioPago)
+                  }
+                  disableHistory
                   control={control}
                   size="small"
                   // disabled={isCredito || !isDeposito}
@@ -365,7 +370,6 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                   <TextControlled
                     name="deposito"
                     control={control}
-                    type="number"
                     disabled
                     inputProps={{
                       min: 0,
@@ -382,7 +386,6 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                   <TextControlled
                     name="efectivo"
                     control={control}
-                    type="number"
                     disabled
                     inputProps={{
                       min: 0,
