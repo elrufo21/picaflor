@@ -5,6 +5,7 @@ import Projects from "./pages/Projects";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import fulldayRoutes from "../modules/fullday/router";
+import cashFlowRoutes from "../modules/cashFlow/routes";
 import maintenanceRoutes from "../modules/maintenance/routes";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
@@ -27,6 +28,7 @@ const router = createBrowserRouter([
       { path: "reports", element: <Reports /> },
       { path: "settings", element: <Settings /> },
       ...fulldayRoutes,
+      ...cashFlowRoutes,
       ...maintenanceRoutes,
       { path: "*", element: <Navigate to="/fullday" replace /> },
     ],

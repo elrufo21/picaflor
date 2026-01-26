@@ -193,12 +193,17 @@ const parseLiquidacionRow = (
 const parseLiquidacionesPayload = (payload: string | null | undefined) => {
   const trimmed = String(payload ?? "").trim();
   if (!trimmed || trimmed === "~") return [];
+
   const normalized = trimmed.replace(/~/g, LEGACY_ROW_SEPARATOR);
-  return normalized
+
+  const rows = normalized
     .split(LEGACY_ROW_SEPARATOR)
     .map((row) => row.trim())
-    .filter((row) => row && row !== "~")
-    .map((row, index) => parseLiquidacionRow(row, index));
+    .filter((row) => row && row !== "~");
+
+  const dataRows = rows.slice(3);
+
+  return dataRows.map((row, index) => parseLiquidacionRow(row, index));
 };
 
 const normalizeProductName = (value?: string) =>

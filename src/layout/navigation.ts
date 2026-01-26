@@ -34,6 +34,13 @@ export const navigationItems: NavigationItem[] = [
     end: true,
   },
   {
+    label: "Cash Flow",
+    to: "/cashflow",
+    icon: LayoutDashboard,
+    description: "Control y conciliación diaria",
+    end: true,
+  },
+  {
     label: "City Tour",
     to: "/vity-tour",
     icon: Car,
