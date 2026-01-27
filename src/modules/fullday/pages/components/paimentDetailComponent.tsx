@@ -327,7 +327,8 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                   name="entidadBancaria"
                   disabled={
                     condicion === "CREDITO" ||
-                    !["DEPOSITO", "YAPE"].includes(medioPago)
+                    !["DEPOSITO", "YAPE"].includes(medioPago) ||
+                    !isEditing
                   }
                   control={control}
                   options={bancoOptions}

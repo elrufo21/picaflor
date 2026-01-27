@@ -813,7 +813,11 @@ const ViajeForm = () => {
     setValue("region", selectedPackage.region, {
       shouldDirty: true,
     });
-    setValue("counter", session.user.displayName);
+    if (!liquidacionId && watch("counter") === "") {
+      setValue("counter", session.user.displayName, {
+        shouldDirty: true,
+      });
+    }
   }, [packages, idProduct, setValue]);
 
   const destino = watch("destino");

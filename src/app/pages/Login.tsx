@@ -93,148 +93,142 @@ const Login = () => {
               Ingresa tus credenciales para continuar
             </p>
           </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-5">
+              <div>
+                <TextControlled
+                  name="username"
+                  control={control}
+                  label="Usuario"
+                  size="small"
+                  InputLabelProps={{
+                    sx: {
+                      color: "#94a3b8",
+                      fontSize: "0.875rem",
+                      "&.Mui-focused": {
+                        color: "#38bdf8",
+                      },
+                    },
+                  }}
+                  InputProps={{
+                    sx: {
+                      color: "white",
+                      backgroundColor: "rgba(255,255,255,0.05)",
+                      borderRadius: "10px",
+                      transition: "all 0.2s",
 
-          <div className="space-y-5">
-            <div>
-              <TextControlled
-                name="username"
-                control={control}
-                label="Usuario"
-                size="small"
-                inputProps={{
-                  onKeyDown: (e: React.KeyboardEvent) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      setFocus("password");
-                    }
-                  },
-                }}
-                InputLabelProps={{
-                  sx: {
-                    color: "#94a3b8",
-                    fontSize: "0.875rem",
-                    "&.Mui-focused": {
-                      color: "#38bdf8",
+                      "& fieldset": {
+                        borderColor: "rgba(255,255,255,0.08)",
+                      },
+                      "&:hover": {
+                        backgroundColor: "rgba(255,255,255,0.08)",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(255,255,255,0.15)",
+                      },
+                      "&.Mui-focused": {
+                        backgroundColor: "rgba(255,255,255,0.08)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#38bdf8",
+                        borderWidth: "1px",
+                      },
                     },
-                  },
-                }}
-                InputProps={{
-                  sx: {
-                    color: "white",
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    borderRadius: "10px",
-                    transition: "all 0.2s",
-
-                    "& fieldset": {
-                      borderColor: "rgba(255,255,255,0.08)",
-                    },
-                    "&:hover": {
-                      backgroundColor: "rgba(255,255,255,0.08)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(255,255,255,0.15)",
-                    },
-                    "&.Mui-focused": {
-                      backgroundColor: "rgba(255,255,255,0.08)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#38bdf8",
-                      borderWidth: "1px",
-                    },
-                  },
-                }}
-              />
-            </div>
-
-            <div>
-              <TextControlled
-                name="password"
-                control={control}
-                label="Contraseña"
-                type="password"
-                size="small"
-                InputLabelProps={{
-                  sx: {
-                    color: "#94a3b8",
-                    fontSize: "0.875rem",
-                    "&.Mui-focused": {
-                      color: "#38bdf8",
-                    },
-                  },
-                }}
-                inputProps={{
-                  onKeyDown: (e: React.KeyboardEvent) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleSubmit(onSubmit)();
-                    }
-                  },
-                }}
-                InputProps={{
-                  sx: {
-                    color: "white",
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    borderRadius: "10px",
-                    transition: "all 0.2s",
-
-                    "& fieldset": {
-                      borderColor: "rgba(255,255,255,0.08)",
-                    },
-                    "&:hover": {
-                      backgroundColor: "rgba(255,255,255,0.08)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(255,255,255,0.15)",
-                    },
-                    "&.Mui-focused": {
-                      backgroundColor: "rgba(255,255,255,0.08)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#38bdf8",
-                      borderWidth: "1px",
-                    },
-                  },
-                }}
-              />
-            </div>
-
-            {error && hydrated && (
-              <div className="text-sm text-red-200 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5 backdrop-blur-sm">
-                {error}
+                  }}
+                />
               </div>
-            )}
 
-            <button
-              type="button"
-              onClick={handleSubmit(onSubmit)}
-              disabled={loading}
-              className="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 font-medium shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      fill="none"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Ingresando...
-                </span>
-              ) : (
-                "Ingresar"
+              <div>
+                <TextControlled
+                  name="password"
+                  control={control}
+                  label="Contraseña"
+                  id="password"
+                  type="password"
+                  size="small"
+                  InputLabelProps={{
+                    sx: {
+                      color: "#94a3b8",
+                      fontSize: "0.875rem",
+                      "&.Mui-focused": {
+                        color: "#38bdf8",
+                      },
+                    },
+                  }}
+                  inputProps={{
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSubmit(onSubmit)();
+                      }
+                    },
+                  }}
+                  InputProps={{
+                    sx: {
+                      color: "white",
+                      backgroundColor: "rgba(255,255,255,0.05)",
+                      borderRadius: "10px",
+                      transition: "all 0.2s",
+
+                      "& fieldset": {
+                        borderColor: "rgba(255,255,255,0.08)",
+                      },
+                      "&:hover": {
+                        backgroundColor: "rgba(255,255,255,0.08)",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(255,255,255,0.15)",
+                      },
+                      "&.Mui-focused": {
+                        backgroundColor: "rgba(255,255,255,0.08)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#38bdf8",
+                        borderWidth: "1px",
+                      },
+                    },
+                  }}
+                />
+              </div>
+
+              {error && hydrated && (
+                <div className="text-sm text-red-200 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5 backdrop-blur-sm">
+                  {error}
+                </div>
               )}
-            </button>
-          </div>
+
+              <button
+                type="button"
+                onClick={handleSubmit(onSubmit)}
+                disabled={loading}
+                className="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 font-medium shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Ingresando...
+                  </span>
+                ) : (
+                  "Ingresar"
+                )}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

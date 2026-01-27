@@ -56,8 +56,11 @@ function TextControlled<T extends FieldValues>({
   disableHistory,
   ...rest
 }: Props<T>) {
-  const { onChange: restOnChange, inputProps: restInputProps, ...restProps } =
-    rest;
+  const {
+    onChange: restOnChange,
+    inputProps: restInputProps,
+    ...restProps
+  } = rest;
   return (
     <Controller
       name={name}
