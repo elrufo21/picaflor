@@ -256,7 +256,7 @@ export const usePackageStore = create<PackageState>()(
           set({ loading: true, error: null });
 
           const res = await fetch(
-            "http://picaflorapi.somee.com/api/v1/Programacion/listServ",
+            "https://picaflorapi.somee.com/api/v1/Programacion/listServ",
             { headers: { accept: "text/plain" } },
           );
 

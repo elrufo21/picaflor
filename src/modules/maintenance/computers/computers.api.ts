@@ -15,7 +15,7 @@ type ComputerApiResponse = {
 
 export const fetchComputersApi = async (): Promise<Computer[]> => {
   const response = await apiRequest<ComputerApiResponse[]>({
-    url: "http://picaflorapi.somee.com/api/v1/Maquina/list",
+    url: "https://picaflorapi.somee.com/api/v1/Maquina/list",
     method: "GET",
     fallback: [],
   });

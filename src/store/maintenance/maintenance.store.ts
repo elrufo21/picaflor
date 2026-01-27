@@ -152,7 +152,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
       if (account.action === "i") {
         const created = await apiRequest<any>({
-          url: "http://picaflorapi.somee.com/api/v1/Proveedor/registerCuenta",
+          url: "https://picaflorapi.somee.com/api/v1/Proveedor/registerCuenta",
           method: "POST",
           data: payload,
           config: {
@@ -169,7 +169,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         }
       } else if (account.action === "u") {
         const updated = await apiRequest<any>({
-          url: "http://picaflorapi.somee.com/api/v1/Proveedor/registerCuenta",
+          url: "https://picaflorapi.somee.com/api/v1/Proveedor/registerCuenta",
           method: "POST",
           data: payload,
           config: {
@@ -324,7 +324,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       };
 
       const created = await apiRequest<Category | string>({
-        url: "http://picaflorapi.somee.com/api/v1/Linea/registerlinea",
+        url: "https://picaflorapi.somee.com/api/v1/Linea/registerlinea",
         method: "POST",
         data: payload,
         config: {
@@ -365,7 +365,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       };
 
       const updated = await apiRequest<Category | string>({
-        url: "http://picaflorapi.somee.com/api/v1/Linea/registerlinea",
+        url: "https://picaflorapi.somee.com/api/v1/Linea/registerlinea",
         method: "POST",
         data: payload,
         config: {
@@ -401,7 +401,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
     deleteCategory: async (idSubLinea) => {
       const result = await apiRequest({
-        url: `http://picaflorapi.somee.com/api/v1/Linea/${idSubLinea}`,
+        url: `https://picaflorapi.somee.com/api/v1/Linea/${idSubLinea}`,
         method: "DELETE",
         config: {
           headers: {
@@ -434,7 +434,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         areaId?: number;
         areaNombre?: string;
       }>({
-        url: "http://picaflorapi.somee.com/api/v1/Area/registerarea",
+        url: "https://picaflorapi.somee.com/api/v1/Area/registerarea",
         method: "POST",
         data: payload,
         config: {
@@ -484,7 +484,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         areaId?: number;
         areaNombre?: string;
       }>({
-        url: `http://picaflorapi.somee.com/api/v1/Area/${id}`,
+        url: `https://picaflorapi.somee.com/api/v1/Area/${id}`,
         method: "PUT",
         data: payload,
         config: {
@@ -521,7 +521,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
     deleteArea: async (id) => {
       const result = await apiRequest({
-        url: `http://picaflorapi.somee.com/api/v1/Area/${id}`,
+        url: `https://picaflorapi.somee.com/api/v1/Area/${id}`,
         method: "DELETE",
         config: {
           headers: {
@@ -560,7 +560,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         serieBoleta?: string;
         tiketera?: string;
       }>({
-        url: "http://picaflorapi.somee.com/api/v1/Maquina/registermaquina",
+        url: "https://picaflorapi.somee.com/api/v1/Maquina/registermaquina",
         method: "POST",
         data: payload,
         config: {
@@ -629,7 +629,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         serieBoleta?: string;
         tiketera?: string;
       }>({
-        url: "http://picaflorapi.somee.com/api/v1/Maquina/registermaquina",
+        url: "https://picaflorapi.somee.com/api/v1/Maquina/registermaquina",
         method: "POST",
         data: payload,
         config: {
@@ -686,7 +686,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
     deleteComputer: async (id) => {
       const result = await apiRequest({
-        url: `http://picaflorapi.somee.com/api/v1/Maquina/${id}`,
+        url: `https://picaflorapi.somee.com/api/v1/Maquina/${id}`,
         method: "DELETE",
         config: {
           headers: {
@@ -746,7 +746,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       }
 
       const created = await apiRequest<any>({
-        url: "http://picaflorapi.somee.com/api/v1/Proveedor/register",
+        url: "https://picaflorapi.somee.com/api/v1/Proveedor/register",
         method: "POST",
         data: requestData as any,
         config: requestConfig,
@@ -857,7 +857,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       }
 
       const updated = await apiRequest<any>({
-        url: "http://picaflorapi.somee.com/api/v1/Proveedor/register",
+        url: "https://picaflorapi.somee.com/api/v1/Proveedor/register",
         method: "POST",
         data: requestData as any,
         config: requestConfig,
@@ -946,7 +946,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
     deleteProvider: async (id) => {
       const result = await apiRequest({
-        url: `http://picaflorapi.somee.com/api/v1/Proveedor/${id}`,
+        url: `https://picaflorapi.somee.com/api/v1/Proveedor/${id}`,
         method: "DELETE",
         config: {
           headers: {

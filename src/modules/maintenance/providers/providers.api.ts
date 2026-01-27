@@ -23,7 +23,7 @@ export const fetchProvidersApi = async (
       ? `?estado=${encodeURIComponent(estado)}`
       : "";
   const response = await apiRequest<ProviderApiResponse[]>({
-    url: `http://picaflorapi.somee.com/api/v1/Proveedor/list${query}`,
+    url: `https://picaflorapi.somee.com/api/v1/Proveedor/list${query}`,
     method: "GET",
     fallback: [],
   });

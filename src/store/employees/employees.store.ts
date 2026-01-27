@@ -112,7 +112,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
               ? `?estado=${encodeURIComponent(estado)}`
               : "";
           const data = await apiRequest<Personal[]>({
-            url: `http://picaflorapi.somee.com/api/v1/Personal/list${query}`,
+            url: `https://picaflorapi.somee.com/api/v1/Personal/list${query}`,
             method: "GET",
             fallback: [],
           });
@@ -133,7 +133,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
     const { formData, payload } = buildPersonalFormData(employee, 0);
 
     const created = await apiRequest<Personal>({
-      url: "http://picaflorapi.somee.com/api/v1/Personal/registerpersonal",
+      url: "https://picaflorapi.somee.com/api/v1/Personal/registerpersonal",
       method: "POST",
       data: formData,
       fallback: { ...payload, personalId: Date.now() },
@@ -157,7 +157,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
     const { formData, payload } = buildPersonalFormData(data, id);
 
     const updated = await apiRequest<Personal>({
-      url: "http://picaflorapi.somee.com/api/v1/Personal/registerpersonal",
+      url: "https://picaflorapi.somee.com/api/v1/Personal/registerpersonal",
       method: "POST",
       data: formData,
       fallback: { ...payload },
@@ -183,7 +183,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
 
   deleteEmployee: async (id) => {
     const result = await apiRequest({
-      url: `http://picaflorapi.somee.com/api/v1/Personal/${id}`,
+      url: `https://picaflorapi.somee.com/api/v1/Personal/${id}`,
       method: "DELETE",
       config: {
         headers: {

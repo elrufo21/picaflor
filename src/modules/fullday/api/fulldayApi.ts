@@ -9,7 +9,7 @@ export type CreateProgramacionPayload = {
   cantMax: number;
   region: string;
 };
-const API_URL = "http://picaflorapi.somee.com/api/v1/Programacion";
+const API_URL = "https://picaflorapi.somee.com/api/v1/Programacion";
 
 export async function fetchPackages(fecha?: string): Promise<PackageItem[]> {
   const params = new URLSearchParams();
@@ -84,7 +84,7 @@ export async function fetchListadoByProducto(
 
 export async function createProgramacion(payload: CreateProgramacionPayload) {
   const res = await fetch(
-    "http://picaflorapi.somee.com/api/v1/Programacion/registerProg",
+    "https://picaflorapi.somee.com/api/v1/Programacion/registerProg",
     {
       method: "POST",
       headers: {
@@ -105,7 +105,7 @@ export async function createProgramacion(payload: CreateProgramacionPayload) {
 
 export async function deleteProgramacion(id: number): Promise<void> {
   const res = await fetch(
-    `http://picaflorapi.somee.com/api/v1/Programacion/${id}`,
+    `https://picaflorapi.somee.com/api/v1/Programacion/${id}`,
     {
       method: "DELETE",
       headers: {
@@ -121,7 +121,7 @@ export async function deleteProgramacion(id: number): Promise<void> {
 }
 export const editarCantMax = async (Valores: string) => {
   const res = await fetch(
-    "http://picaflorapi.somee.com/api/v1/Programacion/editar-cant-max",
+    "https://picaflorapi.somee.com/api/v1/Programacion/editar-cant-max",
     {
       method: "POST",
       headers: {

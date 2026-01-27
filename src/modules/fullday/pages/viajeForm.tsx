@@ -520,7 +520,7 @@ function buildListaOrdenEdit(data) {
 async function agregarViaje(valores, edit) {
   try {
     const response = await axios.post(
-      `http://picaflorapi.somee.com/api/v1/Programacion/${!edit ? "agregar-viaje" : "editar-viaje"}`,
+      `https://picaflorapi.somee.com/api/v1/Programacion/${!edit ? "agregar-viaje" : "editar-viaje"}`,
       {
         valores: valores,
       },
@@ -953,7 +953,7 @@ const ViajeForm = () => {
     try {
       setIsSaving(true);
       const response = await axios.delete(
-        `http://picaflorapi.somee.com/api/v1/Nota/${liquidacionId}`,
+        `https://picaflorapi.somee.com/api/v1/Nota/${liquidacionId}`,
       );
 
       const deleted = response?.data === true || response?.data === "true";

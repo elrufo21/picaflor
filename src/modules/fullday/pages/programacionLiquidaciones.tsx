@@ -317,7 +317,7 @@ const fetchDetalleActividades = async (notaId: string) => {
   if (!notaId) return [];
   try {
     const response = await fetch(
-      `http://picaflorapi.somee.com/api/v1/Programacion/traer-actividades/${notaId}`,
+      `https://picaflorapi.somee.com/api/v1/Programacion/traer-actividades/${notaId}`,
       {
         method: "GET",
         headers: {

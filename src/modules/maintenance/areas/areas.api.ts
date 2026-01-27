@@ -18,7 +18,7 @@ export const fetchAreasApi = async (): Promise<Area[]> => {
         areaNombre?: string;
       }[]
   >({
-    url: "http://picaflorapi.somee.com/api/v1/Area/list",
+    url: "https://picaflorapi.somee.com/api/v1/Area/list",
     method: "GET",
     fallback: [],
   });
