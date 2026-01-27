@@ -16,14 +16,14 @@ type ProviderApiResponse = {
 } & Record<string, unknown>;
 
 export const fetchProvidersApi = async (
-  estado: "ACTIVO" | "INACTIVO" | "" = "ACTIVO"
+  estado: "ACTIVO" | "INACTIVO" | "" = "ACTIVO",
 ): Promise<Provider[]> => {
   const query =
     estado && estado.trim() !== ""
       ? `?estado=${encodeURIComponent(estado)}`
       : "";
   const response = await apiRequest<ProviderApiResponse[]>({
-    url: `http://localhost:5000/api/v1/Proveedor/list${query}`,
+    url: `http://picaflorapi.somee.com/api/v1/Proveedor/list${query}`,
     method: "GET",
     fallback: [],
   });
@@ -31,7 +31,12 @@ export const fetchProvidersApi = async (
   return (
     response?.map((item) => ({
       id: Number(item.proveedorId ?? (item as any).id ?? 0),
-      razon: String(item.proveedorRazon ?? (item as any).proveedorRazon ?? (item as any).nombre ?? ""),
+      razon: String(
+        item.proveedorRazon ??
+          (item as any).proveedorRazon ??
+          (item as any).nombre ??
+          "",
+      ),
       ruc: String(item.proveedorRuc ?? ""),
       contacto: String(item.proveedorContacto ?? ""),
       celular: String(item.proveedorCelular ?? ""),

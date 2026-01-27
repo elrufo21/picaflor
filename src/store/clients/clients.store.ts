@@ -17,38 +17,27 @@ interface ClientsState {
 }
 
 const mapApiToClient = (item: any): Client => {
-  const clienteId = Number(
-    item?.clienteId ?? item?.ClienteId ?? item?.id ?? 0
-  );
+  const clienteId = Number(item?.clienteId ?? item?.ClienteId ?? item?.id ?? 0);
   return {
     id: clienteId,
     clienteId,
-    clienteRazon:
-      item?.clienteRazon ?? item?.ClienteRazon ?? item?.razon ?? "",
+    clienteRazon: item?.clienteRazon ?? item?.ClienteRazon ?? item?.razon ?? "",
     clienteRuc: item?.clienteRuc ?? item?.ClienteRuc ?? item?.ruc ?? "",
     clienteDni: item?.clienteDni ?? item?.ClienteDni ?? item?.dni ?? "",
     clienteDireccion:
       item?.clienteDireccion ?? item?.ClienteDireccion ?? item?.direccion ?? "",
-    clienteMovil:
-      item?.clienteMovil ?? item?.ClienteMovil ?? item?.movil ?? "",
+    clienteMovil: item?.clienteMovil ?? item?.ClienteMovil ?? item?.movil ?? "",
     clienteTelefono:
       item?.clienteTelefono ?? item?.ClienteTelefono ?? item?.telefono ?? "",
     clienteCorreo:
       item?.clienteCorreo ?? item?.ClienteCorreo ?? item?.correo ?? "",
     clienteEstado:
-      item?.clienteEstado ??
-      item?.ClienteEstado ??
-      item?.estado ??
-      "ACTIVO",
+      item?.clienteEstado ?? item?.ClienteEstado ?? item?.estado ?? "ACTIVO",
     clienteDespacho:
-      item?.clienteDespacho ??
-      item?.ClienteDespacho ??
-      item?.despacho ??
-      "",
+      item?.clienteDespacho ?? item?.ClienteDespacho ?? item?.despacho ?? "",
     clienteUsuario:
       item?.clienteUsuario ?? item?.ClienteUsuario ?? item?.usuario ?? "",
-    clienteFecha:
-      item?.clienteFecha ?? item?.ClienteFecha ?? item?.fecha ?? "",
+    clienteFecha: item?.clienteFecha ?? item?.ClienteFecha ?? item?.fecha ?? "",
     companiaId: item?.companiaId ?? item?.CompaniaId ?? null,
   };
 };
@@ -176,7 +165,7 @@ export const useClientsStore = create<ClientsState>((set) => ({
   addClient: async (client) => {
     const payload = buildClientPayload(client, 0);
     const created = await apiRequest<any>({
-      url: "http://localhost:5000/api/v1/Cliente/register",
+      url: "http://picaflorapi.somee.com/api/v1/Cliente/register",
       method: "POST",
       data: payload,
       config: {
@@ -203,7 +192,7 @@ export const useClientsStore = create<ClientsState>((set) => ({
   updateClient: async (id, data) => {
     const payload = buildClientPayload(data, id);
     const updated = await apiRequest<any>({
-      url: "http://localhost:5000/api/v1/Cliente/register",
+      url: "http://picaflorapi.somee.com/api/v1/Cliente/register",
       method: "POST",
       data: payload,
       config: {
@@ -223,7 +212,7 @@ export const useClientsStore = create<ClientsState>((set) => ({
       clients: state.clients.map((clientItem) =>
         Number(clientItem.clienteId) === Number(id)
           ? mapApiToClient(updated ?? payload)
-          : clientItem
+          : clientItem,
       ),
     }));
     await queryClient.invalidateQueries({ queryKey: clientsQueryKey });
@@ -232,7 +221,7 @@ export const useClientsStore = create<ClientsState>((set) => ({
 
   deleteClient: async (id) => {
     const result = await apiRequest({
-      url: `http://localhost:5000/api/v1/Cliente/${id}`,
+      url: `http://picaflorapi.somee.com/api/v1/Cliente/${id}`,
       method: "DELETE",
       config: {
         headers: {
@@ -248,7 +237,7 @@ export const useClientsStore = create<ClientsState>((set) => ({
 
     set((state) => ({
       clients: state.clients.filter(
-        (clientItem) => Number(clientItem.clienteId) !== Number(id)
+        (clientItem) => Number(clientItem.clienteId) !== Number(id),
       ),
     }));
     await queryClient.invalidateQueries({ queryKey: clientsQueryKey });

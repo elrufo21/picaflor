@@ -11,9 +11,14 @@ type AreaApiResponse = {
 export const fetchAreasApi = async (): Promise<Area[]> => {
   const response = await apiRequest<
     | AreaApiResponse[]
-    | { id?: string | number; nombre?: string; areaId?: number; areaNombre?: string }[]
+    | {
+        id?: string | number;
+        nombre?: string;
+        areaId?: number;
+        areaNombre?: string;
+      }[]
   >({
-    url: "http://localhost:5000/api/v1/Area/list",
+    url: "http://picaflorapi.somee.com/api/v1/Area/list",
     method: "GET",
     fallback: [],
   });

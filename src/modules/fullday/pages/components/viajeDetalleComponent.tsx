@@ -422,54 +422,18 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       {/* =========================
           PARTIDA / HOTEL
       ========================= */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-        <label className="flex flex-col text-sm md:col-span-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2">
+        {/* Punto partida */}
+        <label className="flex flex-col text-sm lg:col-span-4">
           <span className="font-semibold mb-1">Punto partida</span>
-
           <Controller
             name="puntoPartida"
             control={control}
-            defaultValue=""
             render={({ field }) => (
-              <select
-                {...field}
-                className="rounded-lg border px-2.5 py-1.5"
-                onChange={(e) => {
-                  const selectedValue = e.target.value;
-                  field.onChange(selectedValue);
-                  if (
-                    selectedValue === "" ||
-                    selectedValue === "HOTEL" ||
-                    selectedValue === "OTROS"
-                  ) {
-                    setValue("detalle.traslado.servicio", null);
-                    setValue("detalle.traslado.precio", 0);
-                    setValue("detalle.traslado.cant", 0);
-                    setValue("detalle.traslado.total", 0);
-                  } else {
-                    const dashOption = getTrasladoDashOption();
-
-                    setValue("detalle.traslado.servicio", dashOption);
-                    setValue("detalle.traslado.precio", 0);
-                    setValue("detalle.traslado.cant", 0);
-                    setValue("detalle.traslado.total", 0);
-                  }
-
-                  const partida = partidas?.find(
-                    (p) => p.value === selectedValue,
-                  );
-                  const hora =
-                    horasPartida?.find(
-                      (h) => String(h.idParti) === String(partida?.id),
-                    )?.hora ?? "";
-
-                  setValue("horaPartida", hora, { shouldDirty: true });
-                }}
-              >
+              <select {...field} className="rounded-lg border px-2.5 py-1.5">
                 <option value="">Seleccione</option>
                 <option value="HOTEL">Hotel</option>
                 <option value="OTROS">Otros</option>
-
                 {partidas?.map((p) => (
                   <option key={p.id} value={p.value}>
                     {p.label}
@@ -479,34 +443,20 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
             )}
           />
         </label>
-        <label className="flex flex-col text-sm col-span-2">
-          <span className="font-semibold mb-1">Hotel</span>
 
+        {/* Hotel */}
+        <label className="flex flex-col text-sm lg:col-span-3">
+          <span className="font-semibold mb-1">Hotel</span>
           <Controller
             name="hotel"
             control={control}
             render={({ field }) => (
               <Autocomplete
                 options={hoteles || []}
-                getOptionLabel={(o) => o.label}
-                isOptionEqualToValue={(o, v) => o.value === v?.value}
                 size="small"
                 value={field.value || null}
                 disabled={!isHotel && !isOtros}
-                onChange={(_, option) => {
-                  if (!option) {
-                    field.onChange(null);
-                    return;
-                  }
-
-                  handleHotelChange(option.value);
-                  field.onChange(option);
-                  setTimeout(() => {
-                    document
-                      .querySelector<HTMLInputElement>("#otrosPartidas")
-                      ?.focus();
-                  }, 0);
-                }}
+                onChange={(_, option) => field.onChange(option)}
                 renderInput={(params) => (
                   <TextField {...params} placeholder="-" />
                 )}
@@ -515,26 +465,25 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
           />
         </label>
 
-        <label className="flex flex-col text-sm md:col-span-4">
+        {/* Otros partidas */}
+        <label className="flex flex-col text-sm lg:col-span-3">
           <span className="font-semibold mb-1">Otros partidas</span>
           <TextControlled
             control={control}
-            id="otrosPartidas"
             name="otrosPartidas"
-            className="rounded-lg "
-            transform={(value) => value.toUpperCase()}
             size="small"
-            disableHistory
+            transform={(v) => v.toUpperCase()}
           />
         </label>
 
-        <label className="flex flex-col text-sm">
+        {/* Hora */}
+        <label className="flex flex-col text-sm lg:col-span-2">
           <span className="font-semibold mb-1">Hora P.</span>
-
           <TimeAMPMInput name="horaPartida" control={control} />
         </label>
 
-        <label className="flex flex-col text-sm md:col-span-5">
+        {/* Visitas */}
+        <label className="flex flex-col text-sm lg:col-span-12">
           <span className="font-semibold mb-1">Visitas y excursiones</span>
           <textarea
             rows={2}

@@ -393,8 +393,9 @@ const PackageList = () => {
   return (
     <div className="w-full">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        <div className="flex flex-wrap items-end gap-4 w-full">
-          <div>
+        <div className="flex flex-col gap-4 w-full md:flex-row md:items-end">
+          {/* FECHA */}
+          <div className="w-full sm:w-auto">
             <label className="block text-xs font-medium text-slate-600 mb-1">
               Fecha
             </label>
@@ -407,12 +408,13 @@ const PackageList = () => {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="pl-9 pr-3 py-2 text-sm border rounded-lg"
+                className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg"
               />
             </div>
           </div>
 
-          <div className="flex-1 max-w-xs">
+          {/* DESTINO */}
+          <div className="w-full md:max-w-xs">
             <label className="block text-xs font-medium text-slate-600 mb-1">
               Destino
             </label>
@@ -434,43 +436,64 @@ const PackageList = () => {
             </select>
           </div>
 
+          {/* AGREGAR */}
           <button
             onClick={handleAddServicio}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+            className="
+        w-full md:w-auto
+        px-4 py-2
+        bg-emerald-600 text-white
+        rounded-lg
+        hover:bg-emerald-700
+        transition
+        flex justify-center
+      "
           >
             <Plus size={18} />
           </button>
 
-          <div className="ml-auto flex items-center gap-2">
-            {/* GUARDAR */}
+          {/* BOTONES DERECHA */}
+          <div
+            className="
+        w-full
+        flex gap-2
+        flex-col sm:flex-row
+        md:ml-auto md:w-auto
+      "
+          >
             <button
               onClick={handleGuardarCambios}
               className="
-      px-5 py-2 rounded-lg
-      bg-blue-600 text-white
-      hover:bg-blue-700
-      transition
-    "
+          w-full sm:w-auto
+          px-5 py-2
+          rounded-lg
+          bg-blue-600 text-white
+          hover:bg-blue-700
+          transition
+        "
             >
               Guardar
             </button>
+
             <button
-              onClick={() => {
-                loadPackages(date);
-              }}
+              onClick={() => loadPackages(date)}
               title="Refrescar"
               className="
-              p-2 rounded-lg
-              bg-emerald-500 text-slate-100
-              hove:bg-emerald-100
-              transition
-            "
+          w-full sm:w-auto
+          p-2
+          rounded-lg
+          bg-emerald-500
+          text-slate-100
+          hover:bg-emerald-600
+          transition
+          flex justify-center items-center
+        "
             >
               <RefreshCw size={18} />
             </button>
           </div>
         </div>
-      </div>
+      </div>  
 
       <DndTable
         data={parsedPackages.filter((c) => c.id)}

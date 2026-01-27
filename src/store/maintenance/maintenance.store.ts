@@ -44,10 +44,10 @@ const isDuplicateHoliday = (result: unknown) => {
   const message =
     typeof result === "string"
       ? result
-      : (result as any)?.error ??
+      : ((result as any)?.error ??
         (result as any)?.message ??
         (result as any)?.response?.data ??
-        "";
+        "");
 
   if (typeof message !== "string") return false;
   const normalized = message.toLowerCase().trim();
@@ -63,7 +63,7 @@ const isDuplicateHoliday = (result: unknown) => {
 
 const mapProviderAccount = (
   item: any,
-  fallbackProviderId?: number
+  fallbackProviderId?: number,
 ): ProviderBankAccount => ({
   cuentaId: Number(item?.cuentaId ?? item?.id ?? 0) || undefined,
   proveedorId:
@@ -115,14 +115,14 @@ interface MaintenanceState {
     data: ProviderWithAccounts & {
       imageFile?: File | null;
       imageRemoved?: boolean;
-    }
+    },
   ) => Promise<boolean>;
   updateProvider: (
     id: number,
     data: Partial<ProviderWithAccounts> & {
       imageFile?: File | null;
       imageRemoved?: boolean;
-    }
+    },
   ) => Promise<boolean>;
   fetchProviderAccounts: (providerId: number) => Promise<ProviderBankAccount[]>;
   deleteProvider: (id: number) => Promise<boolean>;
@@ -135,7 +135,7 @@ interface MaintenanceState {
 export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
   const sendProviderAccounts = async (
     providerId: number | undefined,
-    accounts?: ProviderBankAccount[]
+    accounts?: ProviderBankAccount[],
   ): Promise<boolean> => {
     if (!providerId || !accounts?.length) return true;
     const accountsToSend = accounts.filter((a) => a.action);
@@ -152,7 +152,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
       if (account.action === "i") {
         const created = await apiRequest<any>({
-          url: "http://localhost:5000/api/v1/Proveedor/registerCuenta",
+          url: "http://picaflorapi.somee.com/api/v1/Proveedor/registerCuenta",
           method: "POST",
           data: payload,
           config: {
@@ -169,7 +169,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         }
       } else if (account.action === "u") {
         const updated = await apiRequest<any>({
-          url: "http://localhost:5000/api/v1/Proveedor/registerCuenta",
+          url: "http://picaflorapi.somee.com/api/v1/Proveedor/registerCuenta",
           method: "POST",
           data: payload,
           config: {
@@ -202,7 +202,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
   };
 
   const fetchProviderAccountsFn = async (
-    providerId: number
+    providerId: number,
   ): Promise<ProviderBankAccount[]> => {
     const response = await apiRequest<any[]>({
       url: `${API_BASE_URL}/Proveedor/${providerId}/cuentas`,
@@ -324,7 +324,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       };
 
       const created = await apiRequest<Category | string>({
-        url: "http://localhost:5000/api/v1/Linea/registerlinea",
+        url: "http://picaflorapi.somee.com/api/v1/Linea/registerlinea",
         method: "POST",
         data: payload,
         config: {
@@ -365,7 +365,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       };
 
       const updated = await apiRequest<Category | string>({
-        url: "http://localhost:5000/api/v1/Linea/registerlinea",
+        url: "http://picaflorapi.somee.com/api/v1/Linea/registerlinea",
         method: "POST",
         data: payload,
         config: {
@@ -391,7 +391,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
             ? updated?.id
               ? updated
               : { ...c, ...data, id }
-            : c
+            : c,
         ),
       }));
 
@@ -401,7 +401,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
     deleteCategory: async (idSubLinea) => {
       const result = await apiRequest({
-        url: `http://localhost:5000/api/v1/Linea/${idSubLinea}`,
+        url: `http://picaflorapi.somee.com/api/v1/Linea/${idSubLinea}`,
         method: "DELETE",
         config: {
           headers: {
@@ -415,7 +415,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       } else {
         set((state) => ({
           categories: state.categories.filter(
-            (c) => String(c.id) !== String(idSubLinea)
+            (c) => String(c.id) !== String(idSubLinea),
           ),
         }));
 
@@ -434,7 +434,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         areaId?: number;
         areaNombre?: string;
       }>({
-        url: "http://localhost:5000/api/v1/Area/registerarea",
+        url: "http://picaflorapi.somee.com/api/v1/Area/registerarea",
         method: "POST",
         data: payload,
         config: {
@@ -484,7 +484,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         areaId?: number;
         areaNombre?: string;
       }>({
-        url: `http://localhost:5000/api/v1/Area/${id}`,
+        url: `http://picaflorapi.somee.com/api/v1/Area/${id}`,
         method: "PUT",
         data: payload,
         config: {
@@ -521,7 +521,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
     deleteArea: async (id) => {
       const result = await apiRequest({
-        url: `http://localhost:5000/api/v1/Area/${id}`,
+        url: `http://picaflorapi.somee.com/api/v1/Area/${id}`,
         method: "DELETE",
         config: {
           headers: {
@@ -560,7 +560,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         serieBoleta?: string;
         tiketera?: string;
       }>({
-        url: "http://localhost:5000/api/v1/Maquina/registermaquina",
+        url: "http://picaflorapi.somee.com/api/v1/Maquina/registermaquina",
         method: "POST",
         data: payload,
         config: {
@@ -629,7 +629,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         serieBoleta?: string;
         tiketera?: string;
       }>({
-        url: "http://localhost:5000/api/v1/Maquina/registermaquina",
+        url: "http://picaflorapi.somee.com/api/v1/Maquina/registermaquina",
         method: "POST",
         data: payload,
         config: {
@@ -686,7 +686,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
     deleteComputer: async (id) => {
       const result = await apiRequest({
-        url: `http://localhost:5000/api/v1/Maquina/${id}`,
+        url: `http://picaflorapi.somee.com/api/v1/Maquina/${id}`,
         method: "DELETE",
         config: {
           headers: {
@@ -711,7 +711,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       data: ProviderWithAccounts & {
         imageFile?: File | null;
         imageRemoved?: boolean;
-      }
+      },
     ) => {
       const payload = {
         proveedorId: 0,
@@ -746,7 +746,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       }
 
       const created = await apiRequest<any>({
-        url: "http://localhost:5000/api/v1/Proveedor/register",
+        url: "http://picaflorapi.somee.com/api/v1/Proveedor/register",
         method: "POST",
         data: requestData as any,
         config: requestConfig,
@@ -773,7 +773,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       if (data.cuentasBancarias?.length) {
         const okAccounts = await sendProviderAccounts(
           providerId,
-          data.cuentasBancarias
+          data.cuentasBancarias,
         );
         if (!okAccounts) return false;
       }
@@ -801,7 +801,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
                 ? [
                     String(
                       (created as any).proveedorImagen ??
-                        (created as any).imagen
+                        (created as any).imagen,
                     ),
                   ]
                 : [],
@@ -822,7 +822,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       data: Partial<ProviderWithAccounts> & {
         imageFile?: File | null;
         imageRemoved?: boolean;
-      }
+      },
     ) => {
       const payload = {
         proveedorId: id,
@@ -857,7 +857,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       }
 
       const updated = await apiRequest<any>({
-        url: "http://localhost:5000/api/v1/Proveedor/register",
+        url: "http://picaflorapi.somee.com/api/v1/Proveedor/register",
         method: "POST",
         data: requestData as any,
         config: requestConfig,
@@ -876,7 +876,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       if (data.cuentasBancarias?.length) {
         const okAccounts = await sendProviderAccounts(
           id,
-          data.cuentasBancarias
+          data.cuentasBancarias,
         );
         if (!okAccounts) return false;
       }
@@ -925,10 +925,10 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
                   ? [
                       String(
                         (updated as any).proveedorImagen ??
-                          (updated as any).imagen
+                          (updated as any).imagen,
                       ),
                     ]
-                  : p.images ?? [],
+                  : (p.images ?? []),
               cuentasBancarias: data.cuentasBancarias ?? p.cuentasBancarias,
             };
           }
@@ -946,7 +946,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
     deleteProvider: async (id) => {
       const result = await apiRequest({
-        url: `http://localhost:5000/api/v1/Proveedor/${id}`,
+        url: `http://picaflorapi.somee.com/api/v1/Proveedor/${id}`,
         method: "DELETE",
         config: {
           headers: {
@@ -1004,7 +1004,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
       set((state) => ({
         holidays: state.holidays.map((h) =>
-          String(h.id) === String(id) ? { ...h, ...updated } : h
+          String(h.id) === String(id) ? { ...h, ...updated } : h,
         ),
       }));
 

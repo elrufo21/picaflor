@@ -5,7 +5,7 @@ export const categoriesQueryKey = ["categories"] as const;
 
 export const fetchCategoriesApi = async (): Promise<Category[]> => {
   const response = await apiRequest<Category[]>({
-    url: "http://localhost:5000/api/v1/Linea/list",
+    url: "http://picaflorapi.somee.com/api/v1/Linea/list",
     method: "GET",
     fallback: [],
   });

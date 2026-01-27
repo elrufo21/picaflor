@@ -9,7 +9,7 @@ export type CreateProgramacionPayload = {
   cantMax: number;
   region: string;
 };
-const API_URL = "http://localhost:5000/api/v1/Programacion";
+const API_URL = "http://picaflorapi.somee.com/api/v1/Programacion";
 
 export async function fetchPackages(fecha?: string): Promise<PackageItem[]> {
   const params = new URLSearchParams();
@@ -50,7 +50,7 @@ const formatDateForListado = (value?: string) => {
 
 export async function fetchListadoByProducto(
   fecha: string | undefined,
-  idProducto: number
+  idProducto: number,
 ) {
   if (!idProducto) return [];
   const dateValue = formatDateForListado(fecha);
@@ -84,7 +84,7 @@ export async function fetchListadoByProducto(
 
 export async function createProgramacion(payload: CreateProgramacionPayload) {
   const res = await fetch(
-    "http://localhost:5000/api/v1/Programacion/registerProg",
+    "http://picaflorapi.somee.com/api/v1/Programacion/registerProg",
     {
       method: "POST",
       headers: {
@@ -92,7 +92,7 @@ export async function createProgramacion(payload: CreateProgramacionPayload) {
         accept: "application/json",
       },
       body: JSON.stringify(payload),
-    }
+    },
   );
 
   if (!res.ok) {
@@ -104,12 +104,15 @@ export async function createProgramacion(payload: CreateProgramacionPayload) {
 }
 
 export async function deleteProgramacion(id: number): Promise<void> {
-  const res = await fetch(`http://localhost:5000/api/v1/Programacion/${id}`, {
-    method: "DELETE",
-    headers: {
-      accept: "*/*",
+  const res = await fetch(
+    `http://picaflorapi.somee.com/api/v1/Programacion/${id}`,
+    {
+      method: "DELETE",
+      headers: {
+        accept: "*/*",
+      },
     },
-  });
+  );
 
   if (!res.ok) {
     const text = await res.text();
@@ -118,7 +121,7 @@ export async function deleteProgramacion(id: number): Promise<void> {
 }
 export const editarCantMax = async (Valores: string) => {
   const res = await fetch(
-    "http://localhost:5000/api/v1/Programacion/editar-cant-max",
+    "http://picaflorapi.somee.com/api/v1/Programacion/editar-cant-max",
     {
       method: "POST",
       headers: {
@@ -128,7 +131,7 @@ export const editarCantMax = async (Valores: string) => {
       body: JSON.stringify({
         Valores,
       }),
-    }
+    },
   );
 
   if (!res.ok) {
@@ -141,7 +144,7 @@ export const editarCantMax = async (Valores: string) => {
 
 export async function fetchLiquidaciones(
   areaId: number | string,
-  usuarioId: number | string
+  usuarioId: number | string,
 ) {
   try {
     const response = await apiRequest<string>({

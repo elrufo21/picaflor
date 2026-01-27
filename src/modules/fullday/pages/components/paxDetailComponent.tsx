@@ -3,7 +3,8 @@ import { TextControlled } from "@/components/ui/inputs";
 const PaxDetailComponent = ({ control, setValue }) => {
   return (
     <div className="rounded-2xl border border-slate-100 p-3">
-      <div className="flex items-center justify-between mb-2">
+      {/* HEADER */}
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-3">
         <h2 className="text-sm font-semibold text-slate-800">
           Contacto y actividades del pax
         </h2>
@@ -12,8 +13,18 @@ const PaxDetailComponent = ({ control, setValue }) => {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-11 gap-2">
-        <div className="col-span-4">
+      {/* FORM */}
+      <div
+        className="
+      grid
+      grid-cols-1
+      sm:grid-cols-2
+      lg:grid-cols-12
+      gap-2
+    "
+      >
+        {/* NOMBRE */}
+        <div className="lg:col-span-4">
           <TextControlled
             name="nombreCompleto"
             disableHistory
@@ -25,7 +36,8 @@ const PaxDetailComponent = ({ control, setValue }) => {
           />
         </div>
 
-        <div className="col-span-3">
+        {/* DOCUMENTO */}
+        <div className="lg:col-span-3">
           <TextControlled
             name="documentoNumero"
             disableHistory
@@ -37,7 +49,8 @@ const PaxDetailComponent = ({ control, setValue }) => {
           />
         </div>
 
-        <div className="col-span-3">
+        {/* CELULAR */}
+        <div className="lg:col-span-3">
           <TextControlled
             name="celular"
             disableHistory
@@ -49,7 +62,8 @@ const PaxDetailComponent = ({ control, setValue }) => {
           />
         </div>
 
-        <div>
+        {/* CANTIDAD */}
+        <div className="lg:col-span-2">
           <TextControlled
             name="cantPax"
             control={control}

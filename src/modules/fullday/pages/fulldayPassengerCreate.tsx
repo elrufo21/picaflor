@@ -373,7 +373,7 @@ const PackagePassengerCreate = () => {
     const loadDetails = async () => {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/v1/Programacion/traer-actividades/${liquidacionId}`,
+          `http://picaflorapi.somee.com/api/v1/Programacion/traer-actividades/${liquidacionId}`,
           {
             signal: controller.signal,
             headers: {
@@ -1111,7 +1111,7 @@ const PackagePassengerCreate = () => {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/v1/programacion/agregar-viaje",
+        "http://picaflorapi.somee.com/api/v1/programacion/agregar-viaje",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

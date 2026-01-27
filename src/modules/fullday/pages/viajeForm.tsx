@@ -520,7 +520,7 @@ function buildListaOrdenEdit(data) {
 async function agregarViaje(valores, edit) {
   try {
     const response = await axios.post(
-      `http://localhost:5000/api/v1/Programacion/${!edit ? "agregar-viaje" : "editar-viaje"}`,
+      `http://picaflorapi.somee.com/api/v1/Programacion/${!edit ? "agregar-viaje" : "editar-viaje"}`,
       {
         valores: valores,
       },
@@ -949,7 +949,7 @@ const ViajeForm = () => {
     try {
       setIsSaving(true);
       const response = await axios.delete(
-        `http://localhost:5000/api/v1/Nota/${liquidacionId}`,
+        `http://picaflorapi.somee.com/api/v1/Nota/${liquidacionId}`,
       );
 
       const deleted = response?.data === true || response?.data === "true";
@@ -1043,13 +1043,25 @@ const ViajeForm = () => {
             onKeyDown={handleEnterFocus}
             noValidate
           >
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2 shadow-sm">
+            <div
+              className="
+    flex flex-col gap-3
+    lg:flex-row lg:items-center lg:justify-between
+    rounded-xl border border-emerald-200
+    bg-emerald-50/70 px-4 py-3 shadow-sm
+  "
+            >
               {/* ================= INFO ================= */}
-              <div className="flex items-center gap-4 min-w-0">
+              <div
+                className="
+      flex flex-wrap gap-x-4 gap-y-2
+      min-w-0
+    "
+              >
                 {/* DESTINO */}
                 <div className="flex items-center gap-1 min-w-0">
                   <span className="text-slate-500 text-xs">Destino:</span>
-                  <span className="font-semibold text-slate-800 truncate max-w-[460px]">
+                  <span className="font-semibold text-slate-800 truncate max-w-[360px] sm:max-w-[460px]">
                     {destino || "-"}
                   </span>
                 </div>
@@ -1080,14 +1092,27 @@ const ViajeForm = () => {
               </div>
 
               {/* ================= ACCIONES ================= */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div
+                className="
+      flex flex-wrap gap-2
+      justify-end
+      shrink-0
+    "
+              >
                 {isEditing && (
                   <>
                     <button
                       type="submit"
                       title={saveButtonLabel}
                       disabled={fieldsetDisabled}
-                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-white shadow-sm ring-1 ring-emerald-600/30 hover:bg-emerald-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                      className="
+            inline-flex items-center gap-1
+            rounded-lg bg-emerald-600 px-3 py-2
+            text-white shadow-sm
+            ring-1 ring-emerald-600/30
+            hover:bg-emerald-700 transition
+            disabled:opacity-70 disabled:cursor-not-allowed
+          "
                     >
                       {isSaving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1102,21 +1127,33 @@ const ViajeForm = () => {
                     <button
                       type="button"
                       onClick={handleNew}
-                      title="Nuevo"
                       disabled={fieldsetDisabled}
-                      className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="
+            inline-flex items-center gap-1
+            rounded-lg bg-slate-100 px-3 py-2
+            text-slate-700 ring-1 ring-slate-200
+            hover:bg-slate-200 transition
+            disabled:opacity-50 disabled:cursor-not-allowed
+          "
                     >
                       <Plus size={16} />
                       <span className="text-sm hidden sm:inline">Nuevo</span>
                     </button>
                   </>
                 )}
+
                 {isEditing && liquidacionId && (
                   <button
                     type="button"
                     onClick={openDeleteDialog}
                     disabled={isSaving}
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 text-white px-3 py-2 ring-1 ring-slate-200 hover:bg-red-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="
+          inline-flex items-center gap-1
+          rounded-lg bg-red-600 px-3 py-2
+          text-white ring-1 ring-red-600/30
+          hover:bg-red-500 transition
+          disabled:opacity-50 disabled:cursor-not-allowed
+        "
                   >
                     <Trash size={16} />
                     <span className="text-sm hidden sm:inline">Eliminar</span>
@@ -1126,24 +1163,33 @@ const ViajeForm = () => {
                 <button
                   type="button"
                   onClick={handlePrint}
-                  title="Imprimir"
                   disabled={isEditing && (fieldsetDisabled || !liquidacionId)}
-                  className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="
+        inline-flex items-center gap-1
+        rounded-lg bg-white px-3 py-2
+        text-slate-700 ring-1 ring-slate-200
+        hover:bg-slate-50 transition
+        disabled:opacity-50 disabled:cursor-not-allowed
+      "
                 >
                   <Printer size={16} />
                   <span className="text-sm hidden sm:inline">Imprimir</span>
                 </button>
+
                 {liquidacionId && !isEditing && (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={handleUnlockEditing}
-                      title="Desbloquear edición"
-                      className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Lock size={16} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUnlockEditing}
+                    title="Desbloquear edición"
+                    className="
+          inline-flex items-center gap-1
+          rounded-lg bg-white px-3 py-2
+          text-slate-700 ring-1 ring-slate-200
+          hover:bg-slate-50 transition
+        "
+                  >
+                    <Lock size={16} />
+                  </button>
                 )}
               </div>
             </div>

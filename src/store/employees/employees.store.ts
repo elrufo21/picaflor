@@ -15,14 +15,14 @@ interface EmployeesState {
     employee: Omit<Employee, "personalId"> & {
       imageFile?: File | null;
       imageRemoved?: boolean;
-    }
+    },
   ) => Promise<boolean>;
   updateEmployee: (
     id: number,
     data: Partial<Employee> & {
       imageFile?: File | null;
       imageRemoved?: boolean;
-    }
+    },
   ) => Promise<boolean>;
   deleteEmployee: (id: number) => Promise<boolean>;
 }
@@ -60,7 +60,7 @@ const mapApiToEmployee = (item: any): Personal => ({
 
 const buildPersonalFormData = (
   data: Partial<Employee> & { imageFile?: File | null; imageRemoved?: boolean },
-  idOverride?: number
+  idOverride?: number,
 ) => {
   const payload = {
     personalId: idOverride ?? data.personalId ?? 0,
@@ -83,7 +83,7 @@ const buildPersonalFormData = (
   Object.entries(payload).forEach(([key, value]) => {
     formData.append(
       key,
-      value === null || value === undefined ? "" : String(value)
+      value === null || value === undefined ? "" : String(value),
     );
   });
 
@@ -112,7 +112,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
               ? `?estado=${encodeURIComponent(estado)}`
               : "";
           const data = await apiRequest<Personal[]>({
-            url: `http://localhost:5000/api/v1/Personal/list${query}`,
+            url: `http://picaflorapi.somee.com/api/v1/Personal/list${query}`,
             method: "GET",
             fallback: [],
           });
@@ -133,7 +133,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
     const { formData, payload } = buildPersonalFormData(employee, 0);
 
     const created = await apiRequest<Personal>({
-      url: "http://localhost:5000/api/v1/Personal/registerpersonal",
+      url: "http://picaflorapi.somee.com/api/v1/Personal/registerpersonal",
       method: "POST",
       data: formData,
       fallback: { ...payload, personalId: Date.now() },
@@ -157,7 +157,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
     const { formData, payload } = buildPersonalFormData(data, id);
 
     const updated = await apiRequest<Personal>({
-      url: "http://localhost:5000/api/v1/Personal/registerpersonal",
+      url: "http://picaflorapi.somee.com/api/v1/Personal/registerpersonal",
       method: "POST",
       data: formData,
       fallback: { ...payload },
@@ -174,7 +174,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
       employees: state.employees.map((e) =>
         String(e.personalId) === String(id)
           ? mapApiToEmployee(updated ?? payload)
-          : e
+          : e,
       ),
     }));
     await queryClient.invalidateQueries({ queryKey: employeesQueryKey });
@@ -183,7 +183,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
 
   deleteEmployee: async (id) => {
     const result = await apiRequest({
-      url: `http://localhost:5000/api/v1/Personal/${id}`,
+      url: `http://picaflorapi.somee.com/api/v1/Personal/${id}`,
       method: "DELETE",
       config: {
         headers: {
@@ -199,7 +199,7 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
 
     set((state) => ({
       employees: state.employees.filter(
-        (e) => String(e.personalId) !== String(id)
+        (e) => String(e.personalId) !== String(id),
       ),
     }));
 

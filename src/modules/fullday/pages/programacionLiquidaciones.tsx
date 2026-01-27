@@ -317,7 +317,7 @@ const fetchDetalleActividades = async (notaId: string) => {
   if (!notaId) return [];
   try {
     const response = await fetch(
-      `http://localhost:5000/api/v1/Programacion/traer-actividades/${notaId}`,
+      `http://picaflorapi.somee.com/api/v1/Programacion/traer-actividades/${notaId}`,
       {
         method: "GET",
         headers: {
@@ -635,41 +635,78 @@ const LiquidacionesPage = () => {
     }
   }, [refreshKey, reload]);
   const DateRangeFilter = () => (
-    <div className="flex items-center gap-4">
+    <div
+      className="
+    flex flex-col gap-3
+    md:flex-row md:items-end md:gap-4
+  "
+    >
+      {/* TÍTULO */}
       <div className="text-sm font-semibold text-slate-900">Buscar por</div>
+
+      {/* FECHA INICIO */}
       <div className="flex flex-col text-xs text-slate-500">
         <span>Fecha Inicio</span>
         <input
           type="date"
           value={pendingStartDate}
           onChange={(e) => setPendingStartDate(e.target.value)}
-          className="w-32 rounded-md border border-slate-200 bg-white/80 px-2 py-1 text-xs text-slate-700"
+          className="
+        w-full md:w-32
+        rounded-md border border-slate-200
+        bg-white/80 px-2 py-1
+        text-xs text-slate-700
+      "
         />
       </div>
+
+      {/* FECHA FIN */}
       <div className="flex flex-col text-xs text-slate-500">
         <span>Fecha Fin</span>
         <input
           type="date"
           value={pendingEndDate}
           onChange={(e) => setPendingEndDate(e.target.value)}
-          className="w-32 rounded-md border border-slate-200 bg-white/80 px-2 py-1 text-xs text-slate-700"
+          className="
+        w-full md:w-32
+        rounded-md border border-slate-200
+        bg-white/80 px-2 py-1
+        text-xs text-slate-700
+      "
         />
       </div>
-      <button
-        type="button"
-        onClick={handleRangeSearch}
-        disabled={loading}
-        className="text-sm font-semibold text-slate-700 underline-offset-2 hover:underline disabled:opacity-60"
+
+      {/* ACCIONES */}
+      <div
+        className="
+      flex gap-4
+      md:items-center
+    "
       >
-        Buscar
-      </button>
-      <button
-        type="button"
-        onClick={handleListAll}
-        className="text-sm font-semibold text-slate-500 underline-offset-2 hover:underline"
-      >
-        Listar todo
-      </button>
+        <button
+          type="button"
+          onClick={handleRangeSearch}
+          disabled={loading}
+          className="
+        text-sm font-semibold text-slate-700
+        underline-offset-2 hover:underline
+        disabled:opacity-60
+      "
+        >
+          Buscar
+        </button>
+
+        <button
+          type="button"
+          onClick={handleListAll}
+          className="
+        text-sm font-semibold text-slate-500
+        underline-offset-2 hover:underline
+      "
+        >
+          Listar todo
+        </button>
+      </div>
     </div>
   );
 

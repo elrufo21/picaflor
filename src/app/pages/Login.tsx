@@ -72,7 +72,7 @@ const Login = () => {
         <div className="hidden md:block relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-transparent z-10" />
           <img
-            src="/images/viajes_picaflor.webp"
+            src="/images/viajes_picaflor.png"
             alt="Viajes Picaflor"
             className="w-full h-full object-cover"
           />

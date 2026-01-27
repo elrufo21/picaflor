@@ -175,16 +175,16 @@ const MainLayout = () => {
 
   const mobileNav = (
     <aside
-      className={`fixed z-40 top-0 left-0 h-screen w-64 bg-brand text-paper
+      className={`fixed z-40 top-0 left-0 h-screen w-64 bg-[#0F0F0F] text-white
       shadow-xl transition-transform duration-300 md:hidden flex flex-col ${
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       }`}
     >
-      <div className="flex items-center justify-between p-4 border-b border-paper/15">
-        <div className="text-base font-semibold">Picaflor</div>
+      <div className="flex items-center justify-between p-4 border-b border-white/10">
+        <div className="text-base font-semibold text-white">Picaflor</div>
         <button
           onClick={closeSidebar}
-          className="p-2 rounded-lg hover:bg-paper/15 transition-colors"
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
           aria-label="Cerrar menú"
         >
           <X size={18} />
@@ -199,7 +199,7 @@ const MainLayout = () => {
             onChange={(e) => setNavFilter(e.target.value)}
             placeholder="Buscar"
             aria-label="Buscar en navegacion"
-            className="w-full rounded-md border border-paper/20 bg-paper/10 px-3 py-2 text-xs text-paper placeholder:text-paper/70 focus:outline-none focus:ring-2 focus:ring-paper/40"
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-[#E8612A]/60"
           />
         </div>
         {filteredNavigationItems.map((item) => {
@@ -214,8 +214,8 @@ const MainLayout = () => {
                   [
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
                     isActive
-                      ? "bg-paper/15 text-paper border-l-4 border-paper"
-                      : "text-paper/90 hover:bg-paper/10",
+                      ? "bg-white/10 text-white border-l-4 border-[#E8612A]"
+                      : "text-white/80 hover:bg-white/5",
                   ].join(" ")
                 }
               >
@@ -223,7 +223,7 @@ const MainLayout = () => {
                 <div className="flex flex-col leading-tight">
                   <span className="font-medium">{item.label}</span>
                   {item.description && (
-                    <span className="text-xs text-paper/70">
+                    <span className="text-xs text-white/60">
                       {item.description}
                     </span>
                   )}
@@ -241,8 +241,8 @@ const MainLayout = () => {
                       [
                         "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all ml-4",
                         isActive
-                          ? "bg-paper/15 text-paper border-l-4 border-paper"
-                          : "text-paper/90 hover:bg-paper/10",
+                          ? "bg-white/10 text-white border-l-4 border-[#E8612A]"
+                          : "text-white/80 hover:bg-white/5",
                       ].join(" ")
                     }
                   >
@@ -250,7 +250,7 @@ const MainLayout = () => {
                     <div className="flex flex-col leading-tight">
                       <span className="font-medium">{child.label}</span>
                       {child.description && (
-                        <span className="text-xs text-paper/70">
+                        <span className="text-xs text-white/60">
                           {child.description}
                         </span>
                       )}
@@ -281,11 +281,11 @@ const MainLayout = () => {
         <header className="h-14 flex items-center justify-between px-4 md:px-6 border-b bg-[#E8612A] border-ink/10 shadow-sm shrink-0">
           <div className="flex items-center gap-3">
             <button
-              className="md:hidden p-2 rounded-lg text-white hover:bg-brand/10 transition-colors"
+              className="md:hidden p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
               onClick={toggleSidebar}
               aria-label="Abrir menú"
             >
-              <Menu size={18} className="text-white" />
+              <MenuIcon size={18} className="text-white" />
             </button>
             <h1 className="text-lg font-semibold text-white">Picaflor</h1>
           </div>
