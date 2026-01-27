@@ -5,6 +5,8 @@ import {
   UserCheck2Icon,
   Building2,
   Handshake,
+  Bed,
+  MapPin,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -23,6 +25,18 @@ export default function MaintenanceDashboard() {
       desc: "Organiza las áreas de la empresa.",
       icon: <Layers className="w-10 h-10 text-green-600" />,
       route: "/maintenance/areas",
+    },
+    {
+      title: "Hoteles",
+      desc: "Consulta horarios y direcciones disponibles.",
+      icon: <Bed className="w-10 h-10 text-amber-600" />,
+      route: "/maintenance/hotels",
+    },
+    {
+      title: "Puntos de partida",
+      desc: "Registra los puntos antes de que partan los viajes.",
+      icon: <MapPin className="w-10 h-10 text-rose-600" />,
+      route: "/maintenance/partidas",
     },
     {
       title: "Clientes",

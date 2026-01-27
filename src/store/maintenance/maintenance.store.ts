@@ -3,6 +3,8 @@ import type {
   Category,
   Area,
   Computer,
+  DeparturePoint,
+  Hotel,
   Provider,
   ProviderBankAccount,
   Holiday,
@@ -19,6 +21,14 @@ import {
   areasQueryKey,
   fetchAreasApi,
 } from "@/modules/maintenance/areas/areas.api";
+import {
+  hotelsQueryKey,
+  fetchHotelsApi,
+} from "@/modules/maintenance/hotels/hotels.api";
+import {
+  partidasQueryKey,
+  fetchPartidasApi,
+} from "@/modules/maintenance/partidas/partidas.api";
 import {
   computersQueryKey,
   fetchComputersApi,
@@ -80,6 +90,8 @@ type ProviderWithAccounts = Provider & {
 interface MaintenanceState {
   categories: Category[];
   areas: Area[];
+  hotels: Hotel[];
+  partidas: DeparturePoint[];
   computers: Computer[];
   providers: Provider[];
   holidays: Holiday[];
@@ -87,6 +99,7 @@ interface MaintenanceState {
   loading: boolean;
   setCategories: (items: Category[]) => void;
   setAreas: (items: Area[]) => void;
+  setHotels: (items: Hotel[]) => void;
   setComputers: (items: Computer[]) => void;
   setProviders: (items: Provider[]) => void;
   setHolidays: (items: Holiday[]) => void;
@@ -94,10 +107,19 @@ interface MaintenanceState {
 
   fetchCategories: () => Promise<void>;
   fetchAreas: () => Promise<void>;
+  fetchHotels: () => Promise<void>;
+  fetchPartidas: () => Promise<void>;
   fetchComputers: () => Promise<void>;
   fetchProviders: (estado?: "ACTIVO" | "INACTIVO" | "") => Promise<void>;
   fetchHolidays: () => Promise<void>;
   fetchBankEntities: () => Promise<void>;
+  addHotel: (data: Omit<Hotel, "id">) => Promise<void>;
+  updateHotel: (id: number, data: Partial<Hotel>) => Promise<void>;
+  addPartida: (data: Omit<DeparturePoint, "id">) => Promise<void>;
+  updatePartida: (
+    id: number,
+    data: Partial<DeparturePoint>,
+  ) => Promise<void>;
 
   addCategory: (data: Omit<Category, "id">) => Promise<boolean>;
   updateCategory: (id: number, data: Partial<Category>) => Promise<boolean>;
@@ -221,6 +243,8 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
   return {
     categories: [],
     areas: [],
+    hotels: [],
+    partidas: [],
     computers: [],
     providers: [],
     holidays: [],
@@ -228,6 +252,8 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     loading: false,
     setCategories: (items) => set({ categories: items }),
     setAreas: (items) => set({ areas: items }),
+    setHotels: (items) => set({ hotels: items }),
+    setPartidas: (items) => set({ partidas: items }),
     setComputers: (items) => set({ computers: items }),
     setProviders: (items) => set({ providers: items }),
     setHolidays: (items) => set({ holidays: items }),
@@ -263,6 +289,103 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         console.error("Error al obtener áreas", err);
         set({ loading: false });
       }
+    },
+
+    fetchHotels: async () => {
+      set({ loading: true });
+      try {
+        const response = await queryClient.fetchQuery({
+          queryKey: hotelsQueryKey,
+          queryFn: fetchHotelsApi,
+        });
+        set({ hotels: response ?? [], loading: false });
+      } catch (err) {
+        console.error("Error al obtener hoteles", err);
+        set({ loading: false });
+      }
+    },
+    fetchPartidas: async () => {
+      set({ loading: true });
+      try {
+        const response = await queryClient.fetchQuery({
+          queryKey: partidasQueryKey,
+          queryFn: fetchPartidasApi,
+        });
+        set({ partidas: response ?? [], loading: false });
+      } catch (err) {
+        console.error("Error al obtener puntos de partida", err);
+        set({ loading: false });
+      }
+    },
+
+    addHotel: async (data) => {
+      const nextId = Date.now();
+      set((state) => ({
+        hotels: [
+          ...state.hotels,
+          {
+            id: Number(nextId),
+            hotel: data.hotel?.trim() ?? "",
+            region: data.region?.trim() ?? "",
+            horaIngreso: data.horaIngreso?.trim() ?? "",
+            horaSalida: data.horaSalida?.trim() ?? "",
+            direccion: data.direccion?.trim() ?? "",
+          },
+        ],
+      }));
+    },
+    updateHotel: async (id, data) => {
+      set((state) => ({
+        hotels: state.hotels.map((hotel) =>
+          hotel.id === id
+            ? {
+                ...hotel,
+                hotel: data.hotel ?? hotel.hotel,
+                region: data.region ?? hotel.region,
+                horaIngreso: data.horaIngreso ?? hotel.horaIngreso,
+                horaSalida: data.horaSalida ?? hotel.horaSalida,
+                direccion: data.direccion ?? hotel.direccion,
+              }
+            : hotel,
+        ),
+      }));
+    },
+    addPartida: async (data) => {
+      const nextId = Date.now();
+      const parsedProduct = Number(data.productId ?? 0);
+      set((state) => ({
+        partidas: [
+          ...state.partidas,
+          {
+            id: Number(nextId),
+            destination: data.destination?.trim() ?? "",
+            pointName: data.pointName?.trim() ?? "",
+            horaPartida: data.horaPartida?.trim() ?? "",
+            region: data.region?.trim() ?? "",
+            productId: Number.isNaN(parsedProduct) ? 0 : parsedProduct,
+          },
+        ],
+      }));
+    },
+    updatePartida: async (id, data) => {
+      set((state) => ({
+        partidas: state.partidas.map((partida) =>
+          partida.id === id
+            ? {
+                ...partida,
+                destination: data.destination ?? partida.destination,
+                pointName: data.pointName ?? partida.pointName,
+                horaPartida: data.horaPartida ?? partida.horaPartida,
+                region: data.region ?? partida.region,
+                productId: (() => {
+                  if (data.productId === undefined) return partida.productId;
+                  const parsed = Number(data.productId);
+                  return Number.isNaN(parsed) ? partida.productId : parsed;
+                })(),
+              }
+            : partida,
+        ),
+      }));
     },
 
     fetchComputers: async () => {

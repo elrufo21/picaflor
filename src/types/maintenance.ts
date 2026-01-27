@@ -11,6 +11,24 @@ export interface Area {
   area: string;
 }
 
+export interface Hotel {
+  id: number;
+  hotel: string;
+  region: string;
+  horaIngreso: string;
+  horaSalida: string;
+  direccion: string;
+}
+
+export interface DeparturePoint {
+  id: number;
+  destination: string;
+  pointName: string;
+  horaPartida: string;
+  region: string;
+  productId: number;
+}
+
 export interface Computer {
   id: number;
   maquina: string;

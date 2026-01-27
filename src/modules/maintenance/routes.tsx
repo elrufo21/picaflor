@@ -15,6 +15,8 @@ import ClientList from "./clients/pages/clientList";
 import ClientCreate from "./clients/pages/clientCreate";
 import ClientEdit from "./clients/pages/clientEdit";
 import SalesChannelPage from "./salesChannel/pages/salesChannelPage";
+import HotelList from "./hotels/pages/hotelList";
+import PartidaList from "./partidas/pages/partidaList";
 
 // Por ahora dejamos solo usuarios y áreas activas en mantenimiento.
 export default [
@@ -110,6 +112,26 @@ export default [
         { label: "Mantenimiento", to: "/maintenance" },
         { label: "Áreas", to: "/maintenance/areas" },
         { label: "Editar área" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/hotels",
+    element: <HotelList />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Hoteles" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/partidas",
+    element: <PartidaList />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Puntos de partida" },
       ],
     },
   },
