@@ -462,6 +462,7 @@ const LiquidacionesPage = () => {
       ndocumento: data.numero,
       clienteId: data.clienteId,
       _editMode: true,
+      estado: data.estado,
     };
     setFormData(normalizedData);
     /*const productId = resolveProductId(row);
@@ -731,12 +732,13 @@ const LiquidacionesPage = () => {
         data={rows}
         columns={columns}
         searchColumns={[
-          "auxiliar",
-          "notaUsuario",
-          "serieNumero",
-          "numero",
-          "cantidadPax",
           "productoNombre",
+          "auxiliar",
+          "clienteNombre",
+          "notaUsuario",
+          "condicion",
+          "formaPago",
+          "estado",
         ]}
         enableSearching
         isLoading={loading}

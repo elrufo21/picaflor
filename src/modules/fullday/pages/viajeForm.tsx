@@ -289,7 +289,6 @@ const validateViajeValues = (values: any): ValidationError | null => {
 
   return null;
 };
-
 function resolveServicioLabel(servicio: any) {
   if (!servicio) return "";
   if (typeof servicio === "object") {
@@ -1015,7 +1014,7 @@ const ViajeForm = () => {
       }
     }
   };
-
+  console.log("watch", watch());
   return (
     <>
       <Backdrop
@@ -1167,7 +1166,10 @@ const ViajeForm = () => {
                 <button
                   type="button"
                   onClick={handlePrint}
-                  disabled={isEditing && (fieldsetDisabled || !liquidacionId)}
+                  disabled={
+                    (isEditing && (fieldsetDisabled || !liquidacionId)) ||
+                    watch("estado") === "ANULADO"
+                  }
                   className="
         inline-flex items-center gap-1
         rounded-lg bg-white px-3 py-2

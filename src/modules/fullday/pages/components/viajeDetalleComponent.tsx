@@ -803,17 +803,21 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 render={({ field }) => (
                   <input
                     data-precio
-                    className={`w-full border px-2 py-1 text-right ${isTarifaPrecioDisabled() ? "bg-slate-100" : ""}`}
+                    className={`w-full border px-2 py-1 text-right ${
+                      isTarifaPrecioDisabled() ? "bg-slate-100" : ""
+                    }`}
                     onKeyDown={handleKeyNav}
                     type="number"
                     step="0.01"
                     inputMode="decimal"
-                    value={field.value}
+                    value={field.value === 0 ? "" : field.value}
                     onChange={(e) => {
                       if (!isEditing) return;
+
                       const raw = e.target.value;
                       const precio = raw === "" ? 0 : Number(raw);
                       const roundedPrecio = roundCurrency(precio);
+
                       field.onChange(roundedPrecio);
                       setValue(
                         "detalle.tarifa.total",

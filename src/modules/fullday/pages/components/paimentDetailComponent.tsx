@@ -337,6 +337,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                   inputProps={{
                     "aria-label": "Entidad bancaria",
                   }}
+                  data-focus-next="#nro-operacion"
                 />
               </div>
             </div>
@@ -347,6 +348,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               <div className="bg-white px-2 py-1">
                 <TextControlled
                   name="nroOperacion"
+                  id="nro-operacion"
                   disabled={
                     condicion === "CREDITO" ||
                     !["DEPOSITO", "YAPE"].includes(medioPago)
