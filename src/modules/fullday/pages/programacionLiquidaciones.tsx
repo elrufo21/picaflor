@@ -739,6 +739,7 @@ const LiquidacionesPage = () => {
           "condicion",
           "formaPago",
           "estado",
+          "notaId",
         ]}
         enableSearching
         isLoading={loading}
