@@ -1165,11 +1165,19 @@ const ViajeForm = () => {
 
                 <button
                   type="button"
-                  onClick={handlePrint}
-                  disabled={
-                    (isEditing && (fieldsetDisabled || !liquidacionId)) ||
-                    watch("estado") === "ANULADO"
-                  }
+                  onClick={() => {
+                    if (watch("estado") === "ANULADO") {
+                      showToast({
+                        title: "Imprimir",
+                        description:
+                          "Esta liquidación está anulada, por favor modificar y volver a imprimir.",
+                        type: "error",
+                      });
+                      return;
+                    }
+                    handlePrint();
+                  }}
+                  disabled={isEditing && (fieldsetDisabled || !liquidacionId)}
                   className="
         inline-flex items-center gap-1
         rounded-lg bg-white px-3 py-2
