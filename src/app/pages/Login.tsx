@@ -42,7 +42,7 @@ const Login = () => {
       password: values.password,
     });
     if (ok) {
-      toast.success("Bienvenido");
+      //toast.success("Bienvenido");
       navigate("/fullday", { replace: true });
     } else {
       toast.error("Credenciales invalidas");
