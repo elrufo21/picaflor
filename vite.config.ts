@@ -11,22 +11,17 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: [
-        "favicon-picaflor.svg",
-        "images/picaflorIcono.png",
-        "images/favicon-picaflor.png",
-      ],
       workbox: {
+        navigateFallback: "/index.html",
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
       manifest: {
         name: "Picaflor",
         short_name: "Picaflor",
-        description: "Control diario de caja y conciliación para Picaflor.",
+        start_url: "/",
+        display: "standalone",
         theme_color: "#0F0F0F",
         background_color: "#ffffff",
-        display: "standalone",
-        start_url: "/",
         icons: [
           {
             src: "images/favicon-picaflor.png",
