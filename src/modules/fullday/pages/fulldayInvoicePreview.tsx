@@ -80,6 +80,7 @@ const InvoicePreview = () => {
       });
     }
   };
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   const handleRegisterAnother = () => {
     if (!id) return;
@@ -117,14 +118,38 @@ const InvoicePreview = () => {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         {invoiceData ? (
-          <div
-            className="rounded-xl border border-slate-200"
-            style={{ minHeight: INVOICE_HEIGHT }}
-          >
-            <PDFViewer style={{ width: "100%", height: INVOICE_HEIGHT }}>
-              <PdfDocument data={invoiceData} />
-            </PDFViewer>
-          </div>
+          isMobile ? (
+            <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-200 p-6 text-center">
+              <p className="text-sm text-slate-600">
+                La vista previa no está disponible en móviles.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Descargar PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+              >
+                Abrir / Imprimir
+              </button>
+            </div>
+          ) : (
+            <div
+              className="rounded-xl border border-slate-200"
+              style={{ minHeight: INVOICE_HEIGHT }}
+            >
+              <PDFViewer style={{ width: "100%", height: INVOICE_HEIGHT }}>
+                <PdfDocument data={invoiceData} />
+              </PDFViewer>
+            </div>
+          )
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-slate-600">
             <p>No hay datos para mostrar.</p>

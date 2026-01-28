@@ -417,23 +417,117 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     });
   }, [serviciosWatch, isEditing, setValue]);
 
+  // ===== helpers reutilizables (ANTES del return) =====
+
+  const handleServicioChange = (
+    rowKey: string,
+    value: string,
+    options?: any[],
+  ) => {
+    if (!isEditing) return;
+
+    if (cantPax <= 0 && value !== "") {
+      showToast({
+        title: "Alerta",
+        description: "Añade un pasajero por lo menos.",
+        type: "error",
+      });
+      return;
+    }
+
+    const selected = options?.find((o) => o.value === value) ?? null;
+
+    setValue(`detalle.${rowKey}.servicio`, selected);
+
+    let precio = 0;
+    if (rowKey === "traslado") {
+      precio = selected ? getPrecioTraslado(selected.id) : 0;
+    } else {
+      precio = selected ? getPrecioActividad(selected.id) : 0;
+    }
+
+    const rounded = roundCurrency(precio);
+
+    setValue(`detalle.${rowKey}.precio`, rounded);
+    setValue(`detalle.${rowKey}.cant`, cantPax);
+    setValue(`detalle.${rowKey}.total`, roundCurrency(rounded * cantPax));
+  };
+
+  const handlePrecioChange = (rowKey: string, value: number) => {
+    if (!isEditing) return;
+
+    const rounded = roundCurrency(value);
+    setValue(`detalle.${rowKey}.precio`, rounded);
+
+    const cant = Number(getValues(`detalle.${rowKey}.cant`)) || 0;
+    setValue(`detalle.${rowKey}.total`, roundCurrency(rounded * cant));
+  };
+
+  const handleCantidadChange = (rowKey: string, value: number) => {
+    if (!canEditCantidad(rowKey)) return;
+
+    let cant = Math.min(value, cantPax);
+
+    setValue(`detalle.${rowKey}.cant`, cant);
+
+    const precio = Number(getValues(`detalle.${rowKey}.precio`)) || 0;
+    setValue(`detalle.${rowKey}.total`, roundCurrency(precio * cant));
+  };
+
   return (
     <div className="p-2.5 space-y-3">
       {/* =========================
           PARTIDA / HOTEL
       ========================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
         {/* Punto partida */}
-        <label className="flex flex-col text-sm lg:col-span-4">
+        <label className="flex flex-col text-sm md:col-span-3">
           <span className="font-semibold mb-1">Punto partida</span>
+
           <Controller
             name="puntoPartida"
             control={control}
+            defaultValue=""
             render={({ field }) => (
-              <select {...field} className="rounded-lg border px-2.5 py-1.5">
+              <select
+                {...field}
+                className="rounded-lg border px-2.5 py-1.5"
+                onChange={(e) => {
+                  const selectedValue = e.target.value;
+                  field.onChange(selectedValue);
+                  if (
+                    selectedValue === "" ||
+                    selectedValue === "HOTEL" ||
+                    selectedValue === "OTROS"
+                  ) {
+                    setValue("detalle.traslado.servicio", null);
+                    setValue("detalle.traslado.precio", 0);
+                    setValue("detalle.traslado.cant", 0);
+                    setValue("detalle.traslado.total", 0);
+                  } else {
+                    const dashOption = getTrasladoDashOption();
+
+                    setValue("detalle.traslado.servicio", dashOption);
+                    setValue("detalle.traslado.precio", 0);
+                    setValue("detalle.traslado.cant", 0);
+                    setValue("detalle.traslado.total", 0);
+                  }
+
+                  const partida = partidas?.find(
+                    (p) => p.value === selectedValue,
+                  );
+                  const hora =
+                    horasPartida?.find(
+                      (h) => String(h.idParti) === String(partida?.id),
+                    )?.hora ?? "";
+
+                  setValue("horaPartida", hora, { shouldDirty: true });
+                }}
+              >
                 <option value="">Seleccione</option>
                 <option value="HOTEL">Hotel</option>
                 <option value="OTROS">Otros</option>
+
                 {partidas?.map((p) => (
                   <option key={p.id} value={p.value}>
                     {p.label}
@@ -445,18 +539,34 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         </label>
 
         {/* Hotel */}
-        <label className="flex flex-col text-sm lg:col-span-3">
+        <label className="flex flex-col text-sm md:col-span-2">
           <span className="font-semibold mb-1">Hotel</span>
+
           <Controller
             name="hotel"
             control={control}
             render={({ field }) => (
               <Autocomplete
                 options={hoteles || []}
+                getOptionLabel={(o) => o.label}
+                isOptionEqualToValue={(o, v) => o.value === v?.value}
                 size="small"
                 value={field.value || null}
                 disabled={!isHotel && !isOtros}
-                onChange={(_, option) => field.onChange(option)}
+                onChange={(_, option) => {
+                  if (!option) {
+                    field.onChange(null);
+                    return;
+                  }
+
+                  handleHotelChange(option.value);
+                  field.onChange(option);
+                  setTimeout(() => {
+                    document
+                      .querySelector<HTMLInputElement>("#otrosPartidas")
+                      ?.focus();
+                  }, 0);
+                }}
                 renderInput={(params) => (
                   <TextField {...params} placeholder="-" />
                 )}
@@ -466,24 +576,27 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         </label>
 
         {/* Otros partidas */}
-        <label className="flex flex-col text-sm lg:col-span-3">
+        <label className="flex flex-col text-sm sm:col-span-2 md:col-span-4">
           <span className="font-semibold mb-1">Otros partidas</span>
           <TextControlled
             control={control}
+            id="otrosPartidas"
             name="otrosPartidas"
+            className="rounded-lg"
+            transform={(value) => value.toUpperCase()}
             size="small"
-            transform={(v) => v.toUpperCase()}
+            disableHistory
           />
         </label>
 
         {/* Hora */}
-        <label className="flex flex-col text-sm lg:col-span-2">
+        <label className="flex flex-col text-sm sm:col-span-1 md:col-span-1">
           <span className="font-semibold mb-1">Hora P.</span>
           <TimeAMPMInput name="horaPartida" control={control} />
         </label>
 
         {/* Visitas */}
-        <label className="flex flex-col text-sm lg:col-span-12">
+        <label className="flex flex-col text-sm md:col-span-5">
           <span className="font-semibold mb-1">Visitas y excursiones</span>
           <textarea
             rows={2}
@@ -731,126 +844,93 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         {rows.map((row) => (
           <div key={row.key} className="border-b">
             {/* Mobile Layout */}
+            {/* ================= MOBILE ROW ================= */}
             <div className="md:hidden p-3 space-y-3">
+              {/* Badge */}
               <div>
-                <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded inline-block mb-2">
+                <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded inline-block">
                   {row.label}
                 </span>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold mb-1">
-                  Detalle
-                </label>
-                <Controller
-                  name={`detalle.${row.key}.cant`}
-                  control={control}
-                  render={({ field }) => {
-                    const editable = canEditCantidad(row.key);
+              {/* Detalle */}
+              {!row.input && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    Detalle
+                  </label>
+                  <select
+                    className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                    value={
+                      getValues(`detalle.${row.key}.servicio`)?.value ?? ""
+                    }
+                    onChange={(e) =>
+                      handleServicioChange(row.key, e.target.value, row.options)
+                    }
+                    disabled={row.key === "traslado" && isDissabled()}
+                  >
+                    {row.key === "traslado" ? (
+                      <option value="">(SELECCIONE)</option>
+                    ) : (
+                      <option value="-">-</option>
+                    )}
+                    {row.options?.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-                    return (
-                      <input
-                        type="number"
-                        step="1"
-                        min={0}
-                        inputMode="numeric"
-                        max={cantPax}
-                        className={`w-full border px-2 py-1 text-right ${
-                          !editable ? "bg-slate-100" : ""
-                        }`}
-                        value={field.value === 0 ? "" : field.value}
-                        disabled={!editable}
-                        onChange={(e) => {
-                          if (!editable) return;
-
-                          let cant = Number(e.target.value || 0);
-
-                          if (cant > cantPax) {
-                            showToast({
-                              title: "Alerta",
-                              description:
-                                "La cantidad no puede superar el número de pasajeros.",
-                              type: "error",
-                            });
-                            cant = cantPax;
-                          }
-
-                          field.onChange(cant);
-
-                          const precio =
-                            Number(getValues(`detalle.${row.key}.precio`)) || 0;
-
-                          setValue(
-                            `detalle.${row.key}.total`,
-                            roundCurrency(precio * cant),
-                          );
-                        }}
-                        onBlur={() => {
-                          if (!field.value) field.onChange(0);
-                        }}
-                      />
-                    );
-                  }}
-                />
-              </div>
-
+              {/* Precio / Cant / SubTotal */}
               <div className="grid grid-cols-3 gap-2">
+                {/* Precio */}
                 <div>
                   <label className="block text-xs font-semibold mb-1">
                     Precio
                   </label>
-                  <Controller
-                    name={`detalle.${row.key}.precio`}
-                    control={control}
-                    render={({ field }) => {
-                      const empty = isRowEmpty(row.key);
-
-                      return (
-                        <input
-                          type="number"
-                          data-precio
-                          disabled={empty || row.key === "entrada"}
-                          className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
-                          value={
-                            empty ? "" : field.value === 0 ? "" : field.value
-                          }
-                          onChange={(e) => {
-                            if (empty || !isEditing) return;
-
-                            const precio = Number(e.target.value || 0);
-                            const rounded = roundCurrency(precio);
-                            field.onChange(rounded);
-
-                            const cant =
-                              Number(getValues(`detalle.${row.key}.cant`)) || 0;
-
-                            setValue(
-                              `detalle.${row.key}.total`,
-                              roundCurrency(rounded * cant),
-                            );
-                          }}
-                        />
-                      );
-                    }}
+                  <input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
+                    value={getValues(`detalle.${row.key}.precio`) || ""}
+                    disabled={isRowEmpty(row.key) || row.key === "entrada"}
+                    onChange={(e) =>
+                      handlePrecioChange(row.key, Number(e.target.value || 0))
+                    }
                   />
                 </div>
 
+                {/* Cant */}
                 <div>
                   <label className="block text-xs font-semibold mb-1">
                     Cant
                   </label>
                   <input
-                    value={cantPax}
-                    readOnly
-                    className="w-full border px-2 py-1 text-right bg-slate-100"
+                    type="number"
+                    step="1"
+                    min={0}
+                    max={cantPax}
+                    inputMode="numeric"
+                    className={`w-full border px-2 py-1 text-right ${
+                      !canEditCantidad(row.key) ? "bg-slate-100" : ""
+                    }`}
+                    value={getValues(`detalle.${row.key}.cant`) || ""}
+                    disabled={!canEditCantidad(row.key)}
+                    onChange={(e) =>
+                      handleCantidadChange(row.key, Number(e.target.value || 0))
+                    }
                   />
                 </div>
 
+                {/* SubTotal */}
                 <div>
                   <label className="block text-xs font-semibold mb-1">
                     SubTotal
                   </label>
-                  <div className="border-l p-2 text-right font-bold">
+                  <div className="w-full border px-2 py-2 text-right font-bold bg-slate-50 flex items-center justify-end min-h-[30px]">
                     <SubTotal
                       name={`detalle.${row.key}.total`}
                       visible={!isRowEmpty(row.key)}
