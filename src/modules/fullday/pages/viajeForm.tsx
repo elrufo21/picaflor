@@ -133,7 +133,15 @@ const validateViajeValues = (values: any): ValidationError | null => {
       focus: "detalle.traslado.servicio",
     };
   }
-
+  if (
+    !values.detalle?.tarifa?.precio ||
+    Number(values.detalle?.tarifa?.precio) <= 0
+  ) {
+    return {
+      message: "INGRESE EL PRECIO DE LA TARIFA DEL TOURS",
+      focus: "detalle.tarifa.precio",
+    };
+  }
   if (!values.medioPago) {
     return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
   }
@@ -806,9 +814,13 @@ const ViajeForm = () => {
     setValue("destino", selectedPackage.destino, {
       shouldDirty: true,
     });
-    setValue("fechaViaje", selectedPackage.fecha, {
-      shouldDirty: true,
-    });
+    setValue(
+      "fechaViaje",
+      watch("fechaViaje") !== "" ? watch("fechaViaje") : selectedPackage.fecha,
+      {
+        shouldDirty: true,
+      },
+    );
     setValue("region", selectedPackage.region, {
       shouldDirty: true,
     });
@@ -1014,7 +1026,6 @@ const ViajeForm = () => {
       }
     }
   };
-  console.log("watch", watch());
   return (
     <>
       <Backdrop
@@ -1036,11 +1047,15 @@ const ViajeForm = () => {
           <ChevronLeft
             className="cursor-pointer"
             onClick={() => {
-              navigate("/fullday");
+              if (liquidacionId) {
+                navigate("/fullday/programacion/liquidaciones");
+              } else {
+                navigate("/fullday");
+              }
             }}
           />
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <form
             onSubmit={handleSubmit(onSubmit)}
             onKeyDown={handleEnterFocus}
@@ -1048,18 +1063,19 @@ const ViajeForm = () => {
           >
             <div
               className="
-    flex flex-col gap-3
-    lg:flex-row lg:items-center lg:justify-between
-    rounded-xl border border-emerald-200
-    bg-emerald-50/70 px-4 py-3 shadow-sm
-  "
+                  sticky top-2 z-30
+                  flex flex-col gap-3
+                  lg:flex-row lg:items-center lg:justify-between
+                  rounded-xl border border-emerald-200
+                  bg-emerald-50 px-4 py-3 shadow-sm
+                "
             >
               {/* ================= INFO ================= */}
               <div
                 className="
-      flex flex-wrap gap-x-4 gap-y-2
-      min-w-0
-    "
+                  flex flex-wrap gap-x-4 gap-y-2
+                  min-w-0
+                "
               >
                 {/* DESTINO */}
                 <div className="flex items-center gap-1 min-w-0">
@@ -1097,10 +1113,10 @@ const ViajeForm = () => {
               {/* ================= ACCIONES ================= */}
               <div
                 className="
-      flex flex-wrap gap-2
-      justify-end
-      shrink-0
-    "
+                flex flex-wrap gap-2
+                justify-end
+                shrink-0
+              "
               >
                 {isEditing && (
                   <>
@@ -1109,13 +1125,13 @@ const ViajeForm = () => {
                       title={saveButtonLabel}
                       disabled={fieldsetDisabled}
                       className="
-            inline-flex items-center gap-1
-            rounded-lg bg-emerald-600 px-3 py-2
-            text-white shadow-sm
-            ring-1 ring-emerald-600/30
-            hover:bg-emerald-700 transition
-            disabled:opacity-70 disabled:cursor-not-allowed
-          "
+                    inline-flex items-center gap-1
+                    rounded-lg bg-emerald-600 px-3 py-2
+                    text-white shadow-sm
+                    ring-1 ring-emerald-600/30
+                    hover:bg-emerald-700 transition
+                    disabled:opacity-70 disabled:cursor-not-allowed
+                  "
                     >
                       {isSaving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1132,12 +1148,12 @@ const ViajeForm = () => {
                       onClick={handleNew}
                       disabled={fieldsetDisabled}
                       className="
-            inline-flex items-center gap-1
-            rounded-lg bg-slate-100 px-3 py-2
-            text-slate-700 ring-1 ring-slate-200
-            hover:bg-slate-200 transition
-            disabled:opacity-50 disabled:cursor-not-allowed
-          "
+                      inline-flex items-center gap-1
+                      rounded-lg bg-slate-100 px-3 py-2
+                      text-slate-700 ring-1 ring-slate-200
+                      hover:bg-slate-200 transition
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                    "
                     >
                       <Plus size={16} />
                       <span className="text-sm hidden sm:inline">Nuevo</span>
@@ -1151,12 +1167,12 @@ const ViajeForm = () => {
                     onClick={openDeleteDialog}
                     disabled={isSaving}
                     className="
-          inline-flex items-center gap-1
-          rounded-lg bg-red-600 px-3 py-2
-          text-white ring-1 ring-red-600/30
-          hover:bg-red-500 transition
-          disabled:opacity-50 disabled:cursor-not-allowed
-        "
+                    inline-flex items-center gap-1
+                    rounded-lg bg-red-600 px-3 py-2
+                    text-white ring-1 ring-red-600/30
+                    hover:bg-red-500 transition
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  "
                   >
                     <Trash size={16} />
                     <span className="text-sm hidden sm:inline">Eliminar</span>
@@ -1179,12 +1195,12 @@ const ViajeForm = () => {
                   }}
                   disabled={isEditing && (fieldsetDisabled || !liquidacionId)}
                   className="
-        inline-flex items-center gap-1
-        rounded-lg bg-white px-3 py-2
-        text-slate-700 ring-1 ring-slate-200
-        hover:bg-slate-50 transition
-        disabled:opacity-50 disabled:cursor-not-allowed
-      "
+                    inline-flex items-center gap-1
+                    rounded-lg bg-white px-3 py-2
+                    text-slate-700 ring-1 ring-slate-200
+                    hover:bg-slate-50 transition
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  "
                 >
                   <Printer size={16} />
                   <span className="text-sm hidden sm:inline">Imprimir</span>
@@ -1196,11 +1212,11 @@ const ViajeForm = () => {
                     onClick={handleUnlockEditing}
                     title="Desbloquear edición"
                     className="
-          inline-flex items-center gap-1
-          rounded-lg bg-white px-3 py-2
-          text-slate-700 ring-1 ring-slate-200
-          hover:bg-slate-50 transition
-        "
+                              inline-flex items-center gap-1
+                              rounded-lg bg-white px-3 py-2
+                              text-slate-700 ring-1 ring-slate-200
+                              hover:bg-slate-50 transition
+                            "
                   >
                     <Lock size={16} />
                   </button>

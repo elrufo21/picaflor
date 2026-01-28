@@ -89,7 +89,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       "saldo",
       roundCurrency(Number(watch("precioTotal") ?? 0) - Number(acuenta ?? 0)),
     );
-  }, [acuenta]);
+  }, [acuenta, precioTotal]);
 
   const buildMessagePassenger = ({ value }: { value: string }) => {
     let message;

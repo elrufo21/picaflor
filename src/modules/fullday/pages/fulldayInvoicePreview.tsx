@@ -86,6 +86,38 @@ const InvoicePreview = () => {
     if (!id) return;
     navigate(`/fullday`);
   };
+  const handleSendWhatsApp = async () => {
+    try {
+      const blob = await createPdfBlob();
+      const url = URL.createObjectURL(blob);
+
+      const fileName = `full-day-${backendInfo.orden || "factura"}.pdf`;
+
+      const message = encodeURIComponent(
+        `📄 *Factura Full Day*\n` +
+          `Nro: ${backendInfo.orden ?? "-"}\n` +
+          `Fecha: ${formatFechaParaMostrar(invoiceData?.fechaViaje)}\n\n` +
+          `Descarga el PDF aquí 👇\n${url}\n\n` +
+          `Luego puedes enviarlo directamente desde WhatsApp.`,
+      );
+
+      const whatsappUrl = isMobile
+        ? `https://wa.me/?text=${message}`
+        : `https://web.whatsapp.com/send?text=${message}`;
+
+      window.open(whatsappUrl, "_blank");
+
+      // Revocamos luego de un tiempo
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error: any) {
+      showToast({
+        title: "Error",
+        description: error?.message ?? "No se pudo enviar por WhatsApp.",
+        type: "error",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -138,6 +170,13 @@ const InvoicePreview = () => {
                 className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
               >
                 Abrir / Imprimir
+              </button>
+              <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                className="rounded-lg bg-green-500 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Enviar por WhatsApp
               </button>
             </div>
           ) : (

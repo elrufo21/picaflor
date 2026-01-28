@@ -307,13 +307,19 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
             if (e?.value === "CANCELADO") {
               setValue("acuenta", watch("precioTotal"));
               setValue("medioPago", "");
+              setValue("entidadBancaria", "-");
+              setValue("nroOperacion", "");
             }
             if (e?.value === "ACUENTA") {
               setValue("medioPago", "");
+              setValue("medioPago", "");
+              setValue("entidadBancaria", "-");
+              setValue("nroOperacion", "");
             }
             if (e?.value === "CREDITO") {
+              setValue("medioPago", "");
               setValue("entidadBancaria", "-");
-              setValue("nroOperacion", "-");
+              setValue("nroOperacion", "");
             }
           }}
           options={estadoPagoOptions}
