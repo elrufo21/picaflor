@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/config";
 import type { Hotel } from "@/types/maintenance";
 
 const HOTEL_SAMPLE_CSV = [
@@ -84,5 +85,42 @@ export const parseHotelCsv = (payload?: string | null): Hotel[] => {
 export const hotelsQueryKey = ["hotels"] as const;
 
 export const fetchHotelsApi = async (): Promise<Hotel[]> => {
-  return parseHotelCsv(HOTEL_SAMPLE_CSV);
+  const HOTEL_LIST_ENDPOINT = `${API_BASE_URL}/Hotel/list`;
+
+const mapHotelResponse = (item: any): Hotel => ({
+  id: Number(item?.idHotel ?? item?.id ?? 0) || 0,
+  hotel: String(item?.hotel ?? ""),
+  horaIngreso: String(item?.horaIngreso ?? ""),
+  horaSalida: String(item?.horaSalida ?? ""),
+  region: String(item?.region ?? ""),
+  direccion: String(item?.direccion ?? ""),
+});
+
+const isValidHotelRow = (item: any) => {
+  if (!item) return false;
+  const id = Number(item?.idHotel ?? item?.id ?? -1);
+  const name = String(item?.hotel ?? "").trim().toLowerCase();
+  if (!Number.isFinite(id) || id <= 0) return false;
+  if (!name || name === "string") return false;
+  return true;
+};
+
+  try {
+    const response = await fetch(HOTEL_LIST_ENDPOINT, {
+      headers: {
+        accept: "text/plain",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Hotel list request failed: ${response.status}`);
+    }
+    const payload = await response.json();
+    if (!Array.isArray(payload)) {
+      throw new Error("Hotel list response is not an array");
+    }
+    return payload.filter(isValidHotelRow).map(mapHotelResponse);
+  } catch (error) {
+    console.error("Error fetching hotels", error);
+    return parseHotelCsv(HOTEL_SAMPLE_CSV);
+  }
 };

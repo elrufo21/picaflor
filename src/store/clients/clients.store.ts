@@ -165,7 +165,7 @@ export const useClientsStore = create<ClientsState>((set) => ({
   addClient: async (client) => {
     const payload = buildClientPayload(client, 0);
     const created = await apiRequest<any>({
-      url: "https://picaflorapi.somee.com/api/v1/Cliente/register",
+      url: `${API_BASE_URL}/Cliente/register`,
       method: "POST",
       data: payload,
       config: {
@@ -192,7 +192,7 @@ export const useClientsStore = create<ClientsState>((set) => ({
   updateClient: async (id, data) => {
     const payload = buildClientPayload(data, id);
     const updated = await apiRequest<any>({
-      url: "https://picaflorapi.somee.com/api/v1/Cliente/register",
+      url: `${API_BASE_URL}/Cliente/register`,
       method: "POST",
       data: payload,
       config: {
@@ -221,7 +221,7 @@ export const useClientsStore = create<ClientsState>((set) => ({
 
   deleteClient: async (id) => {
     const result = await apiRequest({
-      url: `https://picaflorapi.somee.com/api/v1/Cliente/${id}`,
+      url: `${API_BASE_URL}/Cliente/${id}`,
       method: "DELETE",
       config: {
         headers: {

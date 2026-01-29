@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 
 import DndTable from "@/components/dataTabla/DndTable";
@@ -18,6 +18,7 @@ const PartidaList = () => {
     fetchPartidas,
     addPartida,
     updatePartida,
+    deletePartida,
   } = useMaintenanceStore();
   const openDialog = useDialogStore((s) => s.openDialog);
   const formRef = useRef<UseFormReturn<PartidaFormValues> | null>(null);
@@ -30,7 +31,10 @@ const PartidaList = () => {
   const openPartidaModal = useCallback(
     (mode: "create" | "edit", partida?: DeparturePoint) => {
       openDialog({
-        title: mode === "create" ? "Crear punto de partida" : "Editar punto de partida",
+        title:
+          mode === "create"
+            ? "Crear punto de partida"
+            : "Editar punto de partida",
         description:
           mode === "create"
             ? "Registro de nuevos puntos antes de salir."
@@ -66,24 +70,18 @@ const PartidaList = () => {
         header: "Destino",
         cell: (info) => info.getValue(),
       }),
-      helper.accessor("region", {
-        header: "Región",
-        cell: (info) => info.getValue(),
-      }),
+
       helper.accessor("horaPartida", {
         header: "Hora de partida",
         cell: (info) => info.getValue(),
       }),
-      helper.accessor("productId", {
-        header: "ID producto",
-        cell: (info) => info.getValue() ?? "-",
-      }),
+
       helper.display({
         id: "acciones",
         header: "Acciones",
         meta: { align: "center" },
         cell: ({ row }) => (
-          <div className="flex justify-center">
+          <div className="flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => openPartidaModal("edit", row.original)}
@@ -92,18 +90,42 @@ const PartidaList = () => {
             >
               <Pencil className="w-4 h-4" />
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                openDialog({
+                  title: "Eliminar punto de partida",
+                  description:
+                    "¿Estás seguro de eliminar este punto de partida? Esta acción no se puede deshacer.",
+                  size: "sm",
+                  confirmLabel: "Eliminar",
+                  cancelLabel: "Cancelar",
+                  onConfirm: async () => {
+                    await deletePartida(row.original.id);
+                  },
+                  content: () => (
+                    <p className="text-sm text-slate-700">
+                      Una vez eliminado, este punto ya no podrá usarse.
+                    </p>
+                  ),
+                });
+              }}
+              className="text-red-600 hover:text-red-800"
+              title="Eliminar"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         ),
       }),
     ];
-  }, [openPartidaModal]);
+  }, [openDialog, deletePartida, openPartidaModal]);
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Puntos de partida</h1>
-        
         </div>
         <button
           type="button"

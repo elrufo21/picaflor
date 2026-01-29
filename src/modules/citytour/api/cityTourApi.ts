@@ -1,4 +1,4 @@
-import type { PackageItem } from "../store/fulldayStore";
+import type { PackageItem } from "../store/cityTourStore";
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 export type CreateProgramacionPayload = {
@@ -83,17 +83,14 @@ export async function fetchListadoByProducto(
 }
 
 export async function createProgramacion(payload: CreateProgramacionPayload) {
-  const res = await fetch(
-    `${PROGRAMACION_API_URL}/registerProg`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        accept: "application/json",
-      },
-      body: JSON.stringify(payload),
+  const res = await fetch(`${PROGRAMACION_API_URL}/registerProg`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      accept: "application/json",
     },
-  );
+    body: JSON.stringify(payload),
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -104,15 +101,12 @@ export async function createProgramacion(payload: CreateProgramacionPayload) {
 }
 
 export async function deleteProgramacion(id: number): Promise<void> {
-  const res = await fetch(
-    `${PROGRAMACION_API_URL}/${id}`,
-    {
-      method: "DELETE",
-      headers: {
-        accept: "*/*",
-      },
+  const res = await fetch(`${PROGRAMACION_API_URL}/${id}`, {
+    method: "DELETE",
+    headers: {
+      accept: "*/*",
     },
-  );
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -120,19 +114,16 @@ export async function deleteProgramacion(id: number): Promise<void> {
   }
 }
 export const editarCantMax = async (Valores: string) => {
-  const res = await fetch(
-    `${PROGRAMACION_API_URL}/editar-cant-max`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        accept: "application/json",
-      },
-      body: JSON.stringify({
-        Valores,
-      }),
+  const res = await fetch(`${PROGRAMACION_API_URL}/editar-cant-max`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      accept: "application/json",
     },
-  );
+    body: JSON.stringify({
+      Valores,
+    }),
+  });
 
   if (!res.ok) {
     const text = await res.text();

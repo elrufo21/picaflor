@@ -5,12 +5,12 @@ import { createColumnHelper } from "@tanstack/react-table";
 import DndTable from "@/components/dataTabla/DndTable";
 import { API_BASE_URL } from "@/config";
 import { useAuthStore } from "@/store/auth/auth.store";
-import { fetchPedidosFecha } from "../api/fulldayApi";
-import { usePackageStore } from "../store/fulldayStore";
+import { fetchPedidosFecha } from "../api/cityTourApi";
+import { usePackageStore } from "../store/cityTourStore";
 import {
   DEFAULT_FORM_PAYLOAD,
   type ActivityDetail,
-} from "./fulldayPassengerCreate";
+} from "./cityTourPassengerCreate";
 import type { Producto } from "@/app/db/serviciosDB";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
 import { useCanalVenta } from "../hooks/useCanalVenta";

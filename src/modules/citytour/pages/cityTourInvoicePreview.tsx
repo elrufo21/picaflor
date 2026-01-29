@@ -1,0 +1,209 @@
+import { useMemo } from "react";
+import { PDFViewer, pdf } from "@react-pdf/renderer";
+import { useLocation, useNavigate, useParams } from "react-router";
+import { showToast } from "@/components/ui/AppToast";
+import PdfDocument, { type InvoiceData } from "@/components/invoice/Invoice";
+import { formatFechaParaMostrar } from "@/shared/helpers/helpers";
+
+type LocationState = {
+  invoiceData?: InvoiceData;
+  backendPayload?: string;
+};
+
+const INVOICE_HEIGHT = 760;
+
+const InvoicePreview = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { invoiceData, backendPayload } = (location.state ??
+    {}) as LocationState;
+
+  const backendInfo = useMemo(() => {
+    const parts = String(backendPayload ?? "").split("¬");
+
+    return {
+      orden: parts[0] || null,
+      fecha: parts[3] || null,
+    };
+  }, [backendPayload]);
+
+  const createPdfBlob = async () => {
+    if (!invoiceData)
+      throw new Error("No se encontró la información de la factura.");
+    return pdf(<PdfDocument data={invoiceData} />).toBlob();
+  };
+
+  const handleDownload = async () => {
+    try {
+      const blob = await createPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `full-day-${backendInfo.orden || "factura"}.pdf`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (error: any) {
+      showToast({
+        title: "Error",
+        description: error?.message ?? "No se pudo descargar la factura.",
+        type: "error",
+      });
+    }
+  };
+
+  const handlePrint = async () => {
+    try {
+      const blob = await createPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const popup = window.open(url, "_blank");
+      if (!popup) {
+        URL.revokeObjectURL(url);
+        showToast({
+          title: "Atención",
+          description:
+            "Permite las ventanas emergentes para imprimir la factura.",
+          type: "warning",
+        });
+        return;
+      }
+      popup.focus();
+      popup.addEventListener("load", () => {
+        popup.print();
+      });
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error: any) {
+      showToast({
+        title: "Error",
+        description: error?.message ?? "No se pudo imprimir la factura.",
+        type: "error",
+      });
+    }
+  };
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  const handleRegisterAnother = () => {
+    if (!id) return;
+    navigate(`/fullday`);
+  };
+  const handleSendWhatsApp = async () => {
+    try {
+      const blob = await createPdfBlob();
+      const url = URL.createObjectURL(blob);
+
+      const fileName = `full-day-${backendInfo.orden || "factura"}.pdf`;
+
+      const message = encodeURIComponent(
+        `📄 *Factura Full Day*\n` +
+          `Nro: ${backendInfo.orden ?? "-"}\n` +
+          `Fecha: ${formatFechaParaMostrar(invoiceData?.fechaViaje)}\n\n` +
+          `Descarga el PDF aquí 👇\n${url}\n\n` +
+          `Luego puedes enviarlo directamente desde WhatsApp.`,
+      );
+
+      const whatsappUrl = isMobile
+        ? `https://wa.me/?text=${message}`
+        : `https://web.whatsapp.com/send?text=${message}`;
+
+      window.open(whatsappUrl, "_blank");
+
+      // Revocamos luego de un tiempo
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error: any) {
+      showToast({
+        title: "Error",
+        description: error?.message ?? "No se pudo enviar por WhatsApp.",
+        type: "error",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-lg bg-slate-50 px-4 py-2">
+          {backendInfo.orden ? (
+            <p className="text-slate-800">
+              <span className="font-semibold">Nro Liquidacion:</span>{" "}
+              <span className="text-slate-900">{backendInfo.orden}</span>
+              <span className="mx-2 text-slate-400">•</span>
+              <span className="font-semibold">Fecha de Viaje:</span>{" "}
+              <span className="text-slate-700">
+                {formatFechaParaMostrar(invoiceData?.fechaViaje)}
+              </span>
+            </p>
+          ) : (
+            <p className="text-slate-400 italic">No disponible</p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleRegisterAnother}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
+          >
+            Registrar otro
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {invoiceData ? (
+          isMobile ? (
+            <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-200 p-6 text-center">
+              <p className="text-sm text-slate-600">
+                La vista previa no está disponible en móviles.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Descargar PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+              >
+                Abrir / Imprimir
+              </button>
+              <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                className="rounded-lg bg-green-500 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Enviar por WhatsApp
+              </button>
+            </div>
+          ) : (
+            <div
+              className="rounded-xl border border-slate-200"
+              style={{ minHeight: INVOICE_HEIGHT }}
+            >
+              <PDFViewer style={{ width: "100%", height: INVOICE_HEIGHT }}>
+                <PdfDocument data={invoiceData} />
+              </PDFViewer>
+            </div>
+          )
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-slate-600">
+            <p>No hay datos para mostrar.</p>
+            <button
+              type="button"
+              onClick={handleRegisterAnother}
+              className="rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400"
+            >
+              Volver al formulario
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default InvoicePreview;

@@ -1,12 +1,20 @@
-import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
+import {
+  type MutableRefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 
 import { AutocompleteControlled, TextControlled } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { DeparturePoint } from "@/types/maintenance";
+import { serviciosDB } from "@/app/db/serviciosDB";
+import TimePickerControlled from "@/components/ui/inputs/TimePickerControlled";
 
 export type PartidaFormValues = {
   destination: string;
@@ -40,7 +48,10 @@ export default function PartidaFormDialog({
     defaultValues: defaults,
   });
 
-  const { control, reset } = form;
+  const { control, reset, setValue } = form;
+  const [productOptions, setProductOptions] = useState<
+    { id: number; nombre: string }[]
+  >([]);
 
   useEffect(() => {
     formRef.current = form;
@@ -63,8 +74,46 @@ export default function PartidaFormDialog({
         set.add(partida.destination);
       }
     });
+    productOptions.forEach((product) => {
+      if (product.nombre) {
+        set.add(product.nombre);
+      }
+    });
     return Array.from(set);
-  }, [partidas]);
+  }, [partidas, productOptions]);
+  const destinationValue = useWatch({
+    control,
+    name: "destination",
+  });
+
+  useEffect(() => {
+    let canceled = false;
+    serviciosDB.productos
+      .toArray()
+      .then((items) => {
+        if (canceled) return;
+        setProductOptions(items);
+      })
+      .catch((err) => {
+        console.error("Error loading productos", err);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!destinationValue) {
+      setValue("productId", "");
+      return;
+    }
+    const match = productOptions.find(
+      (product) => product.nombre === destinationValue,
+    );
+    if (match) {
+      setValue("productId", String(match.id));
+    }
+  }, [destinationValue, productOptions, setValue]);
 
   return (
     <form
@@ -83,14 +132,7 @@ export default function PartidaFormDialog({
           getOptionLabel={(option) => option}
           autoAdvance
         />
-        <TextControlled
-          name="productId"
-          control={control}
-          label="ID de producto"
-          placeholder="1234"
-          size="small"
-          inputProps={{ inputMode: "numeric" }}
-        />
+
         <TextControlled
           name="pointName"
           control={control}
@@ -98,20 +140,14 @@ export default function PartidaFormDialog({
           placeholder="Ej: Plaza Mayor"
           size="small"
           required
-        />
-        <TextControlled
-          name="region"
-          control={control}
-          label="Región"
-          placeholder="Ej: Cusco"
-          size="small"
+          transform={(v) => v.toUpperCase()}
         />
       </div>
-      <TextControlled
+
+      <TimePickerControlled
         name="horaPartida"
         control={control}
         label="Hora de partida"
-        placeholder="HH:MM"
         size="small"
       />
     </form>

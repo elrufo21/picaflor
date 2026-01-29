@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { Plus, Calendar, RefreshCw } from "lucide-react";
 
 import DndTable from "../../../components/dataTabla/DndTable";
-import { usePackageStore } from "../store/fulldayStore";
+import { usePackageStore } from "../store/cityTourStore";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
 import { showToast } from "../../../components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";

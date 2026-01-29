@@ -26,7 +26,7 @@ import PaxDetailComponent from "./components/paxDetailComponent";
 import ViajeDetalleComponent from "./components/viajeDetalleComponent";
 import PaimentDetailComponent from "./components/paimentDetailComponent";
 import { useNavigate, useParams } from "react-router";
-import { usePackageStore } from "../store/fulldayStore";
+import { usePackageStore } from "../store/cityTourStore";
 import axios from "axios";
 import { API_BASE_URL } from "@/config";
 import type { InvoiceData } from "@/components/invoice/Invoice";
