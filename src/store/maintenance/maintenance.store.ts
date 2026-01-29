@@ -12,6 +12,7 @@ import type {
 } from "@/types/maintenance";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import { queryClient } from "@/shared/queryClient";
 import {
   categoriesQueryKey,
@@ -83,6 +84,66 @@ const mapProviderAccount = (
   moneda: String(item?.moneda ?? item?.monedaId ?? ""),
   nroCuenta: String(item?.nroCuenta ?? item?.numeroCuenta ?? ""),
 });
+const HOTEL_ENDPOINT = `${API_BASE_URL}/Hotel`;
+
+const mapApiHotel = (item: any): Hotel => ({
+  id: Number(item?.idHotel ?? item?.id ?? 0) || 0,
+  hotel: String(item?.hotel ?? ""),
+  region: String(item?.region ?? ""),
+  horaIngreso: String(item?.horaIngreso ?? ""),
+  horaSalida: String(item?.horaSalida ?? ""),
+  direccion: String(item?.direccion ?? ""),
+});
+
+const buildHotelPayload = (data: Partial<Hotel>, overrideId?: number) => ({
+  idHotel: overrideId ?? data.id ?? 0,
+  hotel: data.hotel ?? "",
+  region: data.region ?? "",
+  horaIngreso: data.horaIngreso ?? "",
+  horaSalida: data.horaSalida ?? "",
+  direccion: data.direccion ?? "",
+});
+
+const resolveHotelRecord = (value: unknown, fallback: Hotel): Hotel => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const mapped = mapApiHotel(value);
+    if (mapped.id) {
+      return mapped;
+    }
+  }
+  return fallback;
+};
+const PARTIDA_ENDPOINT = `${API_BASE_URL}/Partida`;
+
+const mapApiPartida = (item: any): DeparturePoint => ({
+  id: Number(item?.idParti ?? item?.id ?? 0) || 0,
+  destination:
+    String(item?.destino ?? item?.productoNombre ?? "")
+      .trim(),
+  pointName: String(item?.partidas ?? item?.puntoPartida ?? "").trim(),
+  horaPartida: String(item?.horaPartida ?? "").trim(),
+  region: String(item?.region ?? "").trim(),
+  productId: Number(item?.idProducto ?? item?.productoId ?? 0) || 0,
+});
+
+const buildPartidaPayload = (data: Partial<DeparturePoint>, overrideId?: number) => ({
+  idParti: overrideId ?? data.id ?? 0,
+  idProducto: data.productId ?? 0,
+  partidas: data.pointName ?? "",
+  horaPartida: data.horaPartida ?? "",
+  destino: data.destination ?? "",
+});
+
+const resolvePartidaRecord = (
+  value: unknown,
+  fallback: DeparturePoint,
+): DeparturePoint => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const mapped = mapApiPartida(value);
+    if (mapped.id) return mapped;
+  }
+  return fallback;
+};
 type ProviderWithAccounts = Provider & {
   cuentasBancarias?: ProviderBankAccount[];
 };
@@ -115,11 +176,10 @@ interface MaintenanceState {
   fetchBankEntities: () => Promise<void>;
   addHotel: (data: Omit<Hotel, "id">) => Promise<void>;
   updateHotel: (id: number, data: Partial<Hotel>) => Promise<void>;
+  deleteHotel: (id: number) => Promise<boolean>;
   addPartida: (data: Omit<DeparturePoint, "id">) => Promise<void>;
-  updatePartida: (
-    id: number,
-    data: Partial<DeparturePoint>,
-  ) => Promise<void>;
+  updatePartida: (id: number, data: Partial<DeparturePoint>) => Promise<void>;
+  deletePartida: (id: number) => Promise<boolean>;
 
   addCategory: (data: Omit<Category, "id">) => Promise<boolean>;
   updateCategory: (id: number, data: Partial<Category>) => Promise<boolean>;
@@ -174,7 +234,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
       if (account.action === "i") {
         const created = await apiRequest<any>({
-          url: "https://picaflorapi.somee.com/api/v1/Proveedor/registerCuenta",
+          url: `${API_BASE_URL}/Proveedor/registerCuenta`,
           method: "POST",
           data: payload,
           config: {
@@ -191,7 +251,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         }
       } else if (account.action === "u") {
         const updated = await apiRequest<any>({
-          url: "https://picaflorapi.somee.com/api/v1/Proveedor/registerCuenta",
+          url: `${API_BASE_URL}/Proveedor/registerCuenta`,
           method: "POST",
           data: payload,
           config: {
@@ -319,73 +379,156 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
 
     addHotel: async (data) => {
-      const nextId = Date.now();
+      const payload = buildHotelPayload(data);
+      const fallbackHotel = mapApiHotel({ ...payload, idHotel: Date.now() });
+      const created = await apiRequest({
+        url: HOTEL_ENDPOINT,
+        method: "POST",
+        data: payload,
+        fallback: fallbackHotel,
+      });
+      const hotelRecord = resolveHotelRecord(created, fallbackHotel);
       set((state) => ({
         hotels: [
-          ...state.hotels,
-          {
-            id: Number(nextId),
-            hotel: data.hotel?.trim() ?? "",
-            region: data.region?.trim() ?? "",
-            horaIngreso: data.horaIngreso?.trim() ?? "",
-            horaSalida: data.horaSalida?.trim() ?? "",
-            direccion: data.direccion?.trim() ?? "",
-          },
+          ...state.hotels.filter((hotel) => hotel.id !== hotelRecord.id),
+          hotelRecord,
         ],
       }));
+      await queryClient.invalidateQueries({ queryKey: hotelsQueryKey });
+      const success =
+        created === true ||
+        created === "true" ||
+        (typeof created === "object" && Boolean((created as any)?.idHotel));
+      if (success || hotelRecord.id) {
+        showToast({
+          title: "Hotel guardado",
+          description: `La información de ${hotelRecord.hotel} se guardó correctamente.`,
+          type: "success",
+        });
+      }
     },
     updateHotel: async (id, data) => {
+      const payload = buildHotelPayload(data, id);
+      const fallbackHotel = mapApiHotel({ ...payload, idHotel: id });
+      const updated = await apiRequest({
+        url: HOTEL_ENDPOINT,
+        method: "POST",
+        data: payload,
+        fallback: fallbackHotel,
+      });
+      const hotelRecord = resolveHotelRecord(updated, fallbackHotel);
       set((state) => ({
         hotels: state.hotels.map((hotel) =>
-          hotel.id === id
-            ? {
-                ...hotel,
-                hotel: data.hotel ?? hotel.hotel,
-                region: data.region ?? hotel.region,
-                horaIngreso: data.horaIngreso ?? hotel.horaIngreso,
-                horaSalida: data.horaSalida ?? hotel.horaSalida,
-                direccion: data.direccion ?? hotel.direccion,
-              }
-            : hotel,
+          hotel.id === id ? hotelRecord : hotel,
         ),
       }));
+      await queryClient.invalidateQueries({ queryKey: hotelsQueryKey });
+      const success =
+        updated === true ||
+        updated === "true" ||
+        (typeof updated === "object" && Boolean((updated as any)?.idHotel));
+      if (success || hotelRecord.id) {
+        showToast({
+          title: "Hotel actualizado",
+          description: `Se actualizó ${hotelRecord.hotel} correctamente.`,
+          type: "success",
+        });
+      }
+    },
+    deleteHotel: async (id) => {
+      await apiRequest({
+        url: `${HOTEL_ENDPOINT}/${id}`,
+        method: "DELETE",
+        fallback: false,
+      });
+
+      set((state) => ({
+        hotels: state.hotels.filter((hotel) => hotel.id !== id),
+      }));
+      await queryClient.invalidateQueries({ queryKey: hotelsQueryKey });
+      showToast({
+        title: "Hotel eliminado",
+        description: "El hotel se eliminó correctamente.",
+        type: "success",
+      });
+      return true;
     },
     addPartida: async (data) => {
-      const nextId = Date.now();
-      const parsedProduct = Number(data.productId ?? 0);
+      const payload = buildPartidaPayload(data);
+      const fallbackPartida = mapApiPartida({ ...payload, idParti: Date.now() });
+      const created = await apiRequest({
+        url: PARTIDA_ENDPOINT,
+        method: "POST",
+        data: payload,
+        fallback: fallbackPartida,
+      });
+      const partidaRecord = resolvePartidaRecord(created, fallbackPartida);
       set((state) => ({
         partidas: [
-          ...state.partidas,
-          {
-            id: Number(nextId),
-            destination: data.destination?.trim() ?? "",
-            pointName: data.pointName?.trim() ?? "",
-            horaPartida: data.horaPartida?.trim() ?? "",
-            region: data.region?.trim() ?? "",
-            productId: Number.isNaN(parsedProduct) ? 0 : parsedProduct,
-          },
+          ...state.partidas.filter((p) => p.id !== partidaRecord.id),
+          partidaRecord,
         ],
       }));
+      await queryClient.invalidateQueries({ queryKey: partidasQueryKey });
+      await get().fetchPartidas();
+      showToast({
+        title: "Punto guardado",
+        description: `El punto ${partidaRecord.pointName} se guardó correctamente.`,
+        type: "success",
+      });
     },
     updatePartida: async (id, data) => {
+      const payload = buildPartidaPayload(data, id);
+      const fallbackPartida = mapApiPartida({ ...payload, idParti: id });
+      const updated = await apiRequest({
+        url: PARTIDA_ENDPOINT,
+        method: "POST",
+        data: payload,
+        fallback: fallbackPartida,
+      });
+      const partidaRecord = resolvePartidaRecord(updated, fallbackPartida);
       set((state) => ({
         partidas: state.partidas.map((partida) =>
-          partida.id === id
-            ? {
-                ...partida,
-                destination: data.destination ?? partida.destination,
-                pointName: data.pointName ?? partida.pointName,
-                horaPartida: data.horaPartida ?? partida.horaPartida,
-                region: data.region ?? partida.region,
-                productId: (() => {
-                  if (data.productId === undefined) return partida.productId;
-                  const parsed = Number(data.productId);
-                  return Number.isNaN(parsed) ? partida.productId : parsed;
-                })(),
-              }
-            : partida,
+          partida.id === id ? partidaRecord : partida,
         ),
       }));
+      await queryClient.invalidateQueries({ queryKey: partidasQueryKey });
+      await get().fetchPartidas();
+      showToast({
+        title: "Punto actualizado",
+        description: `Se actualizó ${partidaRecord.pointName} correctamente.`,
+        type: "success",
+      });
+    },
+    deletePartida: async (id) => {
+      const deleted = await apiRequest({
+        url: `${PARTIDA_ENDPOINT}/${id}`,
+        method: "DELETE",
+        fallback: false,
+      });
+      const success =
+        deleted === true ||
+        deleted === "true" ||
+        (typeof deleted === "object" && Boolean((deleted as any)?.idParti));
+      if (success) {
+        set((state) => ({
+          partidas: state.partidas.filter((partida) => partida.id !== id),
+        }));
+        await queryClient.invalidateQueries({ queryKey: partidasQueryKey });
+        await get().fetchPartidas();
+        showToast({
+          title: "Punto eliminado",
+          description: "El punto de partida se eliminó correctamente.",
+          type: "success",
+        });
+        return true;
+      }
+      showToast({
+        title: "Error",
+        description: "No se pudo eliminar el punto de partida.",
+        type: "error",
+      });
+      return false;
     },
 
     fetchComputers: async () => {
@@ -447,7 +590,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       };
 
       const created = await apiRequest<Category | string>({
-        url: "https://picaflorapi.somee.com/api/v1/Linea/registerlinea",
+        url: `${API_BASE_URL}/Linea/registerlinea`,
         method: "POST",
         data: payload,
         config: {
@@ -488,7 +631,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       };
 
       const updated = await apiRequest<Category | string>({
-        url: "https://picaflorapi.somee.com/api/v1/Linea/registerlinea",
+        url: `${API_BASE_URL}/Linea/registerlinea`,
         method: "POST",
         data: payload,
         config: {
@@ -524,7 +667,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
     deleteCategory: async (idSubLinea) => {
       const result = await apiRequest({
-        url: `https://picaflorapi.somee.com/api/v1/Linea/${idSubLinea}`,
+        url: `${API_BASE_URL}/Linea/${idSubLinea}`,
         method: "DELETE",
         config: {
           headers: {
@@ -557,7 +700,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         areaId?: number;
         areaNombre?: string;
       }>({
-        url: "https://picaflorapi.somee.com/api/v1/Area/registerarea",
+        url: `${API_BASE_URL}/Area/registerarea`,
         method: "POST",
         data: payload,
         config: {
@@ -607,7 +750,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         areaId?: number;
         areaNombre?: string;
       }>({
-        url: `https://picaflorapi.somee.com/api/v1/Area/${id}`,
+        url: `${API_BASE_URL}/Area/${id}`,
         method: "PUT",
         data: payload,
         config: {
@@ -644,7 +787,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
     deleteArea: async (id) => {
       const result = await apiRequest({
-        url: `https://picaflorapi.somee.com/api/v1/Area/${id}`,
+        url: `${API_BASE_URL}/Area/${id}`,
         method: "DELETE",
         config: {
           headers: {
@@ -683,7 +826,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         serieBoleta?: string;
         tiketera?: string;
       }>({
-        url: "https://picaflorapi.somee.com/api/v1/Maquina/registermaquina",
+        url: `${API_BASE_URL}/Maquina/registermaquina`,
         method: "POST",
         data: payload,
         config: {
@@ -752,7 +895,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         serieBoleta?: string;
         tiketera?: string;
       }>({
-        url: "https://picaflorapi.somee.com/api/v1/Maquina/registermaquina",
+        url: `${API_BASE_URL}/Maquina/registermaquina`,
         method: "POST",
         data: payload,
         config: {
@@ -809,7 +952,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
     deleteComputer: async (id) => {
       const result = await apiRequest({
-        url: `https://picaflorapi.somee.com/api/v1/Maquina/${id}`,
+        url: `${API_BASE_URL}/Maquina/${id}`,
         method: "DELETE",
         config: {
           headers: {
@@ -869,7 +1012,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       }
 
       const created = await apiRequest<any>({
-        url: "https://picaflorapi.somee.com/api/v1/Proveedor/register",
+        url: `${API_BASE_URL}/Proveedor/register`,
         method: "POST",
         data: requestData as any,
         config: requestConfig,
@@ -980,7 +1123,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       }
 
       const updated = await apiRequest<any>({
-        url: "https://picaflorapi.somee.com/api/v1/Proveedor/register",
+        url: `${API_BASE_URL}/Proveedor/register`,
         method: "POST",
         data: requestData as any,
         config: requestConfig,
@@ -1069,7 +1212,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
     deleteProvider: async (id) => {
       const result = await apiRequest({
-        url: `https://picaflorapi.somee.com/api/v1/Proveedor/${id}`,
+        url: `${API_BASE_URL}/Proveedor/${id}`,
         method: "DELETE",
         config: {
           headers: {

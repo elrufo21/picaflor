@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 
 import DndTable from "@/components/dataTabla/DndTable";
@@ -13,7 +13,8 @@ import { useHotelsQuery } from "../useHotelsQuery";
 import type { Hotel } from "@/types/maintenance";
 
 const HotelList = () => {
-  const { hotels, fetchHotels, addHotel, updateHotel } = useMaintenanceStore();
+  const { hotels, fetchHotels, addHotel, updateHotel, deleteHotel } =
+    useMaintenanceStore();
   const openDialog = useDialogStore((s) => s.openDialog);
   const formRef = useRef<UseFormReturn<HotelFormValues> | null>(null);
   useHotelsQuery();
@@ -40,14 +41,15 @@ const HotelList = () => {
           return formRef.current.handleSubmit(async (values) => {
             if (mode === "edit" && hotel) {
               await updateHotel(hotel.id, values);
-            } else {
-              await addHotel(values);
+              return;
             }
+            await addHotel(values);
+            await fetchHotels();
           })();
         },
       });
     },
-    [openDialog, addHotel, updateHotel],
+    [openDialog, addHotel, updateHotel, fetchHotels],
   );
 
   const columns = useMemo(() => {
@@ -82,7 +84,7 @@ const HotelList = () => {
         header: "Acciones",
         meta: { align: "center" },
         cell: ({ row }) => (
-          <div className="flex justify-center">
+          <div className="flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => openHotelModal("edit", row.original)}
@@ -91,18 +93,40 @@ const HotelList = () => {
             >
               <Pencil className="w-4 h-4" />
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                openDialog({
+                  title: "Eliminar hotel",
+                  description:
+                    "¿Estás seguro de eliminar este hotel? Esta acción no se puede deshacer.",
+                  size: "sm",
+                  confirmLabel: "Eliminar",
+                  cancelLabel: "Cancelar",
+                  onConfirm: async () => {
+                    await deleteHotel(row.original.id);
+                  },
+                  content: () => (
+                    <p className="text-sm text-slate-700">
+                      Una vez eliminado, no podrás recuperar este hotel.
+                    </p>
+                  ),
+                });
+              }}
+              className="text-red-600 hover:text-red-800"
+              title="Eliminar"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         ),
       }),
     ];
-  }, [openHotelModal]);
+  }, [openDialog, deleteHotel, openHotelModal]);
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Hoteles</h1>
-        </div>
         <button
           type="button"
           className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"

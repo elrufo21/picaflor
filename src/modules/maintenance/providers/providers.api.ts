@@ -1,5 +1,6 @@
 import type { Provider } from "@/types/maintenance";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { API_BASE_URL } from "@/config";
 
 export const providersQueryKey = ["providers"] as const;
 
@@ -23,7 +24,7 @@ export const fetchProvidersApi = async (
       ? `?estado=${encodeURIComponent(estado)}`
       : "";
   const response = await apiRequest<ProviderApiResponse[]>({
-    url: `https://picaflorapi.somee.com/api/v1/Proveedor/list${query}`,
+    url: `${API_BASE_URL}/Proveedor/list${query}`,
     method: "GET",
     fallback: [],
   });

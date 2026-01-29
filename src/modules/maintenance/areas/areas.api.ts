@@ -1,5 +1,6 @@
 import type { Area } from "@/types/maintenance";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { API_BASE_URL } from "@/config";
 
 export const areasQueryKey = ["areas"] as const;
 
@@ -18,7 +19,7 @@ export const fetchAreasApi = async (): Promise<Area[]> => {
         areaNombre?: string;
       }[]
   >({
-    url: "https://picaflorapi.somee.com/api/v1/Area/list",
+    url: `${API_BASE_URL}/Area/list`,
     method: "GET",
     fallback: [],
   });

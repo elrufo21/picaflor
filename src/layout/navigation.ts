@@ -42,9 +42,10 @@ export const navigationItems: NavigationItem[] = [
   },
   {
     label: "City Tour",
-    to: "/vity-tour",
+    to: "/citytour",
     icon: Car,
     description: "Turismo local",
+    end: true,
   },
 
   {

@@ -1,10 +1,12 @@
 import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 
-import { TextControlled } from "@/components/ui/inputs";
+import { SelectControlled, TextControlled } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import type { Hotel } from "@/types/maintenance";
+import { useHotelRegions } from "../useHotelRegions";
+import TimePickerControlled from "@/components/ui/inputs/TimePickerControlled";
 
 export type HotelFormValues = {
   hotel: string;
@@ -38,6 +40,23 @@ export default function HotelFormDialog({
   });
 
   const { control, reset } = form;
+  const { data: regions = [], isLoading } = useHotelRegions();
+  const regionOptions = useMemo(() => {
+    const mapped = regions.map((region) => ({
+      value: region.nombre,
+      label: region.nombre,
+    }));
+    if (
+      defaults.region &&
+      !mapped.some((option) => option.value === defaults.region)
+    ) {
+      mapped.unshift({
+        value: defaults.region,
+        label: defaults.region,
+      });
+    }
+    return mapped;
+  }, [regions, defaults.region]);
 
   useEffect(() => {
     formRef.current = form;
@@ -69,27 +88,28 @@ export default function HotelFormDialog({
           size="small"
           required
           inputProps={{ "data-focus-first": "true" }}
+          transform={(v) => v.toUpperCase()}
         />
-        <TextControlled
+        <SelectControlled
           name="region"
           control={control}
           label="Región"
-          placeholder="Ej: Lima"
           size="small"
           required
+          options={regionOptions}
+          helperText={isLoading ? "Cargando regiones..." : undefined}
+          disabled={isLoading && !regionOptions.length}
         />
-        <TextControlled
+        <TimePickerControlled
           name="horaIngreso"
           control={control}
           label="Hora de ingreso"
-          placeholder="Ej: 07:00"
           size="small"
         />
-        <TextControlled
+        <TimePickerControlled
           name="horaSalida"
           control={control}
           label="Hora de salida"
-          placeholder="Ej: 22:00"
           size="small"
         />
       </div>
@@ -101,6 +121,7 @@ export default function HotelFormDialog({
         size="small"
         multiline
         rows={3}
+        transform={(v) => v.toUpperCase()}
       />
     </form>
   );

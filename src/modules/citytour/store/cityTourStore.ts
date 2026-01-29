@@ -6,7 +6,7 @@ import {
   fetchPackages,
   editarCantMax,
   fetchListadoByProducto,
-} from "../api/fulldayApi";
+} from "../api/cityTourApi";
 import { transformServiciosData } from "@/shared/helpers/helpers";
 import { getServiciosFromDB, serviciosDB } from "@/app/db/serviciosDB";
 import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
