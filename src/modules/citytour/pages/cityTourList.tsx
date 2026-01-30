@@ -138,7 +138,7 @@ const PackageList = () => {
   const handleRowClick = useCallback(
     (row: { id?: number }) => {
       if (row?.id) {
-        navigate(`/fullday/${row.id}/passengers/new`);
+        navigate(`/cityTour/${row.id}/passengers/new`);
       }
     },
     [navigate],

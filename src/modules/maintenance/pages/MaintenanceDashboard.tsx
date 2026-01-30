@@ -7,6 +7,8 @@ import {
   Handshake,
   Bed,
   MapPin,
+  Package,
+  Sparkles,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -19,6 +21,18 @@ export default function MaintenanceDashboard() {
       desc: "Gestiona categorías y códigos SUNAT.",
       icon: <Grid3X3 className="w-10 h-10 text-blue-600" />,
       route: "/maintenance/categories",
+    },
+    {
+      title: "Productos",
+      desc: "Consulta el catálogo sincronizado de productos.",
+      icon: <Package className="w-10 h-10 text-emerald-600" />,
+      route: "/maintenance/products",
+    },
+    {
+      title: "Actividades adicionales",
+      desc: "Registra precios complementarios para cada producto.",
+      icon: <Sparkles className="w-10 h-10 text-sky-600" />,
+      route: "/maintenance/actividades",
     },
     {
       title: "Áreas",

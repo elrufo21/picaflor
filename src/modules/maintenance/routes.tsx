@@ -17,6 +17,8 @@ import ClientEdit from "./clients/pages/clientEdit";
 import SalesChannelPage from "./salesChannel/pages/salesChannelPage";
 import HotelList from "./hotels/pages/hotelList";
 import PartidaList from "./partidas/pages/partidaList";
+import ProductList from "./products/pages/productList";
+import ActividadAdiList from "./actividadesAdi/pages/actividadList";
 
 // Por ahora dejamos solo usuarios y áreas activas en mantenimiento.
 export default [
@@ -26,6 +28,7 @@ export default [
     handle: {
       breadcrumb: [{ label: "Mantenimiento" }],
     },
+    end: true,
   },
   {
     path: "maintenance/categories",
@@ -132,6 +135,26 @@ export default [
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
         { label: "Puntos de partida" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/products",
+    element: <ProductList />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Productos" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/actividades",
+    element: <ActividadAdiList />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Actividades adicionales" },
       ],
     },
   },

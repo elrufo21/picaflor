@@ -30,21 +30,15 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   } = usePackageData(idProduct, setValue);
   const serviciosWatch = useWatch({
     control,
-    name: [
-      "detalle.act1.servicio",
-      "detalle.act2.servicio",
-      "detalle.act3.servicio",
-      "detalle.traslado.servicio",
-    ],
+    name: ["detalle.act1.servicio", "detalle.act2.servicio"],
   });
 
   const isCreateMode = !liquidacionId && !isEditing;
   const isEditMode = !!liquidacionId && isEditing;
   const isViewMode = !!liquidacionId && !isEditing;
-
   const actividadesCantWatch = useWatch({
     control,
-    name: ["detalle.act1", "detalle.act2", "detalle.act3"],
+    name: ["detalle.act1", "detalle.act2"],
   });
 
   /* =========================
@@ -154,8 +148,8 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const actividadesSeleccionadas = [
     getValues("detalle.act1.servicio")?.value,
     getValues("detalle.act2.servicio")?.value,
-    getValues("detalle.act3.servicio")?.value,
   ].filter(Boolean);
+
   const BALLESTAS_LABEL = "EXCURSIÓN ISLAS BALLESTAS";
   const isBallestasSelected = actividadesSeleccionadas.some(
     (value) =>
@@ -166,20 +160,11 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const rows = [
     { key: "act1", label: "Actividad 1", options: actividades },
     { key: "act2", label: "Actividad 2", options: actividades },
-    { key: "act3", label: "Actividad 3", options: actividades },
-    { key: "traslado", label: "Traslados", options: trasladosOptions },
-    { key: "entrada", label: "Entradas", input: true },
   ];
+
   const totales = useWatch({
     control,
-    name: [
-      "detalle.tarifa.total",
-      "detalle.act1.total",
-      "detalle.act2.total",
-      "detalle.act3.total",
-      "detalle.traslado.total",
-      "detalle.entrada.total",
-    ],
+    name: ["detalle.act1.total", "detalle.act2.total"],
   });
   useEffect(() => {
     const suma = (totales || []).reduce(
@@ -295,8 +280,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     const indexMap: Record<string, number> = {
       act1: 0,
       act2: 1,
-      act3: 2,
-      traslado: 3,
+      traslado: 2,
     };
 
     const servicio = serviciosWatch[indexMap[rowKey]];
@@ -350,7 +334,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
 
     prevCantPaxRef.current = cantPax;
 
-    const keys = ["act1", "act2", "act3", "traslado", "entrada"];
+    const keys = ["act1", "act2", "traslado", "entrada"];
 
     // 🔥 CASO ESPECIAL: cantPax = 0 → limpiar cantidades
     if (cantPax === 0) {
@@ -398,7 +382,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   useEffect(() => {
     if (!isEditing) return;
 
-    const keys = ["act1", "act2", "act3", "traslado"];
+    const keys = ["act1", "act2", "traslado"];
 
     keys.forEach((key, index) => {
       const servicio = serviciosWatch[index];
@@ -473,6 +457,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     const precio = Number(getValues(`detalle.${rowKey}.precio`)) || 0;
     setValue(`detalle.${rowKey}.total`, roundCurrency(precio * cant));
   };
+  const hasTurno = (rowKey: string) => rowKey === "act1" || rowKey === "act2";
 
   return (
     <div className="p-2.5 space-y-3">
@@ -481,62 +466,6 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       ========================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
         {/* Punto partida */}
-        <label className="flex flex-col text-sm md:col-span-3">
-          <span className="font-semibold mb-1">Punto partida</span>
-
-          <Controller
-            name="puntoPartida"
-            control={control}
-            defaultValue=""
-            render={({ field }) => (
-              <select
-                {...field}
-                className="rounded-lg border px-2.5 py-1.5"
-                onChange={(e) => {
-                  const selectedValue = e.target.value;
-                  field.onChange(selectedValue);
-                  if (
-                    selectedValue === "" ||
-                    selectedValue === "HOTEL" ||
-                    selectedValue === "OTROS"
-                  ) {
-                    setValue("detalle.traslado.servicio", null);
-                    setValue("detalle.traslado.precio", 0);
-                    setValue("detalle.traslado.cant", 0);
-                    setValue("detalle.traslado.total", 0);
-                  } else {
-                    const dashOption = getTrasladoDashOption();
-
-                    setValue("detalle.traslado.servicio", dashOption);
-                    setValue("detalle.traslado.precio", 0);
-                    setValue("detalle.traslado.cant", 0);
-                    setValue("detalle.traslado.total", 0);
-                  }
-
-                  const partida = partidas?.find(
-                    (p) => p.value === selectedValue,
-                  );
-                  const hora =
-                    horasPartida?.find(
-                      (h) => String(h.idParti) === String(partida?.id),
-                    )?.hora ?? "";
-
-                  setValue("horaPartida", hora, { shouldDirty: true });
-                }}
-              >
-                <option value="">Seleccione</option>
-                <option value="HOTEL">Hotel</option>
-                <option value="OTROS">Otros</option>
-
-                {partidas?.map((p) => (
-                  <option key={p.id} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          />
-        </label>
 
         {/* Hotel */}
         <label className="flex flex-col text-sm md:col-span-2">
@@ -576,8 +505,8 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         </label>
 
         {/* Otros partidas */}
-        <label className="flex flex-col text-sm sm:col-span-2 md:col-span-4">
-          <span className="font-semibold mb-1">Otros partidas</span>
+        <label className="flex flex-col text-sm sm:col-span-1 md:col-span-3">
+          <span className="font-semibold mb-1">Dirección de Partida</span>
           <TextControlled
             control={control}
             id="otrosPartidas"
@@ -587,12 +516,6 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
             size="small"
             disableHistory
           />
-        </label>
-
-        {/* Hora */}
-        <label className="flex flex-col text-sm sm:col-span-1 md:col-span-1">
-          <span className="font-semibold mb-1">Hora P.</span>
-          <TimeAMPMInput name="horaPartida" control={control} />
         </label>
 
         {/* Visitas */}
@@ -615,9 +538,10 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         className="w-full border border-black text-sm overflow-x-auto"
       >
         {/* HEADER (solo desktop) */}
-        <div className="hidden md:grid grid-cols-[160px_1fr_120px_120px_120px] border-b font-bold">
+        <div className="hidden md:grid grid-cols-[160px_1fr_100px_120px_120px_120px] border-b font-bold">
           <div />
           <div className="border-l p-2">Detalle</div>
+          <div className="border-l p-2 text-center">Turno</div>
           <div className="border-l p-2 text-center">Precio</div>
           <div className="border-l p-2 text-center">Cant</div>
           <div className="border-l p-2 text-center">SubTotal</div>
@@ -738,110 +662,6 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
               </div>
             </div>
           </div>
-
-          {/* Desktop Layout */}
-          <div className="hidden md:grid grid-cols-[160px_1fr_120px_120px_120px]">
-            <div className="flex items-center px-2">
-              <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded">
-                Tarifa Tour
-              </span>
-            </div>
-
-            <div className="border-l p-1">
-              <Controller
-                name="detalle.tarifa.servicio"
-                control={control}
-                render={({ field }) => (
-                  <select
-                    className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
-                    value={field.value?.value ?? ""}
-                    onChange={(e) => {
-                      if (!isEditing) return;
-                      if (cantPax <= 0) {
-                        showToast({
-                          title: "Alerta",
-                          description: "Añade un pasajero por lo menos.",
-                          type: "error",
-                        });
-                        return;
-                      }
-
-                      const sel =
-                        almuerzos?.find((a) => a.value === e.target.value) ??
-                        null;
-                      field.onChange(sel);
-
-                      const adicional = sel ? getPrecioAlmuerzo(sel.id) : 0;
-                      const base =
-                        Number(getValues("detalle.tarifa.precioBase")) || 0;
-                      const precio = base + adicional;
-                      const roundedPrecio = roundCurrency(precio);
-
-                      setValue("detalle.tarifa.precio", roundedPrecio);
-                      setValue("detalle.tarifa.cant", cantPax);
-                      setValue(
-                        "detalle.tarifa.total",
-                        roundCurrency(roundedPrecio * cantPax),
-                      );
-                    }}
-                  >
-                    <option value="">(SELECCIONE)</option>
-                    {almuerzos?.map((a) => (
-                      <option key={a.value} value={a.value}>
-                        {a.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              />
-            </div>
-
-            <div className="border-l p-1">
-              <Controller
-                name="detalle.tarifa.precio"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    data-precio
-                    className={`w-full border px-2 py-1 text-right ${
-                      isTarifaPrecioDisabled() ? "bg-slate-100" : ""
-                    }`}
-                    onKeyDown={handleKeyNav}
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={field.value === 0 ? "" : field.value}
-                    onChange={(e) => {
-                      if (!isEditing) return;
-
-                      const raw = e.target.value;
-                      const precio = raw === "" ? 0 : Number(raw);
-                      const roundedPrecio = roundCurrency(precio);
-
-                      field.onChange(roundedPrecio);
-                      setValue(
-                        "detalle.tarifa.total",
-                        roundCurrency(roundedPrecio * cantPax),
-                      );
-                    }}
-                    disabled={isTarifaPrecioDisabled()}
-                  />
-                )}
-              />
-            </div>
-
-            <div className="border-l p-1">
-              <input
-                value={cantPax}
-                readOnly
-                className="w-full border px-2 py-1 text-right bg-slate-100"
-              />
-            </div>
-
-            <div className="border-l p-2 text-right font-bold">
-              <SubTotal name="detalle.tarifa.total" />
-            </div>
-          </div>
         </div>
 
         {/* ========================= OTRAS FILAS ========================= */}
@@ -945,7 +765,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
             </div>
 
             {/* Desktop Layout */}
-            <div className="hidden md:grid grid-cols-[160px_1fr_120px_120px_120px]">
+            <div className="hidden md:grid grid-cols-[160px_1fr_100px_120px_120px_120px]">
               <div className="flex items-center px-2">
                 <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded">
                   {row.label}
@@ -1026,6 +846,29 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                     )
                   }
                 />
+              </div>
+              {/* TURNO */}
+              <div className="border-l p-1">
+                {row.key === "act1" || row.key === "act2" ? (
+                  <Controller
+                    name={`detalle.${row.key}.turno`}
+                    control={control}
+                    defaultValue=""
+                    render={({ field }) => (
+                      <select
+                        {...field}
+                        className="w-full border rounded px-2 py-1"
+                        disabled={!isEditing || isRowEmpty(row.key)}
+                      >
+                        <option value="">-</option>
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    )}
+                  />
+                ) : (
+                  <div className="text-center text-slate-400">—</div>
+                )}
               </div>
 
               <div className="border-l p-1">
