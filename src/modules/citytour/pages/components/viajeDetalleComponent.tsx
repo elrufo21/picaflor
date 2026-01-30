@@ -466,6 +466,62 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       ========================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
         {/* Punto partida */}
+        <label className="flex flex-col text-sm md:col-span-3">
+          <span className="font-semibold mb-1">Punto partida</span>
+
+          <Controller
+            name="puntoPartida"
+            control={control}
+            defaultValue=""
+            render={({ field }) => (
+              <select
+                {...field}
+                className="rounded-lg border px-2.5 py-1.5"
+                onChange={(e) => {
+                  const selectedValue = e.target.value;
+                  field.onChange(selectedValue);
+                  if (
+                    selectedValue === "" ||
+                    selectedValue === "HOTEL" ||
+                    selectedValue === "OTROS"
+                  ) {
+                    setValue("detalle.traslado.servicio", null);
+                    setValue("detalle.traslado.precio", 0);
+                    setValue("detalle.traslado.cant", 0);
+                    setValue("detalle.traslado.total", 0);
+                  } else {
+                    const dashOption = getTrasladoDashOption();
+
+                    setValue("detalle.traslado.servicio", dashOption);
+                    setValue("detalle.traslado.precio", 0);
+                    setValue("detalle.traslado.cant", 0);
+                    setValue("detalle.traslado.total", 0);
+                  }
+
+                  const partida = partidas?.find(
+                    (p) => p.value === selectedValue,
+                  );
+                  const hora =
+                    horasPartida?.find(
+                      (h) => String(h.idParti) === String(partida?.id),
+                    )?.hora ?? "";
+
+                  setValue("horaPartida", hora, { shouldDirty: true });
+                }}
+              >
+                <option value="">Seleccione</option>
+                <option value="HOTEL">Hotel</option>
+                <option value="OTROS">Otros</option>
+
+                {partidas?.map((p) => (
+                  <option key={p.id} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+        </label>
 
         {/* Hotel */}
         <label className="flex flex-col text-sm md:col-span-2">
@@ -505,8 +561,8 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         </label>
 
         {/* Otros partidas */}
-        <label className="flex flex-col text-sm sm:col-span-1 md:col-span-3">
-          <span className="font-semibold mb-1">Dirección de Partida</span>
+        <label className="flex flex-col text-sm sm:col-span-2 md:col-span-5">
+          <span className="font-semibold mb-1">Otros partidas</span>
           <TextControlled
             control={control}
             id="otrosPartidas"
@@ -860,7 +916,6 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         className="w-full border rounded px-2 py-1"
                         disabled={!isEditing || isRowEmpty(row.key)}
                       >
-                        <option value="">-</option>
                         <option value="AM">AM</option>
                         <option value="PM">PM</option>
                       </select>

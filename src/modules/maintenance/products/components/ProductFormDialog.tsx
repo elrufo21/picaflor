@@ -80,7 +80,7 @@ export default function ProductFormDialog({
     defaultValues: defaults,
   });
 
-  const { control, reset } = form;
+  const { control, reset, setValue, getValues } = form;
   const [codeEditable, setCodeEditable] = useState(
     Boolean(initialData?.codigo),
   );
@@ -129,6 +129,17 @@ export default function ProductFormDialog({
   }, [regions, defaults.region]);
 
   const toggleCodeEditing = () => setCodeEditable((prev) => !prev);
+
+  useEffect(() => {
+    if (initialData?.codigo) {
+      return;
+    }
+    if (form.getValues("codigo")) {
+      return;
+    }
+    const generated = `PR-${Math.floor(Math.random() * 9000) + 1000}`;
+    setValue("codigo", generated);
+  }, [form, initialData?.codigo, setValue]);
 
   return (
     <form

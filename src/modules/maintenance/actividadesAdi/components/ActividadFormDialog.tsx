@@ -160,7 +160,7 @@ export default function ActividadFormDialog({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <TextControlled
           name="precio"
           control={control}
@@ -185,16 +185,15 @@ export default function ActividadFormDialog({
           type="number"
           inputProps={{ min: 0, step: "0.01" }}
         />
+        <TextControlled
+          name="entradaDol"
+          control={control}
+          label="Entrada Dol"
+          size="small"
+          type="number"
+          inputProps={{ min: 0, step: "0.01" }}
+        />
       </div>
-
-      <TextControlled
-        name="entradaDol"
-        control={control}
-        label="Entrada Dol"
-        size="small"
-        type="number"
-        inputProps={{ min: 0, step: "0.01" }}
-      />
     </form>
   );
 }
