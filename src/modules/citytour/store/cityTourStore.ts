@@ -39,6 +39,7 @@ export type ServiciosData = {
   hoteles: { id: number; nombre: string; region: string }[];
   direccionesHotel: { idHotel: number; direccion: string }[];
   ubigeos: { id: string; nombre: string }[];
+  productosCityTourOrdena: { id: number; nombre: string }[];
 };
 
 export type Passenger = {
@@ -250,20 +251,22 @@ export const usePackageStore = create<PackageState>()(
       },
       loadServiciosFromDB: async () => {
         const data = await getServiciosFromDB();
+        console.log("data", data);
         set({ servicios: data });
       },
       loadServicios: async () => {
         try {
           set({ loading: true, error: null });
-
+          console.log("Cargando servicios desde API...");
           const res = await fetch(`${API_BASE_URL}/Programacion/listServ`, {
             headers: { accept: "text/plain" },
           });
-
+          console.log("res", res);
           if (!res.ok) throw new Error("Error cargando servicios");
 
           const rawText = await res.text();
           const data = transformServiciosData(rawText);
+          console.log("dataasdasdasd");
 
           await serviciosDB.transaction(
             "rw",
@@ -283,6 +286,7 @@ export const usePackageStore = create<PackageState>()(
               serviciosDB.hoteles,
               serviciosDB.direccionesHotel,
               serviciosDB.ubigeos,
+              serviciosDB.productosCityTourOrdena,
             ],
             async () => {
               await serviciosDB.productos.bulkPut(data.productos);
@@ -302,6 +306,9 @@ export const usePackageStore = create<PackageState>()(
               await serviciosDB.hoteles.bulkPut(data.hoteles);
               await serviciosDB.direccionesHotel.bulkPut(data.direccionesHotel);
               await serviciosDB.ubigeos.bulkPut(data.ubigeos);
+              await serviciosDB.productosCityTourOrdena.bulkPut(
+                data.productosCityTourOrdena,
+              );
             },
           );
 

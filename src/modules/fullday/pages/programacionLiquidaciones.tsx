@@ -80,6 +80,11 @@ function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
 //fin detalle
 const LEGACY_ROW_SEPARATOR = "\u00ac";
 
+const COMPANIA_FILTER_OPTIONS = [
+  { label: "Full day", value: 1 },
+  { label: "City tour", value: 2 },
+];
+
 const normalizeStringValue = (value?: string) => String(value ?? "").trim();
 
 const parseMoneyValue = (value?: string) => {
@@ -159,7 +164,11 @@ const LIQUIDACION_FIELDS = [
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
 type LiquidacionFieldKey = LiquidacionFieldDefinition["key"];
-type LiquidacionRow = Record<LiquidacionFieldKey, string> & { id: string };
+type LiquidacionRow = Record<LiquidacionFieldKey, string> & {
+  id: string;
+  companiaId?: string;
+  CompaniaId?: string;
+};
 
 const EXPECTED_FIELDS =
   Math.max(...LIQUIDACION_FIELDS.map((field) => field.sourceIndex)) + 1;
@@ -345,8 +354,18 @@ const LiquidacionesPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const searchParams = useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search],
+  );
+  const initialCompaniaId = useMemo(() => {
+    const raw = searchParams.get("companiaId");
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [searchParams]);
   const { loadServicios, loadServiciosFromDB, setFormData } = usePackageStore();
   const [rows, setRows] = useState<LiquidacionRow[]>([]);
+  const [allRows, setAllRows] = useState<LiquidacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -365,6 +384,30 @@ const LiquidacionesPage = () => {
   useEffect(() => {
     pendingEndDateRef.current = pendingEndDate;
   }, [pendingEndDate]);
+
+  const [selectedCompaniaId, setSelectedCompaniaId] = useState<number | null>(
+    initialCompaniaId,
+  );
+
+  useEffect(() => {
+    setSelectedCompaniaId(initialCompaniaId);
+  }, [initialCompaniaId]);
+
+  const filterRowsByCompania = useCallback(
+    (sourceRows: LiquidacionRow[]) => {
+      if (!selectedCompaniaId) return sourceRows;
+
+      return sourceRows.filter((row) => {
+        const candidate = row.companiaId ?? row.CompaniaId ?? "";
+        return Number(candidate) === selectedCompaniaId;
+      });
+    },
+    [selectedCompaniaId],
+  );
+
+  useEffect(() => {
+    setRows(filterRowsByCompania(allRows));
+  }, [allRows, filterRowsByCompania]);
 
   useEffect(() => {
     let canceled = false;
@@ -595,13 +638,16 @@ const LiquidacionesPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const payload = await fetchPedidosFecha({
+        const payload: Parameters<typeof fetchPedidosFecha>[0] = {
           fechaInicio: rangeStart,
           fechaFin: rangeEnd,
           areaId,
           usuarioId,
-        });
-        setRows(parseLiquidacionesPayload(payload));
+        };
+
+        const response = await fetchPedidosFecha(payload);
+        const parsedRows = parseLiquidacionesPayload(response);
+        setAllRows(parsedRows);
       } catch (err) {
         const message =
           err instanceof Error
@@ -678,6 +724,31 @@ const LiquidacionesPage = () => {
         />
       </div>
 
+      {/* COMPAÑÍA */}
+      <div className="flex flex-col text-xs text-slate-500">
+        <span>Paquete</span>
+        <select
+          value={selectedCompaniaId ?? ""}
+          onChange={(e) => {
+            const value = e.target.value;
+            setSelectedCompaniaId(value ? Number(value) : null);
+          }}
+          className="
+        w-full md:w-32
+        rounded-md border border-slate-200
+        bg-white/80 px-2 py-1
+        text-xs text-slate-700
+      "
+        >
+          <option value="">Todas</option>
+          {COMPANIA_FILTER_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* ACCIONES */}
       <div
         className="
@@ -711,7 +782,7 @@ const LiquidacionesPage = () => {
       </div>
     </div>
   );
-
+  console.log("rows", rows);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">

@@ -3,7 +3,7 @@ function parseLegacyData(raw: string): string[][][] {
 
   return raw.split("[").map((block) =>
     block
-      .split("¬")
+      .split(/(?:Â)?¬/)
       .map((row) => row.trim())
       .filter(Boolean)
       .map((row) => row.split("|")),
@@ -111,6 +111,11 @@ export function transformServiciosData(raw: string) {
     ubigeos:
       b[14]?.map(([id, nombre]) => ({
         id,
+        nombre,
+      })) ?? [],
+    productosCityTourOrdena:
+      b[15]?.map(([id, nombre]) => ({
+        id: Number(id),
         nombre,
       })) ?? [],
   };

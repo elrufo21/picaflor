@@ -22,7 +22,7 @@ export async function fetchPackages(fecha?: string): Promise<PackageItem[]> {
     params.append("fecha", fechaParam);
   }
 
-  const url = `${PROGRAMACION_API_URL}/list${params.toString() ? `?${params}` : ""}`;
+  const url = `${PROGRAMACION_API_URL}/list-city-tours${params.toString() ? `?${params}` : ""}`;
 
   const res = await fetch(url, {
     headers: {

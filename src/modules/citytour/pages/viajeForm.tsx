@@ -105,19 +105,19 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  if (!values.detalle?.tarifa?.servicio?.value) {
+  /* if (!values.detalle?.tarifa?.servicio?.value) {
     return {
       message: "SELECCIONE SI INCLUYE ALMUERZO EL TOURS",
       focus: "detalle.tarifa.servicio",
     };
-  }
+  }*/
 
   const puntoSelected = String(values.puntoPartida ?? "")
     .trim()
     .toUpperCase();
   const requiereTrasladoEdit =
     puntoSelected === "HOTEL" || puntoSelected === "OTROS";
-  if (requiereTrasladoEdit) {
+  /* if (requiereTrasladoEdit) {
     const trasladoField = values.detalle?.traslado;
     const trasladoValue = trasladoField?.servicio?.value;
     if (!trasladoValue || trasladoValue === "-") {
@@ -126,15 +126,15 @@ const validateViajeValues = (values: any): ValidationError | null => {
         focus: "detalle.traslado.servicio",
       };
     }
-  }
+  }*/
 
-  if (!values.detalle?.traslado?.servicio?.value) {
+  /*if (!values.detalle?.traslado?.servicio?.value) {
     return {
       message: "SELECCIONE SI INCLUYE TRASLADO",
       focus: "detalle.traslado.servicio",
     };
-  }
-  if (
+  }*/
+  /*if (
     !values.detalle?.tarifa?.precio ||
     Number(values.detalle?.tarifa?.precio) <= 0
   ) {
@@ -142,7 +142,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
       message: "INGRESE EL PRECIO DE LA TARIFA DEL TOURS",
       focus: "detalle.tarifa.precio",
     };
-  }
+  }*/
   if (!values.medioPago) {
     return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
   }
@@ -192,12 +192,12 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  if (!values.horaPartida?.trim()) {
+  /*if (!values.horaPartida?.trim()) {
     return {
       message: "INGRESE LA HORA DE PARTIDA DEL TOURS",
       focus: "horaPartida",
     };
-  }
+  }*/
 
   const totalToPay = Number(values.precioTotal ?? 0);
   if (totalToPay <= 0) {
@@ -310,7 +310,13 @@ function normalizarDetalleCreate(detalle: any): string {
   return Object.values(detalle)
     .map((i: any) => {
       const label = resolveServicioLabel(i?.servicio) || "-";
-      return [label, d(i?.precio), Number(i?.cant), d(i?.total)].join("|");
+
+      const hora =
+        typeof i?.turno === "string" && i.turno.trim() ? i.turno.trim() : "-";
+
+      return [label, d(i?.precio), Number(i?.cant), d(i?.total), hora].join(
+        "|",
+      );
     })
     .join(";");
 }
@@ -408,58 +414,59 @@ function buildListaOrdenCreate(data) {
   );
 
   const orden = [
-    n(data.documentoCobranza),
-    n(data.nombreCompleto),
-    n(data.documentoNumero),
-    n(data.clienteId ?? 0),
-    n(data.counter),
-    n(data.medioPago),
-    n(data.condicion?.value),
-    n(data.celular),
-    d(data.totalGeneral),
-    d(data.precioTotal),
-    d(data.acuenta),
-    d(data.saldo),
-    d(data.precioExtra),
-    d(data.precioTotal),
-    n(data.condicion?.value),
-    data.companiaId,
-    "NO",
-    "",
-    "",
-    0,
-    data.usuarioId,
-    n(data.entidadBancaria),
-    n(data.nroOperacion),
-    d(data.efectivo),
-    d(data.deposito),
-    data.idProducto,
-    n(data.canalVenta),
-    n(data.canalDeVentaTelefono),
-    data.cantPax,
-    n(data.puntoPartida),
-    n(data.horaPartida),
-    n(data.otrosPartidas ?? ""),
-    n(data.visitas),
-    n(Number(data.precioExtraSoles ?? 0)),
-    n(Number(data.precioExtraDolares ?? 0)),
-    data.fechaAdelanto,
-    n(data.mensajePasajero ?? ""),
-    n(data.observaciones ?? ""),
-    islas,
-    tubulares,
-    otros,
-    data.fechaViaje,
-    0,
-    "NO",
-    data.moneda,
-    n(data.detalle.tarifa.servicio.label ?? ""),
-    "",
-    n(data?.hotel?.label ?? ""),
-    data.region,
+    n(data.documentoCobranza), // 1 NotaDocu
+    2, // 2 flagServicio ✅ FIJO
+    n(data.nombreCompleto), // 3 nombrePax
+    n(data.documentoNumero), // 4 dniPax
+    n(data.clienteId ?? 0), // 5 ClienteId
+    n(data.counter), // 6 NotaUsuario
+    n(data.medioPago), // 7 NotaFormaPago
+    n(data.condicion?.value), // 8 NotaCondicion
+    n(data.celular), // 9 NotaTelefono
+    d(data.totalGeneral), // 10 NotaSubtotal
+    d(data.precioTotal), // 11 NotaTotal
+    d(data.acuenta), // 12 NotaAcuenta
+    d(data.saldo), // 13 NotaSaldo
+    d(data.precioExtra), // 14 NotaAdicional
+    d(data.precioTotal), // 15 NotaPagar
+    n(data.condicion?.value), // 16 NotaEstado
+    1, // 17 CompaniaId
+    "NO", // 18 IncluyeIGV
+    "", // 19 Serie
+    "", // 20 Numero
+    0, // 21 NotaGanancia
+    data.usuarioId, // 22 UsuarioId
+    n(data.entidadBancaria), // 23 EntidadBancaria
+    n(data.nroOperacion), // 24 NroOperacion
+    d(data.efectivo), // 25 Efectivo
+    d(data.deposito), // 26 Deposito
+    data.idProducto, // 27 IdProducto
+    n(data.canalVenta), // 28 Auxiliar
+    n(data.canalDeVentaTelefono), // 29 TelefonoAuxiliar
+    data.cantPax, // 30 CantidadPax
+    n(data.puntoPartida), // 31 PuntoPartida
+    n(data.horaPartida), // 32 HoraPartida
+    n(data.otrosPartidas ?? ""), // 33 otrasPartidas
+    n(data.visitas), // 34 VisitasExCur
+    n(Number(data.precioExtraSoles ?? 0)), // 35 CobroExtraSol
+    n(Number(data.precioExtraDolares ?? 0)), // 36 CobroExtraDol
+    data.fechaAdelanto, // 37 FechaAdelanto
+    n(data.mensajePasajero ?? ""), // 38 MensajePasajero
+    n(data.observaciones ?? ""), // 39 Observaciones
+    islas, // 40 Islas
+    tubulares, // 41 Tubulares
+    otros, // 42 otros
+    data.fechaViaje, // 43 FechaViaje
+    0, // 44 IGV
+    "NO", // 45 IncluyeCargos
+    data.moneda, // 46 Monedas
+    n(data?.detalle?.tarifa?.servicio?.label ?? ""), // 47 IncluyeALmuerzo
+    "", // 48 NotaImagen
+    n(data?.hotel?.label ?? ""), // 49 Hotel
+    data.region, // 50 Region
   ].join("|");
 
-  return `${orden}[${detalle}`;
+  return `${orden}[${detalle}]`;
 }
 
 function buildListaOrdenEdit(data) {
@@ -484,7 +491,7 @@ function buildListaOrdenEdit(data) {
     d(data.precioExtra), // 13 NotaAdicional
     d(data.precioTotal), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
-    Number(data.companiaId), // 16 CompaniaId
+    1, // 16 CompaniaId (hardcoded to 2)
     "NO", // 17 IncluyeIGV
     n(data.nserie), // 18 Serie
     n(data.ndocumento), // 19 Numero
@@ -1027,6 +1034,7 @@ const ViajeForm = () => {
       }
     }
   };
+  console.log("watch", watch());
   return (
     <>
       <Backdrop

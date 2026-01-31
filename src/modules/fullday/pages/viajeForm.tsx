@@ -310,7 +310,7 @@ function normalizarDetalleCreate(detalle: any): string {
   return Object.values(detalle)
     .map((i: any) => {
       const label = resolveServicioLabel(i?.servicio) || "-";
-      return [label, d(i?.precio), Number(i?.cant), d(i?.total)].join("|");
+      return [label, d(i?.precio), Number(i?.cant), d(i?.total), ""].join("|");
     })
     .join(";");
 }
@@ -409,6 +409,7 @@ function buildListaOrdenCreate(data) {
 
   const orden = [
     n(data.documentoCobranza),
+    1,
     n(data.nombreCompleto),
     n(data.documentoNumero),
     n(data.clienteId ?? 0),

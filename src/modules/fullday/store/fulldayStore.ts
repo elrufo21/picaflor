@@ -267,43 +267,47 @@ export const usePackageStore = create<PackageState>()(
 
           await serviciosDB.transaction(
             "rw",
-            [
-              serviciosDB.productos,
-              serviciosDB.preciosProducto,
-              serviciosDB.canales,
-              serviciosDB.actividades,
-              serviciosDB.partidas,
-              serviciosDB.auxiliares,
-              serviciosDB.preciosActividades,
-              serviciosDB.horasPartida,
-              serviciosDB.almuerzos,
-              serviciosDB.traslados,
-              serviciosDB.preciosAlmuerzo,
-              serviciosDB.preciosTraslado,
-              serviciosDB.hoteles,
-              serviciosDB.direccionesHotel,
-              serviciosDB.ubigeos,
-            ],
-            async () => {
-              await serviciosDB.productos.bulkPut(data.productos);
-              await serviciosDB.preciosProducto.bulkPut(data.preciosProducto);
-              await serviciosDB.canales.bulkPut(data.canales);
-              await serviciosDB.actividades.bulkPut(data.actividades);
-              await serviciosDB.partidas.bulkPut(data.partidas);
-              await serviciosDB.auxiliares.bulkPut(data.auxiliares);
-              await serviciosDB.preciosActividades.bulkPut(
-                data.preciosActividades,
-              );
-              await serviciosDB.horasPartida.bulkPut(data.horasPartida);
-              await serviciosDB.almuerzos.bulkPut(data.almuerzos);
-              await serviciosDB.traslados.bulkPut(data.traslados);
-              await serviciosDB.preciosAlmuerzo.bulkPut(data.preciosAlmuerzo);
-              await serviciosDB.preciosTraslado.bulkPut(data.preciosTraslado);
-              await serviciosDB.hoteles.bulkPut(data.hoteles);
-              await serviciosDB.direccionesHotel.bulkPut(data.direccionesHotel);
-              await serviciosDB.ubigeos.bulkPut(data.ubigeos);
-            },
-          );
+          [
+            serviciosDB.productos,
+            serviciosDB.preciosProducto,
+            serviciosDB.canales,
+            serviciosDB.actividades,
+            serviciosDB.partidas,
+            serviciosDB.auxiliares,
+            serviciosDB.preciosActividades,
+            serviciosDB.horasPartida,
+            serviciosDB.almuerzos,
+            serviciosDB.traslados,
+            serviciosDB.preciosAlmuerzo,
+            serviciosDB.preciosTraslado,
+            serviciosDB.hoteles,
+            serviciosDB.direccionesHotel,
+            serviciosDB.ubigeos,
+            serviciosDB.productosCityTourOrdena,
+          ],
+          async () => {
+            await serviciosDB.productos.bulkPut(data.productos);
+            await serviciosDB.preciosProducto.bulkPut(data.preciosProducto);
+            await serviciosDB.canales.bulkPut(data.canales);
+            await serviciosDB.actividades.bulkPut(data.actividades);
+            await serviciosDB.partidas.bulkPut(data.partidas);
+            await serviciosDB.auxiliares.bulkPut(data.auxiliares);
+            await serviciosDB.preciosActividades.bulkPut(
+              data.preciosActividades,
+            );
+            await serviciosDB.horasPartida.bulkPut(data.horasPartida);
+            await serviciosDB.almuerzos.bulkPut(data.almuerzos);
+            await serviciosDB.traslados.bulkPut(data.traslados);
+            await serviciosDB.preciosAlmuerzo.bulkPut(data.preciosAlmuerzo);
+            await serviciosDB.preciosTraslado.bulkPut(data.preciosTraslado);
+            await serviciosDB.hoteles.bulkPut(data.hoteles);
+            await serviciosDB.direccionesHotel.bulkPut(data.direccionesHotel);
+            await serviciosDB.ubigeos.bulkPut(data.ubigeos);
+            await serviciosDB.productosCityTourOrdena.bulkPut(
+              data.productosCityTourOrdena,
+            );
+          },
+        );
 
           set({ servicios: data, loading: false });
         } catch (err: any) {
