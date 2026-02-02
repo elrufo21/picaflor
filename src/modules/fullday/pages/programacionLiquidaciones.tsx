@@ -17,15 +17,20 @@ import { useCanalVenta } from "../hooks/useCanalVenta";
 import { ChevronLeft } from "lucide-react";
 
 type BackendDetalle = {
-  detalleId: number; // ✅ faltaba
+  detalleId: number;
   actividades: string;
+  hora?: string; // 👈 NUEVO (AM / PM)
   precio: number | null;
   cantidad: number | null;
+  turno?: string;
   importe: number | null;
 };
+
 function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
   const emptyRow = {
     servicio: null,
+    hora: "",
+    turno: "",
     precio: 0,
     cant: 0,
     total: 0,
@@ -44,24 +49,24 @@ function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
   detalles.forEach((d, index) => {
     const rawLabel = String(d.actividades ?? "").trim();
 
-    const isEntrada = index === 5; // backend fijo
+    const isEntrada = index === 5;
 
-    // 🔴 BASE NORMAL (OBJETO)
     const baseNormal = {
       detalleId: d.detalleId,
       servicio: {
         value: rawLabel || "-",
         label: rawLabel || "-",
       },
+      hora: d.hora ?? "",
+      turno: d.hora ?? "",
       precio: d.precio ?? 0,
       cant: d.cantidad ?? 0,
       total: d.importe ?? 0,
     };
 
-    // 🔥 BASE ESPECIAL PARA ENTRADA (STRING)
     const baseEntrada = {
       detalleId: d.detalleId,
-      servicio: rawLabel && rawLabel !== "-" ? rawLabel : "N/A", // 👈 CLAVE
+      servicio: rawLabel && rawLabel !== "-" ? rawLabel : "N/A",
       precio: d.precio ?? 0,
       cant: d.cantidad ?? 0,
       total: d.importe ?? 0,
@@ -71,16 +76,16 @@ function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
     if (index >= 1 && index <= 3)
       return (rows[`act${index}` as "act1" | "act2" | "act3"] = baseNormal);
     if (index === 4) return (rows.traslado = baseNormal);
-    if (index === 5) return (rows.entrada = baseEntrada); // 👈 AQUÍ
+    if (index === 5) return (rows.entrada = baseEntrada);
   });
-
+  console.log("rows", detalles, rows);
   return rows;
 }
 
 //fin detalle
 const LEGACY_ROW_SEPARATOR = "\u00ac";
 
-const COMPANIA_FILTER_OPTIONS = [
+const FLAG_SERVICIO_OPTIONS = [
   { label: "Full day", value: 1 },
   { label: "City tour", value: 2 },
 ];
@@ -160,6 +165,7 @@ const LIQUIDACION_FIELDS = [
   { key: "hotel", label: "Hotel", sourceIndex: 49 },
   { key: "regionProducto", label: "RegionProducto", sourceIndex: 50 },
   { key: "regionNota", label: "RegionNota", sourceIndex: 51 },
+  { key: "flagServicio", label: "FlagServicio", sourceIndex: 52 }, // 👈 NUEVO
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
@@ -211,9 +217,7 @@ const parseLiquidacionesPayload = (payload: string | null | undefined) => {
     .map((row) => row.trim())
     .filter((row) => row && row !== "~");
 
-  const dataRows = rows.slice(3);
-
-  return dataRows.map((row, index) => parseLiquidacionRow(row, index));
+  return rows.map((row, index) => parseLiquidacionRow(row, index));
 };
 
 const normalizeProductName = (value?: string) =>
@@ -358,8 +362,9 @@ const LiquidacionesPage = () => {
     () => new URLSearchParams(location.search),
     [location.search],
   );
-  const initialCompaniaId = useMemo(() => {
-    const raw = searchParams.get("companiaId");
+  const initialFlagServicio = useMemo(() => {
+    const raw =
+      searchParams.get("flagServicio") ?? searchParams.get("companiaId");
     const parsed = Number(raw);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }, [searchParams]);
@@ -385,29 +390,29 @@ const LiquidacionesPage = () => {
     pendingEndDateRef.current = pendingEndDate;
   }, [pendingEndDate]);
 
-  const [selectedCompaniaId, setSelectedCompaniaId] = useState<number | null>(
-    initialCompaniaId,
-  );
+  const [selectedFlagServicio, setSelectedFlagServicio] = useState<
+    number | null
+  >(initialFlagServicio);
 
   useEffect(() => {
-    setSelectedCompaniaId(initialCompaniaId);
-  }, [initialCompaniaId]);
+    setSelectedFlagServicio(initialFlagServicio);
+  }, [initialFlagServicio]);
 
-  const filterRowsByCompania = useCallback(
+  const filterRowsByFlagServicio = useCallback(
     (sourceRows: LiquidacionRow[]) => {
-      if (!selectedCompaniaId) return sourceRows;
+      if (!selectedFlagServicio) return sourceRows;
 
       return sourceRows.filter((row) => {
-        const candidate = row.companiaId ?? row.CompaniaId ?? "";
-        return Number(candidate) === selectedCompaniaId;
+        const candidate = Number(row.flagServicio ?? 0);
+        return candidate === selectedFlagServicio;
       });
     },
-    [selectedCompaniaId],
+    [selectedFlagServicio],
   );
 
   useEffect(() => {
-    setRows(filterRowsByCompania(allRows));
-  }, [allRows, filterRowsByCompania]);
+    setRows(filterRowsByFlagServicio(allRows));
+  }, [allRows, filterRowsByFlagServicio]);
 
   useEffect(() => {
     let canceled = false;
@@ -508,29 +513,22 @@ const LiquidacionesPage = () => {
       _editMode: true,
       estado: data.estado,
     };
-    setFormData(normalizedData);
-    /*const productId = resolveProductId(row);
-    const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
-    if (!targetId) {
-      setError("No se pudo determinar la programación asociada");
-      return;
-    }
-    setError(null);
-    const actividadesDetalle = await fetchDetalleActividades(row.notaId);
-    const partidasList = await serviciosDB.partidas.toArray();
-    const normalizedPayload = normalizeLiquidacionForForm(
-      row,
-      actividadesDetalle,
-      partidasList,
-    );*/
-    //console.log("Payload normalizado para el formulario:", normalizedPayload);
     const productId = resolveProductId(row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
+
     if (!targetId) {
       setError("No se pudo determinar la programación asociada");
       return;
     }
-    navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`);
+    if (row.flagServicio == "1") {
+      navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`, {
+        state: { formData: normalizedData },
+      });
+    } else if (row.flagServicio == "2") {
+      navigate(`/citytour/22/passengers/view/${row.notaId}`, {
+        state: { formData: normalizedData },
+      });
+    }
   };
 
   const columnHelper = createColumnHelper<LiquidacionRow>();
@@ -724,14 +722,14 @@ const LiquidacionesPage = () => {
         />
       </div>
 
-      {/* COMPAÑÍA */}
+      {/* SERVICIO */}
       <div className="flex flex-col text-xs text-slate-500">
-        <span>Paquete</span>
+        <span>Servicio</span>
         <select
-          value={selectedCompaniaId ?? ""}
+          value={selectedFlagServicio ?? ""}
           onChange={(e) => {
             const value = e.target.value;
-            setSelectedCompaniaId(value ? Number(value) : null);
+            setSelectedFlagServicio(value ? Number(value) : null);
           }}
           className="
         w-full md:w-32
@@ -741,7 +739,7 @@ const LiquidacionesPage = () => {
       "
         >
           <option value="">Todas</option>
-          {COMPANIA_FILTER_OPTIONS.map((option) => (
+          {FLAG_SERVICIO_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

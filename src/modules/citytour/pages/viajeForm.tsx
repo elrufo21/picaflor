@@ -20,12 +20,12 @@ import {
   Save,
   Trash,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CanalVentaComponent from "./components/canalVentaComponent";
 import PaxDetailComponent from "./components/paxDetailComponent";
 import ViajeDetalleComponent from "./components/viajeDetalleComponent";
 import PaimentDetailComponent from "./components/paimentDetailComponent";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { usePackageStore } from "../store/cityTourStore";
 import axios from "axios";
 import { API_BASE_URL } from "@/config";
@@ -327,38 +327,46 @@ function normalizarDetalleEdit(detalle: any): string {
       const hasServicioObject = i?.servicio && typeof i.servicio === "object";
       const detalleId =
         i?.detalleId ?? (hasServicioObject ? i.servicio.detalleId : undefined);
+
       let resolvedServicioLabel = resolveServicioLabel(i?.servicio) || "";
       const normalizedLabel = resolvedServicioLabel.trim().toUpperCase();
       if (!resolvedServicioLabel || normalizedLabel === "N/A") {
         resolvedServicioLabel = "-";
       }
+
+      const hora =
+        typeof i?.turno === "string" && i.turno.trim()
+          ? i.turno.trim() // "AM" | "PM"
+          : "-";
+
       return {
+        detalleId,
         servicioLabel: resolvedServicioLabel,
         cant: Number(i?.cant),
         precio: i?.precio,
         total: i?.total,
-        detalleId,
+        hora,
       };
     })
     .filter(
       (item) =>
         item.detalleId !== undefined &&
         item.detalleId !== null &&
-        item.servicioLabel &&
-        (item.cant > 0 ||
-          ["-", "N/A"].includes(item.servicioLabel.trim().toUpperCase())),
+        item.servicioLabel,
     )
     .map((item) =>
       [
-        item.detalleId ?? "", // 👈 SOLO EN EDIT
+        item.detalleId,
         item.servicioLabel,
         d(item.precio),
         item.cant,
         d(item.total),
+        item.hora, // 👈 AM / PM
       ].join("|"),
     )
     .join(";");
 }
+
 function resolveActividadesEspeciales(detalle: any, idProducto: number) {
   if (Number(idProducto) !== 4) {
     return { islas: "", tubulares: "", otros: "" };
@@ -529,7 +537,7 @@ function buildListaOrdenEdit(data) {
     n(data.region), // 51 Region
   ].join("|");
 
-  return `${orden}[${detalle}`;
+  return `${orden}[${detalle}]`;
 }
 
 async function agregarViaje(valores, edit) {
@@ -723,8 +731,8 @@ export function parseDateForInput(
 
 const ViajeForm = () => {
   const { formData, setFormData, isEditing, setIsEditing } = usePackageStore();
-  //Precargar los valores en modo edicion
-
+  const location = useLocation();
+  const incomingFormData = (location.state as { formData?: any })?.formData;
   const {
     control,
     handleSubmit,
@@ -752,7 +760,17 @@ const ViajeForm = () => {
       medioPago: "",
       detalle: {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
-        act1: { servicio: null, precio: 0, cant: 0, total: 0 },
+        act1: {
+          servicio: {
+            value: "City Tour Lima",
+            label: "City Tour Lima",
+            id: "1022",
+          },
+          precio: 20,
+          cant: 0,
+          total: 0,
+          turno: "",
+        },
         act2: { servicio: null, precio: 0, cant: 0, total: 0 },
         act3: { servicio: null, precio: 0, cant: 0, total: 0 },
         traslado: { servicio: null, precio: 0, cant: 0, total: 0 },
@@ -761,18 +779,15 @@ const ViajeForm = () => {
       totalGeneral: 0,
     },
   });
-  useEffect(() => {
-    return () => {
-      setFormData(null);
-    };
-  }, []);
+  console.log("watch", watch());
+  const hydratedRef = useRef(false);
+
   useEffect(() => {
     if (!formData) return;
 
     reset({
       ...formData,
 
-      // 🛡️ defaults defensivos
       condicion: formData.condicion ?? {
         value: "PENDIENTE",
         label: "Pendiente",
@@ -787,14 +802,30 @@ const ViajeForm = () => {
         entrada: { servicio: null, precio: 0, cant: 0, total: 0 },
       },
     });
+
+    hydratedRef.current = true; // 🔐 CLAVE
   }, [formData, reset]);
+
   const navigate = useNavigate();
   //sesion
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
-
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const { idProduct, liquidacionId } = useParams();
   const { packages, date, loadPackages } = usePackageStore();
+  useEffect(() => {
+    if (!incomingFormData || formData) return;
+    setFormData(incomingFormData);
+  }, [incomingFormData, formData, setFormData]);
+  useEffect(() => {
+    return () => {
+      setFormData(null);
+    };
+  }, []);
+  useEffect(() => {
+    if (!liquidacionId) return;
+    if (formData || incomingFormData) return;
+    navigate("/citytour", { replace: true });
+  }, [formData, incomingFormData, liquidacionId, navigate]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -807,6 +838,7 @@ const ViajeForm = () => {
   useEffect(() => {
     setIsEditing(!liquidacionId);
   }, [liquidacionId, setIsEditing]);
+
   useEffect(() => {
     if (!packages.length) return;
 
@@ -869,7 +901,7 @@ const ViajeForm = () => {
 
       const payload = {
         ...data,
-        _editMode: data._editMode === true,
+        _editMode: Boolean(liquidacionId),
         fechaViaje: fechaViajeValue,
         fechaEmision: fechaEmisionYMD(),
         precioExtra: data.precioExtra === "" ? 0 : data.precioExtra,
@@ -1034,7 +1066,7 @@ const ViajeForm = () => {
       }
     }
   };
-  console.log("watch", watch());
+  console.log("watchasd", watch(), formData);
   return (
     <>
       <Backdrop
@@ -1254,6 +1286,7 @@ const ViajeForm = () => {
                         setValue={setValue}
                         watch={watch}
                         getValues={getValues}
+                        hydratedRef={hydratedRef}
                       />
                     </div>
                   </div>

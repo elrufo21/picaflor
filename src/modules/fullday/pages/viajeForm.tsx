@@ -25,7 +25,7 @@ import CanalVentaComponent from "./components/canalVentaComponent";
 import PaxDetailComponent from "./components/paxDetailComponent";
 import ViajeDetalleComponent from "./components/viajeDetalleComponent";
 import PaimentDetailComponent from "./components/paimentDetailComponent";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { usePackageStore } from "../store/fulldayStore";
 import axios from "axios";
 import { API_BASE_URL } from "@/config";
@@ -349,10 +349,12 @@ function normalizarDetalleEdit(detalle: any): string {
         d(item.precio),
         item.cant,
         d(item.total),
+        "",
       ].join("|"),
     )
     .join(";");
 }
+
 function resolveActividadesEspeciales(detalle: any, idProducto: number) {
   if (Number(idProducto) !== 4) {
     return { islas: "", tubulares: "", otros: "" };
@@ -717,6 +719,8 @@ export function parseDateForInput(
 
 const ViajeForm = () => {
   const { formData, setFormData, isEditing, setIsEditing } = usePackageStore();
+  const location = useLocation();
+  const incomingFormData = (location.state as { formData?: any })?.formData;
   //Precargar los valores en modo edicion
 
   const {
@@ -756,11 +760,6 @@ const ViajeForm = () => {
     },
   });
   useEffect(() => {
-    return () => {
-      setFormData(null);
-    };
-  }, []);
-  useEffect(() => {
     if (!formData) return;
 
     reset({
@@ -785,10 +784,18 @@ const ViajeForm = () => {
   const navigate = useNavigate();
   //sesion
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
-
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const { idProduct, liquidacionId } = useParams();
   const { packages, date, loadPackages } = usePackageStore();
+  useEffect(() => {
+    if (!incomingFormData || formData) return;
+    setFormData(incomingFormData);
+  }, [incomingFormData, formData, setFormData]);
+  useEffect(() => {
+    if (!liquidacionId) return;
+    if (formData || incomingFormData) return;
+    navigate("/fullday", { replace: true });
+  }, [formData, incomingFormData, liquidacionId, navigate]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -863,7 +870,7 @@ const ViajeForm = () => {
 
       const payload = {
         ...data,
-        _editMode: data._editMode === true,
+        _editMode: liquidacionId !== undefined,
         fechaViaje: fechaViajeValue,
         fechaEmision: fechaEmisionYMD(),
         precioExtra: data.precioExtra === "" ? 0 : data.precioExtra,
@@ -1016,7 +1023,11 @@ const ViajeForm = () => {
   const handleUnlockEditing = () => {
     setIsEditing(true);
   };
-
+  useEffect(() => {
+    return () => {
+      setFormData(null);
+    };
+  }, []);
   const handleEnterFocus = (e) => {
     if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
       e.preventDefault();
@@ -1028,6 +1039,7 @@ const ViajeForm = () => {
       }
     }
   };
+
   return (
     <>
       <Backdrop

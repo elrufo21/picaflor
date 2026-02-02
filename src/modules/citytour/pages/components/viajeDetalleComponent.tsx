@@ -458,6 +458,26 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     setValue(`detalle.${rowKey}.total`, roundCurrency(precio * cant));
   };
   const hasTurno = (rowKey: string) => rowKey === "act1" || rowKey === "act2";
+  const turnos = useWatch({
+    control,
+    name: ["detalle.act1.turno", "detalle.act2.turno"],
+  });
+
+  const turnoAct1 = turnos?.[0];
+  const turnoAct2 = turnos?.[1];
+  const getTurnoOptions = (rowKey: "act1" | "act2") => {
+    if (rowKey === "act1") {
+      if (turnoAct2 === "AM") return ["PM"];
+      if (turnoAct2 === "PM") return ["AM"];
+    }
+
+    if (rowKey === "act2") {
+      if (turnoAct1 === "AM") return ["PM"];
+      if (turnoAct1 === "PM") return ["AM"];
+    }
+
+    return ["AM", "PM"];
+  };
 
   return (
     <div className="p-2.5 space-y-3">
@@ -916,8 +936,15 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         className="w-full border rounded px-2 py-1"
                         disabled={!isEditing || isRowEmpty(row.key)}
                       >
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
+                        <option value="">—</option>
+
+                        {getTurnoOptions(row.key as "act1" | "act2").map(
+                          (opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ),
+                        )}
                       </select>
                     )}
                   />
