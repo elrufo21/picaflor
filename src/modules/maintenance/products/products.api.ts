@@ -148,7 +148,7 @@ export const updateProductApi = async (payload: ProductPayload) => {
 };
 export const deleteProductApi = async (id: number) => {
   return apiRequest({
-    url: `${API_BASE_URL}/Productos/`,
+    url: `${API_BASE_URL}/Productos/${id}`,
     method: "DELETE",
     config: {
       headers: {

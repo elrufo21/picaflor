@@ -38,7 +38,9 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
   const total = watch("precioTotal");
   const precioTotal = Number(total ?? 0);
   const acuenta = watch("acuenta");
-
+  const moneda = watch("moneda");
+  const currencySymbol =
+    moneda === "DOLARES" ? "USD$" : moneda === "SOLES" ? "S/" : "S/";
   useEffect(() => {
     if (isEditing === false) return;
     if (condicion === "CANCELADO") {
@@ -97,11 +99,14 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       message = "El pasajero no tiene deuda.";
     } else if (value == "CREDITO") {
       message =
-        "El pasajero si tiene deuda S/ " +
+        "El pasajero si tiene deuda " +
+        `${currencySymbol} ` +
         formatCurrency(watch("precioTotal") ?? 0);
     } else {
       message =
-        "El pasajero si tiene deuda S/" + formatCurrency(watch("saldo") ?? 0);
+        "El pasajero si tiene deuda " +
+        `${currencySymbol} ` +
+        formatCurrency(watch("saldo") ?? 0);
     }
     setValue("mensajePasajero", message);
   };
@@ -113,7 +118,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       setValue("medioPago", "-");
     }
     buildMessagePassenger({ value: condicion });
-  }, [condicion, total, acuenta]);
+  }, [condicion, total, acuenta, currencySymbol]);
 
   useEffect(() => {
     if (medioPago === "EFECTIVO") {
@@ -168,7 +173,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
         >
           <div className="grid grid-cols-3 border-b border-slate-300">
             <div className="bg-amber-300 text-amber-900 font-semibold px-3 py-2 col-span-2">
-              TOTAL A PAGAR S/ :
+              TOTAL A PAGAR {currencySymbol} :
             </div>
             <div className="px-3 py-2 text-right font-semibold">
               {formatCurrency(watch("precioTotal") ?? 0)}
@@ -217,7 +222,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
           </div>
           <div className="grid grid-cols-3 border-b border-slate-300">
             <div className="bg-amber-300 text-amber-900 font-semibold px-3 py-2 col-span-2">
-              SALDO S/ :
+              SALDO {currencySymbol} :
             </div>
             <div className="px-3 py-2 text-right font-semibold">
               {formatCurrency(watch("saldo") ?? 0)}
@@ -365,7 +370,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
               <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
-                Deposito S/
+                Deposito {currencySymbol}
               </div>
               <div className="bg-white px-2 py-1">
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1.4fr_auto_1.4fr] items-center">

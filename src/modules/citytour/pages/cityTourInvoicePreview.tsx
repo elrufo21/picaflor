@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import { showToast } from "@/components/ui/AppToast";
 import PdfDocument, { type InvoiceData } from "@/components/invoice/Invoice";
 import { formatFechaParaMostrar } from "@/shared/helpers/helpers";
+import InvoiceCityTour from "@/components/invoice/InvoiceCityTour";
 
 type LocationState = {
   invoiceData?: InvoiceData;
@@ -12,7 +13,7 @@ type LocationState = {
 
 const INVOICE_HEIGHT = 760;
 
-const InvoicePreview = () => {
+const CityInvoicePreview = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -117,7 +118,6 @@ const InvoicePreview = () => {
       });
     }
   };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -185,7 +185,7 @@ const InvoicePreview = () => {
               style={{ minHeight: INVOICE_HEIGHT }}
             >
               <PDFViewer style={{ width: "100%", height: INVOICE_HEIGHT }}>
-                <PdfDocument data={invoiceData} />
+                <InvoiceCityTour data={invoiceData} />
               </PDFViewer>
             </div>
           )
@@ -206,4 +206,4 @@ const InvoicePreview = () => {
   );
 };
 
-export default InvoicePreview;
+export default CityInvoicePreview;

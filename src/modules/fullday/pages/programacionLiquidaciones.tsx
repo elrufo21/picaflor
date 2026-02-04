@@ -78,7 +78,6 @@ function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
     if (index === 4) return (rows.traslado = baseNormal);
     if (index === 5) return (rows.entrada = baseEntrada);
   });
-  console.log("rows", detalles, rows);
   return rows;
 }
 
@@ -780,7 +779,6 @@ const LiquidacionesPage = () => {
       </div>
     </div>
   );
-  console.log("rows", rows);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">

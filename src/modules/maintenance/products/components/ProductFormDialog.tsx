@@ -140,15 +140,14 @@ export default function ProductFormDialog({
     const generated = `PR-${Math.floor(Math.random() * 9000) + 1000}`;
     setValue("codigo", generated);
   }, [form, initialData?.codigo, setValue]);
-
   return (
     <form
       ref={containerRef}
-      className="space-y-4"
+      className="space-y-6"
       onKeyDown={handleEnterFocus}
       onSubmit={(event) => event.preventDefault()}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <SelectControlled
           name="categoria"
           control={control}
@@ -159,119 +158,84 @@ export default function ProductFormDialog({
           helperText={loadingSublineas ? "Cargando categorías..." : undefined}
           disabled={loadingSublineas && categoryOptions.length <= 1}
         />
+
         <SelectControlled
           name="region"
           control={control}
           label="Región"
           size="small"
-          options={regionOptions}
           required
+          options={regionOptions}
           helperText={loadingRegions ? "Cargando regiones..." : undefined}
           disabled={loadingRegions && !regionOptions.length}
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="flex gap-2 items-center">
-        <TextControlled
-          name="codigo"
-          control={control}
-          label="Código"
-          placeholder="Autogenerado"
-          size="small"
-          disabled={!codeEditable}
-          className="flex-1"
-        />
-        <button
-          type="button"
-          onClick={toggleCodeEditing}
-          className="text-xs font-semibold text-sky-600 hover:text-sky-800 whitespace-nowrap"
-        >
-          {codeEditable ? "Bloquear" : "Editar"}
-        </button>
-      </div>
-        <TextControlled
-          name="descripcion"
-          control={control}
-          label="Descripción"
-          placeholder="Descripción del producto"
-          size="small"
-        />
-      </div>
+      {/* 📝 DESCRIPCIÓN */}
+      <TextControlled
+        transform={(value) => value.toUpperCase()}
+        name="descripcion"
+        control={control}
+        label="Producto"
+        placeholder="Descripción del producto"
+        size="small"
+        disableHistory
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 💰 PRECIOS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
         <TextControlled
-          name="preCosto"
-          control={control}
-          label="Pre costo"
-          size="small"
-          type="number"
-          inputProps={{ min: 0, step: "0.01" }}
-        />
-        <TextControlled
+          transform={(value) => value.toUpperCase()}
           name="ventaSoles"
           control={control}
-          label="Venta S/."
+          label="Venta (S/.)"
           size="small"
           type="number"
           inputProps={{ min: 0, step: "0.01" }}
         />
+
         <TextControlled
+          transform={(value) => value.toUpperCase()}
           name="ventaDolar"
           control={control}
-          label="Venta USD"
+          label="Venta (USD)"
           size="small"
           type="number"
           inputProps={{ min: 0, step: "0.01" }}
+          disableHistory
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="mt-2">
+        <TextControlled
+          transform={(value) => value.toUpperCase()}
+          name="visitasExCur"
+          control={control}
+          label="Visitas / excursiones / ruta"
+          size="small"
+          multiline
+          rows={3}
+          placeholder="Describe las visitas, excursiones o rutas incluidas"
+          disableHistory
+        />
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        {" "}
+        <TextControlled
+          transform={(value) => value.toUpperCase()}
+          name="usuario"
+          control={control}
+          label="Usuario responsable"
+          size="small"
+          disableHistory
+        />
         <SelectControlled
           name="estado"
           control={control}
           label="Estado"
           size="small"
           options={estadoOptions}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <TextControlled
-          name="cantidad"
-          control={control}
-          label="Cantidad"
-          size="small"
-          type="number"
-          inputProps={{ min: 0, step: "1" }}
-        />
-        <TextControlled
-          name="cantMaxPax"
-          control={control}
-          label="Cant. máximo pax"
-          size="small"
-          type="number"
-          inputProps={{ min: 0, step: "1" }}
-        />
-      </div>
-
-      <TextControlled
-        name="visitasExCur"
-        control={control}
-        label="Visitas / excursiones / ruta"
-        size="small"
-        multiline
-        rows={3}
-        placeholder="Describir visitas o rutas complementarias"
-      />
-
-      <div className="mt-4">
-        {" "}
-        <TextControlled
-          name="usuario"
-          control={control}
-          label="Usuario"
-          size="small"
+          disabled={!initialData?.id}
         />
       </div>
     </form>

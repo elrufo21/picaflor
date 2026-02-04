@@ -5,7 +5,7 @@ import Pscreate from "./pages/cityTourPassengerCreate";
 
 import ViajeForm from "./pages/viajeForm";
 import FulldayListado from "./pages/cityTourListado";
-import InvoicePreview from "./pages/cityTourInvoicePreview";
+import CityInvoicePreview from "./pages/cityTourInvoicePreview";
 import ProgramacionLiquidaciones from "./pages/gramacionLiquidaciones";
 
 export default [
@@ -46,7 +46,7 @@ export default [
   },
   {
     path: "citytour/:id/passengers/preview",
-    element: <InvoicePreview />,
+    element: <CityInvoicePreview />,
     handle: {
       breadcrumb: [
         { label: "City Tour", to: "/citytour" },

@@ -60,6 +60,7 @@ import {
   deleteHolidayApi,
 } from "@/modules/maintenance/holidays/holidays.api";
 import { API_BASE_URL } from "@/config";
+import { queueServiciosRefresh } from "@/app/db/serviciosSync";
 
 const providerAccountHeaders = {
   Accept: "*/*",
@@ -507,6 +508,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           type: "success",
         });
       }
+      queueServiciosRefresh();
     },
     updateHotel: async (id, data) => {
       const payload = buildHotelPayload(data, id);
@@ -535,6 +537,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           type: "success",
         });
       }
+      queueServiciosRefresh();
     },
     deleteHotel: async (id) => {
       await apiRequest({
@@ -552,6 +555,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         description: "El hotel se eliminó correctamente.",
         type: "success",
       });
+      queueServiciosRefresh();
       return true;
     },
     addPartida: async (data) => {
@@ -580,6 +584,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         description: `El punto ${partidaRecord.pointName} se guardó correctamente.`,
         type: "success",
       });
+      queueServiciosRefresh();
     },
     updatePartida: async (id, data) => {
       const payload = buildPartidaPayload(data, id);
@@ -603,6 +608,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         description: `Se actualizó ${partidaRecord.pointName} correctamente.`,
         type: "success",
       });
+      queueServiciosRefresh();
     },
     deletePartida: async (id) => {
       const deleted = await apiRequest({
@@ -625,6 +631,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           description: "El punto de partida se eliminó correctamente.",
           type: "success",
         });
+        queueServiciosRefresh();
         return true;
       }
       showToast({
@@ -1401,9 +1408,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
             ? response
             : Number((response as any)?.idActi ?? response ?? 0);
         const newId =
-          Number.isFinite(candidate) && candidate > 0
-            ? candidate
-            : Date.now();
+          Number.isFinite(candidate) && candidate > 0 ? candidate : Date.now();
         const record = buildActividadAdiRecord(payload, destino, newId);
         set((state) => ({
           actividadesAdi: [
@@ -1414,6 +1419,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         await queryClient.invalidateQueries({
           queryKey: actividadesAdiQueryKey,
         });
+        queueServiciosRefresh();
         return true;
       } catch (error) {
         console.error("Error al registrar actividad adicional", error);
@@ -1431,7 +1437,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         const record = buildActividadAdiRecord(
           payload,
           destino ?? "",
-          payload.idActi ?? 0
+          payload.idActi ?? 0,
         );
         set((state) => ({
           actividadesAdi: state.actividadesAdi.map((item) =>
@@ -1441,6 +1447,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         await queryClient.invalidateQueries({
           queryKey: actividadesAdiQueryKey,
         });
+        queueServiciosRefresh();
         return true;
       } catch (error) {
         console.error("Error al actualizar actividad adicional", error);
@@ -1468,6 +1475,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           description: "La actividad adicional fue eliminada.",
           type: "success",
         });
+        queueServiciosRefresh();
         return true;
       } catch (error) {
         console.error("Error al eliminar actividad adicional", error);

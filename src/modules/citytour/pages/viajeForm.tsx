@@ -606,7 +606,6 @@ export function adaptViajeJsonToInvoice(
   backendResponse: string | boolean,
 ): InvoiceData {
   const isEdit = backendResponse === true;
-
   const backend = isEdit
     ? {
         serie: viajeJson.nserie,
@@ -616,20 +615,23 @@ export function adaptViajeJsonToInvoice(
       }
     : parseBackendResponse(String(backendResponse));
 
-  const actividadesKeys = ["act1", "act2", "act3"];
-
-  const actividades = actividadesKeys.map((key, idx) => {
+  const actividades = ["act1", "act2"].map((key, idx) => {
     const act = viajeJson.detalle?.[key];
 
-    const servicioLabel =
-      act?.servicio && typeof act.servicio === "object" && act.servicio.label
-        ? act.servicio.label
+    const actividad =
+      act?.servicio && typeof act.servicio === "object"
+        ? (act.servicio.label ?? "")
         : "";
+
+    const turno =
+      typeof act?.turno === "string" && act.turno.trim()
+        ? act.turno.trim()
+        : null;
 
     return {
       label: `Actividad ${idx + 1}`,
-      actividad: servicioLabel,
-      cantidad: act && Number(act.cant) > 0 ? Number(act.cant) : null,
+      actividad,
+      turno, // 👈 AM / PM
     };
   });
 
@@ -710,6 +712,7 @@ export function adaptViajeJsonToInvoice(
     observaciones: viajeJson.observaciones ?? "",
     mensajePasajero: viajeJson.mensajePasajero ?? "",
     precioTotal: viajeJson.precioTotal,
+    moneda: viajeJson.moneda,
   };
 }
 export function parseDateForInput(
@@ -779,7 +782,6 @@ const ViajeForm = () => {
       totalGeneral: 0,
     },
   });
-  console.log("watch", watch());
   const hydratedRef = useRef(false);
 
   useEffect(() => {
@@ -952,13 +954,14 @@ const ViajeForm = () => {
       }
 
       const pdfData = adaptViajeJsonToInvoice(payload, result);
+
       const backendPayload = payload._editMode
         ? `${liquidacionId}¬¬¬${formatDate(payload.fechaAdelanto) ?? ""}`
         : result;
 
       localStorage.setItem("invoiceData", JSON.stringify(pdfData));
       localStorage.setItem("invoiceBackend", result);
-      navigate(`/fullday/${idProduct}/passengers/preview`, {
+      navigate(`/cityTour/${idProduct}/passengers/preview`, {
         state: {
           invoiceData: pdfData,
           backendPayload,
@@ -974,7 +977,7 @@ const ViajeForm = () => {
   };
 
   const handleNew = () => {
-    navigate(`/fullday`);
+    navigate(`/cityTour`);
   };
 
   const handlePrint = () => {
@@ -985,7 +988,7 @@ const ViajeForm = () => {
         true,
       );
       const backendPayload = liquidacionId ?? formValues.nserie ?? "";
-      navigate(`/fullday/${idProduct}/passengers/preview`, {
+      navigate(`/cityTour/${idProduct}/passengers/preview`, {
         state: {
           invoiceData,
           backendPayload,
@@ -1015,7 +1018,7 @@ const ViajeForm = () => {
           description: "La liquidación se eliminó correctamente.",
           type: "success",
         });
-        navigate("/fullday/programacion/liquidaciones", {
+        navigate("/cityTour/programacion/liquidaciones", {
           state: { refresh: Date.now() },
         });
       } else {
@@ -1066,7 +1069,6 @@ const ViajeForm = () => {
       }
     }
   };
-  console.log("watchasd", watch(), formData);
   return (
     <>
       <Backdrop
@@ -1089,9 +1091,9 @@ const ViajeForm = () => {
             className="cursor-pointer"
             onClick={() => {
               if (liquidacionId) {
-                navigate("/fullday/programacion/liquidaciones");
+                navigate("/cityTour/programacion/liquidaciones");
               } else {
-                navigate("/fullday");
+                navigate("/cityTour");
               }
             }}
           />

@@ -149,7 +149,7 @@ const PackageList = () => {
       const idProducto = row?.idProducto ?? row?.id;
       if (!idProducto) return;
       setSelectedFullDayName(row?.destino ?? "");
-      navigate(`/fullday/${idProducto}/listado`);
+      navigate(`/cityTour/${idProducto}/listado`);
     },
     [navigate, setSelectedFullDayName],
   );

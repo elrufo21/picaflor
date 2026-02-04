@@ -12,6 +12,7 @@ import ProductFormDialog, {
 import { useProductSublineas } from "../useProductSublineas";
 import { saveProductApi, updateProductApi } from "../products.api";
 import { Pencil, Trash2 } from "lucide-react";
+import { queueServiciosRefresh } from "@/app/db/serviciosSync";
 import { showToast } from "@/components/ui/AppToast";
 import { useAuthStore } from "@/store/auth/auth.store";
 import type { UseFormReturn } from "react-hook-form";
@@ -67,6 +68,7 @@ const ProductList = () => {
                 await saveProductApi(payload);
               }
               await fetchProducts();
+              queueServiciosRefresh();
               showToast({
                 title:
                   mode === "create"
@@ -115,6 +117,7 @@ const ProductList = () => {
             });
             throw new Error("No se pudo eliminar el producto");
           }
+          queueServiciosRefresh();
         },
         content: () => (
           <p className="text-sm text-slate-700">
