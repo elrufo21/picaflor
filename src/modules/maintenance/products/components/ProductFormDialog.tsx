@@ -7,11 +7,7 @@ import {
 } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 
-import {
-  RadioGroupControlled,
-  SelectControlled,
-  TextControlled,
-} from "@/components/ui/inputs";
+import { SelectControlled, TextControlled } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import type { Product } from "@/types/maintenance";
@@ -19,6 +15,7 @@ import { useHotelRegions } from "@/modules/maintenance/hotels/useHotelRegions";
 import { useProductSublineas } from "../useProductSublineas";
 import type { ProductPayload } from "../products.api";
 import type { ProductSublinea } from "../sublineas.api";
+import { useAuthStore } from "@/store/auth/auth.store";
 
 export type ProductFormValues = {
   categoria: string;
@@ -41,7 +38,10 @@ type ProductFormDialogProps = {
   initialData?: Partial<Product>;
 };
 
-const buildDefaults = (data?: Partial<Product>): ProductFormValues => ({
+const buildDefaults = (
+  data?: Partial<Product>,
+  defaultUsuario?: string,
+): ProductFormValues => ({
   categoria: data?.categoria ?? "",
   region: data?.region ?? "",
   codigo: data?.codigo ?? "",
@@ -53,7 +53,7 @@ const buildDefaults = (data?: Partial<Product>): ProductFormValues => ({
   cantidad: data?.cantidad?.toString() ?? "",
   cantMaxPax: data?.cantMaxPax?.toString() ?? "",
   visitasExCur: data?.visitasExCur ?? "",
-  usuario: data?.usuario ?? "",
+  usuario: data?.usuario ?? defaultUsuario ?? "",
   estado: data?.estado ?? "BUENO",
 });
 
@@ -74,8 +74,16 @@ export default function ProductFormDialog({
   const { data: sublineas = [], isLoading: loadingSublineas } =
     useProductSublineas();
   const { data: regions = [], isLoading: loadingRegions } = useHotelRegions();
+  const { user } = useAuthStore();
   const containerRef = useRef<HTMLDivElement>(null);
-  const defaults = useMemo(() => buildDefaults(initialData), [initialData]);
+  const defaultUsuario = useMemo(() => {
+    const trimmedDisplayName = user?.displayName?.trim();
+    return trimmedDisplayName || user?.username || "";
+  }, [user?.displayName, user?.username]);
+  const defaults = useMemo(
+    () => buildDefaults(initialData, defaultUsuario),
+    [initialData, defaultUsuario],
+  );
   const form = useForm<ProductFormValues>({
     defaultValues: defaults,
   });
@@ -221,14 +229,6 @@ export default function ProductFormDialog({
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         {" "}
-        <TextControlled
-          transform={(value) => value.toUpperCase()}
-          name="usuario"
-          control={control}
-          label="Usuario responsable"
-          size="small"
-          disableHistory
-        />
         <SelectControlled
           name="estado"
           control={control}
@@ -236,6 +236,15 @@ export default function ProductFormDialog({
           size="small"
           options={estadoOptions}
           disabled={!initialData?.id}
+        />
+        <TextControlled
+          transform={(value) => value.toUpperCase()}
+          name="usuario"
+          control={control}
+          label="Usuario responsable"
+          size="small"
+          disableHistory
+          disabled
         />
       </div>
     </form>

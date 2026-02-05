@@ -347,6 +347,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     entradaDol: payload.entradaDol,
     region: payload.region,
     idProducto: payload.idProducto,
+    descripcion: payload.descripcion,
   });
 
   return {

@@ -392,6 +392,27 @@ const LiquidacionesPage = () => {
   const [selectedFlagServicio, setSelectedFlagServicio] = useState<
     number | null
   >(initialFlagServicio);
+  const [searchNumber, setSearchNumber] = useState("");
+  const [searchResults, setSearchResults] = useState<LiquidacionRow[] | null>(
+    null,
+  );
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+
+  const stopNumberSearch = useCallback(() => {
+    setSearchNumber("");
+    searchAbortRef.current?.abort();
+    searchAbortRef.current = null;
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+    setSearchResults(null);
+    setSearchLoading(false);
+    setSearchError(null);
+  }, [setSearchNumber, setSearchResults, setSearchLoading, setSearchError]);
 
   useEffect(() => {
     setSelectedFlagServicio(initialFlagServicio);
@@ -410,8 +431,75 @@ const LiquidacionesPage = () => {
   );
 
   useEffect(() => {
-    setRows(filterRowsByFlagServicio(allRows));
-  }, [allRows, filterRowsByFlagServicio]);
+    const hasNumberQuery = Boolean(searchNumber.trim());
+    const sourceRows = hasNumberQuery ? (searchResults ?? []) : allRows;
+    setRows(filterRowsByFlagServicio(sourceRows));
+  }, [allRows, filterRowsByFlagServicio, searchNumber, searchResults]);
+
+  useEffect(() => {
+    const trimmedNumber = searchNumber.trim();
+
+    if (!trimmedNumber) {
+      searchAbortRef.current?.abort();
+      searchAbortRef.current = null;
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+      setSearchResults(null);
+      setSearchLoading(false);
+      setSearchError(null);
+      return;
+    }
+
+    searchAbortRef.current?.abort();
+    searchAbortRef.current = null;
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      setSearchLoading(true);
+      setSearchError(null);
+
+      fetch(
+        `${API_BASE_URL}/Programacion/lista-pedidos-numero?numero=${encodeURIComponent(
+          trimmedNumber,
+        )}`,
+        { signal: controller.signal },
+      )
+        .then(async (response) => {
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || "Error buscando por número");
+          }
+          return response.text();
+        })
+        .then((text) => {
+          const parsedRows = parseLiquidacionesPayload(text);
+          setSearchResults(parsedRows);
+        })
+        .catch((error) => {
+          if ((error as any)?.name === "AbortError") return;
+          setSearchError("No se pudo buscar por número");
+          setSearchResults([]);
+        })
+        .finally(() => {
+          setSearchLoading(false);
+          searchAbortRef.current = null;
+        });
+    }, 1000);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
+  }, [searchNumber]);
 
   useEffect(() => {
     let canceled = false;
@@ -423,7 +511,7 @@ const LiquidacionesPage = () => {
         } else {
           await loadServicios();
         }
-        const stored = await serviciosDB.productos.toArray();
+        const stored = await serviciosDB.productosCityTourOrdena.toArray();
         if (!canceled) {
           setProductos(stored);
         }
@@ -514,17 +602,17 @@ const LiquidacionesPage = () => {
     };
     const productId = resolveProductId(row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
-
     if (!targetId) {
       setError("No se pudo determinar la programación asociada");
       return;
     }
+    console.log("targetId", row, productId);
     if (row.flagServicio == "1") {
       navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`, {
         state: { formData: normalizedData },
       });
     } else if (row.flagServicio == "2") {
-      navigate(`/citytour/22/passengers/view/${row.notaId}`, {
+      navigate(`/citytour/${targetId}/passengers/view/${row.notaId}`, {
         state: { formData: normalizedData },
       });
     }
@@ -659,6 +747,7 @@ const LiquidacionesPage = () => {
   );
 
   const handleRangeSearch = () => {
+    stopNumberSearch();
     reload(pendingStartDate, pendingEndDate);
   };
 
@@ -682,14 +771,12 @@ const LiquidacionesPage = () => {
   const DateRangeFilter = () => (
     <div
       className="
-    flex flex-col gap-3
-    md:flex-row md:items-end md:gap-4
-  "
+                flex flex-col gap-3
+                md:flex-row md:items-end md:gap-4
+              "
     >
-      {/* TÍTULO */}
       <div className="text-sm font-semibold text-slate-900">Buscar por</div>
 
-      {/* FECHA INICIO */}
       <div className="flex flex-col text-xs text-slate-500">
         <span>Fecha Inicio</span>
         <input
@@ -705,7 +792,6 @@ const LiquidacionesPage = () => {
         />
       </div>
 
-      {/* FECHA FIN */}
       <div className="flex flex-col text-xs text-slate-500">
         <span>Fecha Fin</span>
         <input
@@ -721,7 +807,6 @@ const LiquidacionesPage = () => {
         />
       </div>
 
-      {/* SERVICIO */}
       <div className="flex flex-col text-xs text-slate-500">
         <span>Servicio</span>
         <select
@@ -744,6 +829,32 @@ const LiquidacionesPage = () => {
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="flex flex-col text-xs text-slate-500">
+        <span>Número de pedido</span>
+        <input
+          type="text"
+          value={searchNumber}
+          onChange={(e) => setSearchNumber(e.target.value)}
+          placeholder="Ej. 12345"
+          className="
+        w-full md:w-40
+        rounded-md border border-slate-200
+        bg-white/80 px-2 py-1
+        text-xs text-slate-700
+      "
+        />
+        {searchLoading && (
+          <span className="mt-1 text-[0.65rem] text-slate-500">
+            Buscando...
+          </span>
+        )}
+        {searchError && (
+          <span className="mt-1 text-[0.65rem] text-red-600">
+            {searchError}
+          </span>
+        )}
       </div>
 
       {/* ACCIONES */}

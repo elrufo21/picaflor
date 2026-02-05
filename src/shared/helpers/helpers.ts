@@ -35,9 +35,10 @@ export function transformServiciosData(raw: string) {
       })) ?? [],
 
     actividades:
-      b[3]?.map(([id, actividad, idProducto]) => ({
+      b[3]?.map(([id, actividad, descripcion, idProducto]) => ({
         id: Number(id),
         actividad,
+        descripcion: descripcion ?? "",
         idProducto: Number(idProducto),
       })) ?? [],
 

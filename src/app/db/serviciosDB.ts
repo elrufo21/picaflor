@@ -10,7 +10,12 @@ export type PrecioProducto = {
   precioVenta: number;
 };
 export type Canal = { id: number; nombre: string };
-export type Actividad = { id: number; actividad: string; idProducto: number };
+export type Actividad = {
+  id: number;
+  actividad: string;
+  idProducto: number;
+  descripcion?: string | null;
+};
 export type Partida = { id: number; partida: string; idProducto: number };
 export type Auxiliar = { id: number; telefono: string };
 export type PrecioActividad = {

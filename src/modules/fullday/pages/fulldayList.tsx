@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
-import { Plus, Calendar, RefreshCw, Database } from "lucide-react";
+import { useLocation, useNavigate } from "react-router";
+import { Plus, Calendar, RefreshCw } from "lucide-react";
 
 import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/fulldayStore";
-import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
+import { serviciosDB } from "@/app/db/serviciosDB";
 import { refreshServiciosData } from "@/app/db/serviciosSync";
 import { showToast } from "../../../components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -87,8 +87,6 @@ const PackageList = () => {
   const [productId, setProductId] = useState<string>("");
   const [productos, setProductos] = useState<any[]>([]);
   const [destino, setDestino] = useState<string>("");
-  const [refreshingServicios, setRefreshingServicios] = useState(false);
-
   const [selectedPackages, setSelectedPackages] = useState<any[]>([]);
   const [cantMaxChanges, setCantMaxChanges] = useState<CantMaxChange[]>([]);
 
@@ -98,7 +96,6 @@ const PackageList = () => {
     packages,
     loadPackages,
     loading,
-    loadServicios,
     loadServiciosFromDB,
     createProgramacion,
     deleteProgramacion,
@@ -110,21 +107,30 @@ const PackageList = () => {
   const navigate = useNavigate();
   const openDialog = useDialogStore((state) => state.openDialog);
 
-  useEffect(() => {
-    const init = async () => {
-      const data = await serviciosDB.productos.toArray();
-      setProductos(data);
+  const location = useLocation();
 
-      const exists = await hasServiciosData();
-      if (exists) {
+  useEffect(() => {
+    let canceled = false;
+
+    const refreshServices = async () => {
+      try {
+        await refreshServiciosData();
         await loadServiciosFromDB();
-      } else {
-        await loadServicios();
+        const data = await serviciosDB.productos.toArray();
+        if (!canceled) {
+          setProductos(data);
+        }
+      } catch (err) {
+        console.error("Error recargando servicios", err);
       }
     };
 
-    init();
-  }, []);
+    refreshServices();
+
+    return () => {
+      canceled = true;
+    };
+  }, [location.pathname, loadServiciosFromDB]);
 
   useEffect(() => {
     loadPackages(date);
@@ -155,30 +161,6 @@ const PackageList = () => {
     },
     [navigate, setSelectedFullDayName],
   );
-
-  const handleRefreshServicios = useCallback(async () => {
-    setRefreshingServicios(true);
-    try {
-      await refreshServiciosData();
-      await loadServiciosFromDB();
-      const updatedProductos = await serviciosDB.productos.toArray();
-      setProductos(updatedProductos);
-      showToast({
-        title: "Catálogos recargados",
-        description: "Los servicios se sincronizaron desde IndexedDB.",
-        type: "success",
-      });
-    } catch (err: any) {
-      showToast({
-        title: "Error",
-        description:
-          err?.message ?? "No se pudo recargar los datos de los servicios.",
-        type: "error",
-      });
-    } finally {
-      setRefreshingServicios(false);
-    }
-  }, [loadServiciosFromDB]);
 
   const handleCantMaxChange = (id: number, value: number, row: any) => {
     const idDetalle = row.original.idDetalle;
@@ -499,25 +481,6 @@ const PackageList = () => {
         "
             >
               Guardar
-            </button>
-
-            <button
-              onClick={handleRefreshServicios}
-              disabled={refreshingServicios}
-              className="
-          w-full sm:w-auto
-          px-4 py-2
-          rounded-lg
-          border border-slate-200
-          bg-slate-100 text-slate-700
-          hover:bg-slate-200
-          transition
-          flex items-center justify-center gap-2
-          disabled:cursor-not-allowed disabled:opacity-60
-        "
-            >
-              <Database size={16} />
-              {refreshingServicios ? "Sincronizando..." : "Recargar servicios"}
             </button>
 
             <button

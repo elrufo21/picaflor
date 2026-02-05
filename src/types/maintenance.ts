@@ -75,6 +75,7 @@ export interface ActividadAdi {
   entradaDol: number;
   region?: string | null;
   idProducto?: number | null;
+  descripcion?: string;
 }
 
 export interface Computer {

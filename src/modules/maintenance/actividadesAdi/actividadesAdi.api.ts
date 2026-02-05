@@ -19,6 +19,7 @@ export type ActividadAdi = {
   entradaDol: number;
   region?: string | null;
   idProducto?: number | null;
+  descripcion?: string;
 };
 
 export type ActividadAdiRequest = {
@@ -30,6 +31,7 @@ export type ActividadAdiRequest = {
   entradaDol: number;
   region: string;
   idProducto: number;
+  descripcion: string;
 };
 
 const toNumber = (value: unknown) => {
@@ -48,6 +50,7 @@ const mapActividad = (item: any): ActividadAdi => ({
   entradaDol: toNumber(item?.entradaDol ?? 0),
   region: item?.region ?? null,
   idProducto: item?.idProducto ? Number(item.idProducto) : null,
+  descripcion: String(item?.descripcion ?? ""),
 });
 
 export const fetchActividadesAdiApi = async (): Promise<ActividadAdi[]> => {

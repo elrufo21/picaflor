@@ -1,6 +1,6 @@
 import { Autocomplete, TextField } from "@mui/material";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { usePackageData } from "../../hooks/usePackageData";
 import { TextControlled } from "@/components/ui/inputs";
 import { showToast } from "@/components/ui/AppToast";
@@ -32,7 +32,19 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     control,
     name: ["detalle.act1.servicio", "detalle.act2.servicio"],
   });
-
+  const actividadDescription = useMemo(() => {
+    if (!serviciosWatch) return "";
+    const descriptions = serviciosWatch
+      .slice(0, 2)
+      .map((servicio) => {
+        if (!servicio) return "";
+        if (typeof servicio === "string") return "";
+        return (servicio.descripcion ?? "").trim();
+      })
+      .filter(Boolean);
+    return descriptions.join("\n");
+  }, [serviciosWatch]);
+  console.log("precioProducto", precioProducto);
   const isCreateMode = !liquidacionId && !isEditing;
   const isEditMode = !!liquidacionId && isEditing;
   const isViewMode = !!liquidacionId && !isEditing;
@@ -478,6 +490,26 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
 
     return ["AM", "PM"];
   };
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const keys = ["act1", "act2"] as const;
+
+    keys.forEach((key, index) => {
+      const servicio = serviciosWatch[index];
+
+      const isDash =
+        !servicio ||
+        servicio === "-" ||
+        !servicio.value ||
+        servicio.value === "-";
+
+      if (!isDash) return;
+
+      setValue(`detalle.${key}.turno`, "", { shouldDirty: true });
+      setValue(`detalle.${key}.hora`, "", { shouldDirty: true });
+    });
+  }, [serviciosWatch, isEditing, setValue]);
 
   return (
     <div className="p-2.5 space-y-3">
@@ -597,12 +629,16 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         {/* Visitas */}
         <label className="flex flex-col text-sm md:col-span-5">
           <span className="font-semibold mb-1">Visitas y excursiones</span>
-          <textarea
-            rows={2}
-            disabled
-            className="rounded-lg border px-2 py-1.5"
-            value={precioProducto?.visitas}
-          />
+      <textarea
+        rows={2}
+        disabled
+        className="rounded-lg border px-2 py-1.5"
+        value={
+          actividadDescription ||
+          precioProducto?.visitas ||
+          ""
+        }
+      />
         </label>
       </div>
 

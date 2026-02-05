@@ -11,7 +11,12 @@ export type ServiciosData = {
     precioVenta: number;
   }[];
   canales: { id: number; nombre: string }[];
-  actividades: { id: number; actividad: string; idProducto: number }[];
+  actividades: {
+    id: number;
+    actividad: string;
+    descripcion?: string | null;
+    idProducto: number;
+  }[];
   partidas: { id: number; partida: string; idProducto: number }[];
   auxiliares: { id: number; telefono: string }[];
   preciosActividades: {

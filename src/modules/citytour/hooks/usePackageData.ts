@@ -35,7 +35,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
   ========================= */
   const pkg = usePackageStore((s) => s.getPackageById(Number(id)));
   const { loadServiciosFromDB, loadServicios } = usePackageStore();
-
+  console.log("id", id);
   /* =========================
      EFFECT
   ========================= */
@@ -78,7 +78,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           serviciosDB.preciosTraslado.toArray(),
           serviciosDB.horasPartida.toArray(),
         ]);
-
+        console.log("precioProductoFromDB", precioProductoFromDB);
         if (cancelled) return;
 
         /* =========================
@@ -111,9 +111,10 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           dataActividades
             .filter((a) => Number(a.idProducto) === Number(id))
             .map((a) => ({
-              value: a.actividad,
+              value: String(a.id),
               label: a.actividad,
               id: String(a.id),
+              descripcion: a.descripcion ?? "",
             })),
         );
 

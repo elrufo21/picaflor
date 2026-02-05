@@ -246,14 +246,23 @@ export const buildInvoiceData = ({
     };
   });
 
-  const buildItem = (id: string, label: string, descripcion: string) => {
+  const buildItem = (
+    id: string,
+    label: string,
+    descripcion: string,
+    forceNA = false,
+  ) => {
     const row = findRow(id);
     const precio = toNumber(row?.precioUnit);
     const cantidad = toNumber(row?.cantidad);
     const hasNumbers = precio > 0 || cantidad > 0;
+
+    const resolvedDescripcion =
+      descripcion && descripcion.trim() ? descripcion : forceNA ? "N/A" : "";
+
     return {
       label,
-      descripcion: descripcion || "",
+      descripcion: resolvedDescripcion,
       precio: hasNumbers ? precio : null,
       cantidad: hasNumbers ? cantidad : null,
       subtotal: hasNumbers ? Number((precio * cantidad).toFixed(2)) : null,
@@ -276,6 +285,7 @@ export const buildInvoiceData = ({
       "Traslados :",
       resolveOptionLabel(trasladosOptions, values.traslados) || "",
     ),
+    buildItem("entradas", "Entradas :", "", true),
     buildItem(
       "otrosPagos",
       "Otros Pagos :",
@@ -411,6 +421,7 @@ const contactS = StyleSheet.create({
     backgroundColor: "#EEECE7",
     fontSize: 8,
     padding: 4,
+    textTransform: "uppercase",
   },
   activityArrowFixed: {
     width: "5%",
@@ -811,40 +822,64 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
               <Text style={contactS.tarifaColHeader}>Sub Total</Text>
             </View>
 
+            {/* ACTIVIDADES (SOLO 2) */}
             {items
-              .slice(1)
-              .filter((it) => it.label !== "Actividad 03 :")
-              .map((it, idx, arr) => {
-                const isLast = idx === arr.length - 1;
+              .filter(
+                (it) =>
+                  it.label === "Actividad 01 :" ||
+                  it.label === "Actividad 02 :",
+              )
+              .map((it, idx) => (
+                <View key={idx} style={contactS.tarifaRow}>
+                  <Text style={contactS.tarifaLabel}>{it.label}</Text>
 
-                return (
-                  <View key={idx} style={contactS.tarifaRow}>
-                    <Text style={contactS.tarifaLabel}>
-                      {isLast ? "Otros Pagos :" : it.label}
-                    </Text>
+                  <Text style={contactS.tarifaDesc}>
+                    {it.descripcion?.trim() || "-"}
+                  </Text>
 
-                    <Text style={contactS.tarifaDesc}>
-                      {it.descripcion || "N/A"}
-                    </Text>
+                  <Text style={contactS.tarifaUnit}>
+                    {it.precio && it.precio > 0 ? formatNumber(it.precio) : ""}
+                  </Text>
 
-                    <Text style={contactS.tarifaUnit}>
-                      {it.precio != null && it.precio > 0
-                        ? formatNumber(it.precio)
-                        : ""}
-                    </Text>
+                  <Text style={contactS.tarifaCant}>
+                    {it.precio && it.precio > 0 ? it.cantidad : ""}
+                  </Text>
 
-                    <Text style={contactS.tarifaCant}>
-                      {it.precio != null && it.precio > 0 ? it.cantidad : ""}
-                    </Text>
+                  <Text style={contactS.tarifaSub}>
+                    {it.subtotal && it.precio > 0
+                      ? formatNumber(it.subtotal)
+                      : ""}
+                  </Text>
+                </View>
+              ))}
+            {/* TRASLADOS (FIJO) */}
+            <View style={contactS.tarifaRow}>
+              <Text style={contactS.tarifaLabel}>Traslados :</Text>
+              <Text style={contactS.tarifaDesc}>N/A</Text>
+              <Text style={contactS.tarifaUnit}></Text>
+              <Text style={contactS.tarifaCant}></Text>
+              <Text style={contactS.tarifaSub}></Text>
+            </View>
 
-                    <Text style={contactS.tarifaSub}>
-                      {it.subtotal != null && it.precio > 0
-                        ? formatNumber(it.subtotal)
-                        : ""}
-                    </Text>
-                  </View>
-                );
-              })}
+            {/* ENTRADAS (FIJO) */}
+            <View style={contactS.tarifaRow}>
+              <Text style={contactS.tarifaLabel}>Entradas :</Text>
+              <Text style={[contactS.tarifaDesc, { fontStyle: "italic" }]}>
+                N/A
+              </Text>
+              <Text style={contactS.tarifaUnit}></Text>
+              <Text style={contactS.tarifaCant}></Text>
+              <Text style={contactS.tarifaSub}></Text>
+            </View>
+
+            {/* OTROS PAGOS (FIJO) */}
+            <View style={contactS.tarifaRow}>
+              <Text style={contactS.tarifaLabel}>Otros Pagos :</Text>
+              <Text style={contactS.tarifaDesc}>N/A</Text>
+              <Text style={contactS.tarifaUnit}></Text>
+              <Text style={contactS.tarifaCant}></Text>
+              <Text style={contactS.tarifaSub}></Text>
+            </View>
 
             {/* DIVIDER */}
             <View style={contactS.divider} />

@@ -10,6 +10,7 @@ import type { ActividadAdiRequest } from "../actividadesAdi.api";
 export type ActividadFormValues = {
   productoId: string;
   actividad: string;
+  descripcion: string;
   precio: string;
   entrada: string;
   precioDol: string;
@@ -43,6 +44,7 @@ const buildDefaults = (
   return {
     productoId: resolvedId ? resolvedId.toString() : "",
     actividad: data?.actividad ?? "",
+    descripcion: data?.descripcion ?? "",
     precio: data?.precioSol?.toString() ?? "",
     entrada: data?.entradaSol?.toString() ?? "",
     precioDol: data?.precioDol?.toString() ?? "",
@@ -86,6 +88,11 @@ export const buildActividadPayload = (
   entradaDol: parseNumber(values.entradaDol),
   region: selectedProduct?.region ?? initialData?.region ?? "",
   idProducto: resolveProductId(values, initialData),
+  descripcion:
+    values.descripcion?.trim() ||
+    selectedProduct?.descripcion ||
+    initialData?.descripcion ||
+    "",
 });
 
 export default function ActividadFormDialog({
@@ -100,7 +107,7 @@ export default function ActividadFormDialog({
   const form = useForm<ActividadFormValues>({
     defaultValues: defaults,
   });
-  const { control, reset } = form;
+  const { control, reset, setValue } = form;
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -131,7 +138,6 @@ export default function ActividadFormDialog({
     () => products.find((product) => String(product.id) === selectedProductId),
     [products, selectedProductId],
   );
-
   return (
     <form
       ref={containerRef}
@@ -157,6 +163,14 @@ export default function ActividadFormDialog({
           label="Actividad"
           size="small"
           className="mt-3"
+        />
+      </div>
+      <div className="mt-1">
+        <TextControlled
+          name="descripcion"
+          control={control}
+          label="Viajes y excursiones"
+          multiline
         />
       </div>
 

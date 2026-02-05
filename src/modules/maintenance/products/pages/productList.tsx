@@ -32,7 +32,8 @@ const ProductList = () => {
     fetchProducts();
   }, [products.length, fetchProducts]);
 
-  const username = user?.username ?? user?.displayName ?? "sistema";
+  const username =
+    user?.displayName?.trim() || user?.username || "sistema";
 
   const openProductModal = useCallback(
     (mode: "create" | "edit", product?: Product) => {

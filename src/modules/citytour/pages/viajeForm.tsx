@@ -74,7 +74,28 @@ type ValidationError = {
   message: string;
   focus?: string;
 };
+const validarTurnoActividad = (
+  actividad: any,
+  key: "act1" | "act2",
+): ValidationError | null => {
+  const servicio = actividad?.servicio;
+  const value =
+    servicio && typeof servicio === "object" ? servicio.value : servicio;
 
+  // ❌ no hay servicio o es "-"
+  if (!value || value === "-") return null;
+
+  const turno = actividad?.turno;
+
+  if (!turno || !String(turno).trim()) {
+    return {
+      message: `LA ${key === "act1" ? "PRIMERA" : "SEGUNDA"} ACTIVIDAD REQUIERE TURNO (AM / PM)`,
+      focus: `detalle.${key}.turno`,
+    };
+  }
+
+  return null;
+};
 const getDetailField = (values: any, key: string) =>
   values?.detalle?.[key] ?? {};
 
@@ -91,6 +112,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
   const condicionValue = String(values.condicion?.value ?? "")
     .trim()
     .toUpperCase();
+
   if (!condicionValue) {
     return {
       message: "SELECCIONE LA CONDICION DEL SERVICIO DE VIAJE",
@@ -98,6 +120,47 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
+  // ===============================
+  // VALIDAR TURNOS DE ACTIVIDADES
+  // ===============================
+  const act1Error = validarTurnoActividad(
+    getDetailField(values, "act1"),
+    "act1",
+  );
+  if (act1Error) return act1Error;
+
+  const act2Error = validarTurnoActividad(
+    getDetailField(values, "act2"),
+    "act2",
+  );
+  if (act2Error) return act2Error;
+
+  // ===============================
+  // VALIDAR: AL MENOS UNA ACTIVIDAD
+  // ===============================
+  const act1 = getDetailField(values, "act1");
+  const act2 = getDetailField(values, "act2");
+
+  const act1Selected =
+    act1?.servicio &&
+    act1.servicio !== "-" &&
+    (act1.servicio.value || act1.servicio.label);
+
+  const act2Selected =
+    act2?.servicio &&
+    act2.servicio !== "-" &&
+    (act2.servicio.value || act2.servicio.label);
+
+  if (!act1Selected && !act2Selected) {
+    return {
+      message: "DEBE SELECCIONAR AL MENOS UNA ACTIVIDAD",
+      focus: "detalle.act1.servicio",
+    };
+  }
+
+  // ===============================
+  // VALIDAR PUNTO DE PARTIDA
+  // ===============================
   if (!values.puntoPartida?.trim()) {
     return {
       message: "SELECCIONE EL PUNTO DE PARTIDA DE VIAJE",
@@ -105,44 +168,9 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  /* if (!values.detalle?.tarifa?.servicio?.value) {
-    return {
-      message: "SELECCIONE SI INCLUYE ALMUERZO EL TOURS",
-      focus: "detalle.tarifa.servicio",
-    };
-  }*/
-
-  const puntoSelected = String(values.puntoPartida ?? "")
-    .trim()
-    .toUpperCase();
-  const requiereTrasladoEdit =
-    puntoSelected === "HOTEL" || puntoSelected === "OTROS";
-  /* if (requiereTrasladoEdit) {
-    const trasladoField = values.detalle?.traslado;
-    const trasladoValue = trasladoField?.servicio?.value;
-    if (!trasladoValue || trasladoValue === "-") {
-      return {
-        message: "SELECCIONE TRASLADO VALIDO CUANDO INCLUYE HOTEL U OTROS",
-        focus: "detalle.traslado.servicio",
-      };
-    }
-  }*/
-
-  /*if (!values.detalle?.traslado?.servicio?.value) {
-    return {
-      message: "SELECCIONE SI INCLUYE TRASLADO",
-      focus: "detalle.traslado.servicio",
-    };
-  }*/
-  /*if (
-    !values.detalle?.tarifa?.precio ||
-    Number(values.detalle?.tarifa?.precio) <= 0
-  ) {
-    return {
-      message: "INGRESE EL PRECIO DE LA TARIFA DEL TOURS",
-      focus: "detalle.tarifa.precio",
-    };
-  }*/
+  // ===============================
+  // VALIDAR MEDIO DE PAGO
+  // ===============================
   if (!values.medioPago) {
     return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
   }
@@ -154,6 +182,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
   const medioPagoValue = String(values.medioPago ?? "")
     .trim()
     .toUpperCase();
+
   if (
     (medioPagoValue === "DEPOSITO" || medioPagoValue === "YAPE") &&
     !values.nroOperacion?.trim()
@@ -171,6 +200,9 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
+  // ===============================
+  // VALIDAR DATOS DEL CLIENTE
+  // ===============================
   if (!values.nombreCompleto?.trim()) {
     return {
       message: "INGRESE EL NOMBRE DEL CLIENTE",
@@ -192,20 +224,21 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  /*if (!values.horaPartida?.trim()) {
-    return {
-      message: "INGRESE LA HORA DE PARTIDA DEL TOURS",
-      focus: "horaPartida",
-    };
-  }*/
+  // ===============================
+  // VALIDAR TOTAL MAYOR A CERO
+  // ===============================
+  const totalToPay = Number(values.precioTotal ?? values.totalGeneral ?? 0);
 
-  const totalToPay = Number(values.precioTotal ?? 0);
-  if (totalToPay <= 0) {
+  if (!Number.isFinite(totalToPay) || totalToPay <= 0) {
     return {
-      message: "EL DOCUMENTO NO PUEDE SER CERO EN TOTAL A PAGAR...!!!",
+      message: "EL TOTAL A PAGAR DEBE SER MAYOR A CERO",
+      focus: "precioTotal",
     };
   }
 
+  // ===============================
+  // VALIDAR SALDO
+  // ===============================
   const saldo = Number(values.saldo ?? 0);
   if (saldo < 0) {
     return {
@@ -214,16 +247,19 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  const primeraActividad = getDetailField(values, "act1");
+  // ===============================
+  // VALIDAR PRECIO ACTIVIDADES
+  // ===============================
   const primeraActividadTieneDetalle =
-    primeraActividad.detalleId !== undefined &&
-    primeraActividad.detalleId !== null &&
-    String(primeraActividad.detalleId).trim() !== "";
+    act1?.detalleId !== undefined &&
+    act1?.detalleId !== null &&
+    String(act1?.detalleId).trim() !== "";
+
   if (
-    primeraActividad.servicio?.value &&
+    act1Selected &&
     !primeraActividadTieneDetalle &&
-    Number(primeraActividad.precio) <= 0 &&
-    !isIslasBallestasActivity(primeraActividad.servicio)
+    Number(act1?.precio) <= 0 &&
+    !isIslasBallestasActivity(act1.servicio)
   ) {
     return {
       message: "SI SELECCIONO UNA PRIMERA ACTIVIDAD INGRESE EL PRECIO",
@@ -231,40 +267,31 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  const segundaActividad = getDetailField(values, "act2");
   const segundaActividadTieneDetalle =
-    segundaActividad.detalleId !== undefined &&
-    segundaActividad.detalleId !== null &&
-    String(segundaActividad.detalleId).trim() !== "";
-  if (
-    segundaActividad.servicio?.value &&
+    act2?.detalleId !== undefined &&
+    act2?.detalleId !== null &&
+    String(act2?.detalleId).trim() !== "";
+
+  /*if (
+    act2Selected &&
     !segundaActividadTieneDetalle &&
-    Number(segundaActividad.precio) <= 0 &&
-    !isIslasBallestasActivity(segundaActividad.servicio)
+    Number(act2?.precio) <= 0 &&
+    !isIslasBallestasActivity(act2.servicio)
   ) {
     return {
       message: "SI SELECCIONO UNA SEGUNDA ACTIVIDAD INGRESE EL PRECIO",
       focus: "detalle.act2.precio",
     };
-  }
-
-  const traslado = getDetailField(values, "traslado");
-  /*if (
-    traslado.servicio?.value &&
-    traslado.servicio?.value !== "-" &&
-    Number(traslado.precio) <= 0
-  ) {
-    return {
-      message: "SI SELECCIONO QUE INCLUYE TRASLADO...INGRESE EL PRECIO",
-      focus: "detalle.traslado.precio",
-    };
   }*/
 
+  // ===============================
+  // VALIDAR ACUENTA
+  // ===============================
   if (condicionValue.includes("ACUENTA")) {
     if (!values.acuenta && values.acuenta !== 0) {
       return {
         message:
-          "SI SELECCIONO LA CONDICION ACUENTA, INGRESAR EL MONTO QUE LE DIO...!!!",
+          "SI SELECCIONO LA CONDICION ACUENTA, INGRESAR EL MONTO QUE LE DIO",
         focus: "acuenta",
       };
     }
@@ -272,32 +299,15 @@ const validateViajeValues = (values: any): ValidationError | null => {
     if (Number(values.acuenta) <= 0) {
       return {
         message:
-          "SI SELECCIONO LA CONDICION ACUENTA, EL MONTO NO PUEDE SER CERO...!!!",
+          "SI SELECCIONO LA CONDICION ACUENTA, EL MONTO NO PUEDE SER CERO",
         focus: "acuenta",
       };
     }
-
-    const totalBase = Number(values.precioTotal ?? totalToPay ?? 0);
-    const sumaAcuenta = Number(values.acuenta ?? 0);
-    const sumaEfectivo = Number(values.efectivo ?? 0);
-    /* if (totalBase > 0 && sumaAcuenta + sumaEfectivo > totalBase) {
-      return {
-        message:
-          "LA SUMA DEL ACUENTA CON EL EFECTIVO SUPERA AL MONTO TOTAL DE PAGO..!!!",
-        focus: "acuenta",
-      };
-    }*/
   }
-
-  /*if (values.horaPartida && !TIME_PATTERN.test(values.horaPartida)) {
-    return {
-      message: "INGRESE CORRECTAMENTE LA HORA",
-      focus: "horaPartida",
-    };
-  }*/
 
   return null;
 };
+
 function resolveServicioLabel(servicio: any) {
   if (!servicio) return "";
   if (typeof servicio === "object") {
@@ -756,7 +766,7 @@ const ViajeForm = () => {
       disponibles: 0,
       region: "",
       counter: "",
-      moneda: "SOLES",
+      moneda: "DOLARES",
       canalDeVentaTelefono: "",
       fechaAdelanto: parseDateForInput(Date()),
       saldo: "0",
