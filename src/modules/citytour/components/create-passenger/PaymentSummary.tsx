@@ -139,7 +139,7 @@ export const PaymentSummary = ({
   })();
 
   useEffect(() => {
-    setValue("mensajePasajero", panelText, {
+    setValue("mensajePasajero", panelText.toUpperCase(), {
       shouldDirty: false,
       shouldTouch: false,
     });

@@ -24,7 +24,9 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
     { value: "EFECTIVO", label: "Efectivo" },
     { value: "DEPOSITO", label: "Deposito" },
     { value: "YAPE", label: "Yape" },
+    { value: "TARJETA", label: "Tarjeta" },
   ];
+
   const bancoOptions = [
     { value: "", label: "(SELECCIONE)" },
     { value: "-", label: "-" },
@@ -59,7 +61,10 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       }
     }
 
-    if (medioPago === "DEPOSITO" && condicion == "CANCELADO") {
+    if (
+      ["DEPOSITO", "YAPE", "TARJETA"].includes(medioPago) &&
+      condicion == "CANCELADO"
+    ) {
       setValue("efectivo", 0);
       setValue("deposito", roundCurrency(total));
     }
@@ -103,7 +108,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       message =
         "El pasajero si tiene deuda S/" + formatCurrency(watch("saldo") ?? 0);
     }
-    setValue("mensajePasajero", message);
+    setValue("mensajePasajero", message.toUpperCase());
   };
   useEffect(() => {
     if (condicion === "ACUENTA") {
@@ -119,7 +124,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
     if (medioPago === "EFECTIVO") {
       setValue("efectivo", acuenta);
     }
-    if (medioPago === "DEPOSITO" || medioPago === "YAPE") {
+    if (["DEPOSITO", "YAPE", "TARJETA"].includes(medioPago)) {
       setValue("efectivo", 0);
       setValue("deposito", acuenta);
     }
@@ -327,7 +332,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                   name="entidadBancaria"
                   disabled={
                     condicion === "CREDITO" ||
-                    !["DEPOSITO", "YAPE"].includes(medioPago) ||
+                    !["DEPOSITO", "YAPE", "TARJETA"].includes(medioPago) ||
                     !isEditing
                   }
                   control={control}
@@ -351,12 +356,13 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                   id="nro-operacion"
                   disabled={
                     condicion === "CREDITO" ||
-                    !["DEPOSITO", "YAPE"].includes(medioPago)
+                    !["DEPOSITO", "YAPE", "TARJETA"].includes(medioPago) ||
+                    !watch("entidadBancaria") ||
+                    watch("entidadBancaria") === "-"
                   }
                   disableHistory
                   control={control}
                   size="small"
-                  // disabled={isCredito || !isDeposito}
                   inputProps={{
                     "aria-label": "Nro Operacion",
                   }}
@@ -421,6 +427,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               rows={3}
               className="w-full min-h-[88px] rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="Observaciones"
+              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
             />
           )}
         />

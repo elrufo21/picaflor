@@ -204,16 +204,19 @@ const validateViajeValues = (values: any): ValidationError | null => {
     .toUpperCase();
 
   if (
-    (medioPagoValue === "DEPOSITO" || medioPagoValue === "YAPE") &&
+    ["DEPOSITO", "YAPE", "TARJETA"].includes(medioPagoValue) &&
     !values.nroOperacion?.trim()
   ) {
     return {
-      message: "DEPOSITO o YAPE requieren numero de operacion",
+      message: "DEPOSITO, YAPE o TARJETA requieren numero de operacion",
       focus: "nroOperacion",
     };
   }
 
-  if (!values.entidadBancaria) {
+  if (
+    ["DEPOSITO", "YAPE", "TARJETA"].includes(medioPagoValue) &&
+    !values.entidadBancaria
+  ) {
     return {
       message: "SELECCIONE LA ENTIDAD BANCARIA",
       focus: "entidadBancaria",
@@ -469,7 +472,7 @@ function buildListaOrdenCreate(data) {
     d(data.precioTotal), // 15 NotaPagar
     n(data.condicion?.value), // 16 NotaEstado
     1, // 17 CompaniaId
-    "NO", // 18 IncluyeIGV
+    "N/A", // 18 IncluyeIGV
     "", // 19 Serie
     "", // 20 Numero
     0, // 21 NotaGanancia
@@ -489,14 +492,14 @@ function buildListaOrdenCreate(data) {
     n(Number(data.precioExtraSoles ?? 0)), // 35 CobroExtraSol
     n(Number(data.precioExtraDolares ?? 0)), // 36 CobroExtraDol
     data.fechaAdelanto, // 37 FechaAdelanto
-    n(data.mensajePasajero ?? ""), // 38 MensajePasajero
+    n(data.mensajePasajero?.toUpperCase() ?? ""), // 38 MensajePasajero
     n(data.observaciones ?? ""), // 39 Observaciones
     islas, // 40 Islas
     tubulares, // 41 Tubulares
     otros, // 42 otros
     data.fechaViaje, // 43 FechaViaje
     0, // 44 IGV
-    "NO", // 45 IncluyeCargos
+    "N/A", // 45 IncluyeCargos
     data.moneda, // 46 Monedas
     n(data?.detalle?.tarifa?.servicio?.label ?? ""), // 47 IncluyeALmuerzo
     "", // 48 NotaImagen
@@ -530,7 +533,7 @@ function buildListaOrdenEdit(data) {
     d(data.precioTotal), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
     1, // 16 CompaniaId (hardcoded to 2)
-    "NO", // 17 IncluyeIGV
+    "N/A", // 17 IncluyeIGV
     n(data.nserie), // 18 Serie
     n(data.ndocumento), // 19 Numero
     0, // 20 NotaGanancia
@@ -550,14 +553,14 @@ function buildListaOrdenEdit(data) {
     n(Number(data.precioExtraSoles ?? 0)), // 34 CobroExtraSol
     n(Number(data.precioExtraDolares ?? 0)), // 35 CobroExtraDol
     n(toISODate(data.fechaAdelanto)), // 36 FechaAdelanto
-    n(data.mensajePasajero ?? ""), // 37 MensajePasajero
+    n(data.mensajePasajero?.toUpperCase() ?? ""), // 37 MensajePasajero
     n(data.observaciones ?? ""), // 38 Observaciones
     islas, // 39 Islas
     tubulares, // 40 Tubulares
     otros, // 41 otros
     n(toISODate(data.fechaViaje)), // 42 FechaViaje
     0, // 43 IGV
-    "NO", // 44 IncluyeCargos
+    "N/A", // 44 IncluyeCargos
     Number(data.notaId), // 45 NotaId
     0, // 46 Aviso
     n(data.moneda), // 47 Monedas
@@ -740,7 +743,7 @@ export function adaptViajeJsonToInvoice(
     nroDocumento: backend.nroDocumento,
 
     observaciones: viajeJson.observaciones ?? "",
-    mensajePasajero: viajeJson.mensajePasajero ?? "",
+    mensajePasajero: viajeJson.mensajePasajero.toUpperCase() ?? "",
     precioTotal: viajeJson.precioTotal,
     moneda: viajeJson.moneda,
   };
@@ -817,7 +820,6 @@ const ViajeForm = () => {
     },
   });
   const hydratedRef = useRef(false);
-  console.log("watch", watch());
 
   useEffect(() => {
     if (!formData) return;
@@ -1128,18 +1130,6 @@ const ViajeForm = () => {
       </Backdrop>
 
       <div className="max-w-8xl mx-auto">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <ChevronLeft
-            className="cursor-pointer"
-            onClick={() => {
-              if (liquidacionId) {
-                navigate("/cityTour/programacion/liquidaciones");
-              } else {
-                navigate("/cityTour");
-              }
-            }}
-          />
-        </div>
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <form
             onSubmit={handleSubmit(onSubmit)}
@@ -1162,6 +1152,18 @@ const ViajeForm = () => {
                   min-w-0
                 "
               >
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <ChevronLeft
+                    className="cursor-pointer"
+                    onClick={() => {
+                      if (liquidacionId) {
+                        navigate("/fullday/programacion/liquidaciones");
+                      } else {
+                        navigate("/cityTour");
+                      }
+                    }}
+                  />
+                </div>
                 {/* DESTINO */}
                 <div className="flex items-center gap-1 min-w-0">
                   <span className="text-slate-500 text-xs">Destino:</span>

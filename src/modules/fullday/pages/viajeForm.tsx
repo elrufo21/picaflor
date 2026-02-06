@@ -155,16 +155,19 @@ const validateViajeValues = (values: any): ValidationError | null => {
     .trim()
     .toUpperCase();
   if (
-    (medioPagoValue === "DEPOSITO" || medioPagoValue === "YAPE") &&
+    ["DEPOSITO", "YAPE", "TARJETA"].includes(medioPagoValue) &&
     !values.nroOperacion?.trim()
   ) {
     return {
-      message: "DEPOSITO o YAPE requieren numero de operacion",
+      message: "DEPOSITO, YAPE o TARJETA requieren numero de operacion",
       focus: "nroOperacion",
     };
   }
 
-  if (!values.entidadBancaria) {
+  if (
+    ["DEPOSITO", "YAPE", "TARJETA"].includes(medioPagoValue) &&
+    !values.entidadBancaria
+  ) {
     return {
       message: "SELECCIONE LA ENTIDAD BANCARIA",
       focus: "entidadBancaria",
@@ -447,7 +450,7 @@ function buildListaOrdenCreate(data) {
     n(Number(data.precioExtraSoles ?? 0)),
     n(Number(data.precioExtraDolares ?? 0)),
     data.fechaAdelanto,
-    n(data.mensajePasajero ?? ""),
+    n(data.mensajePasajero?.toUpperCase() ?? ""),
     n(data.observaciones ?? ""),
     islas,
     tubulares,
@@ -509,7 +512,7 @@ function buildListaOrdenEdit(data) {
     n(Number(data.precioExtraSoles ?? 0)), // 34 CobroExtraSol
     n(Number(data.precioExtraDolares ?? 0)), // 35 CobroExtraDol
     n(toISODate(data.fechaAdelanto)), // 36 FechaAdelanto
-    n(data.mensajePasajero ?? ""), // 37 MensajePasajero
+    n(data.mensajePasajero?.toUpperCase() ?? ""), // 37 MensajePasajero
     n(data.observaciones ?? ""), // 38 Observaciones
     islas, // 39 Islas
     tubulares, // 40 Tubulares
@@ -698,7 +701,7 @@ export function adaptViajeJsonToInvoice(
     nroDocumento: backend.nroDocumento,
 
     observaciones: viajeJson.observaciones ?? "",
-    mensajePasajero: viajeJson.mensajePasajero ?? "",
+    mensajePasajero: viajeJson.mensajePasajero?.toUpperCase() ?? "",
     precioTotal: viajeJson.precioTotal,
   };
 }
@@ -1065,18 +1068,6 @@ const ViajeForm = () => {
       </Backdrop>
 
       <div className="max-w-8xl mx-auto">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <ChevronLeft
-            className="cursor-pointer"
-            onClick={() => {
-              if (liquidacionId) {
-                navigate("/fullday/programacion/liquidaciones");
-              } else {
-                navigate("/fullday");
-              }
-            }}
-          />
-        </div>
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <form
             onSubmit={handleSubmit(onSubmit)}
@@ -1099,6 +1090,18 @@ const ViajeForm = () => {
                   min-w-0
                 "
               >
+                <div className="flex flex-wrap items-end justify-between gap-4 w-[40px]">
+                  <ChevronLeft
+                    className="cursor-pointer"
+                    onClick={() => {
+                      if (liquidacionId) {
+                        navigate("/fullday/programacion/liquidaciones");
+                      } else {
+                        navigate("/fullday");
+                      }
+                    }}
+                  />
+                </div>
                 {/* DESTINO */}
                 <div className="flex items-center gap-1 min-w-0">
                   <span className="text-slate-500 text-xs">Destino:</span>
