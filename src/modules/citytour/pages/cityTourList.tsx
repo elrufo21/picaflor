@@ -108,7 +108,7 @@ const PackageList = () => {
   const openDialog = useDialogStore((state) => state.openDialog);
 
   const location = useLocation();
-
+  console.log("productos", productos);
   useEffect(() => {
     let canceled = false;
 

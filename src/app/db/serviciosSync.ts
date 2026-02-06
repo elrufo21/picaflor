@@ -1,5 +1,9 @@
 import { API_BASE_URL } from "@/config";
-import { transformServiciosData } from "@/shared/helpers/helpers";
+import {
+  assertValidArray,
+  fullSyncTable,
+  transformServiciosData,
+} from "@/shared/helpers/helpers";
 import { serviciosDB } from "@/app/db/serviciosDB";
 
 export type ServiciosData = {
@@ -55,6 +59,27 @@ async function fetchServiciosFromApi(): Promise<ServiciosData> {
 }
 
 async function persistServiciosData(data: ServiciosData): Promise<void> {
+  assertValidArray("productos", "id", data.productos);
+  assertValidArray("preciosProducto", "idProducto", data.preciosProducto);
+  assertValidArray("canales", "id", data.canales);
+  assertValidArray("actividades", "id", data.actividades);
+  assertValidArray("partidas", "id", data.partidas);
+  assertValidArray("auxiliares", "id", data.auxiliares);
+  assertValidArray("preciosActividades", "idActi", data.preciosActividades);
+  assertValidArray("horasPartida", "idParti", data.horasPartida);
+  assertValidArray("almuerzos", "id", data.almuerzos);
+  assertValidArray("traslados", "id", data.traslados);
+  assertValidArray("preciosAlmuerzo", "id", data.preciosAlmuerzo);
+  assertValidArray("preciosTraslado", "id", data.preciosTraslado);
+  assertValidArray("hoteles", "id", data.hoteles);
+  assertValidArray("direccionesHotel", "idHotel", data.direccionesHotel);
+  assertValidArray("ubigeos", "id", data.ubigeos);
+  assertValidArray(
+    "productosCityTourOrdena",
+    "id",
+    data.productosCityTourOrdena,
+  );
+
   await serviciosDB.transaction(
     "rw",
     [
@@ -76,7 +101,13 @@ async function persistServiciosData(data: ServiciosData): Promise<void> {
       serviciosDB.productosCityTourOrdena,
     ] as const,
     async () => {
-      await serviciosDB.productos.bulkPut(data.productos);
+      await fullSyncTable(serviciosDB.productos, data.productos, "id");
+      await fullSyncTable(
+        serviciosDB.productosCityTourOrdena,
+        data.productosCityTourOrdena,
+        "id",
+      );
+
       await serviciosDB.preciosProducto.bulkPut(data.preciosProducto);
       await serviciosDB.canales.bulkPut(data.canales);
       await serviciosDB.actividades.bulkPut(data.actividades);
@@ -91,9 +122,6 @@ async function persistServiciosData(data: ServiciosData): Promise<void> {
       await serviciosDB.hoteles.bulkPut(data.hoteles);
       await serviciosDB.direccionesHotel.bulkPut(data.direccionesHotel);
       await serviciosDB.ubigeos.bulkPut(data.ubigeos);
-      await serviciosDB.productosCityTourOrdena.bulkPut(
-        data.productosCityTourOrdena,
-      );
     },
   );
 }

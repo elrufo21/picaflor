@@ -163,6 +163,7 @@ export default function ActividadFormDialog({
           label="Actividad"
           size="small"
           className="mt-3"
+          transform={(value) => value.toUpperCase()}
         />
       </div>
       <div className="mt-1">
@@ -171,6 +172,7 @@ export default function ActividadFormDialog({
           control={control}
           label="Viajes y excursiones"
           multiline
+          transform={(value) => value.toUpperCase()}
         />
       </div>
 

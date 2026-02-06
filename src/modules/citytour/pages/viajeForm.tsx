@@ -74,28 +74,48 @@ type ValidationError = {
   message: string;
   focus?: string;
 };
+const isServicioVacio = (servicio: any) => {
+  if (!servicio) return true;
+
+  if (typeof servicio === "object") {
+    const value = String(servicio.value ?? "").trim();
+    const label = String(servicio.label ?? "").trim();
+    const id = String(servicio.id ?? "").trim();
+
+    return value === "" || value === "0" || label === "-" || id === "0";
+  }
+
+  return String(servicio).trim() === "" || String(servicio).trim() === "-";
+};
+const isEmptyOrDash = (v: any) =>
+  v === null ||
+  v === undefined ||
+  String(v).trim() === "" ||
+  String(v).trim() === "-";
+
 const validarTurnoActividad = (
   actividad: any,
   key: "act1" | "act2",
 ): ValidationError | null => {
-  const servicio = actividad?.servicio;
-  const value =
-    servicio && typeof servicio === "object" ? servicio.value : servicio;
+  if (isServicioVacio(actividad?.servicio)) {
+    return null;
+  }
 
-  // ❌ no hay servicio o es "-"
-  if (!value || value === "-") return null;
+  const horaVacia = isEmptyOrDash(actividad?.hora);
+  const turnoVacio = isEmptyOrDash(actividad?.turno);
 
-  const turno = actividad?.turno;
-
-  if (!turno || !String(turno).trim()) {
+  if (horaVacia && turnoVacio) {
     return {
-      message: `LA ${key === "act1" ? "PRIMERA" : "SEGUNDA"} ACTIVIDAD REQUIERE TURNO (AM / PM)`,
-      focus: `detalle.${key}.turno`,
+      message: `LA ${
+        key === "act1" ? "PRIMERA" : "SEGUNDA"
+      } ACTIVIDAD REQUIERE HORA O TURNO (AM / PM)`,
+      focus: `detalle.${key}.hora`,
     };
   }
 
   return null;
 };
+
 const getDetailField = (values: any, key: string) =>
   values?.detalle?.[key] ?? {};
 
@@ -746,6 +766,7 @@ const ViajeForm = () => {
   const { formData, setFormData, isEditing, setIsEditing } = usePackageStore();
   const location = useLocation();
   const incomingFormData = (location.state as { formData?: any })?.formData;
+
   const {
     control,
     handleSubmit,
@@ -759,6 +780,7 @@ const ViajeForm = () => {
     defaultValues: {
       destino: "",
       fechaViaje: "",
+      descripcion: "",
       fechaEmision: "",
       cantPax: 0,
       canalVenta: null,
@@ -775,9 +797,11 @@ const ViajeForm = () => {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
         act1: {
           servicio: {
-            value: "City Tour Lima",
             label: "City Tour Lima",
             id: "1022",
+            value: "1022",
+            descripcion:
+              "Parque del Amor Miraflores + Parque El Olivar + Plaza Mayor de Lima, Convento San Francisco + Catacumbas + Palacio de Gobierno + Palacio Municipal + Catedral de Lima.",
           },
           precio: 20,
           cant: 0,
@@ -793,6 +817,7 @@ const ViajeForm = () => {
     },
   });
   const hydratedRef = useRef(false);
+  console.log("watch", watch());
 
   useEffect(() => {
     if (!formData) return;
@@ -963,7 +988,10 @@ const ViajeForm = () => {
         return;
       }
 
-      const pdfData = adaptViajeJsonToInvoice(payload, result);
+      const pdfData = adaptViajeJsonToInvoice(
+        { ...payload, visitas: watch("visitas") },
+        result,
+      );
 
       const backendPayload = payload._editMode
         ? `${liquidacionId}¬¬¬${formatDate(payload.fechaAdelanto) ?? ""}`
@@ -994,7 +1022,11 @@ const ViajeForm = () => {
     try {
       const formValues = getValues();
       const invoiceData = adaptViajeJsonToInvoice(
-        { ...formValues, fechaAdelanto: watch("fechaAdelanto") },
+        {
+          ...formValues,
+          fechaAdelanto: watch("fechaAdelanto"),
+          visitas: watch("visitas"),
+        },
         true,
       );
       const backendPayload = liquidacionId ?? formValues.nserie ?? "";

@@ -473,9 +473,10 @@ function buildListaOrdenEdit(data) {
   );
   const orden = [
     n(data.documentoCobranza), // 1  NotaDocu
+    //1,
     n(data.nombreCompleto), // 2  nombrePax
     n(data.documentoNumero), // 3  dniPax
-    Number(data.clienteId), // 4  ClienteId
+    n(data.clienteId), // 4  ClienteId
     n(data.counter), // 5  NotaUsuario
     n(data.medioPago), // 6  NotaFormaPago
     n(data.condicion?.value), // 7  NotaCondicion
@@ -524,6 +525,7 @@ function buildListaOrdenEdit(data) {
     n(data?.hotel?.label ?? ""), // 50 Hotel
     n(data.region), // 51 Region
   ].join("|");
+  console.log("data", orden);
 
   return `${orden}[${detalle}`;
 }
@@ -722,7 +724,11 @@ const ViajeForm = () => {
   const location = useLocation();
   const incomingFormData = (location.state as { formData?: any })?.formData;
   //Precargar los valores en modo edicion
+  const [tabValue, setTabValue] = useState(0);
 
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
   const {
     control,
     handleSubmit,
@@ -759,6 +765,7 @@ const ViajeForm = () => {
       totalGeneral: 0,
     },
   });
+  console.log("watch", watch());
   useEffect(() => {
     if (!formData) return;
 
@@ -881,6 +888,7 @@ const ViajeForm = () => {
         companiaId: 1,
         idProducto: Number(idProduct),
         canalVenta: data.canalDeVenta?.auxiliar ?? data.canalVenta,
+        clienteId: watch("clienteId"),
       };
 
       const listaOrden = payload._editMode

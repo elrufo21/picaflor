@@ -12,14 +12,18 @@ import {
   type ActivityDetail,
 } from "./fulldayPassengerCreate";
 import type { Producto } from "@/app/db/serviciosDB";
-import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
+import {
+  getServiciosFromDB,
+  hasServiciosData,
+  serviciosDB,
+} from "@/app/db/serviciosDB";
 import { useCanalVenta } from "../hooks/useCanalVenta";
 import { ChevronLeft } from "lucide-react";
 
 type BackendDetalle = {
   detalleId: number;
   actividades: string;
-  hora?: string; // 👈 NUEVO (AM / PM)
+  hora?: string;
   precio: number | null;
   cantidad: number | null;
   turno?: string;
@@ -58,7 +62,7 @@ function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
         label: rawLabel || "-",
       },
       hora: d.hora ?? "",
-      turno: d.hora ?? "",
+      turno: d.turno ?? d.hora ?? "",
       precio: d.precio ?? 0,
       cant: d.cantidad ?? 0,
       total: d.importe ?? 0,
@@ -511,7 +515,9 @@ const LiquidacionesPage = () => {
         } else {
           await loadServicios();
         }
-        const stored = await serviciosDB.productosCityTourOrdena.toArray();
+        const pCityTour = await serviciosDB.productosCityTourOrdena.toArray();
+        const pFullDay = await serviciosDB.productos.toArray();
+        const stored = [...pFullDay, ...pCityTour];
         if (!canceled) {
           setProductos(stored);
         }
@@ -524,7 +530,7 @@ const LiquidacionesPage = () => {
       canceled = true;
     };
   }, [loadServicios, loadServiciosFromDB]);
-
+  console.log("productos", productos);
   const resolveProductId = (row: LiquidacionRow) => {
     const normalizedRowName = normalizeProductName(row.productoNombre);
     if (!normalizedRowName) return 0;
@@ -538,8 +544,131 @@ const LiquidacionesPage = () => {
     if (containsMatch) return containsMatch.id;
     return 0;
   };
+  function normalizeBackendDetalleToFormCityTour(
+    detalles: BackendDetalle[],
+    serviciosCatalogo: any[],
+  ) {
+    const emptyServicio = {
+      label: "-",
+      value: "0",
+      id: "0",
+      descripcion: "",
+    };
+
+    const serviciosMap = new Map(
+      serviciosCatalogo.map((s) => [s.actividad.trim().toLowerCase(), s]),
+    );
+
+    const findServicio = (actividad: string) => {
+      const match = serviciosMap.get(actividad.trim().toLowerCase());
+
+      if (!match) return emptyServicio;
+
+      return {
+        label: match.actividad,
+        value: String(match.id),
+        id: String(match.id),
+        descripcion: match.descripcion ?? "",
+      };
+    };
+
+    const buildNormalRow = (d: BackendDetalle) => ({
+      detalleId: d.detalleId,
+      servicio: findServicio(d.actividades),
+      hora: d.hora ?? "",
+      turno: d.turno ?? d.hora ?? "",
+      precio: d.precio ?? 0,
+      cant: d.cantidad ?? 0,
+      total: d.importe ?? 0,
+    });
+
+    const buildEntradaRow = (d: BackendDetalle) => ({
+      detalleId: d.detalleId,
+      servicio: findServicio(d.actividades),
+      precio: d.precio ?? 0,
+      cant: d.cantidad ?? 0,
+      total: d.importe ?? 0,
+    });
+
+    const emptyRow = {
+      servicio: emptyServicio,
+      hora: "",
+      turno: "",
+      precio: 0,
+      cant: 0,
+      total: 0,
+      detalleId: 0,
+    };
+
+    const rows = {
+      tarifa: { ...emptyRow },
+      act1: { ...emptyRow },
+      act2: { ...emptyRow },
+      act3: { ...emptyRow },
+      traslado: { ...emptyRow },
+      entrada: {
+        detalleId: 0,
+        servicio: emptyServicio,
+        precio: 0,
+        cant: 0,
+        total: 0,
+      },
+    };
+
+    detalles.forEach((d, index) => {
+      if (index === 0) rows.tarifa = buildNormalRow(d);
+      if (index >= 1 && index <= 3)
+        rows[`act${index}` as "act1" | "act2" | "act3"] = buildNormalRow(d);
+      if (index === 4) rows.traslado = buildNormalRow(d);
+      if (index === 5) rows.entrada = buildEntradaRow(d);
+    });
+
+    return rows;
+  }
+
+  const findServicio = (actividad: string) => {
+    const match = serviciosMap.get(actividad.trim().toLowerCase());
+
+    const buildNormalRow = (d: BackendDetalle) => {
+      const servicio = findServicio(d.actividades);
+
+      return {
+        detalleId: d.detalleId,
+        servicio,
+        hora: d.hora ?? "",
+        turno: d.turno ?? d.hora ?? "",
+        precio: d.precio ?? 0,
+        cant: d.cantidad ?? 0,
+        total: d.importe ?? 0,
+      };
+    };
+
+    const buildEntradaRow = (d: BackendDetalle) => {
+      const servicio = findServicio(d.actividades);
+
+      return {
+        detalleId: d.detalleId,
+        servicio,
+        precio: d.precio ?? 0,
+        cant: d.cantidad ?? 0,
+        total: d.importe ?? 0,
+      };
+    };
+
+    detalles.forEach((d, index) => {
+      if (index === 0) return (rows.tarifa = buildNormalRow(d));
+      if (index >= 1 && index <= 3)
+        return (rows[`act${index}` as "act1" | "act2" | "act3"] =
+          buildNormalRow(d));
+      if (index === 4) return (rows.traslado = buildNormalRow(d));
+      if (index === 5) return (rows.entrada = buildEntradaRow(d));
+    });
+
+    return rows;
+  };
 
   const handleView = async (row: LiquidacionRow) => {
+    const servicios = await getServiciosFromDB();
     const data = row;
     const detalle = await fetchDetalleActividades(row.notaId);
     const hoteles = await serviciosDB.hoteles.toArray();
@@ -589,8 +718,20 @@ const LiquidacionesPage = () => {
 
       precioExtra: Number(data.adicional),
       observaciones: data.observaciones,
-      detalle: normalizeBackendDetalleToForm(detalle),
-      detallexd: normalizeBackendDetalleToForm(detalle),
+      detalle:
+        row.flagServicio == "1"
+          ? normalizeBackendDetalleToForm(detalle)
+          : normalizeBackendDetalleToFormCityTour(
+              detalle,
+              servicios.actividades,
+            ),
+      detallexd:
+        row.flagServicio == "1"
+          ? normalizeBackendDetalleToForm(detalle)
+          : normalizeBackendDetalleToFormCityTour(
+              detalle,
+              servicios.actividades,
+            ),
       canalDeVenta,
       hotel: hotel ? { label: hotel?.nombre, value: Number(hotel?.id) } : null,
       puntoPartida: data.puntoPartida,
@@ -606,7 +747,7 @@ const LiquidacionesPage = () => {
       setError("No se pudo determinar la programación asociada");
       return;
     }
-    console.log("targetId", row, productId);
+    console.log("targetId", row, productId, row.flagServicio);
     if (row.flagServicio == "1") {
       navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`, {
         state: { formData: normalizedData },

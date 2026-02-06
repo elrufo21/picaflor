@@ -44,7 +44,11 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       .filter(Boolean);
     return descriptions.join("\n");
   }, [serviciosWatch]);
-  console.log("precioProducto", precioProducto);
+  useEffect(() => {
+    console.log("watchss", watch());
+
+    setValue("visitas", actividadDescription);
+  }, [actividadDescription]);
   const isCreateMode = !liquidacionId && !isEditing;
   const isEditMode = !!liquidacionId && isEditing;
   const isViewMode = !!liquidacionId && !isEditing;
@@ -511,6 +515,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     });
   }, [serviciosWatch, isEditing, setValue]);
 
+  useEffect(() => {}, []);
   return (
     <div className="p-2.5 space-y-3">
       {/* =========================
@@ -629,16 +634,12 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         {/* Visitas */}
         <label className="flex flex-col text-sm md:col-span-5">
           <span className="font-semibold mb-1">Visitas y excursiones</span>
-      <textarea
-        rows={2}
-        disabled
-        className="rounded-lg border px-2 py-1.5"
-        value={
-          actividadDescription ||
-          precioProducto?.visitas ||
-          ""
-        }
-      />
+          <textarea
+            rows={4}
+            disabled
+            className="rounded-lg border px-2 py-1.5"
+            value={actividadDescription || ""}
+          />
         </label>
       </div>
 

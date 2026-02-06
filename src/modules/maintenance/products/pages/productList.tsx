@@ -32,8 +32,7 @@ const ProductList = () => {
     fetchProducts();
   }, [products.length, fetchProducts]);
 
-  const username =
-    user?.displayName?.trim() || user?.username || "sistema";
+  const username = user?.displayName?.trim() || user?.username || "sistema";
 
   const openProductModal = useCallback(
     (mode: "create" | "edit", product?: Product) => {
@@ -62,6 +61,7 @@ const ProductList = () => {
               sublineas,
             );
             const isEditMode = Boolean(product?.id);
+
             try {
               if (isEditMode) {
                 await updateProductApi(payload);
