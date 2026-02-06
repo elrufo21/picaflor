@@ -798,8 +798,8 @@ const ViajeForm = () => {
         act1: {
           servicio: {
             label: "City Tour Lima",
-            id: "1022",
-            value: "1022",
+            id: "22",
+            value: "22",
             descripcion:
               "Parque del Amor Miraflores + Parque El Olivar + Plaza Mayor de Lima, Convento San Francisco + Catacumbas + Palacio de Gobierno + Palacio Municipal + Catedral de Lima.",
           },
