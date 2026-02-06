@@ -11,6 +11,13 @@ import { getServiciosFromDB } from "@/app/db/serviciosDB";
 import { refreshServiciosData, type ServiciosData } from "@/app/db/serviciosSync";
 import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
 
+const pendingLoadPackagesRef = {
+  date: "",
+  promise: null as Promise<void> | null,
+};
+
+const pendingListadoPromises = new Map<string, Promise<void>>();
+
 export type Passenger = {
   id: number;
   packageId: number;
@@ -179,24 +186,40 @@ export const usePackageStore = create<PackageState>()(
   ========================= */
 
       loadPackages: async (fecha) => {
-        try {
-          set({ loading: true, error: null });
-
-          // Normalizar a YYYY-MM-DD por seguridad
-          const raw = await fetchPackages(fecha?.slice(0, 10));
-
-          const parsed = parsePackages(raw);
-
-          set({
-            packages: parsed,
-            loading: false,
-          });
-        } catch (err: any) {
-          set({
-            loading: false,
-            error: err?.message ?? "Error al cargar packages",
-          });
+        const targetDate =
+          fecha?.slice(0, 10) ?? get().date ?? getTodayDateInputValue();
+        if (!targetDate) {
+          return;
         }
+        if (pendingLoadPackagesRef.date === targetDate && pendingLoadPackagesRef.promise) {
+          return pendingLoadPackagesRef.promise;
+        }
+
+        pendingLoadPackagesRef.date = targetDate;
+        const promise = (async () => {
+          try {
+            set({ loading: true, error: null });
+
+            const raw = await fetchPackages(targetDate);
+
+            const parsed = parsePackages(raw);
+
+            set({
+              packages: parsed,
+              loading: false,
+            });
+          } catch (err: any) {
+            set({
+              loading: false,
+              error: err?.message ?? "Error al cargar packages",
+            });
+          } finally {
+            pendingLoadPackagesRef.promise = null;
+          }
+        })();
+
+        pendingLoadPackagesRef.promise = promise;
+        return promise;
       },
       loadListadoByProducto: async (fecha, idProducto) => {
         if (!idProducto) {
@@ -204,19 +227,32 @@ export const usePackageStore = create<PackageState>()(
           return;
         }
 
-        try {
-          set({ listadoLoading: true, error: null });
-          const response = await fetchListadoByProducto(fecha, idProducto);
-          set({
-            listado: response ?? [],
-            listadoLoading: false,
-          });
-        } catch (err: any) {
-          set({
-            listadoLoading: false,
-            error: err?.message ?? "Error al cargar listado",
-          });
+        const targetFecha = fecha ?? get().date ?? getTodayDateInputValue();
+        const key = `${targetFecha}#${idProducto}`;
+        if (pendingListadoPromises.has(key)) {
+          return pendingListadoPromises.get(key);
         }
+
+        const promise = (async () => {
+          try {
+            set({ listadoLoading: true, error: null });
+            const response = await fetchListadoByProducto(targetFecha, idProducto);
+            set({
+              listado: response ?? [],
+              listadoLoading: false,
+            });
+          } catch (err: any) {
+            set({
+              listadoLoading: false,
+              error: err?.message ?? "Error al cargar listado",
+            });
+          } finally {
+            pendingListadoPromises.delete(key);
+          }
+        })();
+
+        pendingListadoPromises.set(key, promise);
+        return promise;
       },
       loadServiciosFromDB: async () => {
         const data = await getServiciosFromDB();
