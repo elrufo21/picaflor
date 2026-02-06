@@ -357,7 +357,7 @@ function parseFechaBackend(value?: string) {
 }
 
 const LiquidacionesPage = () => {
-  const { canalVentaList, addCanalToList } = useCanalVenta();
+  const { canalVentaList } = useCanalVenta();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -386,6 +386,8 @@ const LiquidacionesPage = () => {
   const [pendingEndDate, setPendingEndDate] = useState(todayValue);
   const pendingStartDateRef = useRef(pendingStartDate);
   const pendingEndDateRef = useRef(pendingEndDate);
+  const initialReloadRef = useRef(false);
+  const productosLoadedRef = useRef(false);
   useEffect(() => {
     pendingStartDateRef.current = pendingStartDate;
   }, [pendingStartDate]);
@@ -506,6 +508,10 @@ const LiquidacionesPage = () => {
   }, [searchNumber]);
 
   useEffect(() => {
+    if (productosLoadedRef.current) {
+      return;
+    }
+    productosLoadedRef.current = true;
     let canceled = false;
     const loadProductos = async () => {
       try {
@@ -668,6 +674,11 @@ const LiquidacionesPage = () => {
   };
 
   const handleView = async (row: LiquidacionRow) => {
+    try {
+      await loadCanalVenta();
+    } catch (error) {
+      console.warn("No se pudieron cargar canales de venta", error);
+    }
     const servicios = await getServiciosFromDB();
     const data = row;
     const detalle = await fetchDetalleActividades(row.notaId);
@@ -901,6 +912,8 @@ const LiquidacionesPage = () => {
   };
 
   useEffect(() => {
+    if (initialReloadRef.current) return;
+    initialReloadRef.current = true;
     reload();
   }, [reload]);
   const refreshKey = location.state?.refresh;

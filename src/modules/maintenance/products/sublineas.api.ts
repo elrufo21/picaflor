@@ -1,8 +1,12 @@
-﻿import { API_BASE_URL } from "@/config";
+import { API_BASE_URL } from "@/config";
+import { cacheFirst } from "@/shared/indexedDB/cache";
+import { safeFetchJson } from "@/shared/http/safeFetch";
 
 export const productSublineasQueryKey = ["product-sublineas"] as const;
 
 const SUBLINEA_ENDPOINT = `${API_BASE_URL}/Productos/sublineas`;
+const SUBLINEA_CACHE_KEY = "product-sublineas";
+const SUBLINEA_CACHE_TTL = 1000 * 60 * 30; // 30 minutos
 
 export type ProductSublinea = {
   id: string;
@@ -16,25 +20,22 @@ const mapSublinea = (item: any): ProductSublinea => ({
     : null,
 });
 
-export const fetchProductSublineas = async (): Promise<ProductSublinea[]> => {
-  try {
-    const response = await fetch(SUBLINEA_ENDPOINT, {
-      headers: {
-        accept: "text/plain",
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`Sublineas request failed: ${response.status}`);
-    }
-    const payload = await response.json();
-    if (!Array.isArray(payload)) {
-      throw new Error("Sublineas response must be an array");
-    }
-    return payload
-      .map(mapSublinea)
-      .filter((item) => Boolean(item.nombreSublinea));
-  } catch (error) {
-    console.error("Error fetching sublineas", error);
-    return [];
+const fetchSublineasFromApi = async (): Promise<ProductSublinea[]> => {
+  const payload = await safeFetchJson<unknown[]>(SUBLINEA_ENDPOINT, {
+    headers: { accept: "text/plain" },
+  });
+  if (!Array.isArray(payload)) {
+    throw new Error("Sublineas response must be an array");
   }
+  return payload
+    .map(mapSublinea)
+    .filter((item) => Boolean(item.nombreSublinea));
 };
+
+export const fetchProductSublineas = () =>
+  cacheFirst({
+    key: SUBLINEA_CACHE_KEY,
+    ttl: SUBLINEA_CACHE_TTL,
+    fetcher: fetchSublineasFromApi,
+    fallback: [],
+  });

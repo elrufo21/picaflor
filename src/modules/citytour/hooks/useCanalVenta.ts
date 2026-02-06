@@ -1,21 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { API_BASE_URL } from "@/config";
 import { parseCanalPayload, type CanalOption } from "./canalUtils";
+import { useOnceEffect } from "@/shared/hooks/useOnceEffect";
 
 const CANAL_LIST_ENDPOINT = `${API_BASE_URL}/Programacion/traerCanalVentaDetalle`;
 
 export const useCanalVenta = () => {
   const [canalVentaList, setCanalVentaList] = useState<CanalOption[]>([]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-
+  useOnceEffect(() => {
     const fetchCanales = async () => {
       try {
         const response = await fetch(CANAL_LIST_ENDPOINT, {
           headers: { accept: "application/json, text/plain" },
-          signal: controller.signal,
         });
+
         if (!response.ok) throw new Error(`Status ${response.status}`);
 
         const rawText = await response.text();
@@ -27,31 +26,14 @@ export const useCanalVenta = () => {
           }
         })();
 
-        const mapped: CanalOption[] = parseCanalPayload(parsed);
-
-        if (mapped.length === 0) return;
-
-        setCanalVentaList((prev) => {
-          const existing = new Map(
-            prev?.map((opt) => [opt.value.toLowerCase(), opt]),
-          );
-          mapped.forEach((opt) => {
-            const key = opt.value.toLowerCase();
-            if (!existing.has(key)) {
-              existing.set(key, opt);
-            }
-          });
-          return Array.from(existing.values());
-        });
-      } catch (error) {
-        if ((error as any).name === "AbortError") return;
-        console.error("No se pudo cargar canales de venta", error);
+        const mapped = parseCanalPayload(parsed);
+        setCanalVentaList(mapped);
+      } catch (e) {
+        console.error(e);
       }
     };
 
     fetchCanales();
-
-    return () => controller.abort();
   }, []);
 
   const addCanalToList = (newOption: CanalOption, editingValue?: string) => {
@@ -73,6 +55,7 @@ export const useCanalVenta = () => {
           opt.value.toLowerCase() === newOption.value.toLowerCase() ||
           opt.label.toLowerCase() === newOption.label.toLowerCase(),
       );
+
       if (exists) return prev;
       return [...prev, newOption];
     });
