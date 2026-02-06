@@ -703,6 +703,7 @@ export function adaptViajeJsonToInvoice(
     observaciones: viajeJson.observaciones ?? "",
     mensajePasajero: viajeJson.mensajePasajero?.toUpperCase() ?? "",
     precioTotal: viajeJson.precioTotal,
+    moneda: viajeJson.moneda,
   };
 }
 export function parseDateForInput(

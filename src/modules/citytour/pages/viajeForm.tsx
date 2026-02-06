@@ -34,6 +34,7 @@ import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
 import { toISODate } from "@/shared/helpers/helpers";
 import { formatDate } from "@/shared/helpers/formatDate";
+import { serviciosDB } from "@/app/db/serviciosDB";
 function parseFecha(fecha: string): string {
   if (!fecha) return "";
 
@@ -798,19 +799,7 @@ const ViajeForm = () => {
       medioPago: "",
       detalle: {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
-        act1: {
-          servicio: {
-            label: "City Tour Lima",
-            id: "22",
-            value: "22",
-            descripcion:
-              "Parque del Amor Miraflores + Parque El Olivar + Plaza Mayor de Lima, Convento San Francisco + Catacumbas + Palacio de Gobierno + Palacio Municipal + Catedral de Lima.",
-          },
-          precio: 20,
-          cant: 0,
-          total: 0,
-          turno: "",
-        },
+        act1: { servicio: null, precio: 0, cant: 0, total: 0 },
         act2: { servicio: null, precio: 0, cant: 0, total: 0 },
         act3: { servicio: null, precio: 0, cant: 0, total: 0 },
         traslado: { servicio: null, precio: 0, cant: 0, total: 0 },
@@ -1019,6 +1008,45 @@ const ViajeForm = () => {
   const handleNew = () => {
     navigate(`/cityTour`);
   };
+  const hydratedFromEditRef = useRef(false);
+  const hydratedDefaultActRef = useRef(false);
+
+  useEffect(() => {
+    if (liquidacionId) return;
+    if (hydratedFromEditRef.current) return;
+    if (hydratedDefaultActRef.current) return;
+
+    const hydrateActividadDefault = async () => {
+      const act1Servicio = getValues("detalle.act1.servicio");
+      if (act1Servicio) return;
+
+      const actividad = await serviciosDB.actividades.get(22);
+      if (!actividad) return;
+
+      const precioActividad = await serviciosDB.preciosActividades
+        .where("idActi")
+        .equals(22)
+        .first();
+
+      const precio =
+        precioActividad?.precioDol ?? precioActividad?.precioSol ?? 0;
+
+      setValue("detalle.act1.servicio", {
+        id: String(actividad.id),
+        value: String(actividad.id),
+        label: actividad.actividad,
+        descripcion: actividad.descripcion ?? "",
+      });
+
+      setValue("detalle.act1.precio", precio);
+      setValue("detalle.act1.cant", 1);
+      setValue("detalle.act1.total", precio);
+
+      hydratedDefaultActRef.current = true;
+    };
+
+    hydrateActividadDefault();
+  }, [liquidacionId, getValues, setValue]);
 
   const handlePrint = () => {
     try {
