@@ -58,6 +58,9 @@ export type InvoiceData = {
   documento: string;
   nroDocumento: string;
   observaciones: string;
+  precioTotal?: number;
+  mensajePasajero?: string;
+  moneda?: string;
   fechaRegistro?: string;
 };
 
@@ -337,6 +340,7 @@ export const buildInvoiceData = ({
     documento: textValue(values.documentoCobranza),
     nroDocumento: buildDocumentoNumero(values.nserie, values.ndocumento),
     observaciones: textValue(values.notas),
+    moneda: textValue(values.moneda),
   };
 };
 

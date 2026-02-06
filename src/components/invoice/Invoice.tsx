@@ -58,6 +58,8 @@ export type InvoiceData = {
   documento: string;
   nroDocumento: string;
   observaciones: string;
+  precioTotal?: number;
+  mensajePasajero?: string;
   moneda?: string;
   fechaRegistro?: string;
 };
@@ -645,6 +647,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
     precioTotal,
     fechaRegistro,
   } = invoiceData;
+  const currencySymbol = invoiceData.moneda === "DOLARES" ? "USD$" : "S/";
   const formatNumber = (value: unknown) => {
     const parsed = Number(value ?? 0);
     if (!Number.isFinite(parsed)) return "";
@@ -874,11 +877,11 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 {/* IZQUIERDA */}
                 <View style={contactS.liquidationTable}>
                   {[
-                    ["TOTAL A PAGAR:", "S/", precioTotal],
-                    ["A CUENTA:", "S/", acuenta],
+                    ["TOTAL A PAGAR:", currencySymbol, precioTotal],
+                    ["A CUENTA:", currencySymbol, acuenta],
                     [
                       "SALDO:",
-                      "S/",
+                      currencySymbol,
                       condicion === "CREDITO" ? precioTotal : saldo,
                     ],
                     ["Cobro Extra Soles:", "S/", extraSoles],
