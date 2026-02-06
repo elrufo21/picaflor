@@ -5,7 +5,6 @@ import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import mkcert from "vite-plugin-mkcert";
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
@@ -14,10 +13,48 @@ export default defineConfig({
 
     VitePWA({
       registerType: "autoUpdate",
+
       workbox: {
         navigateFallback: "/index.html",
+
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+
+        runtimeCaching: [
+          // 🔥 HTML → siempre fresco
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "html-cache",
+              expiration: {
+                maxEntries: 1,
+              },
+            },
+          },
+
+          // 🔁 JS / CSS
+          {
+            urlPattern: ({ request }) =>
+              request.destination === "script" ||
+              request.destination === "style",
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "assets-cache",
+            },
+          },
+
+          // 🚫 API → NUNCA cachear
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/api"),
+            handler: "NetworkOnly",
+          },
+        ],
       },
+
       manifest: {
         name: "Picaflor",
         short_name: "Picaflor",
@@ -41,11 +78,13 @@ export default defineConfig({
       },
     }),
   ],
+
   server: {
     host: true,
     https: true,
     port: 5173,
   },
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
