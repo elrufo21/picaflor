@@ -12,6 +12,7 @@ import {
   useSalesChannels,
 } from "../hooks/useSalesChannels";
 import { showToast } from "@/components/ui/AppToast";
+import { queueServiciosRefresh } from "@/app/db/serviciosSync";
 
 type SalesChannelFormValues = {
   auxiliar: string;
@@ -141,6 +142,7 @@ const SalesChannelPage = () => {
         );
       }
       await refresh();
+      queueServiciosRefresh();
     } catch (error) {
       setSaveError((error as Error).message);
     } finally {

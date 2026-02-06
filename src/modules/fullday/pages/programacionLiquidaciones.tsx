@@ -12,20 +12,29 @@ import {
   type ActivityDetail,
 } from "./fulldayPassengerCreate";
 import type { Producto } from "@/app/db/serviciosDB";
-import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
+import {
+  getServiciosFromDB,
+  hasServiciosData,
+  serviciosDB,
+} from "@/app/db/serviciosDB";
 import { useCanalVenta } from "../hooks/useCanalVenta";
 import { ChevronLeft } from "lucide-react";
 
 type BackendDetalle = {
-  detalleId: number; // ✅ faltaba
+  detalleId: number;
   actividades: string;
+  hora?: string;
   precio: number | null;
   cantidad: number | null;
+  turno?: string;
   importe: number | null;
 };
+
 function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
   const emptyRow = {
     servicio: null,
+    hora: "",
+    turno: "",
     precio: 0,
     cant: 0,
     total: 0,
@@ -44,24 +53,24 @@ function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
   detalles.forEach((d, index) => {
     const rawLabel = String(d.actividades ?? "").trim();
 
-    const isEntrada = index === 5; // backend fijo
+    const isEntrada = index === 5;
 
-    // 🔴 BASE NORMAL (OBJETO)
     const baseNormal = {
       detalleId: d.detalleId,
       servicio: {
         value: rawLabel || "-",
         label: rawLabel || "-",
       },
+      hora: d.hora ?? "",
+      turno: d.turno ?? d.hora ?? "",
       precio: d.precio ?? 0,
       cant: d.cantidad ?? 0,
       total: d.importe ?? 0,
     };
 
-    // 🔥 BASE ESPECIAL PARA ENTRADA (STRING)
     const baseEntrada = {
       detalleId: d.detalleId,
-      servicio: rawLabel && rawLabel !== "-" ? rawLabel : "N/A", // 👈 CLAVE
+      servicio: rawLabel && rawLabel !== "-" ? rawLabel : "N/A",
       precio: d.precio ?? 0,
       cant: d.cantidad ?? 0,
       total: d.importe ?? 0,
@@ -71,14 +80,18 @@ function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
     if (index >= 1 && index <= 3)
       return (rows[`act${index}` as "act1" | "act2" | "act3"] = baseNormal);
     if (index === 4) return (rows.traslado = baseNormal);
-    if (index === 5) return (rows.entrada = baseEntrada); // 👈 AQUÍ
+    if (index === 5) return (rows.entrada = baseEntrada);
   });
-
   return rows;
 }
 
 //fin detalle
 const LEGACY_ROW_SEPARATOR = "\u00ac";
+
+const FLAG_SERVICIO_OPTIONS = [
+  { label: "Full day", value: 1 },
+  { label: "City tour", value: 2 },
+];
 
 const normalizeStringValue = (value?: string) => String(value ?? "").trim();
 
@@ -155,11 +168,16 @@ const LIQUIDACION_FIELDS = [
   { key: "hotel", label: "Hotel", sourceIndex: 49 },
   { key: "regionProducto", label: "RegionProducto", sourceIndex: 50 },
   { key: "regionNota", label: "RegionNota", sourceIndex: 51 },
+  { key: "flagServicio", label: "FlagServicio", sourceIndex: 52 }, // 👈 NUEVO
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
 type LiquidacionFieldKey = LiquidacionFieldDefinition["key"];
-type LiquidacionRow = Record<LiquidacionFieldKey, string> & { id: string };
+type LiquidacionRow = Record<LiquidacionFieldKey, string> & {
+  id: string;
+  companiaId?: string;
+  CompaniaId?: string;
+};
 
 const EXPECTED_FIELDS =
   Math.max(...LIQUIDACION_FIELDS.map((field) => field.sourceIndex)) + 1;
@@ -202,9 +220,7 @@ const parseLiquidacionesPayload = (payload: string | null | undefined) => {
     .map((row) => row.trim())
     .filter((row) => row && row !== "~");
 
-  const dataRows = rows.slice(3);
-
-  return dataRows.map((row, index) => parseLiquidacionRow(row, index));
+  return rows.map((row, index) => parseLiquidacionRow(row, index));
 };
 
 const normalizeProductName = (value?: string) =>
@@ -345,8 +361,19 @@ const LiquidacionesPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const searchParams = useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search],
+  );
+  const initialFlagServicio = useMemo(() => {
+    const raw =
+      searchParams.get("flagServicio") ?? searchParams.get("companiaId");
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [searchParams]);
   const { loadServicios, loadServiciosFromDB, setFormData } = usePackageStore();
   const [rows, setRows] = useState<LiquidacionRow[]>([]);
+  const [allRows, setAllRows] = useState<LiquidacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -366,6 +393,118 @@ const LiquidacionesPage = () => {
     pendingEndDateRef.current = pendingEndDate;
   }, [pendingEndDate]);
 
+  const [selectedFlagServicio, setSelectedFlagServicio] = useState<
+    number | null
+  >(initialFlagServicio);
+  const [searchNumber, setSearchNumber] = useState("");
+  const [searchResults, setSearchResults] = useState<LiquidacionRow[] | null>(
+    null,
+  );
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+
+  const stopNumberSearch = useCallback(() => {
+    setSearchNumber("");
+    searchAbortRef.current?.abort();
+    searchAbortRef.current = null;
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+    setSearchResults(null);
+    setSearchLoading(false);
+    setSearchError(null);
+  }, [setSearchNumber, setSearchResults, setSearchLoading, setSearchError]);
+
+  useEffect(() => {
+    setSelectedFlagServicio(initialFlagServicio);
+  }, [initialFlagServicio]);
+
+  const filterRowsByFlagServicio = useCallback(
+    (sourceRows: LiquidacionRow[]) => {
+      if (!selectedFlagServicio) return sourceRows;
+
+      return sourceRows.filter((row) => {
+        const candidate = Number(row.flagServicio ?? 0);
+        return candidate === selectedFlagServicio;
+      });
+    },
+    [selectedFlagServicio],
+  );
+
+  useEffect(() => {
+    const hasNumberQuery = Boolean(searchNumber.trim());
+    const sourceRows = hasNumberQuery ? (searchResults ?? []) : allRows;
+    setRows(filterRowsByFlagServicio(sourceRows));
+  }, [allRows, filterRowsByFlagServicio, searchNumber, searchResults]);
+
+  useEffect(() => {
+    const trimmedNumber = searchNumber.trim();
+
+    if (!trimmedNumber) {
+      searchAbortRef.current?.abort();
+      searchAbortRef.current = null;
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+      setSearchResults(null);
+      setSearchLoading(false);
+      setSearchError(null);
+      return;
+    }
+
+    searchAbortRef.current?.abort();
+    searchAbortRef.current = null;
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      setSearchLoading(true);
+      setSearchError(null);
+
+      fetch(
+        `${API_BASE_URL}/Programacion/lista-pedidos-numero?numero=${encodeURIComponent(
+          trimmedNumber,
+        )}`,
+        { signal: controller.signal },
+      )
+        .then(async (response) => {
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || "Error buscando por número");
+          }
+          return response.text();
+        })
+        .then((text) => {
+          const parsedRows = parseLiquidacionesPayload(text);
+          setSearchResults(parsedRows);
+        })
+        .catch((error) => {
+          if ((error as any)?.name === "AbortError") return;
+          setSearchError("No se pudo buscar por número");
+          setSearchResults([]);
+        })
+        .finally(() => {
+          setSearchLoading(false);
+          searchAbortRef.current = null;
+        });
+    }, 1000);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
+  }, [searchNumber]);
+
   useEffect(() => {
     let canceled = false;
     const loadProductos = async () => {
@@ -376,7 +515,9 @@ const LiquidacionesPage = () => {
         } else {
           await loadServicios();
         }
-        const stored = await serviciosDB.productos.toArray();
+        const pCityTour = await serviciosDB.productosCityTourOrdena.toArray();
+        const pFullDay = await serviciosDB.productos.toArray();
+        const stored = [...pFullDay, ...pCityTour];
         if (!canceled) {
           setProductos(stored);
         }
@@ -389,7 +530,7 @@ const LiquidacionesPage = () => {
       canceled = true;
     };
   }, [loadServicios, loadServiciosFromDB]);
-
+  console.log("productos", productos);
   const resolveProductId = (row: LiquidacionRow) => {
     const normalizedRowName = normalizeProductName(row.productoNombre);
     if (!normalizedRowName) return 0;
@@ -403,8 +544,131 @@ const LiquidacionesPage = () => {
     if (containsMatch) return containsMatch.id;
     return 0;
   };
+  function normalizeBackendDetalleToFormCityTour(
+    detalles: BackendDetalle[],
+    serviciosCatalogo: any[],
+  ) {
+    const emptyServicio = {
+      label: "-",
+      value: "0",
+      id: "0",
+      descripcion: "",
+    };
+
+    const serviciosMap = new Map(
+      serviciosCatalogo.map((s) => [s.actividad.trim().toLowerCase(), s]),
+    );
+
+    const findServicio = (actividad: string) => {
+      const match = serviciosMap.get(actividad.trim().toLowerCase());
+
+      if (!match) return emptyServicio;
+
+      return {
+        label: match.actividad,
+        value: String(match.id),
+        id: String(match.id),
+        descripcion: match.descripcion ?? "",
+      };
+    };
+
+    const buildNormalRow = (d: BackendDetalle) => ({
+      detalleId: d.detalleId,
+      servicio: findServicio(d.actividades),
+      hora: d.hora ?? "",
+      turno: d.turno ?? d.hora ?? "",
+      precio: d.precio ?? 0,
+      cant: d.cantidad ?? 0,
+      total: d.importe ?? 0,
+    });
+
+    const buildEntradaRow = (d: BackendDetalle) => ({
+      detalleId: d.detalleId,
+      servicio: findServicio(d.actividades),
+      precio: d.precio ?? 0,
+      cant: d.cantidad ?? 0,
+      total: d.importe ?? 0,
+    });
+
+    const emptyRow = {
+      servicio: emptyServicio,
+      hora: "",
+      turno: "",
+      precio: 0,
+      cant: 0,
+      total: 0,
+      detalleId: 0,
+    };
+
+    const rows = {
+      tarifa: { ...emptyRow },
+      act1: { ...emptyRow },
+      act2: { ...emptyRow },
+      act3: { ...emptyRow },
+      traslado: { ...emptyRow },
+      entrada: {
+        detalleId: 0,
+        servicio: emptyServicio,
+        precio: 0,
+        cant: 0,
+        total: 0,
+      },
+    };
+
+    detalles.forEach((d, index) => {
+      if (index === 0) rows.tarifa = buildNormalRow(d);
+      if (index >= 1 && index <= 3)
+        rows[`act${index}` as "act1" | "act2" | "act3"] = buildNormalRow(d);
+      if (index === 4) rows.traslado = buildNormalRow(d);
+      if (index === 5) rows.entrada = buildEntradaRow(d);
+    });
+
+    return rows;
+  }
+
+  const findServicio = (actividad: string) => {
+    const match = serviciosMap.get(actividad.trim().toLowerCase());
+
+    const buildNormalRow = (d: BackendDetalle) => {
+      const servicio = findServicio(d.actividades);
+
+      return {
+        detalleId: d.detalleId,
+        servicio,
+        hora: d.hora ?? "",
+        turno: d.turno ?? d.hora ?? "",
+        precio: d.precio ?? 0,
+        cant: d.cantidad ?? 0,
+        total: d.importe ?? 0,
+      };
+    };
+
+    const buildEntradaRow = (d: BackendDetalle) => {
+      const servicio = findServicio(d.actividades);
+
+      return {
+        detalleId: d.detalleId,
+        servicio,
+        precio: d.precio ?? 0,
+        cant: d.cantidad ?? 0,
+        total: d.importe ?? 0,
+      };
+    };
+
+    detalles.forEach((d, index) => {
+      if (index === 0) return (rows.tarifa = buildNormalRow(d));
+      if (index >= 1 && index <= 3)
+        return (rows[`act${index}` as "act1" | "act2" | "act3"] =
+          buildNormalRow(d));
+      if (index === 4) return (rows.traslado = buildNormalRow(d));
+      if (index === 5) return (rows.entrada = buildEntradaRow(d));
+    });
+
+    return rows;
+  };
 
   const handleView = async (row: LiquidacionRow) => {
+    const servicios = await getServiciosFromDB();
     const data = row;
     const detalle = await fetchDetalleActividades(row.notaId);
     const hoteles = await serviciosDB.hoteles.toArray();
@@ -454,8 +718,20 @@ const LiquidacionesPage = () => {
 
       precioExtra: Number(data.adicional),
       observaciones: data.observaciones,
-      detalle: normalizeBackendDetalleToForm(detalle),
-      detallexd: normalizeBackendDetalleToForm(detalle),
+      detalle:
+        row.flagServicio == "1"
+          ? normalizeBackendDetalleToForm(detalle)
+          : normalizeBackendDetalleToFormCityTour(
+              detalle,
+              servicios.actividades,
+            ),
+      detallexd:
+        row.flagServicio == "1"
+          ? normalizeBackendDetalleToForm(detalle)
+          : normalizeBackendDetalleToFormCityTour(
+              detalle,
+              servicios.actividades,
+            ),
       canalDeVenta,
       hotel: hotel ? { label: hotel?.nombre, value: Number(hotel?.id) } : null,
       puntoPartida: data.puntoPartida,
@@ -465,29 +741,22 @@ const LiquidacionesPage = () => {
       _editMode: true,
       estado: data.estado,
     };
-    setFormData(normalizedData);
-    /*const productId = resolveProductId(row);
-    const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
-    if (!targetId) {
-      setError("No se pudo determinar la programación asociada");
-      return;
-    }
-    setError(null);
-    const actividadesDetalle = await fetchDetalleActividades(row.notaId);
-    const partidasList = await serviciosDB.partidas.toArray();
-    const normalizedPayload = normalizeLiquidacionForForm(
-      row,
-      actividadesDetalle,
-      partidasList,
-    );*/
-    //console.log("Payload normalizado para el formulario:", normalizedPayload);
     const productId = resolveProductId(row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
     if (!targetId) {
       setError("No se pudo determinar la programación asociada");
       return;
     }
-    navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`);
+    console.log("targetId", row, productId, row.flagServicio);
+    if (row.flagServicio == "1") {
+      navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`, {
+        state: { formData: normalizedData },
+      });
+    } else if (row.flagServicio == "2") {
+      navigate(`/citytour/${targetId}/passengers/view/${row.notaId}`, {
+        state: { formData: normalizedData },
+      });
+    }
   };
 
   const columnHelper = createColumnHelper<LiquidacionRow>();
@@ -595,13 +864,16 @@ const LiquidacionesPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const payload = await fetchPedidosFecha({
+        const payload: Parameters<typeof fetchPedidosFecha>[0] = {
           fechaInicio: rangeStart,
           fechaFin: rangeEnd,
           areaId,
           usuarioId,
-        });
-        setRows(parseLiquidacionesPayload(payload));
+        };
+
+        const response = await fetchPedidosFecha(payload);
+        const parsedRows = parseLiquidacionesPayload(response);
+        setAllRows(parsedRows);
       } catch (err) {
         const message =
           err instanceof Error
@@ -616,6 +888,7 @@ const LiquidacionesPage = () => {
   );
 
   const handleRangeSearch = () => {
+    stopNumberSearch();
     reload(pendingStartDate, pendingEndDate);
   };
 
@@ -639,14 +912,12 @@ const LiquidacionesPage = () => {
   const DateRangeFilter = () => (
     <div
       className="
-    flex flex-col gap-3
-    md:flex-row md:items-end md:gap-4
-  "
+                flex flex-col gap-3
+                md:flex-row md:items-end md:gap-4
+              "
     >
-      {/* TÍTULO */}
       <div className="text-sm font-semibold text-slate-900">Buscar por</div>
 
-      {/* FECHA INICIO */}
       <div className="flex flex-col text-xs text-slate-500">
         <span>Fecha Inicio</span>
         <input
@@ -662,7 +933,6 @@ const LiquidacionesPage = () => {
         />
       </div>
 
-      {/* FECHA FIN */}
       <div className="flex flex-col text-xs text-slate-500">
         <span>Fecha Fin</span>
         <input
@@ -676,6 +946,56 @@ const LiquidacionesPage = () => {
         text-xs text-slate-700
       "
         />
+      </div>
+
+      <div className="flex flex-col text-xs text-slate-500">
+        <span>Servicio</span>
+        <select
+          value={selectedFlagServicio ?? ""}
+          onChange={(e) => {
+            const value = e.target.value;
+            setSelectedFlagServicio(value ? Number(value) : null);
+          }}
+          className="
+        w-full md:w-32
+        rounded-md border border-slate-200
+        bg-white/80 px-2 py-1
+        text-xs text-slate-700
+      "
+        >
+          <option value="">Todas</option>
+          {FLAG_SERVICIO_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col text-xs text-slate-500">
+        <span>Número de pedido</span>
+        <input
+          type="text"
+          value={searchNumber}
+          onChange={(e) => setSearchNumber(e.target.value)}
+          placeholder="Ej. 12345"
+          className="
+        w-full md:w-40
+        rounded-md border border-slate-200
+        bg-white/80 px-2 py-1
+        text-xs text-slate-700
+      "
+        />
+        {searchLoading && (
+          <span className="mt-1 text-[0.65rem] text-slate-500">
+            Buscando...
+          </span>
+        )}
+        {searchError && (
+          <span className="mt-1 text-[0.65rem] text-red-600">
+            {searchError}
+          </span>
+        )}
       </div>
 
       {/* ACCIONES */}
@@ -711,7 +1031,6 @@ const LiquidacionesPage = () => {
       </div>
     </div>
   );
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">

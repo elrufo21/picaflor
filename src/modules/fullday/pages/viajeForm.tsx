@@ -25,7 +25,7 @@ import CanalVentaComponent from "./components/canalVentaComponent";
 import PaxDetailComponent from "./components/paxDetailComponent";
 import ViajeDetalleComponent from "./components/viajeDetalleComponent";
 import PaimentDetailComponent from "./components/paimentDetailComponent";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { usePackageStore } from "../store/fulldayStore";
 import axios from "axios";
 import { API_BASE_URL } from "@/config";
@@ -310,7 +310,7 @@ function normalizarDetalleCreate(detalle: any): string {
   return Object.values(detalle)
     .map((i: any) => {
       const label = resolveServicioLabel(i?.servicio) || "-";
-      return [label, d(i?.precio), Number(i?.cant), d(i?.total)].join("|");
+      return [label, d(i?.precio), Number(i?.cant), d(i?.total), ""].join("|");
     })
     .join(";");
 }
@@ -349,10 +349,12 @@ function normalizarDetalleEdit(detalle: any): string {
         d(item.precio),
         item.cant,
         d(item.total),
+        "",
       ].join("|"),
     )
     .join(";");
 }
+
 function resolveActividadesEspeciales(detalle: any, idProducto: number) {
   if (Number(idProducto) !== 4) {
     return { islas: "", tubulares: "", otros: "" };
@@ -409,6 +411,7 @@ function buildListaOrdenCreate(data) {
 
   const orden = [
     n(data.documentoCobranza),
+    1,
     n(data.nombreCompleto),
     n(data.documentoNumero),
     n(data.clienteId ?? 0),
@@ -470,9 +473,10 @@ function buildListaOrdenEdit(data) {
   );
   const orden = [
     n(data.documentoCobranza), // 1  NotaDocu
+    //1,
     n(data.nombreCompleto), // 2  nombrePax
     n(data.documentoNumero), // 3  dniPax
-    Number(data.clienteId), // 4  ClienteId
+    n(data.clienteId), // 4  ClienteId
     n(data.counter), // 5  NotaUsuario
     n(data.medioPago), // 6  NotaFormaPago
     n(data.condicion?.value), // 7  NotaCondicion
@@ -521,6 +525,7 @@ function buildListaOrdenEdit(data) {
     n(data?.hotel?.label ?? ""), // 50 Hotel
     n(data.region), // 51 Region
   ].join("|");
+  console.log("data", orden);
 
   return `${orden}[${detalle}`;
 }
@@ -716,8 +721,14 @@ export function parseDateForInput(
 
 const ViajeForm = () => {
   const { formData, setFormData, isEditing, setIsEditing } = usePackageStore();
+  const location = useLocation();
+  const incomingFormData = (location.state as { formData?: any })?.formData;
   //Precargar los valores en modo edicion
+  const [tabValue, setTabValue] = useState(0);
 
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
   const {
     control,
     handleSubmit,
@@ -754,11 +765,7 @@ const ViajeForm = () => {
       totalGeneral: 0,
     },
   });
-  useEffect(() => {
-    return () => {
-      setFormData(null);
-    };
-  }, []);
+  console.log("watch", watch());
   useEffect(() => {
     if (!formData) return;
 
@@ -784,10 +791,18 @@ const ViajeForm = () => {
   const navigate = useNavigate();
   //sesion
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
-
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const { idProduct, liquidacionId } = useParams();
   const { packages, date, loadPackages } = usePackageStore();
+  useEffect(() => {
+    if (!incomingFormData || formData) return;
+    setFormData(incomingFormData);
+  }, [incomingFormData, formData, setFormData]);
+  useEffect(() => {
+    if (!liquidacionId) return;
+    if (formData || incomingFormData) return;
+    navigate("/fullday", { replace: true });
+  }, [formData, incomingFormData, liquidacionId, navigate]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -862,7 +877,7 @@ const ViajeForm = () => {
 
       const payload = {
         ...data,
-        _editMode: data._editMode === true,
+        _editMode: liquidacionId !== undefined,
         fechaViaje: fechaViajeValue,
         fechaEmision: fechaEmisionYMD(),
         precioExtra: data.precioExtra === "" ? 0 : data.precioExtra,
@@ -873,6 +888,7 @@ const ViajeForm = () => {
         companiaId: 1,
         idProducto: Number(idProduct),
         canalVenta: data.canalDeVenta?.auxiliar ?? data.canalVenta,
+        clienteId: watch("clienteId"),
       };
 
       const listaOrden = payload._editMode
@@ -1015,7 +1031,11 @@ const ViajeForm = () => {
   const handleUnlockEditing = () => {
     setIsEditing(true);
   };
-
+  useEffect(() => {
+    return () => {
+      setFormData(null);
+    };
+  }, []);
   const handleEnterFocus = (e) => {
     if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
       e.preventDefault();
@@ -1027,6 +1047,7 @@ const ViajeForm = () => {
       }
     }
   };
+
   return (
     <>
       <Backdrop

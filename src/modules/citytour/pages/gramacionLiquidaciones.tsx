@@ -345,7 +345,7 @@ const LiquidacionesPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const { loadServicios, loadServiciosFromDB, setFormData } = usePackageStore();
+  const { loadServicios, loadServiciosFromDB } = usePackageStore();
   const [rows, setRows] = useState<LiquidacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -465,29 +465,15 @@ const LiquidacionesPage = () => {
       _editMode: true,
       estado: data.estado,
     };
-    setFormData(normalizedData);
-    /*const productId = resolveProductId(row);
-    const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
-    if (!targetId) {
-      setError("No se pudo determinar la programación asociada");
-      return;
-    }
-    setError(null);
-    const actividadesDetalle = await fetchDetalleActividades(row.notaId);
-    const partidasList = await serviciosDB.partidas.toArray();
-    const normalizedPayload = normalizeLiquidacionForForm(
-      row,
-      actividadesDetalle,
-      partidasList,
-    );*/
-    //console.log("Payload normalizado para el formulario:", normalizedPayload);
     const productId = resolveProductId(row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
     if (!targetId) {
       setError("No se pudo determinar la programación asociada");
       return;
     }
-    navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`);
+    navigate(`/citytour/${targetId}/passengers/view/${row.notaId}`, {
+      state: { formData: normalizedData },
+    });
   };
 
   const columnHelper = createColumnHelper<LiquidacionRow>();

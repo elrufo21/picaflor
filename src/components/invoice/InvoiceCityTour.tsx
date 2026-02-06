@@ -58,7 +58,6 @@ export type InvoiceData = {
   documento: string;
   nroDocumento: string;
   observaciones: string;
-  moneda?: string;
   fechaRegistro?: string;
 };
 
@@ -133,7 +132,6 @@ type BuildInvoiceFormValues = {
   ndocumento?: string;
   notas?: string;
   destino?: string;
-  moneda?: string;
 };
 
 type BuildInvoiceDataInput = {
@@ -233,10 +231,10 @@ export const buildInvoiceData = ({
   const pasajeroDocumento =
     textValue(values.documentoNumero) || textValue(values.documentoTipo);
   const actividadRows = [
-    { key: "actividad1", label: "Actividades Opcionales 1" },
-    { key: "actividad2", label: "Actividades Opcionales 2" },
-    { key: "actividad3", label: "Actividades Opcionales 3" },
+    { key: "actividad1", label: "Actividad 01" },
+    { key: "actividad2", label: "Actividad 02" },
   ];
+
   const actividadesData = actividadRows.map((row) => {
     const value = (values as Record<string, unknown>)[row.key];
     const actividad = resolveOptionLabel(actividades, value) || "";
@@ -248,14 +246,23 @@ export const buildInvoiceData = ({
     };
   });
 
-  const buildItem = (id: string, label: string, descripcion: string) => {
+  const buildItem = (
+    id: string,
+    label: string,
+    descripcion: string,
+    forceNA = false,
+  ) => {
     const row = findRow(id);
     const precio = toNumber(row?.precioUnit);
     const cantidad = toNumber(row?.cantidad);
     const hasNumbers = precio > 0 || cantidad > 0;
+
+    const resolvedDescripcion =
+      descripcion && descripcion.trim() ? descripcion : forceNA ? "N/A" : "";
+
     return {
       label,
-      descripcion: descripcion || "",
+      descripcion: resolvedDescripcion,
       precio: hasNumbers ? precio : null,
       cantidad: hasNumbers ? cantidad : null,
       subtotal: hasNumbers ? Number((precio * cantidad).toFixed(2)) : null,
@@ -263,11 +270,6 @@ export const buildInvoiceData = ({
   };
 
   const items = [
-    buildItem(
-      "tarifaTour",
-      "Tarifa de Tour :",
-      resolveOptionLabel(almuerzos, values.tarifaTour) || "",
-    ),
     buildItem(
       "actividad1",
       "Actividad 01 :",
@@ -279,16 +281,16 @@ export const buildInvoiceData = ({
       resolveOptionLabel(actividades, values.actividad2) || "",
     ),
     buildItem(
-      "actividad3",
-      "Actividad 03 :",
-      resolveOptionLabel(actividades, values.actividad3) || "",
-    ),
-    buildItem(
       "traslados",
       "Traslados :",
       resolveOptionLabel(trasladosOptions, values.traslados) || "",
     ),
-    buildItem("entradas", "Entradas :", textValue(values.entradas) || ""),
+    buildItem("entradas", "Entradas :", "", true),
+    buildItem(
+      "otrosPagos",
+      "Otros Pagos :",
+      textValue(values.entradas) || "N/A",
+    ),
   ];
 
   const impuestos = toNumber(values.impuesto);
@@ -335,7 +337,6 @@ export const buildInvoiceData = ({
     documento: textValue(values.documentoCobranza),
     nroDocumento: buildDocumentoNumero(values.nserie, values.ndocumento),
     observaciones: textValue(values.notas),
-    moneda: textValue(values.moneda),
   };
 };
 
@@ -420,6 +421,7 @@ const contactS = StyleSheet.create({
     backgroundColor: "#EEECE7",
     fontSize: 8,
     padding: 4,
+    textTransform: "uppercase",
   },
   activityArrowFixed: {
     width: "5%",
@@ -612,7 +614,7 @@ const contactS = StyleSheet.create({
    PDF
 ========================= */
 
-const PdfDocument = ({ data }: { data?: InvoiceData }) => {
+const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
   const invoiceData = data ?? DEFAULT_INVOICE_DATA;
   const {
     destino,
@@ -645,6 +647,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
     precioTotal,
     fechaRegistro,
   } = invoiceData;
+  const currencySymbol = invoiceData.moneda === "DOLARES" ? "USD$" : "S/";
   const formatNumber = (value: unknown) => {
     const parsed = Number(value ?? 0);
     if (!Number.isFinite(parsed)) return "";
@@ -741,12 +744,12 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
             </View>
           </View>
           <View style={{ marginTop: 10 }}>
-            {actividades.map((item, index) => (
+            {actividades.slice(0, 2).map((item, index) => (
               <View key={index} style={contactS.activityRowFixed}>
                 {/* IZQUIERDA */}
                 <View style={contactS.activityLeft}>
                   <Text style={contactS.activityLabelFixed}>
-                    Actividad opcional {index + 1}
+                    Atractivo de Lima {index + 1}
                   </Text>
 
                   <Text style={contactS.activityValueFixed}>
@@ -760,10 +763,10 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 {/* DERECHA */}
                 <View style={contactS.activityRight}>
                   <Text style={contactS.activityQtyLabelFixed}>
-                    Cantidad Activ.
+                    Turno/Horario
                   </Text>
                   <Text style={contactS.activityQtyValueFixed}>
-                    {item.cantidad ?? ""}
+                    {item.turno || "-"}
                   </Text>
                 </View>
               </View>
@@ -819,26 +822,64 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
               <Text style={contactS.tarifaColHeader}>Sub Total</Text>
             </View>
 
-            {/* ITEMS */}
-            {items.map((it, idx) => (
-              <View key={idx} style={contactS.tarifaRow}>
-                <Text style={contactS.tarifaLabel}>{it.label}</Text>
-                <Text style={contactS.tarifaDesc}>{it.descripcion}</Text>
-                <Text style={contactS.tarifaUnit}>
-                  {it.precio != null && it.precio != 0
-                    ? formatNumber(it.precio)
-                    : ""}
-                </Text>
-                <Text style={contactS.tarifaCant}>
-                  {it.precio != null && it.precio != 0 ? it.cantidad : ""}
-                </Text>
-                <Text style={contactS.tarifaSub}>
-                  {it.subtotal != null && it.precio != 0
-                    ? formatNumber(it.subtotal)
-                    : ""}
-                </Text>
-              </View>
-            ))}
+            {/* ACTIVIDADES (SOLO 2) */}
+            {items
+              .filter(
+                (it) =>
+                  it.label === "Actividad 01 :" ||
+                  it.label === "Actividad 02 :",
+              )
+              .map((it, idx) => (
+                <View key={idx} style={contactS.tarifaRow}>
+                  <Text style={contactS.tarifaLabel}>{it.label}</Text>
+
+                  <Text style={contactS.tarifaDesc}>
+                    {it.descripcion?.trim() || "-"}
+                  </Text>
+
+                  <Text style={contactS.tarifaUnit}>
+                    {it.precio && it.precio > 0 ? formatNumber(it.precio) : ""}
+                  </Text>
+
+                  <Text style={contactS.tarifaCant}>
+                    {it.precio && it.precio > 0 ? it.cantidad : ""}
+                  </Text>
+
+                  <Text style={contactS.tarifaSub}>
+                    {it.subtotal && it.precio > 0
+                      ? formatNumber(it.subtotal)
+                      : ""}
+                  </Text>
+                </View>
+              ))}
+            {/* TRASLADOS (FIJO) */}
+            <View style={contactS.tarifaRow}>
+              <Text style={contactS.tarifaLabel}>Traslados :</Text>
+              <Text style={contactS.tarifaDesc}>N/A</Text>
+              <Text style={contactS.tarifaUnit}></Text>
+              <Text style={contactS.tarifaCant}></Text>
+              <Text style={contactS.tarifaSub}></Text>
+            </View>
+
+            {/* ENTRADAS (FIJO) */}
+            <View style={contactS.tarifaRow}>
+              <Text style={contactS.tarifaLabel}>Entradas :</Text>
+              <Text style={[contactS.tarifaDesc, { fontStyle: "italic" }]}>
+                N/A
+              </Text>
+              <Text style={contactS.tarifaUnit}></Text>
+              <Text style={contactS.tarifaCant}></Text>
+              <Text style={contactS.tarifaSub}></Text>
+            </View>
+
+            {/* OTROS PAGOS (FIJO) */}
+            <View style={contactS.tarifaRow}>
+              <Text style={contactS.tarifaLabel}>Otros Pagos :</Text>
+              <Text style={contactS.tarifaDesc}>N/A</Text>
+              <Text style={contactS.tarifaUnit}></Text>
+              <Text style={contactS.tarifaCant}></Text>
+              <Text style={contactS.tarifaSub}></Text>
+            </View>
 
             {/* DIVIDER */}
             <View style={contactS.divider} />
@@ -874,11 +915,11 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 {/* IZQUIERDA */}
                 <View style={contactS.liquidationTable}>
                   {[
-                    ["TOTAL A PAGAR:", "S/", precioTotal],
-                    ["A CUENTA:", "S/", acuenta],
+                    ["TOTAL A PAGAR:", currencySymbol, precioTotal],
+                    ["A CUENTA:", currencySymbol, acuenta],
                     [
                       "SALDO:",
-                      "S/",
+                      currencySymbol,
                       condicion === "CREDITO" ? precioTotal : saldo,
                     ],
                     ["Cobro Extra Soles:", "S/", extraSoles],
@@ -953,4 +994,4 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
   );
 };
 
-export default PdfDocument;
+export default InvoiceCityTour;

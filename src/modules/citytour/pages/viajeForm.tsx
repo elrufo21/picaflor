@@ -20,12 +20,12 @@ import {
   Save,
   Trash,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CanalVentaComponent from "./components/canalVentaComponent";
 import PaxDetailComponent from "./components/paxDetailComponent";
 import ViajeDetalleComponent from "./components/viajeDetalleComponent";
 import PaimentDetailComponent from "./components/paimentDetailComponent";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { usePackageStore } from "../store/cityTourStore";
 import axios from "axios";
 import { API_BASE_URL } from "@/config";
@@ -74,6 +74,47 @@ type ValidationError = {
   message: string;
   focus?: string;
 };
+const isServicioVacio = (servicio: any) => {
+  if (!servicio) return true;
+
+  if (typeof servicio === "object") {
+    const value = String(servicio.value ?? "").trim();
+    const label = String(servicio.label ?? "").trim();
+    const id = String(servicio.id ?? "").trim();
+
+    return value === "" || value === "0" || label === "-" || id === "0";
+  }
+
+  return String(servicio).trim() === "" || String(servicio).trim() === "-";
+};
+const isEmptyOrDash = (v: any) =>
+  v === null ||
+  v === undefined ||
+  String(v).trim() === "" ||
+  String(v).trim() === "-";
+
+const validarTurnoActividad = (
+  actividad: any,
+  key: "act1" | "act2",
+): ValidationError | null => {
+  if (isServicioVacio(actividad?.servicio)) {
+    return null;
+  }
+
+  const horaVacia = isEmptyOrDash(actividad?.hora);
+  const turnoVacio = isEmptyOrDash(actividad?.turno);
+
+  if (horaVacia && turnoVacio) {
+    return {
+      message: `LA ${
+        key === "act1" ? "PRIMERA" : "SEGUNDA"
+      } ACTIVIDAD REQUIERE HORA O TURNO (AM / PM)`,
+      focus: `detalle.${key}.hora`,
+    };
+  }
+
+  return null;
+};
 
 const getDetailField = (values: any, key: string) =>
   values?.detalle?.[key] ?? {};
@@ -91,6 +132,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
   const condicionValue = String(values.condicion?.value ?? "")
     .trim()
     .toUpperCase();
+
   if (!condicionValue) {
     return {
       message: "SELECCIONE LA CONDICION DEL SERVICIO DE VIAJE",
@@ -98,6 +140,47 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
+  // ===============================
+  // VALIDAR TURNOS DE ACTIVIDADES
+  // ===============================
+  const act1Error = validarTurnoActividad(
+    getDetailField(values, "act1"),
+    "act1",
+  );
+  if (act1Error) return act1Error;
+
+  const act2Error = validarTurnoActividad(
+    getDetailField(values, "act2"),
+    "act2",
+  );
+  if (act2Error) return act2Error;
+
+  // ===============================
+  // VALIDAR: AL MENOS UNA ACTIVIDAD
+  // ===============================
+  const act1 = getDetailField(values, "act1");
+  const act2 = getDetailField(values, "act2");
+
+  const act1Selected =
+    act1?.servicio &&
+    act1.servicio !== "-" &&
+    (act1.servicio.value || act1.servicio.label);
+
+  const act2Selected =
+    act2?.servicio &&
+    act2.servicio !== "-" &&
+    (act2.servicio.value || act2.servicio.label);
+
+  if (!act1Selected && !act2Selected) {
+    return {
+      message: "DEBE SELECCIONAR AL MENOS UNA ACTIVIDAD",
+      focus: "detalle.act1.servicio",
+    };
+  }
+
+  // ===============================
+  // VALIDAR PUNTO DE PARTIDA
+  // ===============================
   if (!values.puntoPartida?.trim()) {
     return {
       message: "SELECCIONE EL PUNTO DE PARTIDA DE VIAJE",
@@ -105,44 +188,9 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  if (!values.detalle?.tarifa?.servicio?.value) {
-    return {
-      message: "SELECCIONE SI INCLUYE ALMUERZO EL TOURS",
-      focus: "detalle.tarifa.servicio",
-    };
-  }
-
-  const puntoSelected = String(values.puntoPartida ?? "")
-    .trim()
-    .toUpperCase();
-  const requiereTrasladoEdit =
-    puntoSelected === "HOTEL" || puntoSelected === "OTROS";
-  if (requiereTrasladoEdit) {
-    const trasladoField = values.detalle?.traslado;
-    const trasladoValue = trasladoField?.servicio?.value;
-    if (!trasladoValue || trasladoValue === "-") {
-      return {
-        message: "SELECCIONE TRASLADO VALIDO CUANDO INCLUYE HOTEL U OTROS",
-        focus: "detalle.traslado.servicio",
-      };
-    }
-  }
-
-  if (!values.detalle?.traslado?.servicio?.value) {
-    return {
-      message: "SELECCIONE SI INCLUYE TRASLADO",
-      focus: "detalle.traslado.servicio",
-    };
-  }
-  if (
-    !values.detalle?.tarifa?.precio ||
-    Number(values.detalle?.tarifa?.precio) <= 0
-  ) {
-    return {
-      message: "INGRESE EL PRECIO DE LA TARIFA DEL TOURS",
-      focus: "detalle.tarifa.precio",
-    };
-  }
+  // ===============================
+  // VALIDAR MEDIO DE PAGO
+  // ===============================
   if (!values.medioPago) {
     return { message: "SELECCIONE EL MEDIO DE PAGO", focus: "medioPago" };
   }
@@ -154,6 +202,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
   const medioPagoValue = String(values.medioPago ?? "")
     .trim()
     .toUpperCase();
+
   if (
     (medioPagoValue === "DEPOSITO" || medioPagoValue === "YAPE") &&
     !values.nroOperacion?.trim()
@@ -171,6 +220,9 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
+  // ===============================
+  // VALIDAR DATOS DEL CLIENTE
+  // ===============================
   if (!values.nombreCompleto?.trim()) {
     return {
       message: "INGRESE EL NOMBRE DEL CLIENTE",
@@ -192,20 +244,21 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  if (!values.horaPartida?.trim()) {
+  // ===============================
+  // VALIDAR TOTAL MAYOR A CERO
+  // ===============================
+  const totalToPay = Number(values.precioTotal ?? values.totalGeneral ?? 0);
+
+  if (!Number.isFinite(totalToPay) || totalToPay <= 0) {
     return {
-      message: "INGRESE LA HORA DE PARTIDA DEL TOURS",
-      focus: "horaPartida",
+      message: "EL TOTAL A PAGAR DEBE SER MAYOR A CERO",
+      focus: "precioTotal",
     };
   }
 
-  const totalToPay = Number(values.precioTotal ?? 0);
-  if (totalToPay <= 0) {
-    return {
-      message: "EL DOCUMENTO NO PUEDE SER CERO EN TOTAL A PAGAR...!!!",
-    };
-  }
-
+  // ===============================
+  // VALIDAR SALDO
+  // ===============================
   const saldo = Number(values.saldo ?? 0);
   if (saldo < 0) {
     return {
@@ -214,16 +267,19 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  const primeraActividad = getDetailField(values, "act1");
+  // ===============================
+  // VALIDAR PRECIO ACTIVIDADES
+  // ===============================
   const primeraActividadTieneDetalle =
-    primeraActividad.detalleId !== undefined &&
-    primeraActividad.detalleId !== null &&
-    String(primeraActividad.detalleId).trim() !== "";
+    act1?.detalleId !== undefined &&
+    act1?.detalleId !== null &&
+    String(act1?.detalleId).trim() !== "";
+
   if (
-    primeraActividad.servicio?.value &&
+    act1Selected &&
     !primeraActividadTieneDetalle &&
-    Number(primeraActividad.precio) <= 0 &&
-    !isIslasBallestasActivity(primeraActividad.servicio)
+    Number(act1?.precio) <= 0 &&
+    !isIslasBallestasActivity(act1.servicio)
   ) {
     return {
       message: "SI SELECCIONO UNA PRIMERA ACTIVIDAD INGRESE EL PRECIO",
@@ -231,40 +287,31 @@ const validateViajeValues = (values: any): ValidationError | null => {
     };
   }
 
-  const segundaActividad = getDetailField(values, "act2");
   const segundaActividadTieneDetalle =
-    segundaActividad.detalleId !== undefined &&
-    segundaActividad.detalleId !== null &&
-    String(segundaActividad.detalleId).trim() !== "";
-  if (
-    segundaActividad.servicio?.value &&
+    act2?.detalleId !== undefined &&
+    act2?.detalleId !== null &&
+    String(act2?.detalleId).trim() !== "";
+
+  /*if (
+    act2Selected &&
     !segundaActividadTieneDetalle &&
-    Number(segundaActividad.precio) <= 0 &&
-    !isIslasBallestasActivity(segundaActividad.servicio)
+    Number(act2?.precio) <= 0 &&
+    !isIslasBallestasActivity(act2.servicio)
   ) {
     return {
       message: "SI SELECCIONO UNA SEGUNDA ACTIVIDAD INGRESE EL PRECIO",
       focus: "detalle.act2.precio",
     };
-  }
-
-  const traslado = getDetailField(values, "traslado");
-  /*if (
-    traslado.servicio?.value &&
-    traslado.servicio?.value !== "-" &&
-    Number(traslado.precio) <= 0
-  ) {
-    return {
-      message: "SI SELECCIONO QUE INCLUYE TRASLADO...INGRESE EL PRECIO",
-      focus: "detalle.traslado.precio",
-    };
   }*/
 
+  // ===============================
+  // VALIDAR ACUENTA
+  // ===============================
   if (condicionValue.includes("ACUENTA")) {
     if (!values.acuenta && values.acuenta !== 0) {
       return {
         message:
-          "SI SELECCIONO LA CONDICION ACUENTA, INGRESAR EL MONTO QUE LE DIO...!!!",
+          "SI SELECCIONO LA CONDICION ACUENTA, INGRESAR EL MONTO QUE LE DIO",
         focus: "acuenta",
       };
     }
@@ -272,32 +319,15 @@ const validateViajeValues = (values: any): ValidationError | null => {
     if (Number(values.acuenta) <= 0) {
       return {
         message:
-          "SI SELECCIONO LA CONDICION ACUENTA, EL MONTO NO PUEDE SER CERO...!!!",
+          "SI SELECCIONO LA CONDICION ACUENTA, EL MONTO NO PUEDE SER CERO",
         focus: "acuenta",
       };
     }
-
-    const totalBase = Number(values.precioTotal ?? totalToPay ?? 0);
-    const sumaAcuenta = Number(values.acuenta ?? 0);
-    const sumaEfectivo = Number(values.efectivo ?? 0);
-    /* if (totalBase > 0 && sumaAcuenta + sumaEfectivo > totalBase) {
-      return {
-        message:
-          "LA SUMA DEL ACUENTA CON EL EFECTIVO SUPERA AL MONTO TOTAL DE PAGO..!!!",
-        focus: "acuenta",
-      };
-    }*/
   }
-
-  /*if (values.horaPartida && !TIME_PATTERN.test(values.horaPartida)) {
-    return {
-      message: "INGRESE CORRECTAMENTE LA HORA",
-      focus: "horaPartida",
-    };
-  }*/
 
   return null;
 };
+
 function resolveServicioLabel(servicio: any) {
   if (!servicio) return "";
   if (typeof servicio === "object") {
@@ -310,7 +340,13 @@ function normalizarDetalleCreate(detalle: any): string {
   return Object.values(detalle)
     .map((i: any) => {
       const label = resolveServicioLabel(i?.servicio) || "-";
-      return [label, d(i?.precio), Number(i?.cant), d(i?.total)].join("|");
+
+      const hora =
+        typeof i?.turno === "string" && i.turno.trim() ? i.turno.trim() : "-";
+
+      return [label, d(i?.precio), Number(i?.cant), d(i?.total), hora].join(
+        "|",
+      );
     })
     .join(";");
 }
@@ -321,38 +357,46 @@ function normalizarDetalleEdit(detalle: any): string {
       const hasServicioObject = i?.servicio && typeof i.servicio === "object";
       const detalleId =
         i?.detalleId ?? (hasServicioObject ? i.servicio.detalleId : undefined);
+
       let resolvedServicioLabel = resolveServicioLabel(i?.servicio) || "";
       const normalizedLabel = resolvedServicioLabel.trim().toUpperCase();
       if (!resolvedServicioLabel || normalizedLabel === "N/A") {
         resolvedServicioLabel = "-";
       }
+
+      const hora =
+        typeof i?.turno === "string" && i.turno.trim()
+          ? i.turno.trim() // "AM" | "PM"
+          : "-";
+
       return {
+        detalleId,
         servicioLabel: resolvedServicioLabel,
         cant: Number(i?.cant),
         precio: i?.precio,
         total: i?.total,
-        detalleId,
+        hora,
       };
     })
     .filter(
       (item) =>
         item.detalleId !== undefined &&
         item.detalleId !== null &&
-        item.servicioLabel &&
-        (item.cant > 0 ||
-          ["-", "N/A"].includes(item.servicioLabel.trim().toUpperCase())),
+        item.servicioLabel,
     )
     .map((item) =>
       [
-        item.detalleId ?? "", // 👈 SOLO EN EDIT
+        item.detalleId,
         item.servicioLabel,
         d(item.precio),
         item.cant,
         d(item.total),
+        item.hora, // 👈 AM / PM
       ].join("|"),
     )
     .join(";");
 }
+
 function resolveActividadesEspeciales(detalle: any, idProducto: number) {
   if (Number(idProducto) !== 4) {
     return { islas: "", tubulares: "", otros: "" };
@@ -408,58 +452,59 @@ function buildListaOrdenCreate(data) {
   );
 
   const orden = [
-    n(data.documentoCobranza),
-    n(data.nombreCompleto),
-    n(data.documentoNumero),
-    n(data.clienteId ?? 0),
-    n(data.counter),
-    n(data.medioPago),
-    n(data.condicion?.value),
-    n(data.celular),
-    d(data.totalGeneral),
-    d(data.precioTotal),
-    d(data.acuenta),
-    d(data.saldo),
-    d(data.precioExtra),
-    d(data.precioTotal),
-    n(data.condicion?.value),
-    data.companiaId,
-    "NO",
-    "",
-    "",
-    0,
-    data.usuarioId,
-    n(data.entidadBancaria),
-    n(data.nroOperacion),
-    d(data.efectivo),
-    d(data.deposito),
-    data.idProducto,
-    n(data.canalVenta),
-    n(data.canalDeVentaTelefono),
-    data.cantPax,
-    n(data.puntoPartida),
-    n(data.horaPartida),
-    n(data.otrosPartidas ?? ""),
-    n(data.visitas),
-    n(Number(data.precioExtraSoles ?? 0)),
-    n(Number(data.precioExtraDolares ?? 0)),
-    data.fechaAdelanto,
-    n(data.mensajePasajero ?? ""),
-    n(data.observaciones ?? ""),
-    islas,
-    tubulares,
-    otros,
-    data.fechaViaje,
-    0,
-    "NO",
-    data.moneda,
-    n(data.detalle.tarifa.servicio.label ?? ""),
-    "",
-    n(data?.hotel?.label ?? ""),
-    data.region,
+    n(data.documentoCobranza), // 1 NotaDocu
+    2, // 2 flagServicio ✅ FIJO
+    n(data.nombreCompleto), // 3 nombrePax
+    n(data.documentoNumero), // 4 dniPax
+    n(data.clienteId ?? 0), // 5 ClienteId
+    n(data.counter), // 6 NotaUsuario
+    n(data.medioPago), // 7 NotaFormaPago
+    n(data.condicion?.value), // 8 NotaCondicion
+    n(data.celular), // 9 NotaTelefono
+    d(data.totalGeneral), // 10 NotaSubtotal
+    d(data.precioTotal), // 11 NotaTotal
+    d(data.acuenta), // 12 NotaAcuenta
+    d(data.saldo), // 13 NotaSaldo
+    d(data.precioExtra), // 14 NotaAdicional
+    d(data.precioTotal), // 15 NotaPagar
+    n(data.condicion?.value), // 16 NotaEstado
+    1, // 17 CompaniaId
+    "NO", // 18 IncluyeIGV
+    "", // 19 Serie
+    "", // 20 Numero
+    0, // 21 NotaGanancia
+    data.usuarioId, // 22 UsuarioId
+    n(data.entidadBancaria), // 23 EntidadBancaria
+    n(data.nroOperacion), // 24 NroOperacion
+    d(data.efectivo), // 25 Efectivo
+    d(data.deposito), // 26 Deposito
+    data.idProducto, // 27 IdProducto
+    n(data.canalVenta), // 28 Auxiliar
+    n(data.canalDeVentaTelefono), // 29 TelefonoAuxiliar
+    data.cantPax, // 30 CantidadPax
+    n(data.puntoPartida), // 31 PuntoPartida
+    n(data.horaPartida), // 32 HoraPartida
+    n(data.otrosPartidas ?? ""), // 33 otrasPartidas
+    n(data.visitas), // 34 VisitasExCur
+    n(Number(data.precioExtraSoles ?? 0)), // 35 CobroExtraSol
+    n(Number(data.precioExtraDolares ?? 0)), // 36 CobroExtraDol
+    data.fechaAdelanto, // 37 FechaAdelanto
+    n(data.mensajePasajero ?? ""), // 38 MensajePasajero
+    n(data.observaciones ?? ""), // 39 Observaciones
+    islas, // 40 Islas
+    tubulares, // 41 Tubulares
+    otros, // 42 otros
+    data.fechaViaje, // 43 FechaViaje
+    0, // 44 IGV
+    "NO", // 45 IncluyeCargos
+    data.moneda, // 46 Monedas
+    n(data?.detalle?.tarifa?.servicio?.label ?? ""), // 47 IncluyeALmuerzo
+    "", // 48 NotaImagen
+    n(data?.hotel?.label ?? ""), // 49 Hotel
+    data.region, // 50 Region
   ].join("|");
 
-  return `${orden}[${detalle}`;
+  return `${orden}[${detalle}]`;
 }
 
 function buildListaOrdenEdit(data) {
@@ -484,7 +529,7 @@ function buildListaOrdenEdit(data) {
     d(data.precioExtra), // 13 NotaAdicional
     d(data.precioTotal), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
-    Number(data.companiaId), // 16 CompaniaId
+    1, // 16 CompaniaId (hardcoded to 2)
     "NO", // 17 IncluyeIGV
     n(data.nserie), // 18 Serie
     n(data.ndocumento), // 19 Numero
@@ -522,7 +567,7 @@ function buildListaOrdenEdit(data) {
     n(data.region), // 51 Region
   ].join("|");
 
-  return `${orden}[${detalle}`;
+  return `${orden}[${detalle}]`;
 }
 
 async function agregarViaje(valores, edit) {
@@ -591,7 +636,6 @@ export function adaptViajeJsonToInvoice(
   backendResponse: string | boolean,
 ): InvoiceData {
   const isEdit = backendResponse === true;
-
   const backend = isEdit
     ? {
         serie: viajeJson.nserie,
@@ -601,20 +645,23 @@ export function adaptViajeJsonToInvoice(
       }
     : parseBackendResponse(String(backendResponse));
 
-  const actividadesKeys = ["act1", "act2", "act3"];
-
-  const actividades = actividadesKeys.map((key, idx) => {
+  const actividades = ["act1", "act2"].map((key, idx) => {
     const act = viajeJson.detalle?.[key];
 
-    const servicioLabel =
-      act?.servicio && typeof act.servicio === "object" && act.servicio.label
-        ? act.servicio.label
+    const actividad =
+      act?.servicio && typeof act.servicio === "object"
+        ? (act.servicio.label ?? "")
         : "";
+
+    const turno =
+      typeof act?.turno === "string" && act.turno.trim()
+        ? act.turno.trim()
+        : null;
 
     return {
       label: `Actividad ${idx + 1}`,
-      actividad: servicioLabel,
-      cantidad: act && Number(act.cant) > 0 ? Number(act.cant) : null,
+      actividad,
+      turno, // 👈 AM / PM
     };
   });
 
@@ -695,6 +742,7 @@ export function adaptViajeJsonToInvoice(
     observaciones: viajeJson.observaciones ?? "",
     mensajePasajero: viajeJson.mensajePasajero ?? "",
     precioTotal: viajeJson.precioTotal,
+    moneda: viajeJson.moneda,
   };
 }
 export function parseDateForInput(
@@ -716,7 +764,8 @@ export function parseDateForInput(
 
 const ViajeForm = () => {
   const { formData, setFormData, isEditing, setIsEditing } = usePackageStore();
-  //Precargar los valores en modo edicion
+  const location = useLocation();
+  const incomingFormData = (location.state as { formData?: any })?.formData;
 
   const {
     control,
@@ -731,6 +780,7 @@ const ViajeForm = () => {
     defaultValues: {
       destino: "",
       fechaViaje: "",
+      descripcion: "",
       fechaEmision: "",
       cantPax: 0,
       canalVenta: null,
@@ -738,14 +788,26 @@ const ViajeForm = () => {
       disponibles: 0,
       region: "",
       counter: "",
-      moneda: "SOLES",
+      moneda: "DOLARES",
       canalDeVentaTelefono: "",
       fechaAdelanto: parseDateForInput(Date()),
       saldo: "0",
       medioPago: "",
       detalle: {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
-        act1: { servicio: null, precio: 0, cant: 0, total: 0 },
+        act1: {
+          servicio: {
+            label: "City Tour Lima",
+            id: "1022",
+            value: "1022",
+            descripcion:
+              "Parque del Amor Miraflores + Parque El Olivar + Plaza Mayor de Lima, Convento San Francisco + Catacumbas + Palacio de Gobierno + Palacio Municipal + Catedral de Lima.",
+          },
+          precio: 20,
+          cant: 0,
+          total: 0,
+          turno: "",
+        },
         act2: { servicio: null, precio: 0, cant: 0, total: 0 },
         act3: { servicio: null, precio: 0, cant: 0, total: 0 },
         traslado: { servicio: null, precio: 0, cant: 0, total: 0 },
@@ -754,18 +816,15 @@ const ViajeForm = () => {
       totalGeneral: 0,
     },
   });
-  useEffect(() => {
-    return () => {
-      setFormData(null);
-    };
-  }, []);
+  const hydratedRef = useRef(false);
+  console.log("watch", watch());
+
   useEffect(() => {
     if (!formData) return;
 
     reset({
       ...formData,
 
-      // 🛡️ defaults defensivos
       condicion: formData.condicion ?? {
         value: "PENDIENTE",
         label: "Pendiente",
@@ -780,14 +839,30 @@ const ViajeForm = () => {
         entrada: { servicio: null, precio: 0, cant: 0, total: 0 },
       },
     });
+
+    hydratedRef.current = true; // 🔐 CLAVE
   }, [formData, reset]);
+
   const navigate = useNavigate();
   //sesion
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
-
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const { idProduct, liquidacionId } = useParams();
   const { packages, date, loadPackages } = usePackageStore();
+  useEffect(() => {
+    if (!incomingFormData || formData) return;
+    setFormData(incomingFormData);
+  }, [incomingFormData, formData, setFormData]);
+  useEffect(() => {
+    return () => {
+      setFormData(null);
+    };
+  }, []);
+  useEffect(() => {
+    if (!liquidacionId) return;
+    if (formData || incomingFormData) return;
+    navigate("/citytour", { replace: true });
+  }, [formData, incomingFormData, liquidacionId, navigate]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -800,6 +875,7 @@ const ViajeForm = () => {
   useEffect(() => {
     setIsEditing(!liquidacionId);
   }, [liquidacionId, setIsEditing]);
+
   useEffect(() => {
     if (!packages.length) return;
 
@@ -862,7 +938,7 @@ const ViajeForm = () => {
 
       const payload = {
         ...data,
-        _editMode: data._editMode === true,
+        _editMode: Boolean(liquidacionId),
         fechaViaje: fechaViajeValue,
         fechaEmision: fechaEmisionYMD(),
         precioExtra: data.precioExtra === "" ? 0 : data.precioExtra,
@@ -912,14 +988,18 @@ const ViajeForm = () => {
         return;
       }
 
-      const pdfData = adaptViajeJsonToInvoice(payload, result);
+      const pdfData = adaptViajeJsonToInvoice(
+        { ...payload, visitas: watch("visitas") },
+        result,
+      );
+
       const backendPayload = payload._editMode
         ? `${liquidacionId}¬¬¬${formatDate(payload.fechaAdelanto) ?? ""}`
         : result;
 
       localStorage.setItem("invoiceData", JSON.stringify(pdfData));
       localStorage.setItem("invoiceBackend", result);
-      navigate(`/fullday/${idProduct}/passengers/preview`, {
+      navigate(`/cityTour/${idProduct}/passengers/preview`, {
         state: {
           invoiceData: pdfData,
           backendPayload,
@@ -935,18 +1015,22 @@ const ViajeForm = () => {
   };
 
   const handleNew = () => {
-    navigate(`/fullday`);
+    navigate(`/cityTour`);
   };
 
   const handlePrint = () => {
     try {
       const formValues = getValues();
       const invoiceData = adaptViajeJsonToInvoice(
-        { ...formValues, fechaAdelanto: watch("fechaAdelanto") },
+        {
+          ...formValues,
+          fechaAdelanto: watch("fechaAdelanto"),
+          visitas: watch("visitas"),
+        },
         true,
       );
       const backendPayload = liquidacionId ?? formValues.nserie ?? "";
-      navigate(`/fullday/${idProduct}/passengers/preview`, {
+      navigate(`/cityTour/${idProduct}/passengers/preview`, {
         state: {
           invoiceData,
           backendPayload,
@@ -976,7 +1060,7 @@ const ViajeForm = () => {
           description: "La liquidación se eliminó correctamente.",
           type: "success",
         });
-        navigate("/fullday/programacion/liquidaciones", {
+        navigate("/cityTour/programacion/liquidaciones", {
           state: { refresh: Date.now() },
         });
       } else {
@@ -1049,9 +1133,9 @@ const ViajeForm = () => {
             className="cursor-pointer"
             onClick={() => {
               if (liquidacionId) {
-                navigate("/fullday/programacion/liquidaciones");
+                navigate("/cityTour/programacion/liquidaciones");
               } else {
-                navigate("/fullday");
+                navigate("/cityTour");
               }
             }}
           />
@@ -1246,6 +1330,7 @@ const ViajeForm = () => {
                         setValue={setValue}
                         watch={watch}
                         getValues={getValues}
+                        hydratedRef={hydratedRef}
                       />
                     </div>
                   </div>

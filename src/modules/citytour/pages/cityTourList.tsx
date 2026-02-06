@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Plus, Calendar, RefreshCw } from "lucide-react";
 
 import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/cityTourStore";
-import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
+import { serviciosDB } from "@/app/db/serviciosDB";
+import { refreshServiciosData } from "@/app/db/serviciosSync";
 import { showToast } from "../../../components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
 
@@ -86,7 +87,6 @@ const PackageList = () => {
   const [productId, setProductId] = useState<string>("");
   const [productos, setProductos] = useState<any[]>([]);
   const [destino, setDestino] = useState<string>("");
-
   const [selectedPackages, setSelectedPackages] = useState<any[]>([]);
   const [cantMaxChanges, setCantMaxChanges] = useState<CantMaxChange[]>([]);
 
@@ -96,7 +96,6 @@ const PackageList = () => {
     packages,
     loadPackages,
     loading,
-    loadServicios,
     loadServiciosFromDB,
     createProgramacion,
     deleteProgramacion,
@@ -108,21 +107,30 @@ const PackageList = () => {
   const navigate = useNavigate();
   const openDialog = useDialogStore((state) => state.openDialog);
 
+  const location = useLocation();
+  console.log("productos", productos);
   useEffect(() => {
-    const init = async () => {
-      const data = await serviciosDB.productos.toArray();
-      setProductos(data);
+    let canceled = false;
 
-      const exists = await hasServiciosData();
-      if (exists) {
+    const refreshServices = async () => {
+      try {
+        await refreshServiciosData();
         await loadServiciosFromDB();
-      } else {
-        await loadServicios();
+        const data = await serviciosDB.productosCityTourOrdena.toArray();
+        if (!canceled) {
+          setProductos(data);
+        }
+      } catch (err) {
+        console.error("Error recargando servicios de City Tour", err);
       }
     };
 
-    init();
-  }, []);
+    refreshServices();
+
+    return () => {
+      canceled = true;
+    };
+  }, [location.pathname, loadServiciosFromDB]);
 
   useEffect(() => {
     loadPackages(date);
@@ -138,7 +146,7 @@ const PackageList = () => {
   const handleRowClick = useCallback(
     (row: { id?: number }) => {
       if (row?.id) {
-        navigate(`/fullday/${row.id}/passengers/new`);
+        navigate(`/cityTour/${row.id}/passengers/new`);
       }
     },
     [navigate],
@@ -149,7 +157,7 @@ const PackageList = () => {
       const idProducto = row?.idProducto ?? row?.id;
       if (!idProducto) return;
       setSelectedFullDayName(row?.destino ?? "");
-      navigate(`/fullday/${idProducto}/listado`);
+      navigate(`/cityTour/${idProducto}/listado`);
     },
     [navigate, setSelectedFullDayName],
   );
@@ -440,14 +448,14 @@ const PackageList = () => {
           <button
             onClick={handleAddServicio}
             className="
-        w-full md:w-auto
-        px-4 py-2
-        bg-emerald-600 text-white
-        rounded-lg
-        hover:bg-emerald-700
-        transition
-        flex justify-center
-      "
+              w-full md:w-auto
+              px-4 py-2
+              bg-emerald-600 text-white
+              rounded-lg
+              hover:bg-emerald-700
+              transition
+              flex justify-center
+            "
           >
             <Plus size={18} />
           </button>

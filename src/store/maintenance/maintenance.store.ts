@@ -1,14 +1,16 @@
 import { create } from "zustand";
 import type {
-  Category,
   Area,
+  ActividadAdi,
+  BankEntity,
+  Category,
   Computer,
   DeparturePoint,
+  Holiday,
   Hotel,
+  Product,
   Provider,
   ProviderBankAccount,
-  Holiday,
-  BankEntity,
 } from "@/types/maintenance";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "sonner";
@@ -31,6 +33,19 @@ import {
   fetchPartidasApi,
 } from "@/modules/maintenance/partidas/partidas.api";
 import {
+  productsQueryKey,
+  fetchProductsApi,
+  deleteProductApi,
+} from "@/modules/maintenance/products/products.api";
+import {
+  actividadesAdiQueryKey,
+  fetchActividadesAdiApi,
+  registerActividadAdiApi,
+  updateActividadAdiApi,
+  deleteActividadAdiApi,
+} from "@/modules/maintenance/actividadesAdi/actividadesAdi.api";
+import type { ActividadAdiRequest } from "@/modules/maintenance/actividadesAdi/actividadesAdi.api";
+import {
   computersQueryKey,
   fetchComputersApi,
 } from "@/modules/maintenance/computers/computers.api";
@@ -45,6 +60,7 @@ import {
   deleteHolidayApi,
 } from "@/modules/maintenance/holidays/holidays.api";
 import { API_BASE_URL } from "@/config";
+import { queueServiciosRefresh } from "@/app/db/serviciosSync";
 
 const providerAccountHeaders = {
   Accept: "*/*",
@@ -117,16 +133,17 @@ const PARTIDA_ENDPOINT = `${API_BASE_URL}/Partida`;
 
 const mapApiPartida = (item: any): DeparturePoint => ({
   id: Number(item?.idParti ?? item?.id ?? 0) || 0,
-  destination:
-    String(item?.destino ?? item?.productoNombre ?? "")
-      .trim(),
+  destination: String(item?.destino ?? item?.productoNombre ?? "").trim(),
   pointName: String(item?.partidas ?? item?.puntoPartida ?? "").trim(),
   horaPartida: String(item?.horaPartida ?? "").trim(),
   region: String(item?.region ?? "").trim(),
   productId: Number(item?.idProducto ?? item?.productoId ?? 0) || 0,
 });
 
-const buildPartidaPayload = (data: Partial<DeparturePoint>, overrideId?: number) => ({
+const buildPartidaPayload = (
+  data: Partial<DeparturePoint>,
+  overrideId?: number,
+) => ({
   idParti: overrideId ?? data.id ?? 0,
   idProducto: data.productId ?? 0,
   partidas: data.pointName ?? "",
@@ -153,6 +170,8 @@ interface MaintenanceState {
   areas: Area[];
   hotels: Hotel[];
   partidas: DeparturePoint[];
+  products: Product[];
+  actividadesAdi: ActividadAdi[];
   computers: Computer[];
   providers: Provider[];
   holidays: Holiday[];
@@ -161,6 +180,8 @@ interface MaintenanceState {
   setCategories: (items: Category[]) => void;
   setAreas: (items: Area[]) => void;
   setHotels: (items: Hotel[]) => void;
+  setProducts: (items: Product[]) => void;
+  setActividadesAdi: (items: ActividadAdi[]) => void;
   setComputers: (items: Computer[]) => void;
   setProviders: (items: Provider[]) => void;
   setHolidays: (items: Holiday[]) => void;
@@ -170,6 +191,9 @@ interface MaintenanceState {
   fetchAreas: () => Promise<void>;
   fetchHotels: () => Promise<void>;
   fetchPartidas: () => Promise<void>;
+  fetchProducts: () => Promise<void>;
+  deleteProduct: (id: number) => Promise<boolean>;
+  fetchActividadesAdi: () => Promise<void>;
   fetchComputers: () => Promise<void>;
   fetchProviders: (estado?: "ACTIVO" | "INACTIVO" | "") => Promise<void>;
   fetchHolidays: () => Promise<void>;
@@ -212,6 +236,15 @@ interface MaintenanceState {
   addHoliday: (data: Omit<Holiday, "id">) => Promise<void>;
   updateHoliday: (id: number, data: Partial<Holiday>) => Promise<void>;
   deleteHoliday: (id: number) => Promise<boolean>;
+  addActividadAdi: (
+    payload: ActividadAdiRequest,
+    destino: string,
+  ) => Promise<boolean>;
+  updateActividadAdi: (
+    payload: ActividadAdiRequest,
+    destino?: string,
+  ) => Promise<boolean>;
+  deleteActividadAdi: (id: number) => Promise<boolean>;
 }
 
 export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
@@ -300,11 +333,30 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     return response.map((item) => mapProviderAccount(item, providerId));
   };
 
+  const buildActividadAdiRecord = (
+    payload: ActividadAdiRequest,
+    destino: string,
+    id: number,
+  ): ActividadAdi => ({
+    id,
+    destino,
+    actividad: payload.actividades,
+    precioSol: payload.precio,
+    entradaSol: payload.entrada,
+    precioDol: payload.precioDol,
+    entradaDol: payload.entradaDol,
+    region: payload.region,
+    idProducto: payload.idProducto,
+    descripcion: payload.descripcion,
+  });
+
   return {
     categories: [],
     areas: [],
     hotels: [],
     partidas: [],
+    products: [],
+    actividadesAdi: [],
     computers: [],
     providers: [],
     holidays: [],
@@ -314,6 +366,8 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     setAreas: (items) => set({ areas: items }),
     setHotels: (items) => set({ hotels: items }),
     setPartidas: (items) => set({ partidas: items }),
+    setProducts: (items) => set({ products: items }),
+    setActividadesAdi: (items) => set({ actividadesAdi: items }),
     setComputers: (items) => set({ computers: items }),
     setProviders: (items) => set({ providers: items }),
     setHolidays: (items) => set({ holidays: items }),
@@ -377,6 +431,55 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         set({ loading: false });
       }
     },
+    fetchProducts: async () => {
+      set({ loading: true });
+      try {
+        const response = await queryClient.fetchQuery({
+          queryKey: productsQueryKey,
+          queryFn: fetchProductsApi,
+        });
+        set({ products: response ?? [], loading: false });
+      } catch (err) {
+        console.error("Error al obtener productos", err);
+        set({ loading: false });
+      }
+    },
+    deleteProduct: async (id) => {
+      try {
+        const result = await deleteProductApi(id);
+        const success =
+          result === true ||
+          result === "true" ||
+          (typeof result === "object" && Object.keys(result).length > 0);
+        if (!success) return false;
+        set((state) => ({
+          products: state.products.filter((product) => product.id !== id),
+        }));
+        await queryClient.invalidateQueries({ queryKey: productsQueryKey });
+        showToast({
+          title: "Producto eliminado",
+          description: "El producto fue eliminado correctamente.",
+          type: "success",
+        });
+        return true;
+      } catch (error) {
+        console.error("Error al eliminar producto", error);
+        return false;
+      }
+    },
+    fetchActividadesAdi: async () => {
+      set({ loading: true });
+      try {
+        const response = await queryClient.fetchQuery({
+          queryKey: actividadesAdiQueryKey,
+          queryFn: fetchActividadesAdiApi,
+        });
+        set({ actividadesAdi: response ?? [], loading: false });
+      } catch (err) {
+        console.error("Error al obtener actividades adicionales", err);
+        set({ loading: false });
+      }
+    },
 
     addHotel: async (data) => {
       const payload = buildHotelPayload(data);
@@ -406,6 +509,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           type: "success",
         });
       }
+      queueServiciosRefresh();
     },
     updateHotel: async (id, data) => {
       const payload = buildHotelPayload(data, id);
@@ -434,6 +538,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           type: "success",
         });
       }
+      queueServiciosRefresh();
     },
     deleteHotel: async (id) => {
       await apiRequest({
@@ -451,11 +556,15 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         description: "El hotel se eliminó correctamente.",
         type: "success",
       });
+      queueServiciosRefresh();
       return true;
     },
     addPartida: async (data) => {
       const payload = buildPartidaPayload(data);
-      const fallbackPartida = mapApiPartida({ ...payload, idParti: Date.now() });
+      const fallbackPartida = mapApiPartida({
+        ...payload,
+        idParti: Date.now(),
+      });
       const created = await apiRequest({
         url: PARTIDA_ENDPOINT,
         method: "POST",
@@ -476,6 +585,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         description: `El punto ${partidaRecord.pointName} se guardó correctamente.`,
         type: "success",
       });
+      queueServiciosRefresh();
     },
     updatePartida: async (id, data) => {
       const payload = buildPartidaPayload(data, id);
@@ -499,6 +609,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         description: `Se actualizó ${partidaRecord.pointName} correctamente.`,
         type: "success",
       });
+      queueServiciosRefresh();
     },
     deletePartida: async (id) => {
       const deleted = await apiRequest({
@@ -521,6 +632,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           description: "El punto de partida se eliminó correctamente.",
           type: "success",
         });
+        queueServiciosRefresh();
         return true;
       }
       showToast({
@@ -1288,6 +1400,88 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
       await queryClient.invalidateQueries({ queryKey: holidaysQueryKey });
       return true;
+    },
+    addActividadAdi: async (payload, destino) => {
+      try {
+        const response = await registerActividadAdiApi(payload);
+        const candidate =
+          typeof response === "number"
+            ? response
+            : Number((response as any)?.idActi ?? response ?? 0);
+        const newId =
+          Number.isFinite(candidate) && candidate > 0 ? candidate : Date.now();
+        const record = buildActividadAdiRecord(payload, destino, newId);
+        set((state) => ({
+          actividadesAdi: [
+            ...state.actividadesAdi.filter((item) => item.id !== record.id),
+            record,
+          ],
+        }));
+        await queryClient.invalidateQueries({
+          queryKey: actividadesAdiQueryKey,
+        });
+        queueServiciosRefresh();
+        return true;
+      } catch (error) {
+        console.error("Error al registrar actividad adicional", error);
+        return false;
+      }
+    },
+    updateActividadAdi: async (payload, destino) => {
+      try {
+        const result = await updateActividadAdiApi(payload);
+        const success =
+          result === true ||
+          result === "true" ||
+          (typeof result === "object" && Object.keys(result).length > 0);
+        if (!success) return false;
+        const record = buildActividadAdiRecord(
+          payload,
+          destino ?? "",
+          payload.idActi ?? 0,
+        );
+        set((state) => ({
+          actividadesAdi: state.actividadesAdi.map((item) =>
+            item.id === record.id ? { ...item, ...record } : item,
+          ),
+        }));
+        await queryClient.invalidateQueries({
+          queryKey: actividadesAdiQueryKey,
+        });
+        queueServiciosRefresh();
+        return true;
+      } catch (error) {
+        console.error("Error al actualizar actividad adicional", error);
+        return false;
+      }
+    },
+    deleteActividadAdi: async (id) => {
+      try {
+        const result = await deleteActividadAdiApi(id);
+        const success =
+          result === true ||
+          result === "true" ||
+          (typeof result === "object" && Object.keys(result).length > 0);
+        if (!success) return false;
+        set((state) => ({
+          actividadesAdi: state.actividadesAdi.filter(
+            (actividad) => actividad.id !== id,
+          ),
+        }));
+        await queryClient.invalidateQueries({
+          queryKey: actividadesAdiQueryKey,
+        });
+        showToast({
+          title: "Actividad eliminada",
+          description: "La actividad adicional fue eliminada.",
+          type: "success",
+        });
+        queueServiciosRefresh();
+        return true;
+      } catch (error) {
+        console.error("Error al eliminar actividad adicional", error);
+        return false;
+      }
     },
     fetchProviderAccounts: fetchProviderAccountsFn,
   };

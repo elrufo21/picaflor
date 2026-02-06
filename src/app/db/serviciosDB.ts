@@ -2,6 +2,7 @@
 import Dexie, { type Table } from "dexie";
 
 export type Producto = { id: number; nombre: string };
+export type ProductoCityTourOrdena = { id: number; nombre: string };
 export type PrecioProducto = {
   idProducto: number;
   precioBase: number;
@@ -9,7 +10,12 @@ export type PrecioProducto = {
   precioVenta: number;
 };
 export type Canal = { id: number; nombre: string };
-export type Actividad = { id: number; actividad: string; idProducto: number };
+export type Actividad = {
+  id: number;
+  actividad: string;
+  idProducto: number;
+  descripcion?: string | null;
+};
 export type Partida = { id: number; partida: string; idProducto: number };
 export type Auxiliar = { id: number; telefono: string };
 export type PrecioActividad = {
@@ -52,6 +58,7 @@ class ServiciosDB extends Dexie {
   hoteles!: Table<Hotel, number>;
   direccionesHotel!: Table<DireccionHotel, number>;
   ubigeos!: Table<Ubigeo, string>;
+  productosCityTourOrdena!: Table<ProductoCityTourOrdena, number>;
 
   constructor() {
     super("servicios-db");
@@ -72,6 +79,9 @@ class ServiciosDB extends Dexie {
       hoteles: "id",
       direccionesHotel: "idHotel",
       ubigeos: "id",
+    });
+    this.version(2).stores({
+      productosCityTourOrdena: "id",
     });
   }
 }
@@ -101,6 +111,8 @@ export async function getServiciosFromDB() {
     hoteles: await serviciosDB.hoteles.toArray(),
     direccionesHotel: await serviciosDB.direccionesHotel.toArray(),
     ubigeos: await serviciosDB.ubigeos.toArray(),
+    productosCityTourOrdena:
+      await serviciosDB.productosCityTourOrdena.toArray(),
   };
 }
 

@@ -6,6 +6,7 @@ import {
   Plane,
   Car,
   CalendarDays,
+  Sparkles,
 } from "lucide-react";
 
 export type NavigationItem = {

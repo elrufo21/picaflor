@@ -53,7 +53,7 @@ export const PassengerDetails = ({
             method: "GET",
             headers: { accept: "text/plain" },
             signal: controller.signal,
-          }
+          },
         );
         if (!response.ok) return;
         const text = await response.text();

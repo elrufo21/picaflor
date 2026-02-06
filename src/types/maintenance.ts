@@ -29,6 +29,55 @@ export interface DeparturePoint {
   productId: number;
 }
 
+export interface Product {
+  id: number;
+  categoria: string;
+  codigo: string;
+  descripcion: string;
+  precio: number;
+  ventaSoles: number;
+  ventaDolar: number;
+  preCosto: number;
+  vencimiento: string;
+  aplicaFV: string;
+  estado: string;
+  usuario: string;
+  registro: number;
+  stock: number;
+  cantidad: number;
+  cantMaxPax: number;
+  cantFIS: number | null;
+  imagen: string;
+  cantANT: number;
+  fechaEdicion: string;
+  inversion: number | null;
+  ventaNeta: number;
+  margenUtilidad: number;
+  valorCritico: number | null;
+  aplicaTC: string;
+  costoDolar: number | null;
+  tipoCambio: number | null;
+  aplicaINV: string | null;
+  unidadM: string | null;
+  visitasExCur: string | null;
+  region: string | null;
+  unidad: string | null;
+  valorUM: number;
+}
+
+export interface ActividadAdi {
+  id: number;
+  destino: string;
+  actividad: string;
+  precioSol: number;
+  entradaSol: number;
+  precioDol: number;
+  entradaDol: number;
+  region?: string | null;
+  idProducto?: number | null;
+  descripcion?: string;
+}
+
 export interface Computer {
   id: number;
   maquina: string;
