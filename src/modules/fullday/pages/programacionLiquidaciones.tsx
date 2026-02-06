@@ -904,7 +904,7 @@ const LiquidacionesPage = () => {
   };
 
   const handleListAll = () => {
-    const start = "1900-01-01";
+    const start = todayValue;
     const end = todayValue;
     setPendingStartDate(start);
     setPendingEndDate(end);
