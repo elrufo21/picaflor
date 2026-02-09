@@ -92,12 +92,37 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
   }, [medioPago, isEditing]);
 
   useEffect(() => {}, [condicion, total, acuenta]);
+  const base = Number(watch("precioTotal") ?? 0);
+  const igv = Number(watch("igv") ?? 0);
+  const cargosExtra = Number(watch("cargosExtra") ?? 0);
+
+  const totalFinal = base + igv + cargosExtra;
   useEffect(() => {
-    setValue(
-      "saldo",
-      roundCurrency(Number(watch("precioTotal") ?? 0) - Number(acuenta ?? 0)),
-    );
-  }, [acuenta, precioTotal]);
+    setValue("totalGeneral", totalFinal);
+  }, [totalFinal]);
+  useEffect(() => {
+    setValue("saldo", roundCurrency(totalFinal - Number(acuenta ?? 0)));
+  }, [acuenta, totalFinal]);
+
+  useEffect(() => {
+    const base = Number(watch("precioTotal") ?? 0);
+    const documento = watch("documentoCobranza");
+    const medioPago = watch("medioPago");
+
+    let igv = 0;
+    let cargoExtra = 0;
+
+    if (["BOLETA", "FACTURA"].includes(documento)) {
+      igv = roundCurrency(base * 0.18);
+    }
+
+    if (medioPago === "TARJETA") {
+      cargoExtra = roundCurrency(base * 0.05);
+    }
+
+    setValue("igv", igv);
+    setValue("cargosExtra", cargoExtra);
+  }, [watch("precioTotal"), watch("documentoCobranza"), watch("medioPago")]);
 
   const buildMessagePassenger = ({ value }: { value: string }) => {
     let message;
@@ -107,7 +132,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       message =
         "El pasajero si tiene deuda " +
         `${currencySymbol} ` +
-        formatCurrency(watch("precioTotal") ?? 0);
+        formatCurrency(totalFinal);
     } else {
       message =
         "El pasajero si tiene deuda " +
@@ -117,14 +142,25 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
     setValue("mensajePasajero", message.toUpperCase());
   };
   useEffect(() => {
-    if (condicion === "ACUENTA") {
-      setValue("saldo", roundCurrency(total - acuenta));
+    buildMessagePassenger({ value: condicion });
+
+    if (!isEditing) return;
+
+    if (condicion === "CANCELADO") {
+      setValue("acuenta", roundCurrency(totalFinal));
+      setValue("saldo", 0);
     }
+
+    if (condicion === "ACUENTA") {
+      setValue("saldo", roundCurrency(totalFinal - Number(acuenta ?? 0)));
+    }
+
     if (condicion === "CREDITO") {
+      setValue("acuenta", 0);
+      setValue("saldo", roundCurrency(totalFinal));
       setValue("medioPago", "-");
     }
-    buildMessagePassenger({ value: condicion });
-  }, [condicion, total, acuenta, currencySymbol]);
+  }, [condicion, totalFinal, acuenta, isEditing]);
 
   useEffect(() => {
     if (medioPago === "EFECTIVO") {
@@ -139,6 +175,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       setValue("deposito", 0);
     }
   }, [acuenta, medioPago]);
+
   return (
     <div className="lg:col-span-2 space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
@@ -182,7 +219,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               TOTAL A PAGAR {currencySymbol} :
             </div>
             <div className="px-3 py-2 text-right font-semibold">
-              {formatCurrency(watch("precioTotal") ?? 0)}
+              {formatCurrency(totalFinal)}
             </div>
           </div>
           <div className="grid grid-cols-3 border-b border-slate-300">
@@ -201,10 +238,10 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 inputProps={{ style: { textAlign: "right" } }}
                 onChange={(e) => {
                   const ingresado = Number(e.target.value || 0);
-                  if (precioTotal > 0 && ingresado > precioTotal) {
-                    setValue("acuenta", roundCurrency(precioTotal));
-                    return;
+                  if (totalFinal > 0 && ingresado > totalFinal) {
+                    setValue("acuenta", roundCurrency(totalFinal));
                   }
+
                   if (
                     watch("medioPago") === "DEPOSITO" &&
                     condicion == "ACUENTA"
@@ -413,25 +450,47 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 </div>
               </div>
             </div>
+            <div className="bg-white px-2 py-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">
+                  <p className="text-xs font-semibold text-emerald-700">IGV</p>
+                  <p className="text-right font-bold text-emerald-900">
+                    {formatCurrency(watch("igv") ?? 0)}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                  <p className="text-xs font-semibold text-amber-700">
+                    Cargo extra
+                  </p>
+                  <p className="text-right font-bold text-amber-900">
+                    {formatCurrency(watch("cargosExtra") ?? 0)}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.6fr] gap-3">
         <div
-          className={`rounded-lg border ${condicion === "CANCELADO" ? "bg-[#305496]" : "bg-[#C00000]"} px-4 py-3 shadow-sm min-h-[88px] `}
+          className={`rounded-lg border ${
+            condicion === "CANCELADO" ? "bg-[#305496]" : "bg-[#C00000]"
+          } px-4 py-2 shadow-sm min-h-[56px] flex items-center`}
         >
-          <p className={`text-lg font-semibold italic text-white leading-snug`}>
+          <p className="text-sm font-semibold italic text-white leading-tight">
             {watch("mensajePasajero")}
           </p>
         </div>
+
         <Controller
           name="observaciones"
           control={control}
           render={({ field }) => (
             <textarea
               {...field}
-              rows={3}
-              className="w-full min-h-[88px] rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              rows={1}
+              className="w-full min-h-[84px] rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"
               placeholder="Observaciones"
               onChange={(e) => field.onChange(e.target.value.toUpperCase())}
             />

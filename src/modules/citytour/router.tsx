@@ -4,7 +4,7 @@ import PackageList from "./pages/cityTourList";
 import Pscreate from "./pages/cityTourPassengerCreate";
 
 import ViajeForm from "./pages/viajeForm";
-import FulldayListado from "./pages/cityTourListado";
+import CityTourListado from "./pages/cityTourListado";
 import CityInvoicePreview from "./pages/cityTourInvoicePreview";
 import ProgramacionLiquidaciones from "./pages/gramacionLiquidaciones";
 
@@ -56,7 +56,7 @@ export default [
   },
   {
     path: "citytour/:id/listado",
-    element: <FulldayListado />,
+    element: <CityTourListado />,
     handle: {
       breadcrumb: [
         { label: "City Tour", to: "/citytour" },

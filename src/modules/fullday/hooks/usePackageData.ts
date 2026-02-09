@@ -86,9 +86,13 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
         ========================= */
 
         // PARTIDAS
+        const partidasByProduct = dataPartidas.filter(
+          (p) => Number(p.idProducto) === Number(id),
+        );
+        const partidasSource =
+          partidasByProduct.length > 0 ? partidasByProduct : dataPartidas;
         setPartidas(
-          dataPartidas
-            .filter((p) => Number(p.idProducto) === Number(id))
+          partidasSource
             .map((p) => ({
               value: p.partida,
               label: p.partida,
@@ -107,9 +111,15 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
         setDireccionesHotel(dataDireccionesHotel);
 
         // ACTIVIDADES
+        const actividadesByProduct = dataActividades.filter(
+          (a) => Number(a.idProducto) === Number(id),
+        );
+        const actividadesSource =
+          actividadesByProduct.length > 0
+            ? actividadesByProduct
+            : dataActividades;
         setActividades(
-          dataActividades
-            .filter((a) => Number(a.idProducto) === Number(id))
+          actividadesSource
             .map((a) => ({
               value: a.actividad,
               label: a.actividad,

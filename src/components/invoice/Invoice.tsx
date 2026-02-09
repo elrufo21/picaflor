@@ -292,7 +292,6 @@ export const buildInvoiceData = ({
     ),
     buildItem("entradas", "Entradas :", textValue(values.entradas) || ""),
   ];
-
   const impuestos = toNumber(values.impuesto);
   const cargos = toNumber(values.cargosExtras);
   const extraSoles = toNumber(values.cobroExtraSol);
@@ -646,6 +645,8 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
     otrosPartidas,
     precioTotal,
     fechaRegistro,
+    igv,
+    cargosExtra,
   } = invoiceData;
   const currencySymbol = invoiceData.moneda === "DOLARES" ? "USD$" : "S/";
   const formatNumber = (value: unknown) => {
@@ -868,6 +869,32 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
               </Text>
               <Text style={contactS.taxAmount}></Text>
             </View>*/}
+            <View style={contactS.taxRow}>
+              <Text style={contactS.taxLabel}>Impuestos (I.G.V.) :</Text>
+              <Text style={contactS.taxValue}>Incluye Impuestos</Text>
+              <Text style={contactS.taxAmount}>{formatNumber(igv)}</Text>
+            </View>
+
+            {/* CARGOS */}
+            <View style={contactS.taxRow}>
+              <Text style={contactS.taxLabel}>Cargos :</Text>
+              <Text style={contactS.taxValue}>Pagos {medioPago || ""}</Text>
+              <Text style={contactS.taxAmount}>
+                {formatNumber(cargosExtra)}
+              </Text>
+            </View>
+
+            {/* COBROS EXTRAS */}
+            <View style={contactS.extraRow}>
+              <Text style={contactS.taxLabel}>Cobros Extras :</Text>
+              <Text style={contactS.taxValue}>
+                En Soles ( S/ ) {formatNumber(extraSoles)}
+                {"   |   "}
+                En Dolares ( US$ ) {formatNumber(extraDolares)}
+              </Text>
+              <Text style={contactS.taxAmount}></Text>
+            </View>
+            <View style={contactS.divider} />
             <View>
               <Text style={contactS.liquidationTitle}>
                 PRECIO DE LA LIQUIDACION
@@ -877,13 +904,9 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                 {/* IZQUIERDA */}
                 <View style={contactS.liquidationTable}>
                   {[
-                    ["TOTAL A PAGAR:", currencySymbol, precioTotal],
+                    ["TOTAL A PAGAR:", currencySymbol, total],
                     ["A CUENTA:", currencySymbol, acuenta],
-                    [
-                      "SALDO:",
-                      currencySymbol,
-                      condicion === "CREDITO" ? precioTotal : saldo,
-                    ],
+                    ["SALDO:", currencySymbol, saldo],
                     ["Cobro Extra Soles:", "S/", extraSoles],
                     ["Cobro Extra Dolares:", "US$", extraDolares],
                   ].map(([label, curr, value], i) => {
@@ -910,7 +933,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                     <View
                       style={[
                         contactS.noDebtBox,
-                        data.mensajePasajero.includes("si") && {
+                        condicion !== "CANCELADO" && {
                           backgroundColor: "#C00000",
                         },
                       ]}

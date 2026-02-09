@@ -45,8 +45,6 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     return descriptions.join("\n");
   }, [serviciosWatch]);
   useEffect(() => {
-    console.log("watchss", watch());
-
     setValue("visitas", actividadDescription);
   }, [actividadDescription]);
   const isCreateMode = !liquidacionId && !isEditing;

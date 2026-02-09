@@ -536,7 +536,6 @@ const LiquidacionesPage = () => {
       canceled = true;
     };
   }, [loadServicios, loadServiciosFromDB]);
-  console.log("productos", productos);
   const resolveProductId = (row: LiquidacionRow) => {
     const normalizedRowName = normalizeProductName(row.productoNombre);
     if (!normalizedRowName) return 0;
@@ -672,8 +671,25 @@ const LiquidacionesPage = () => {
 
     return rows;
   };
+  const resolveProductIdFromList = (list: Producto[], row: LiquidacionRow) => {
+    const normalizedRowName = normalizeProductName(row.productoNombre);
+    if (!normalizedRowName) return 0;
+
+    const exactMatch = list.find(
+      (p) => normalizeProductName(p.nombre) === normalizedRowName,
+    );
+    if (exactMatch) return exactMatch.id;
+
+    const containsMatch = list.find(
+      (p) =>
+        normalizeProductName(p.nombre) &&
+        normalizedRowName.includes(normalizeProductName(p.nombre)),
+    );
+    return containsMatch?.id ?? 0;
+  };
 
   const handleView = async (row: LiquidacionRow) => {
+    const productosLocal = await ensureProductosLoaded();
     try {
       await loadCanalVenta();
     } catch (error) {
@@ -752,13 +768,12 @@ const LiquidacionesPage = () => {
       _editMode: true,
       estado: data.estado,
     };
-    const productId = resolveProductId(row);
+    const productId = resolveProductIdFromList(productosLocal, row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
     if (!targetId) {
       setError("No se pudo determinar la programación asociada");
       return;
     }
-    console.log("targetId", row, productId, row.flagServicio);
     if (row.flagServicio == "1") {
       navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`, {
         state: { formData: normalizedData },
@@ -856,6 +871,34 @@ const LiquidacionesPage = () => {
     ],
     [columnHelper, navigate],
   );
+  const productosPromiseRef = useRef<Promise<Producto[]> | null>(null);
+
+  const ensureProductosLoaded = useCallback(async () => {
+    // Si ya hay productos en memoria, listo
+    if (productos.length) return productos;
+
+    // Evita cargas duplicadas si spamean el botón
+    if (productosPromiseRef.current) return productosPromiseRef.current;
+
+    productosPromiseRef.current = (async () => {
+      const hasData = await hasServiciosData();
+      if (hasData) await loadServiciosFromDB();
+      else await loadServicios();
+
+      const pCityTour = await serviciosDB.productosCityTourOrdena.toArray();
+      const pFullDay = await serviciosDB.productos.toArray();
+
+      const stored = [...pFullDay, ...pCityTour];
+      setProductos(stored);
+      return stored;
+    })();
+
+    try {
+      return await productosPromiseRef.current;
+    } finally {
+      productosPromiseRef.current = null;
+    }
+  }, [productos, loadServicios, loadServiciosFromDB]);
 
   const reload = useCallback(
     async (startDate?: string, endDate?: string) => {
@@ -922,6 +965,7 @@ const LiquidacionesPage = () => {
       reload();
     }
   }, [refreshKey, reload]);
+  const endDateRef = useRef<HTMLInputElement | null>(null);
   const DateRangeFilter = () => (
     <div
       className="
@@ -937,27 +981,39 @@ const LiquidacionesPage = () => {
           type="date"
           value={pendingStartDate}
           onChange={(e) => setPendingStartDate(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              endDateRef.current?.focus();
+            }
+          }}
           className="
-        w-full md:w-32
-        rounded-md border border-slate-200
-        bg-white/80 px-2 py-1
-        text-xs text-slate-700
-      "
+      w-full md:w-32
+      rounded-md border border-slate-200
+      bg-white/80 px-2 py-1
+      text-xs text-slate-700
+    "
         />
       </div>
 
       <div className="flex flex-col text-xs text-slate-500">
         <span>Fecha Fin</span>
         <input
+          ref={endDateRef}
           type="date"
           value={pendingEndDate}
-          onChange={(e) => setPendingEndDate(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            setPendingEndDate(value);
+
+            reload(pendingStartDateRef.current, value);
+          }}
           className="
-        w-full md:w-32
-        rounded-md border border-slate-200
-        bg-white/80 px-2 py-1
-        text-xs text-slate-700
-      "
+      w-full md:w-32
+      rounded-md border border-slate-200
+      bg-white/80 px-2 py-1
+      text-xs text-slate-700
+    "
         />
       </div>
 
@@ -1080,6 +1136,10 @@ const LiquidacionesPage = () => {
         dateFilterComponent={DateRangeFilter}
         enableRowSelection={false}
         rowColorRules={[
+          {
+            when: (row) => row.condicion === "CREDITO",
+            className: "bg-orange-200 text-orange-700",
+          },
           {
             when: (row) => row.estado === "ANULADO",
             className: "bg-red-50 text-red-700",
