@@ -35,7 +35,6 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
   ========================= */
   const pkg = usePackageStore((s) => s.getPackageById(Number(id)));
   const { loadServiciosFromDB, loadServicios } = usePackageStore();
-  console.log("id", id);
   /* =========================
      EFFECT
   ========================= */
@@ -78,7 +77,6 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           serviciosDB.preciosTraslado.toArray(),
           serviciosDB.horasPartida.toArray(),
         ]);
-        console.log("precioProductoFromDB", precioProductoFromDB);
         if (cancelled) return;
 
         /* =========================

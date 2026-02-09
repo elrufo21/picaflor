@@ -28,7 +28,6 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     preciosTraslado,
     direccionesHotel,
   } = usePackageData(idProduct, setValue);
-  console.log("precioProducto", precioProducto);
   const serviciosWatch = useWatch({
     control,
     name: [

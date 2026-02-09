@@ -465,12 +465,12 @@ function buildListaOrdenCreate(data) {
     n(data.medioPago), // 7 NotaFormaPago
     n(data.condicion?.value), // 8 NotaCondicion
     n(data.celular), // 9 NotaTelefono
-    d(data.totalGeneral), // 10 NotaSubtotal
-    d(data.precioTotal), // 11 NotaTotal
+    d(data.precioTotal), // 10 NotaSubtotal
+    d(data.totalGeneral), // 11 NotaTotal
     d(data.acuenta), // 12 NotaAcuenta
     d(data.saldo), // 13 NotaSaldo
     d(data.precioExtra), // 14 NotaAdicional
-    d(data.precioTotal), // 15 NotaPagar
+    d(data.totalGeneral), // 15 NotaPagar
     n(data.condicion?.value), // 16 NotaEstado
     1, // 17 CompaniaId
     "N/A", // 18 IncluyeIGV
@@ -526,12 +526,12 @@ function buildListaOrdenEdit(data) {
     n(data.medioPago), // 6  NotaFormaPago
     n(data.condicion?.value), // 7  NotaCondicion
     n(data.celular), // 8  NotaTelefono
-    d(data.totalGeneral), // 9  NotaSubtotal
-    d(data.precioTotal), // 10 NotaTotal
+    d(data.precioTotal), // 9  NotaSubtotal
+    d(data.totalGeneral), // 10 NotaTotal
     d(data.acuenta), // 11 NotaAcuenta
     d(data.saldo), // 12 NotaSaldo
     d(data.precioExtra), // 13 NotaAdicional
-    d(data.precioTotal), // 14 NotaPagar
+    d(data.totalGeneral), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
     1, // 16 CompaniaId (hardcoded to 2)
     "N/A", // 17 IncluyeIGV
@@ -747,6 +747,8 @@ export function adaptViajeJsonToInvoice(
     mensajePasajero: viajeJson.mensajePasajero.toUpperCase() ?? "",
     precioTotal: viajeJson.precioTotal,
     moneda: viajeJson.moneda,
+    igv: viajeJson.igv,
+    cargosExtra: viajeJson.cargosExtra,
   };
 }
 export function parseDateForInput(
@@ -940,6 +942,8 @@ const ViajeForm = () => {
         companiaId: 1,
         idProducto: Number(idProduct),
         canalVenta: data.canalDeVenta?.auxiliar ?? data.canalVenta,
+        igv: watch("igv"),
+        cargosExtra: watch("cargosExtra"),
       };
 
       const listaOrden = payload._editMode

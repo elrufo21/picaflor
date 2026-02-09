@@ -125,7 +125,7 @@ type BuildInvoiceFormValues = {
   traslados?: string;
   entradas?: string;
   impuesto?: number;
-  cargosExtras?: number;
+  cargosExtra?: number;
   cobroExtraSol?: number;
   cobroExtraDol?: number;
   acuenta?: number;
@@ -297,7 +297,7 @@ export const buildInvoiceData = ({
   ];
 
   const impuestos = toNumber(values.impuesto);
-  const cargos = toNumber(values.cargosExtras);
+  const cargos = toNumber(values.cargosExtra);
   const extraSoles = toNumber(values.cobroExtraSol);
   const extraDolares = toNumber(values.cobroExtraDol);
   const subtotal = toNumber(tarifaTotal);
@@ -650,6 +650,8 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
     otrosPartidas,
     precioTotal,
     fechaRegistro,
+    igv,
+    cargosExtra,
   } = invoiceData;
   const currencySymbol = invoiceData.moneda === "DOLARES" ? "USD$" : "S/";
   const formatNumber = (value: unknown) => {
@@ -910,6 +912,36 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
               </Text>
               <Text style={contactS.taxAmount}></Text>
             </View>*/}
+            {/* DIVIDER */}
+
+            {/* IGV */}
+            <View style={contactS.taxRow}>
+              <Text style={contactS.taxLabel}>Impuestos (I.G.V.) :</Text>
+              <Text style={contactS.taxValue}>Incluye Impuestos</Text>
+              <Text style={contactS.taxAmount}>{formatNumber(igv)}</Text>
+            </View>
+
+            {/* CARGOS */}
+            <View style={contactS.taxRow}>
+              <Text style={contactS.taxLabel}>Cargos :</Text>
+              <Text style={contactS.taxValue}>Pagos {medioPago || ""}</Text>
+              <Text style={contactS.taxAmount}>
+                {formatNumber(cargosExtra)}
+              </Text>
+            </View>
+
+            {/* COBROS EXTRAS */}
+            <View style={contactS.extraRow}>
+              <Text style={contactS.taxLabel}>Cobros Extras :</Text>
+              <Text style={contactS.taxValue}>
+                En Soles ( S/ ) {formatNumber(extraSoles)}
+                {"   |   "}
+                En Dolares ( US$ ) {formatNumber(extraDolares)}
+              </Text>
+              <Text style={contactS.taxAmount}></Text>
+            </View>
+            <View style={contactS.divider} />
+
             <View>
               <Text style={contactS.liquidationTitle}>
                 PRECIO DE LA LIQUIDACION
@@ -919,13 +951,9 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
                 {/* IZQUIERDA */}
                 <View style={contactS.liquidationTable}>
                   {[
-                    ["TOTAL A PAGAR:", currencySymbol, precioTotal],
+                    ["TOTAL A PAGAR:", currencySymbol, total],
                     ["A CUENTA:", currencySymbol, acuenta],
-                    [
-                      "SALDO:",
-                      currencySymbol,
-                      condicion === "CREDITO" ? precioTotal : saldo,
-                    ],
+                    ["SALDO:", currencySymbol, saldo],
                     ["Cobro Extra Soles:", "S/", extraSoles],
                     ["Cobro Extra Dolares:", "US$", extraDolares],
                   ].map(([label, curr, value], i) => {

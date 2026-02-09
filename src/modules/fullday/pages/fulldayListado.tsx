@@ -15,6 +15,7 @@ import {
 import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/fulldayStore";
 import { showToast } from "@/components/ui/AppToast";
+const NUMERIC_KEYS = ["pax", "islas", "tubu"];
 
 const LISTADO_FIELDS = [
   { key: "hora", label: "Hora", sourceIndex: 0 },
@@ -25,7 +26,7 @@ const LISTADO_FIELDS = [
   { key: "pax", label: "PAX", sourceIndex: 6, meta: { align: "center" } },
   { key: "islas", label: "Islas", sourceIndex: 7, meta: { align: "center" } },
   { key: "tubu", label: "Tubu", sourceIndex: 8, meta: { align: "center" } },
-  { key: "reseN", label: "Rese.N", sourceIndex: 2 },
+  { key: "reseN", label: "Rese.N", sourceIndex: 9 },
   { key: "puntoEmbarque", label: "PuntoEmbarque", sourceIndex: 10 },
   { key: "clasificacion", label: "Clasificacion", sourceIndex: 11 },
   { key: "condicion", label: "Condicion", sourceIndex: 12 },
@@ -65,7 +66,7 @@ const normalizeObjectRow = (item: Record<string, unknown>, index: number) => {
     pax: ["pax", "cantidadPax"],
     islas: ["islas"],
     tubu: ["tubu", "tubulares"],
-    reseN: ["reseN", "documento"],
+    reseN: ["otros", "reseN", "documento"],
     puntoEmbarque: ["puntoEmbarque", "puntoPartidaHotelOtrasPartidas"],
     clasificacion: ["clasificacion", "auxiliar"],
     condicion: ["condicion", "condicionSaldo"],
@@ -80,7 +81,7 @@ const normalizeObjectRow = (item: Record<string, unknown>, index: number) => {
     const value =
       candidates.reduce<unknown>(
         (acc, key) => acc ?? item[key],
-        item[field.label]
+        item[field.label],
       ) ?? "";
     row[field.key] = value === null || value === undefined ? "" : String(value);
   });
@@ -106,13 +107,13 @@ const parseListado = (raw: unknown) => {
           .split("¬")
           .map((row) => row.trim())
           .filter(Boolean)
-          .map((row, rowIndex) => parseListadoRow(row, idx * 1000 + rowIndex))
+          .map((row, rowIndex) => parseListadoRow(row, idx * 1000 + rowIndex)),
       );
     }
     return raw.map((item, index) =>
       item && typeof item === "object"
         ? normalizeObjectRow(item as Record<string, unknown>, index)
-        : parseListadoRow(String(item ?? ""), index)
+        : parseListadoRow(String(item ?? ""), index),
     );
   }
 
@@ -155,9 +156,9 @@ const FulldayListado = () => {
   const selectedProducto = useMemo(
     () =>
       packages.find(
-        (pkg: any) => Number(pkg?.idProducto ?? pkg?.id) === Number(idProducto)
+        (pkg: any) => Number(pkg?.idProducto ?? pkg?.id) === Number(idProducto),
       ),
-    [packages, idProducto]
+    [packages, idProducto],
   );
   const displayName =
     selectedFullDayName || selectedProducto?.destino || "Sin nombre";
@@ -169,7 +170,7 @@ const FulldayListado = () => {
     return normalizedListado.filter((row: any) =>
       String(row?.nombreApellidos ?? "")
         .toLowerCase()
-        .includes(needle)
+        .includes(needle),
     );
   }, [normalizedListado, searchTerm]);
 
@@ -180,7 +181,7 @@ const FulldayListado = () => {
         header: field.label,
         meta: field.meta,
       })),
-    []
+    [],
   );
 
   const exportCsvValue = (value: string) => {
@@ -202,9 +203,18 @@ const FulldayListado = () => {
     }
     const data = normalizedListado.map((row: any) => {
       const obj: any = {};
+
       LISTADO_FIELDS.forEach((f) => {
-        obj[f.label] = row?.[f.key] ?? "";
+        const value = row?.[f.key];
+
+        if (NUMERIC_KEYS.includes(f.key)) {
+          const num = Number(value);
+          obj[f.label] = Number.isFinite(num) ? num : 0;
+        } else {
+          obj[f.label] = value ?? "";
+        }
       });
+
       return obj;
     });
 
@@ -236,13 +246,13 @@ const FulldayListado = () => {
       };
     });
 
-    const centeredKeys = ["pax", "islas", "tubu"];
+    const centeredKeys = NUMERIC_KEYS;
 
     const centeredCols = LISTADO_FIELDS.map((f, i) =>
-      centeredKeys.includes(f.key) ? i : null
+      centeredKeys.includes(f.key) ? i : null,
     ).filter((i) => i !== null) as number[];
     const horaColIndex = LISTADO_FIELDS.findIndex(
-      (field) => field.key === "hora"
+      (field) => field.key === "hora",
     );
 
     const lastCol = XLSX.utils.encode_col(LISTADO_FIELDS.length - 1);
@@ -260,9 +270,20 @@ const FulldayListado = () => {
       }
       return { wch: 18 };
     });
+    const numericCols = LISTADO_FIELDS.map((f, i) =>
+      NUMERIC_KEYS.includes(f.key) ? i : null,
+    ).filter((i) => i !== null) as number[];
 
     const range = XLSX.utils.decode_range(ws["!ref"]!);
+    for (let R = 1; R <= range.e.r; R++) {
+      for (const C of numericCols) {
+        const ref = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[ref]) continue;
 
+        ws[ref].t = "n";
+        ws[ref].v = Number(ws[ref].v) || 0;
+      }
+    }
     for (let R = 1; R <= range.e.r; R++) {
       const isEven = (R - 1) % 2 === 0;
 
@@ -358,7 +379,6 @@ const FulldayListado = () => {
       </div>
     );
   }
-
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">

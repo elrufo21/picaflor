@@ -422,12 +422,12 @@ function buildListaOrdenCreate(data) {
     n(data.medioPago),
     n(data.condicion?.value),
     n(data.celular),
-    d(data.totalGeneral),
     d(data.precioTotal),
+    d(data.totalGeneral),
     d(data.acuenta),
     d(data.saldo),
     d(data.precioExtra),
-    d(data.precioTotal),
+    d(data.totalGeneral),
     n(data.condicion?.value),
     data.companiaId,
     "NO",
@@ -484,12 +484,12 @@ function buildListaOrdenEdit(data) {
     n(data.medioPago), // 6  NotaFormaPago
     n(data.condicion?.value), // 7  NotaCondicion
     n(data.celular), // 8  NotaTelefono
-    d(data.totalGeneral), // 9  NotaSubtotal
-    d(data.precioTotal), // 10 NotaTotal
+    d(data.precioTotal), // 9  NotaSubtotal
+    d(data.totalGeneral), // 10 NotaTotal
     d(data.acuenta), // 11 NotaAcuenta
     d(data.saldo), // 12 NotaSaldo
     d(data.precioExtra), // 13 NotaAdicional
-    d(data.precioTotal), // 14 NotaPagar
+    d(data.totalGeneral), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
     Number(data.companiaId), // 16 CompaniaId
     "NO", // 17 IncluyeIGV
@@ -528,7 +528,6 @@ function buildListaOrdenEdit(data) {
     n(data?.hotel?.label ?? ""), // 50 Hotel
     n(data.region), // 51 Region
   ].join("|");
-  console.log("data", orden);
 
   return `${orden}[${detalle}`;
 }
@@ -704,6 +703,8 @@ export function adaptViajeJsonToInvoice(
     mensajePasajero: viajeJson.mensajePasajero?.toUpperCase() ?? "",
     precioTotal: viajeJson.precioTotal,
     moneda: viajeJson.moneda,
+    igv: viajeJson.igv,
+    cargosExtra: viajeJson.cargosExtra,
   };
 }
 export function parseDateForInput(
@@ -769,7 +770,6 @@ const ViajeForm = () => {
       totalGeneral: 0,
     },
   });
-  console.log("watch", watch());
   useEffect(() => {
     if (!formData) return;
 
@@ -893,6 +893,8 @@ const ViajeForm = () => {
         idProducto: Number(idProduct),
         canalVenta: data.canalDeVenta?.auxiliar ?? data.canalVenta,
         clienteId: watch("clienteId"),
+        igv: watch("igv"),
+        cargosExtra: watch("cargosExtra"),
       };
 
       const listaOrden = payload._editMode
@@ -1051,7 +1053,6 @@ const ViajeForm = () => {
       }
     }
   };
-
   return (
     <>
       <Backdrop

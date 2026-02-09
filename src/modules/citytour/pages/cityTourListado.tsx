@@ -16,6 +16,8 @@ import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/cityTourStore";
 import { showToast } from "@/components/ui/AppToast";
 
+const NUMERIC_KEYS = ["pax", "islas", "tubu"];
+
 const LISTADO_FIELDS = [
   { key: "hora", label: "Hora", sourceIndex: 0 },
   { key: "lq", label: "LQ", sourceIndex: 1 },
@@ -25,7 +27,7 @@ const LISTADO_FIELDS = [
   { key: "pax", label: "PAX", sourceIndex: 6, meta: { align: "center" } },
   { key: "islas", label: "Islas", sourceIndex: 7, meta: { align: "center" } },
   { key: "tubu", label: "Tubu", sourceIndex: 8, meta: { align: "center" } },
-  { key: "reseN", label: "Rese.N", sourceIndex: 2 },
+  { key: "reseN", label: "Rese.N", sourceIndex: 9 },
   { key: "puntoEmbarque", label: "PuntoEmbarque", sourceIndex: 10 },
   { key: "clasificacion", label: "Clasificacion", sourceIndex: 11 },
   { key: "condicion", label: "Condicion", sourceIndex: 12 },
@@ -65,7 +67,7 @@ const normalizeObjectRow = (item: Record<string, unknown>, index: number) => {
     pax: ["pax", "cantidadPax"],
     islas: ["islas"],
     tubu: ["tubu", "tubulares"],
-    reseN: ["reseN", "documento"],
+    reseN: ["otros", "reseN", "documento"],
     puntoEmbarque: ["puntoEmbarque", "puntoPartidaHotelOtrasPartidas"],
     clasificacion: ["clasificacion", "auxiliar"],
     condicion: ["condicion", "condicionSaldo"],
@@ -131,7 +133,7 @@ const parseListado = (raw: unknown) => {
   return [];
 };
 
-const FulldayListado = () => {
+const CityTourListado = () => {
   const { id } = useParams();
   const idProducto = Number(id);
   const navigate = useNavigate();
@@ -203,7 +205,13 @@ const FulldayListado = () => {
     const data = normalizedListado.map((row: any) => {
       const obj: any = {};
       LISTADO_FIELDS.forEach((f) => {
-        obj[f.label] = row?.[f.key] ?? "";
+        const value = row?.[f.key];
+        if (NUMERIC_KEYS.includes(f.key)) {
+          const num = Number(value);
+          obj[f.label] = Number.isFinite(num) ? num : 0;
+        } else {
+          obj[f.label] = value ?? "";
+        }
       });
       return obj;
     });
@@ -236,7 +244,7 @@ const FulldayListado = () => {
       };
     });
 
-    const centeredKeys = ["pax", "islas", "tubu"];
+    const centeredKeys = NUMERIC_KEYS;
 
     const centeredCols = LISTADO_FIELDS.map((f, i) =>
       centeredKeys.includes(f.key) ? i : null,
@@ -260,8 +268,20 @@ const FulldayListado = () => {
       }
       return { wch: 18 };
     });
+    const numericCols = LISTADO_FIELDS.map((f, i) =>
+      NUMERIC_KEYS.includes(f.key) ? i : null,
+    ).filter((i) => i !== null) as number[];
 
     const range = XLSX.utils.decode_range(ws["!ref"]!);
+    for (let R = 1; R <= range.e.r; R++) {
+      for (const C of numericCols) {
+        const ref = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[ref]) continue;
+
+        ws[ref].t = "n";
+        ws[ref].v = Number(ws[ref].v) || 0;
+      }
+    }
 
     for (let R = 1; R <= range.e.r; R++) {
       const isEven = (R - 1) % 2 === 0;
@@ -300,7 +320,7 @@ const FulldayListado = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Listado");
 
-    XLSX.writeFile(wb, `fullday-${date}.xlsx`);
+    XLSX.writeFile(wb, `citytour-${date}.xlsx`);
   };
 
   const pdfStyles = StyleSheet.create({
@@ -318,7 +338,7 @@ const FulldayListado = () => {
       <Page size="A4" style={pdfStyles.page}>
         <Text style={pdfStyles.title}>Listado de programacion</Text>
         <Text style={pdfStyles.meta}>Fecha: {date || "-"}</Text>
-        <Text style={pdfStyles.meta}>Full Day: {displayName}</Text>
+        <Text style={pdfStyles.meta}>City Tour: {displayName}</Text>
         <View style={pdfStyles.table}>
           <View style={[pdfStyles.row, pdfStyles.header]}>
             {LISTADO_FIELDS.map((field) => (
@@ -346,7 +366,7 @@ const FulldayListado = () => {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `fullday-listado-${idProducto}.pdf`;
+    anchor.download = `citytour-listado-${idProducto}.pdf`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -366,7 +386,7 @@ const FulldayListado = () => {
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <label className="w-20 text-sm font-semibold text-slate-700">
-                Full Day:
+                City Tour:
               </label>
               <input
                 type="text"
@@ -388,9 +408,9 @@ const FulldayListado = () => {
               />
               <button
                 type="button"
-                onClick={() => navigate("/fullday")}
+                onClick={() => navigate("/citytour")}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold border rounded-md text-slate-600 hover:bg-slate-50"
-                aria-label="Volver a Full Day"
+                aria-label="Volver a City Tour"
               >
                 <ArrowLeft size={14} />
                 Volver
@@ -445,4 +465,4 @@ const FulldayListado = () => {
   );
 };
 
-export default FulldayListado;
+export default CityTourListado;
