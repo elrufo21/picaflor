@@ -613,7 +613,13 @@ const contactS = StyleSheet.create({
    PDF
 ========================= */
 
-const PdfDocument = ({ data }: { data?: InvoiceData }) => {
+const PdfDocument = ({
+  data,
+  pdfName,
+}: {
+  data?: InvoiceData;
+  pdfName?: string;
+}) => {
   const invoiceData = data ?? DEFAULT_INVOICE_DATA;
   const {
     destino,
@@ -659,7 +665,7 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
   };
 
   return (
-    <Document>
+    <Document title={pdfName}>
       <Page size="A4" style={styles.page}>
         <Image src="/images/invoice/header.jpeg" />
 
@@ -954,7 +960,12 @@ const PdfDocument = ({ data }: { data?: InvoiceData }) => {
                     ],
                     ["Medio de Pago:", medioPago || ""],
                     ["Documento de Vta:", documento || ""],
-                    ["Nro Documento:", nroDocumento || ""],
+                    [
+                      "Nro Documento:",
+                      nroDocumento == "-"
+                        ? data.nserie + "-" + data.ndocumento
+                        : nroDocumento || "",
+                    ],
                   ].map(([label, value], i) => (
                     <View key={i} style={contactS.paymentRow}>
                       <Text style={contactS.paymentLabel}>{label}</Text>

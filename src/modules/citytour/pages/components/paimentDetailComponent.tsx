@@ -54,8 +54,12 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       igvCalc = roundCurrency(base * 0.18);
     }
 
+    const totalSinTarjeta = base + igvCalc;
+
     if (medioPagoActual === "TARJETA") {
-      cargoExtraCalc = roundCurrency(base * 0.05);
+      cargoExtraCalc = roundCurrency(totalSinTarjeta * 0.05);
+    } else {
+      cargoExtraCalc = 0;
     }
 
     setValue("igv", igvCalc);
@@ -194,6 +198,10 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             disabled={watch("documentoCobranza") === "DOCUMENTO COBRANZA"}
             control={control}
             size="small"
+            transform={(value) => value.toUpperCase()}
+            inputProps={{
+              maxLength: 4,
+            }}
           />
         </div>
         <div className="col-span-2">
@@ -317,7 +325,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
           <div
             className={`grid grid-cols-1 divide-y divide-slate-200 border border-slate-200 rounded-lg overflow-hidden`}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
+            {/**<div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
               <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
                 Fecha de adelanto
               </div>
@@ -334,7 +342,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                   }}
                 />
               </div>
-            </div>
+            </div> */}
             <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
               <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
                 Medio de pago

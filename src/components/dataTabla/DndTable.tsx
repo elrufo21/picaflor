@@ -2,11 +2,13 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { useLocation } from "react-router";
 import {
   type ColumnDef,
   type Table,
@@ -60,6 +62,7 @@ type DndTableProps<TData extends Record<string, any>> = {
   searchColumns?: string[] | null;
   dateFilterComponent?: (() => ReactNode) | null;
   rowColorRules?: RowColorRule<TData>[];
+  enableCellNavigation?: boolean;
 };
 
 // ============================================
@@ -86,7 +89,9 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   searchColumns = null,
   dateFilterComponent = null,
   rowColorRules = [] as RowColorRule<TData>[],
+  enableCellNavigation = false,
 }: DndTableProps<TData>) => {
+  const location = useLocation();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -96,6 +101,11 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
     pageSize,
   });
   const [dateFilter, setDateFilter] = useState("");
+  const [activeCell, setActiveCell] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const searchColumnsKey = (searchColumns ?? []).join(",");
   const searchColumnSet = useMemo(() => {
     if (!searchColumnsKey) return null;
@@ -199,6 +209,88 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
     onSelectionChange(selectedRows);
   }, [rowSelection, onSelectionChange, table]);
 
+  useEffect(() => {
+    if (!enableCellNavigation) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const rows = table.getRowModel().rows;
+      if (!rows.length) return;
+
+      const getMaxColIndex = (rowIndex: number) =>
+        Math.max((rows[rowIndex]?.getVisibleCells().length ?? 1) - 1, 0);
+
+      const currentRow = activeCell
+        ? Math.min(Math.max(activeCell.row, 0), rows.length - 1)
+        : 0;
+      const currentCol = activeCell
+        ? Math.min(Math.max(activeCell.col, 0), getMaxColIndex(currentRow))
+        : 0;
+
+      if (event.key === "Enter") {
+        const currentCell = rows[currentRow]?.getVisibleCells()[currentCol];
+        if (!currentCell) return;
+
+        return;
+      }
+
+      let nextRow = currentRow;
+      let nextCol = currentCol;
+
+      if (event.key === "ArrowUp") {
+        nextRow = Math.max(currentRow - 1, 0);
+        nextCol = Math.min(nextCol, getMaxColIndex(nextRow));
+      } else if (event.key === "ArrowDown") {
+        nextRow = Math.min(currentRow + 1, rows.length - 1);
+        nextCol = Math.min(nextCol, getMaxColIndex(nextRow));
+      } else if (event.key === "ArrowLeft") {
+        nextCol = Math.max(currentCol - 1, 0);
+      } else if (event.key === "ArrowRight") {
+        nextCol = Math.min(currentCol + 1, getMaxColIndex(currentRow));
+      } else {
+        return;
+      }
+
+      event.preventDefault();
+      setActiveCell({ row: nextRow, col: nextCol });
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeCell, enableCellNavigation, table]);
+
+  useEffect(() => {
+    if (!enableCellNavigation || !activeCell) return;
+    const container = tableContainerRef.current;
+    if (!container) return;
+
+    const activeCellElement = container.querySelector<HTMLElement>(
+      `[data-cell-row="${activeCell.row}"][data-cell-col="${activeCell.col}"]`,
+    );
+    if (!activeCellElement) return;
+
+    activeCellElement.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: "auto",
+    });
+  }, [activeCell, enableCellNavigation]);
+
+  useEffect(() => {
+    if (!enableCellNavigation) return;
+    setActiveCell(null);
+  }, [enableCellNavigation, location.pathname]);
+
   return (
     <div className={`bg-white rounded-xl shadow-sm ${className}`}>
       {/* Header con búsqueda y acciones */}
@@ -217,7 +309,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
       )}
 
       {/* Contenedor de la tabla con scroll horizontal */}
-      <div className="overflow-x-auto">
+      <div ref={tableContainerRef} className="overflow-x-auto">
         <table className="w-full">
           <TableHead table={table} enableSorting={enableSorting} />
           <TableBody
@@ -225,11 +317,12 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
             isLoading={isLoading}
             emptyMessage={emptyMessage}
             onRowClick={onRowClick}
-            rowSelection={rowSelection}
-            setRowSelection={setRowSelection}
             enableRowSelection={enableRowSelection}
             rowColorRules={rowColorRules}
             getRowClassName={getRowClassName}
+            enableCellNavigation={enableCellNavigation}
+            activeCell={activeCell}
+            setActiveCell={setActiveCell}
           />
         </table>
       </div>
@@ -418,11 +511,12 @@ type TableBodyProps<TData extends Record<string, any>> = {
   isLoading: boolean;
   emptyMessage: string;
   onRowClick?: ((row: TData) => void) | null;
-  rowSelection: RowSelectionState;
-  setRowSelection: Dispatch<SetStateAction<RowSelectionState>>;
   enableRowSelection: boolean;
   rowColorRules: RowColorRule<TData>[];
   getRowClassName: (rowOriginal: TData, rules: RowColorRule<TData>[]) => string;
+  enableCellNavigation: boolean;
+  activeCell: { row: number; col: number } | null;
+  setActiveCell: Dispatch<SetStateAction<{ row: number; col: number } | null>>;
 };
 
 const TableBody = <TData extends Record<string, any>>({
@@ -430,11 +524,12 @@ const TableBody = <TData extends Record<string, any>>({
   isLoading,
   emptyMessage,
   onRowClick,
-  rowSelection,
-  setRowSelection,
   enableRowSelection,
   rowColorRules = [],
   getRowClassName,
+  enableCellNavigation,
+  activeCell,
+  setActiveCell,
 }: TableBodyProps<TData>) => {
   if (isLoading) {
     return (
@@ -468,12 +563,17 @@ const TableBody = <TData extends Record<string, any>>({
 
   return (
     <tbody className="divide-y divide-slate-200 bg-white">
-      {table.getRowModel().rows.map((row) => (
+      {table.getRowModel().rows.map((row, rowIndex) => (
         <tr
           key={row.id}
           onClick={() => {
             if (enableRowSelection) {
-              setRowSelection(row.getIsSelected() ? {} : { [row.id]: true });
+              if (row.getIsSelected()) {
+                row.toggleSelected(false);
+              } else {
+                table.toggleAllRowsSelected(false);
+                row.toggleSelected(true);
+              }
             }
             onRowClick && onRowClick(row.original);
           }}
@@ -483,15 +583,28 @@ const TableBody = <TData extends Record<string, any>>({
     ${row.getIsSelected() ? "bg-emerald-100" : "hover:bg-slate-50"}
   `}
         >
-          {row.getVisibleCells().map((cell) => (
+          {row.getVisibleCells().map((cell, cellIndex) => (
             <td
               key={cell.id}
+              data-cell-row={enableCellNavigation ? rowIndex : undefined}
+              data-cell-col={enableCellNavigation ? cellIndex : undefined}
+              onClick={
+                enableCellNavigation
+                  ? () => setActiveCell({ row: rowIndex, col: cellIndex })
+                  : undefined
+              }
               className={`px-4 sm:px-6 py-4 text-sm text-slate-700 whitespace-nowrap ${
                 cell.column.columnDef.meta?.align === "center"
                   ? "text-center"
                   : cell.column.columnDef.meta?.align === "right"
                     ? "text-right"
                     : "text-left"
+              } ${
+                enableCellNavigation &&
+                activeCell?.row === rowIndex &&
+                activeCell?.col === cellIndex
+                  ? "bg-emerald-50 ring-1 ring-inset ring-emerald-500"
+                  : ""
               }`}
             >
               {flexRender(cell.column.columnDef.cell, cell.getContext())}

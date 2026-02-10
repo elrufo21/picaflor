@@ -560,11 +560,16 @@ const LiquidacionesPage = () => {
       descripcion: "",
     };
 
+    // ===============================
+    // MAPA DE SERVICIOS (CATÁLOGO)
+    // ===============================
     const serviciosMap = new Map(
       serviciosCatalogo.map((s) => [s.actividad.trim().toLowerCase(), s]),
     );
 
     const findServicio = (actividad: string) => {
+      if (!actividad || actividad === "-") return emptyServicio;
+
       const match = serviciosMap.get(actividad.trim().toLowerCase());
 
       if (!match) return emptyServicio;
@@ -577,6 +582,25 @@ const LiquidacionesPage = () => {
       };
     };
 
+    // ===============================
+    // BUILDERS
+    // ===============================
+
+    // 👉 TARIFA (NO usa catálogo)
+    const buildTarifaRow = (d: BackendDetalle) => ({
+      detalleId: d.detalleId,
+      servicio: {
+        label: d.actividades || "-",
+        value: d.actividades || "",
+        id: d.actividades || "",
+        descripcion: "",
+      },
+      precio: d.precio ?? 0,
+      cant: d.cantidad ?? 0,
+      total: d.importe ?? 0,
+    });
+
+    // 👉 ACTIVIDADES / TRASLADO
     const buildNormalRow = (d: BackendDetalle) => ({
       detalleId: d.detalleId,
       servicio: findServicio(d.actividades),
@@ -587,6 +611,7 @@ const LiquidacionesPage = () => {
       total: d.importe ?? 0,
     });
 
+    // 👉 ENTRADA (sin hora / turno)
     const buildEntradaRow = (d: BackendDetalle) => ({
       detalleId: d.detalleId,
       servicio: findServicio(d.actividades),
@@ -595,6 +620,9 @@ const LiquidacionesPage = () => {
       total: d.importe ?? 0,
     });
 
+    // ===============================
+    // ROWS VACÍAS
+    // ===============================
     const emptyRow = {
       servicio: emptyServicio,
       hora: "",
@@ -620,12 +648,28 @@ const LiquidacionesPage = () => {
       },
     };
 
+    // ===============================
+    // NORMALIZACIÓN POR POSICIÓN
+    // ===============================
     detalles.forEach((d, index) => {
-      if (index === 0) rows.tarifa = buildNormalRow(d);
-      if (index >= 1 && index <= 3)
+      if (index === 0) {
+        rows.tarifa = buildTarifaRow(d);
+        return;
+      }
+
+      if (index >= 1 && index <= 3) {
         rows[`act${index}` as "act1" | "act2" | "act3"] = buildNormalRow(d);
-      if (index === 4) rows.traslado = buildNormalRow(d);
-      if (index === 5) rows.entrada = buildEntradaRow(d);
+        return;
+      }
+
+      if (index === 4) {
+        rows.traslado = buildNormalRow(d);
+        return;
+      }
+
+      if (index === 5) {
+        rows.entrada = buildEntradaRow(d);
+      }
     });
 
     return rows;
@@ -1135,6 +1179,7 @@ const LiquidacionesPage = () => {
         emptyMessage="No se encontraron liquidaciones"
         dateFilterComponent={DateRangeFilter}
         enableRowSelection={false}
+        enableCellNavigation={true}
         rowColorRules={[
           {
             when: (row) => row.condicion === "CREDITO",

@@ -104,6 +104,38 @@ const validateViajeValues = (values: any): ValidationError | null => {
       focus: "puntoPartida",
     };
   }
+  const documentoCobranza = String(values.documentoCobranza ?? "").trim();
+
+  // 🔹 FILTRO AUTOMÁTICO
+  let nserie = String(values.nserie ?? "").toUpperCase();
+  let ndocumento = String(values.ndocumento ?? "");
+
+  // solo letras y números
+  nserie = nserie.replace(/[^A-Z0-9]/g, "").slice(0, 4);
+
+  // solo números para número de documento (si aplica)
+  ndocumento = ndocumento.replace(/[^0-9]/g, "");
+
+  // opcional: reinyectar valores filtrados
+  values.nserie = nserie;
+  values.ndocumento = ndocumento;
+
+  if (documentoCobranza !== "DOCUMENTO COBRANZA") {
+    if (!/^[A-Z0-9]{4}$/.test(nserie)) {
+      return {
+        message:
+          "LA SERIE DEBE TENER EXACTAMENTE 4 CARACTERES (LETRAS Y/O NÚMEROS). EJ: B001",
+        focus: "nserie",
+      };
+    }
+
+    if (!ndocumento) {
+      return {
+        message: "INGRESE EL NÚMERO DEL DOCUMENTO",
+        focus: "ndocumento",
+      };
+    }
+  }
 
   if (!values.detalle?.tarifa?.servicio?.value) {
     return {
@@ -705,6 +737,8 @@ export function adaptViajeJsonToInvoice(
     moneda: viajeJson.moneda,
     igv: viajeJson.igv,
     cargosExtra: viajeJson.cargosExtra,
+    nserie: viajeJson.nserie,
+    ndocumento: viajeJson.ndocumento,
   };
 }
 export function parseDateForInput(

@@ -15,19 +15,16 @@ import {
 import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/cityTourStore";
 import { showToast } from "@/components/ui/AppToast";
+import { toPlainText } from "@/shared/helpers/safeText";
 
 const NUMERIC_KEYS = ["pax", "islas", "tubu"];
 
 const LISTADO_FIELDS = [
-  { key: "hora", label: "Hora", sourceIndex: 0 },
   { key: "lq", label: "LQ", sourceIndex: 1 },
   { key: "nombreApellidos", label: "NombreApellidos", sourceIndex: 3 },
   { key: "celular", label: "Celular", sourceIndex: 4 },
   { key: "counter", label: "Counter", sourceIndex: 5 },
   { key: "pax", label: "PAX", sourceIndex: 6, meta: { align: "center" } },
-  { key: "islas", label: "Islas", sourceIndex: 7, meta: { align: "center" } },
-  { key: "tubu", label: "Tubu", sourceIndex: 8, meta: { align: "center" } },
-  { key: "reseN", label: "Rese.N", sourceIndex: 9 },
   { key: "puntoEmbarque", label: "PuntoEmbarque", sourceIndex: 10 },
   { key: "clasificacion", label: "Clasificacion", sourceIndex: 11 },
   { key: "condicion", label: "Condicion", sourceIndex: 12 },
@@ -161,17 +158,16 @@ const CityTourListado = () => {
       ),
     [packages, idProducto],
   );
-  const displayName =
-    selectedFullDayName || selectedProducto?.destino || "Sin nombre";
+  const displayName = toPlainText(
+    selectedFullDayName || selectedProducto?.destino || "Sin nombre",
+  );
 
   const normalizedListado = useMemo(() => parseListado(listado), [listado]);
   const filteredListado = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
     if (!needle) return normalizedListado;
     return normalizedListado.filter((row: any) =>
-      String(row?.nombreApellidos ?? "")
-        .toLowerCase()
-        .includes(needle),
+      toPlainText(row?.nombreApellidos).toLowerCase().includes(needle),
     );
   }, [normalizedListado, searchTerm]);
 
@@ -181,6 +177,8 @@ const CityTourListado = () => {
         accessorKey: field.key,
         header: field.label,
         meta: field.meta,
+        cell: ({ getValue }: { getValue: () => unknown }) =>
+          toPlainText(getValue()),
       })),
     [],
   );
@@ -351,7 +349,7 @@ const CityTourListado = () => {
             <View key={row.id ?? index} style={pdfStyles.row}>
               {LISTADO_FIELDS.map((field) => (
                 <Text key={field.key} style={pdfStyles.cell}>
-                  {String(row?.[field.key] ?? "")}
+                  {toPlainText(row?.[field.key])}
                 </Text>
               ))}
             </View>
@@ -460,6 +458,7 @@ const CityTourListado = () => {
         enableFiltering={false}
         enableSearching={false}
         enableSorting={false}
+        enableCellNavigation={true}
       />
     </div>
   );

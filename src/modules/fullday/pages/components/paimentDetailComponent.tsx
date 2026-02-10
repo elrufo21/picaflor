@@ -103,7 +103,6 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
   useEffect(() => {
     setValue("saldo", roundCurrency(totalFinal - Number(acuenta ?? 0)));
   }, [acuenta, totalFinal]);
-
   useEffect(() => {
     const base = Number(watch("precioTotal") ?? 0);
     const documento = watch("documentoCobranza");
@@ -116,8 +115,13 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       igv = roundCurrency(base * 0.18);
     }
 
+    // 👉 TOTAL SIN CARGO TARJETA
+    const totalSinTarjeta = base + igv;
+
     if (medioPago === "TARJETA") {
-      cargoExtra = roundCurrency(base * 0.05);
+      cargoExtra = roundCurrency(totalSinTarjeta * 0.05);
+    } else {
+      cargoExtra = 0;
     }
 
     setValue("igv", igv);
@@ -195,6 +199,10 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             disabled={watch("documentoCobranza") === "DOCUMENTO COBRANZA"}
             control={control}
             size="small"
+            transform={(value) => value.toUpperCase()}
+            inputProps={{
+              maxLength: 4,
+            }}
           />
         </div>
         <div className="col-span-2">
@@ -318,7 +326,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
           <div
             className={`grid grid-cols-1 divide-y divide-slate-200 border border-slate-200 rounded-lg overflow-hidden`}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
+            {/**<div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
               <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
                 Fecha de adelanto
               </div>
@@ -335,7 +343,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                   }}
                 />
               </div>
-            </div>
+            </div> */}
             <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-center">
               <div className="flex items-center bg-blue-600/90 text-white text-xs font-semibold px-3 py-2">
                 Medio de pago
