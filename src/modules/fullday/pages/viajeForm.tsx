@@ -120,7 +120,9 @@ const validateViajeValues = (values: any): ValidationError | null => {
   values.nserie = nserie;
   values.ndocumento = ndocumento;
 
-  if (documentoCobranza !== "DOCUMENTO COBRANZA") {
+  const hasDocumentoData = nserie.length > 0 || ndocumento.length > 0;
+
+  if (documentoCobranza !== "DOCUMENTO COBRANZA" && hasDocumentoData) {
     if (!/^[A-Z0-9]{4}$/.test(nserie)) {
       return {
         message:
