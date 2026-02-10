@@ -28,11 +28,21 @@ const CityInvoicePreview = () => {
       fecha: parts[3] || null,
     };
   }, [backendPayload]);
+  const pdfName = useMemo(() => {
+    const fechaConGuiones =
+      invoiceData?.fechaViaje?.replace(/\//g, "-") || "SIN-FECHA";
+    const ordenNumero = backendInfo.orden || "SIN-ORDEN";
+
+    return `${fechaConGuiones}-CityTour-ID-${ordenNumero}.pdf`;
+  }, [invoiceData?.fechaViaje, backendInfo.orden]);
 
   const createPdfBlob = async () => {
     if (!invoiceData)
       throw new Error("No se encontró la información de la factura.");
-    return pdf(<PdfDocument data={invoiceData} />).toBlob();
+
+    return pdf(
+      <InvoiceCityTour data={invoiceData} pdfName={pdfName} />,
+    ).toBlob();
   };
 
   const handleDownload = async () => {
@@ -40,9 +50,11 @@ const CityInvoicePreview = () => {
       const blob = await createPdfBlob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
+
       anchor.href = url;
-      anchor.download = `full-day-${backendInfo.orden || "factura"}.pdf`;
+      anchor.download = pdfName;
       anchor.click();
+
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (error: any) {
       showToast({
@@ -180,12 +192,34 @@ const CityInvoicePreview = () => {
               </button>
             </div>
           ) : (
-            <div
-              className="rounded-xl border border-slate-200"
-              style={{ minHeight: INVOICE_HEIGHT }}
-            >
-              <PDFViewer style={{ width: "100%", height: INVOICE_HEIGHT }}>
-                <InvoiceCityTour data={invoiceData} />
+            <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              {/* Toolbar flotante */}
+              <div className="absolute right-4 top-4 z-20 flex items-center gap-2 rounded-xl bg-white/80 p-2 shadow-lg backdrop-blur-md">
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  title="Descargar PDF"
+                  className="flex items-center gap-2 rounded-lg bg-orange-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                >
+                  Descargar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  title="Imprimir PDF"
+                  className="flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                >
+                  Imprimir
+                </button>
+              </div>
+
+              {/* PDFViewer sin toolbar */}
+              <PDFViewer
+                showToolbar={false}
+                style={{ width: "100%", height: INVOICE_HEIGHT }}
+              >
+                <InvoiceCityTour data={invoiceData} pdfName={pdfName} />
               </PDFViewer>
             </div>
           )

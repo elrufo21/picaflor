@@ -15,6 +15,7 @@ import {
 import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/fulldayStore";
 import { showToast } from "@/components/ui/AppToast";
+import { toPlainText } from "@/shared/helpers/safeText";
 const NUMERIC_KEYS = ["pax", "islas", "tubu"];
 
 const LISTADO_FIELDS = [
@@ -160,17 +161,16 @@ const FulldayListado = () => {
       ),
     [packages, idProducto],
   );
-  const displayName =
-    selectedFullDayName || selectedProducto?.destino || "Sin nombre";
+  const displayName = toPlainText(
+    selectedFullDayName || selectedProducto?.destino || "Sin nombre",
+  );
 
   const normalizedListado = useMemo(() => parseListado(listado), [listado]);
   const filteredListado = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
     if (!needle) return normalizedListado;
     return normalizedListado.filter((row: any) =>
-      String(row?.nombreApellidos ?? "")
-        .toLowerCase()
-        .includes(needle),
+      toPlainText(row?.nombreApellidos).toLowerCase().includes(needle),
     );
   }, [normalizedListado, searchTerm]);
 
@@ -180,6 +180,8 @@ const FulldayListado = () => {
         accessorKey: field.key,
         header: field.label,
         meta: field.meta,
+        cell: ({ getValue }: { getValue: () => unknown }) =>
+          toPlainText(getValue()),
       })),
     [],
   );
@@ -352,7 +354,7 @@ const FulldayListado = () => {
             <View key={row.id ?? index} style={pdfStyles.row}>
               {LISTADO_FIELDS.map((field) => (
                 <Text key={field.key} style={pdfStyles.cell}>
-                  {String(row?.[field.key] ?? "")}
+                  {toPlainText(row?.[field.key])}
                 </Text>
               ))}
             </View>
@@ -460,6 +462,7 @@ const FulldayListado = () => {
         enableFiltering={false}
         enableSearching={false}
         enableSorting={false}
+        enableCellNavigation={true}
       />
     </div>
   );

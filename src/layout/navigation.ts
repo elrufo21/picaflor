@@ -42,7 +42,7 @@ export const navigationItems: NavigationItem[] = [
     end: true,
   },
   {
-    label: "City Tour",
+    label: "Tour de Lima",
     to: "/citytour",
     icon: Car,
     description: "Turismo local",

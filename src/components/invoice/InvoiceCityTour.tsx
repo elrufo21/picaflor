@@ -618,7 +618,13 @@ const contactS = StyleSheet.create({
    PDF
 ========================= */
 
-const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
+const InvoiceCityTour = ({
+  data,
+  pdfName,
+}: {
+  data?: InvoiceData;
+  pdfName?: string;
+}) => {
   const invoiceData = data ?? DEFAULT_INVOICE_DATA;
   const {
     destino,
@@ -653,6 +659,7 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
     igv,
     cargosExtra,
   } = invoiceData;
+
   const currencySymbol = invoiceData.moneda === "DOLARES" ? "USD$" : "S/";
   const formatNumber = (value: unknown) => {
     const parsed = Number(value ?? 0);
@@ -664,7 +671,7 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
   };
 
   return (
-    <Document>
+    <Document title={pdfName}>
       <Page size="A4" style={styles.page}>
         <Image src="/images/invoice/header.jpeg" />
 
@@ -749,10 +756,9 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
               </View>
             </View>
           </View>
-          <View style={{ marginTop: 10 }}>
+          {/** <View style={{ marginTop: 10 }}>
             {actividades.slice(0, 2).map((item, index) => (
               <View key={index} style={contactS.activityRowFixed}>
-                {/* IZQUIERDA */}
                 <View style={contactS.activityLeft}>
                   <Text style={contactS.activityLabelFixed}>
                     Atractivo de Lima {index + 1}
@@ -763,10 +769,8 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
                   </Text>
                 </View>
 
-                {/* FLECHA */}
                 <Text style={contactS.activityArrowFixed}>-&gt;</Text>
 
-                {/* DERECHA */}
                 <View style={contactS.activityRight}>
                   <Text style={contactS.activityQtyLabelFixed}>
                     Turno/Horario
@@ -777,7 +781,7 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
                 </View>
               </View>
             ))}
-          </View>
+          </View> */}
           <View style={contactS.detailSection}>
             {/* TITULO */}
             <Text style={contactS.detailTitle}>
@@ -829,35 +833,17 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
             </View>
 
             {/* ACTIVIDADES (SOLO 2) */}
-            {items
-              .filter(
-                (it) =>
-                  it.label === "Actividad 01 :" ||
-                  it.label === "Actividad 02 :",
-              )
-              .map((it, idx) => (
-                <View key={idx} style={contactS.tarifaRow}>
-                  <Text style={contactS.tarifaLabel}>{it.label}</Text>
-
-                  <Text style={contactS.tarifaDesc}>
-                    {it.descripcion?.trim() || "-"}
-                  </Text>
-
-                  <Text style={contactS.tarifaUnit}>
-                    {it.precio && it.precio > 0 ? formatNumber(it.precio) : ""}
-                  </Text>
-
-                  <Text style={contactS.tarifaCant}>
-                    {it.precio && it.precio > 0 ? it.cantidad : ""}
-                  </Text>
-
-                  <Text style={contactS.tarifaSub}>
-                    {it.subtotal && it.precio > 0
-                      ? formatNumber(it.subtotal)
-                      : ""}
-                  </Text>
-                </View>
-              ))}
+            <View style={contactS.tarifaRow}>
+              <Text style={contactS.tarifaLabel}>Tarifa de Tour :</Text>
+              <Text style={[contactS.tarifaDesc, { fontStyle: "italic" }]}>
+                {data?.items[0].descripcion}
+              </Text>
+              <Text style={contactS.tarifaUnit}>{data?.items[0].precio}</Text>
+              <Text style={contactS.tarifaCant}>{data?.items[0].cantidad}</Text>
+              <Text style={contactS.tarifaSub}>
+                {data?.items[0].subtotal?.toFixed(2)}
+              </Text>
+            </View>
             {/* TRASLADOS (FIJO) */}
             <View style={contactS.tarifaRow}>
               <Text style={contactS.tarifaLabel}>Traslados :</Text>
@@ -980,7 +966,7 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
                     <View
                       style={[
                         contactS.noDebtBox,
-                        data.mensajePasajero.includes("si") && {
+                        data.condicion !== "CANCELADO" && {
                           backgroundColor: "#C00000",
                         },
                       ]}
@@ -1001,7 +987,12 @@ const InvoiceCityTour = ({ data }: { data?: InvoiceData }) => {
                     ],
                     ["Medio de Pago:", medioPago || ""],
                     ["Documento de Vta:", documento || ""],
-                    ["Nro Documento:", nroDocumento || ""],
+                    [
+                      "Nro Documento:",
+                      nroDocumento == "-"
+                        ? data.nserie + "-" + data.ndocumento
+                        : nroDocumento || "",
+                    ],
                   ].map(([label, value], i) => (
                     <View key={i} style={contactS.paymentRow}>
                       <Text style={contactS.paymentLabel}>{label}</Text>
