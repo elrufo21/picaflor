@@ -663,7 +663,6 @@ const PdfDocument = ({
       maximumFractionDigits: 2,
     });
   };
-
   return (
     <Document title={pdfName}>
       <Page size="A4" style={styles.page}>
