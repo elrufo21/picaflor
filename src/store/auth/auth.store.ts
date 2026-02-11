@@ -142,7 +142,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         hydrated: true,
       });
       scheduleSessionExpiration(session.expiresAt, () =>
-        logout(SESSION_EXPIRED_MESSAGE)
+        logout(SESSION_EXPIRED_MESSAGE),
       );
     } else {
       logout(session ? SESSION_EXPIRED_MESSAGE : undefined);
@@ -204,8 +204,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           if (status && status >= 400 && status < 500) {
             message = "Credenciales incorrectas";
           } else if (status && status >= 500) {
-            message =
-              "El servidor no responde. Intenta de nuevo más tarde.";
+            message = "El servidor no responde. Intenta de nuevo más tarde.";
           }
         } else if (error instanceof Error) {
           message = error.message;
@@ -278,7 +277,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       });
 
       scheduleSessionExpiration(session.expiresAt, () =>
-        logout(SESSION_EXPIRED_MESSAGE)
+        logout(SESSION_EXPIRED_MESSAGE),
       );
 
       return true;

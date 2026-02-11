@@ -6,6 +6,7 @@ import { LogIn } from "lucide-react";
 
 import { TextControlled } from "@/components/ui/inputs";
 import { useAuthStore } from "@/store/auth/auth.store";
+import { usePackageStore } from "@/modules/citytour/store/cityTourStore";
 
 type LoginForm = {
   username: string;
@@ -16,7 +17,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { token, login, loading, error, hydrate, hydrated } = useAuthStore();
-
+  const { setDate } = usePackageStore();
   const form = useForm<LoginForm>({
     defaultValues: {
       username: "",
@@ -41,6 +42,8 @@ const Login = () => {
       username: values.username,
       password: values.password,
     });
+    const today = new Date().toISOString().split("T")[0];
+    setDate(today);
     if (ok) {
       //toast.success("Bienvenido");
       navigate("/fullday", { replace: true });
