@@ -7,11 +7,13 @@ import Dialog from "../components/ui/Dialog";
 import { navigationItems } from "./navigation";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { ButtonBase, ListItemIcon, Menu, MenuItem } from "@mui/material";
+import { usePackageStore } from "@/modules/citytour/store/cityTourStore";
 
 const MainLayout = () => {
   const [isDesktop, setIsDesktop] = useState(false);
   const { isSidebarOpen, setSidebarOpen, toggleSidebar, closeSidebar } =
     useLayoutStore();
+  const { setDate } = usePackageStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [navFilter, setNavFilter] = useState("");
   const open = Boolean(anchorEl);
