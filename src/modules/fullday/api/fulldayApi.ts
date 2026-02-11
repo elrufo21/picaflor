@@ -196,3 +196,86 @@ export async function fetchPedidosFecha(payload: {
     throw error;
   }
 }
+
+export async function fetchLiquidacionNota(notaId: number | string) {
+  if (!notaId) return "";
+
+  const res = await fetch(
+    `${PROGRAMACION_API_URL}/listar-liquidacion-nota?notaId=${encodeURIComponent(String(notaId))}`,
+    {
+      method: "GET",
+      headers: {
+        accept: "text/plain",
+      },
+    },
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Error al listar liquidacion por nota");
+  }
+
+  return (await res.text())?.trim() ?? "";
+}
+
+export async function insertarLiquidacion(listaPagos: string) {
+  const res = await fetch(
+    `${PROGRAMACION_API_URL}/insertar-liquidacion`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        valores: listaPagos,
+        listaPagos,
+        ListaPagos: listaPagos,
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Error al insertar liquidacion");
+  }
+
+  const text = (await res.text()).trim();
+  if (!text) return true;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+export async function eliminarLiquidacion(valores: string) {
+  const res = await fetch(
+    `${PROGRAMACION_API_URL}/eliminar-liquidacion`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        valores,
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Error al eliminar liquidacion");
+  }
+
+  const text = (await res.text()).trim();
+  if (!text) return true;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}

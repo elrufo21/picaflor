@@ -10,6 +10,8 @@ import {
   DialogContentText,
   DialogTitle,
   Divider,
+  Tab,
+  Tabs,
 } from "@mui/material";
 import {
   ChevronLeft,
@@ -20,11 +22,12 @@ import {
   Save,
   Trash,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type SyntheticEvent, useEffect, useState } from "react";
 import CanalVentaComponent from "./components/canalVentaComponent";
 import PaxDetailComponent from "./components/paxDetailComponent";
 import ViajeDetalleComponent from "./components/viajeDetalleComponent";
 import PaimentDetailComponent from "./components/paimentDetailComponent";
+import TransactionManager from "./components/TransactionManager";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { usePackageStore } from "../store/fulldayStore";
 import axios from "axios";
@@ -104,19 +107,16 @@ const validateViajeValues = (values: any): ValidationError | null => {
       focus: "puntoPartida",
     };
   }
+
   const documentoCobranza = String(values.documentoCobranza ?? "").trim();
 
-  // 🔹 FILTRO AUTOMÁTICO
   let nserie = String(values.nserie ?? "").toUpperCase();
   let ndocumento = String(values.ndocumento ?? "");
 
-  // solo letras y números
   nserie = nserie.replace(/[^A-Z0-9]/g, "").slice(0, 4);
 
-  // solo números para número de documento (si aplica)
   ndocumento = ndocumento.replace(/[^0-9]/g, "");
 
-  // opcional: reinyectar valores filtrados
   values.nserie = nserie;
   values.ndocumento = ndocumento;
 
@@ -149,6 +149,17 @@ const validateViajeValues = (values: any): ValidationError | null => {
   const puntoSelected = String(values.puntoPartida ?? "")
     .trim()
     .toUpperCase();
+
+  if (puntoSelected === "OTROS") {
+    if (!values.otrosPartidas?.trim()) {
+      return {
+        message:
+          "EL CAMPO 'OTROS PUNTOS DE PARTIDA' ES OBLIGATORIO CUANDO SE SELECCIONA LA OPCIÓN OTROS.",
+        focus: "otrosPartidas",
+      };
+    }
+  }
+
   const requiereTrasladoEdit =
     puntoSelected === "HOTEL" || puntoSelected === "OTROS";
   if (requiereTrasladoEdit) {
@@ -545,7 +556,7 @@ function buildListaOrdenEdit(data) {
     n(data.visitas), // 33 VisitasExCur
     n(Number(data.precioExtraSoles ?? 0)), // 34 CobroExtraSol
     n(Number(data.precioExtraDolares ?? 0)), // 35 CobroExtraDol
-    n(toISODate(data.fechaAdelanto)), // 36 FechaAdelanto
+    n(toISODate(data.fechaEmision)), // 36 FechaAdelanto
     n(data.mensajePasajero?.toUpperCase() ?? ""), // 37 MensajePasajero
     n(data.observaciones ?? ""), // 38 Observaciones
     islas, // 39 Islas
@@ -767,7 +778,7 @@ const ViajeForm = () => {
   //Precargar los valores en modo edicion
   const [tabValue, setTabValue] = useState(0);
 
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
   const {
@@ -795,6 +806,7 @@ const ViajeForm = () => {
       fechaAdelanto: parseDateForInput(Date()),
       saldo: "0",
       medioPago: "",
+      transactions: [],
       detalle: {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
         act1: { servicio: null, precio: 0, cant: 0, total: 0 },
@@ -817,6 +829,7 @@ const ViajeForm = () => {
         value: "PENDIENTE",
         label: "Pendiente",
       },
+      transactions: formData.transactions ?? [],
 
       detalle: formData.detalle ?? {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
@@ -1078,6 +1091,7 @@ const ViajeForm = () => {
       setFormData(null);
     };
   }, []);
+  console.log("watch", watch());
   const handleEnterFocus = (e) => {
     if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
       e.preventDefault();
@@ -1303,6 +1317,38 @@ const ViajeForm = () => {
                         setValue={setValue}
                       />
                       <Divider />
+                      {/*liquidacionId ? (
+                        <div className="space-y-3">
+                          <Tabs
+                            value={tabValue}
+                            onChange={handleTabChange}
+                            aria-label="Tabs detalle y transacciones"
+                          >
+                            <Tab label="Detalle de viaje" />
+                            <Tab label="Transacciones" />
+                          </Tabs>
+                          {tabValue === 0 ? (
+                            <ViajeDetalleComponent
+                              control={control}
+                              setValue={setValue}
+                              watch={watch}
+                              getValues={getValues}
+                            />
+                          ) : (
+                            <TransactionManager
+                              watch={watch}
+                              setValue={setValue}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <ViajeDetalleComponent
+                          control={control}
+                          setValue={setValue}
+                          watch={watch}
+                          getValues={getValues}
+                        />
+                      )*/}
                       <ViajeDetalleComponent
                         control={control}
                         setValue={setValue}
