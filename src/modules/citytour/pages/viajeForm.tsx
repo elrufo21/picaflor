@@ -597,7 +597,7 @@ function buildListaOrdenEdit(data) {
     n(data.visitas), // 33 VisitasExCur
     n(Number(data.precioExtraSoles ?? 0)), // 34 CobroExtraSol
     n(Number(data.precioExtraDolares ?? 0)), // 35 CobroExtraDol
-    n(toISODate(data.fechaAdelanto)), // 36 FechaAdelanto
+    n(toISODate(data.fechaEmision)), // 36 FechaAdelanto
     n(data.mensajePasajero?.toUpperCase() ?? ""), // 37 MensajePasajero
     n(data.observaciones ?? ""), // 38 Observaciones
     islas, // 39 Islas

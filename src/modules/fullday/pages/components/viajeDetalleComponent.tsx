@@ -268,6 +268,15 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     setValue("hotel", null, { shouldDirty: true });
     setValue("otrosPartidas", "", { shouldDirty: true });
   }, [isHotel, isOtros, setValue]);
+  useEffect(() => {
+    if (!isEditing) return;
+    if (!isOtros) return;
+
+    setTimeout(() => {
+      otrosPartidasRef.current?.focus();
+    }, 0);
+  }, [isOtros, isEditing]);
+
   const getTrasladoDashOption = () =>
     trasladosOptions?.find((o) => o.value === "-") ?? {
       value: "-",
@@ -552,7 +561,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 isOptionEqualToValue={(o, v) => o.value === v?.value}
                 size="small"
                 value={field.value || null}
-                disabled={!isHotel && !isOtros}
+                disabled={!isHotel}
                 onChange={(_, option) => {
                   if (!option) {
                     field.onChange(null);
@@ -586,6 +595,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
             transform={(value) => value.toUpperCase()}
             size="small"
             disableHistory
+            inputRef={otrosPartidasRef}
           />
         </label>
 

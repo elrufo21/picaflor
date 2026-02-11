@@ -41,6 +41,11 @@ type RowColorRule<T = Record<string, any>> = {
   className: string;
 };
 
+type SearchInputRenderProps = {
+  globalFilter: string;
+  setGlobalFilter: (value: string) => void;
+};
+
 type DndTableProps<TData extends Record<string, any>> = {
   data?: TData[];
   columns?: ColumnDef<TData, any>[];
@@ -58,6 +63,7 @@ type DndTableProps<TData extends Record<string, any>> = {
   className?: string;
   dataFilterFn?: ((row: TData) => boolean) | null;
   enableSearching?: boolean;
+  searchInputComponent?: ((props: SearchInputRenderProps) => ReactNode) | null;
   onSelectionChange?: ((rows: TData[]) => void) | null;
   searchColumns?: string[] | null;
   dateFilterComponent?: (() => ReactNode) | null;
@@ -85,6 +91,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   className = "",
   dataFilterFn = null,
   enableSearching = true,
+  searchInputComponent = null,
   onSelectionChange = null,
   searchColumns = null,
   dateFilterComponent = null,
@@ -303,6 +310,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
           setDateFilter={setDateFilter}
           enableDateFilter={enableDateFilter && Boolean(dateField)}
           enableSearching={enableSearching}
+          searchInputComponent={searchInputComponent}
           enableFiltering={enableFiltering}
           dateFilterComponent={dateFilterComponent}
         />
@@ -346,6 +354,7 @@ type TableHeaderProps = {
   setDateFilter: (value: string) => void;
   enableDateFilter: boolean;
   enableSearching: boolean;
+  searchInputComponent: ((props: SearchInputRenderProps) => ReactNode) | null;
   enableFiltering: boolean;
   dateFilterComponent: (() => ReactNode) | null;
 };
@@ -358,38 +367,47 @@ const TableHeader = ({
   setDateFilter,
   enableDateFilter,
   enableSearching,
+  searchInputComponent,
   enableFiltering,
   dateFilterComponent,
 }: TableHeaderProps) => {
+  const searchContainerClassName = `relative w-full flex-1 ${
+    searchInputComponent ? "max-w-full sm:max-w-2xl" : "max-w-md"
+  }`;
+
   return (
     <div className="p-4 sm:p-6 border-b border-slate-200">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         {/* Buscador */}
-        <div className="relative flex-1 max-w-md w-full">
+        <div className={searchContainerClassName}>
           {enableSearching && (
-            <>
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="text"
-                value={globalFilter ?? ""}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                placeholder="Buscar en toda la tabla..."
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
-              />
-              {globalFilter && (
-                <button
-                  onClick={() => setGlobalFilter("")}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </>
+            searchInputComponent ? (
+              searchInputComponent({ globalFilter, setGlobalFilter })
+            ) : (
+              <>
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  value={globalFilter ?? ""}
+                  onChange={(e) => setGlobalFilter(e.target.value)}
+                  placeholder="Buscar en toda la tabla..."
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                />
+                {globalFilter && (
+                  <button
+                    onClick={() => setGlobalFilter("")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </>
+            )
           )}
         </div>
 
         {/* Acciones */}
-        <div className="flex items-center gap-2">
+        <div className="flex w-full sm:w-auto flex-wrap items-start sm:items-center gap-2">
           {dateFilterComponent
             ? dateFilterComponent()
             : enableDateFilter && (

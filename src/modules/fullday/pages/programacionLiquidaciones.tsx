@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
+import { Autocomplete, TextField } from "@mui/material";
+import { ChevronLeft, Search, X } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { API_BASE_URL } from "@/config";
 import { useAuthStore } from "@/store/auth/auth.store";
-import { fetchPedidosFecha } from "../api/fulldayApi";
+import { fetchLiquidacionNota, fetchPedidosFecha } from "../api/fulldayApi";
 import { usePackageStore } from "../store/fulldayStore";
 import {
   DEFAULT_FORM_PAYLOAD,
@@ -18,7 +20,6 @@ import {
   serviciosDB,
 } from "@/app/db/serviciosDB";
 import { useCanalVenta } from "../hooks/useCanalVenta";
-import { ChevronLeft } from "lucide-react";
 
 type BackendDetalle = {
   detalleId: number;
@@ -93,7 +94,20 @@ const FLAG_SERVICIO_OPTIONS = [
   { label: "City tour", value: 2 },
 ];
 
+const CONDICION_OPTIONS = [
+  { label: "TODOS", value: "TODOS" },
+  { label: "ACUENTA", value: "ACUENTA" },
+  { label: "CANCELADO", value: "CANCELADO" },
+  { label: "CREDITO", value: "CREDITO" },
+] as const;
+
+type CondicionFilterValue = (typeof CONDICION_OPTIONS)[number]["value"];
+
+type SearchMode = "none" | "numero" | "canal";
+
 const normalizeStringValue = (value?: string) => String(value ?? "").trim();
+const normalizeCondicionFilter = (value?: string) =>
+  normalizeStringValue(value).toUpperCase().replace(/\s+/g, "");
 
 const parseMoneyValue = (value?: string) => {
   if (!value) return 0;
@@ -109,6 +123,92 @@ const parseLegacyDate = (value?: string) => {
   if (!match) return trimmed;
   const [, day, month, year] = match;
   return `${year}-${month}-${day}`;
+};
+
+type TransactionRowForm = {
+  id: number;
+  date: string;
+  paymentMethod: string;
+  currency: string;
+  exchangeRate: string;
+  amount: string;
+  bankName: string;
+  operationCode: string;
+  status?: string;
+  persisted?: boolean;
+};
+
+const normalizeLegacyCurrencyToUi = (value?: string) => {
+  const currency = normalizeStringValue(value).toUpperCase();
+  if (currency === "SOL" || currency === "SOLES") return "SOLES";
+  if (currency === "DOL" || currency === "DOLAR" || currency === "DOLARES")
+    return "DOLARES";
+  return currency || "SOLES";
+};
+
+const parseLegacyDecimalString = (value?: string, decimals = 2) =>
+  parseMoneyValue(value).toFixed(decimals);
+
+const parseLiquidacionNotaPayload = (
+  payload: string | null | undefined,
+): TransactionRowForm[] => {
+  const raw = String(payload ?? "").trim();
+  if (!raw || raw === "~") return [];
+
+  let normalizedRaw = raw;
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "string") {
+      normalizedRaw = parsed;
+    }
+  } catch {
+    // respuesta no JSON, continuar con texto plano
+  }
+
+  const rows = normalizedRaw
+    .replace(/~/g, LEGACY_ROW_SEPARATOR)
+    .split(LEGACY_ROW_SEPARATOR)
+    .map((row) => row.trim())
+    .filter((row) => row && row !== "~");
+
+  const bankMethods = [
+    "DEPOSITO",
+    "YAPE",
+    "TARJETA",
+    "TRANSFERENCIA",
+    "CHEQUE",
+  ];
+
+  return rows
+    .map((row, index) => {
+      const fields = row.split("|");
+      const liquidaId = Number(normalizeStringValue(fields[0])) || index + 1;
+      const recibido = normalizeStringValue(fields[1]);
+      const formaPago = normalizeStringValue(fields[2]).toUpperCase() || "-";
+      const moneda = normalizeLegacyCurrencyToUi(fields[3]);
+      const tipoCambio = parseLegacyDecimalString(fields[4], 3);
+      const importe = parseLegacyDecimalString(fields[5], 2);
+      const entidadBancaria = normalizeStringValue(fields[6]);
+      const nroOperacion = normalizeStringValue(fields[7]);
+      const estado = normalizeStringValue(fields[9]).toUpperCase();
+
+      if (estado === "A") return null;
+
+      const requiresBankData = bankMethods.includes(formaPago);
+      return {
+        id: liquidaId,
+        date: recibido,
+        paymentMethod: formaPago,
+        currency: moneda,
+        exchangeRate: tipoCambio,
+        amount: importe,
+        bankName: requiresBankData ? entidadBancaria : "-",
+        operationCode: requiresBankData ? nroOperacion : "",
+        status: estado || "P",
+        persisted: true,
+      } as TransactionRowForm;
+    })
+    .filter((row): row is TransactionRowForm => Boolean(row));
 };
 
 const LIQUIDACION_FIELDS = [
@@ -398,7 +498,13 @@ const LiquidacionesPage = () => {
   const [selectedFlagServicio, setSelectedFlagServicio] = useState<
     number | null
   >(initialFlagServicio);
+  const [selectedCondicion, setSelectedCondicion] =
+    useState<CondicionFilterValue>("TODOS");
+  const [searchMode, setSearchMode] = useState<SearchMode>("none");
   const [searchNumber, setSearchNumber] = useState("");
+  const [searchCanal, setSearchCanal] = useState<string | null>(null);
+  const [searchCanalInput, setSearchCanalInput] = useState("");
+  const [canalOptions, setCanalOptions] = useState<string[]>([]);
   const [searchResults, setSearchResults] = useState<LiquidacionRow[] | null>(
     null,
   );
@@ -406,6 +512,72 @@ const LiquidacionesPage = () => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
+
+  const normalizeCanalRecordToLabel = useCallback(
+    (
+      canal:
+        | string
+        | {
+            nombre?: string | null;
+            auxiliar?: string | null;
+            canal?: string | null;
+            descripcion?: string | null;
+            label?: string | null;
+            value?: string | null;
+            [key: string]: unknown;
+          },
+    ) => {
+      if (typeof canal === "string") return normalizeStringValue(canal);
+
+      const priorityValue =
+        canal.nombre ??
+        canal.auxiliar ??
+        canal.canal ??
+        canal.descripcion ??
+        canal.label ??
+        canal.value;
+
+      const normalizedPriority = normalizeStringValue(
+        typeof priorityValue === "string" ? priorityValue : "",
+      );
+      if (normalizedPriority) return normalizedPriority;
+
+      for (const [key, value] of Object.entries(canal)) {
+        if (key === "id" || key === "telefono") continue;
+        if (typeof value !== "string") continue;
+        const candidate = normalizeStringValue(value);
+        if (candidate) return candidate;
+      }
+
+      return "";
+    },
+    [],
+  );
+
+  const getCanalOptionsFromDB = useCallback(async () => {
+    const canales = await serviciosDB.canales.toArray();
+    const normalizedCanales = Array.from(
+      new Set(
+        canales
+          .map((canal) => normalizeCanalRecordToLabel(canal))
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b, "es"));
+
+    return normalizedCanales;
+  }, [normalizeCanalRecordToLabel]);
+
+  const ensureCanalOptionsLoaded = useCallback(async () => {
+    let normalizedCanales = await getCanalOptionsFromDB();
+
+    if (!normalizedCanales.length) {
+      await loadServicios();
+      normalizedCanales = await getCanalOptionsFromDB();
+    }
+
+    setCanalOptions(normalizedCanales);
+    return normalizedCanales;
+  }, [getCanalOptionsFromDB, loadServicios]);
 
   const stopNumberSearch = useCallback(() => {
     setSearchNumber("");
@@ -419,6 +591,32 @@ const LiquidacionesPage = () => {
     setSearchLoading(false);
     setSearchError(null);
   }, [setSearchNumber, setSearchResults, setSearchLoading, setSearchError]);
+
+  const stopCanalSearch = useCallback(() => {
+    setSearchCanal(null);
+    setSearchCanalInput("");
+  }, []);
+
+  const handleToggleSearchByNumero = (checked: boolean) => {
+    if (checked) {
+      setSearchMode("numero");
+      stopCanalSearch();
+      return;
+    }
+    setSearchMode("none");
+    stopNumberSearch();
+  };
+
+  const handleToggleSearchByCanal = (checked: boolean) => {
+    if (checked) {
+      setSearchMode("canal");
+      stopNumberSearch();
+      void ensureCanalOptionsLoaded();
+      return;
+    }
+    setSearchMode("none");
+    stopCanalSearch();
+  };
 
   useEffect(() => {
     setSelectedFlagServicio(initialFlagServicio);
@@ -436,13 +634,67 @@ const LiquidacionesPage = () => {
     [selectedFlagServicio],
   );
 
-  useEffect(() => {
-    const hasNumberQuery = Boolean(searchNumber.trim());
-    const sourceRows = hasNumberQuery ? (searchResults ?? []) : allRows;
-    setRows(filterRowsByFlagServicio(sourceRows));
-  }, [allRows, filterRowsByFlagServicio, searchNumber, searchResults]);
+  const filterRowsByCondicion = useCallback(
+    (sourceRows: LiquidacionRow[]) => {
+      if (selectedCondicion === "TODOS") return sourceRows;
+
+      return sourceRows.filter(
+        (row) =>
+          normalizeCondicionFilter(row.condicion) ===
+          normalizeCondicionFilter(selectedCondicion),
+      );
+    },
+    [selectedCondicion],
+  );
 
   useEffect(() => {
+    let sourceRows = allRows;
+
+    if (searchMode === "numero") {
+      const hasNumberQuery = Boolean(searchNumber.trim());
+      sourceRows = hasNumberQuery ? (searchResults ?? []) : allRows;
+    }
+
+    if (searchMode === "canal") {
+      const canalQuery = normalizeStringValue(
+        searchCanalInput || searchCanal,
+      ).toLowerCase();
+
+      sourceRows = canalQuery
+        ? allRows.filter((row) =>
+            normalizeStringValue(row.auxiliar)
+              .toLowerCase()
+              .includes(canalQuery),
+          )
+        : allRows;
+    }
+
+    setRows(filterRowsByCondicion(filterRowsByFlagServicio(sourceRows)));
+  }, [
+    allRows,
+    filterRowsByCondicion,
+    filterRowsByFlagServicio,
+    searchMode,
+    searchNumber,
+    searchResults,
+    searchCanal,
+    searchCanalInput,
+  ]);
+
+  useEffect(() => {
+    if (searchMode !== "numero") {
+      searchAbortRef.current?.abort();
+      searchAbortRef.current = null;
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+      setSearchLoading(false);
+      setSearchError(null);
+      setSearchResults(null);
+      return;
+    }
+
     const trimmedNumber = searchNumber.trim();
 
     if (!trimmedNumber) {
@@ -505,7 +757,7 @@ const LiquidacionesPage = () => {
         searchDebounceRef.current = null;
       }
     };
-  }, [searchNumber]);
+  }, [searchMode, searchNumber]);
 
   useEffect(() => {
     if (productosLoadedRef.current) {
@@ -513,6 +765,7 @@ const LiquidacionesPage = () => {
     }
     productosLoadedRef.current = true;
     let canceled = false;
+
     const loadProductos = async () => {
       try {
         const hasData = await hasServiciosData();
@@ -524,8 +777,17 @@ const LiquidacionesPage = () => {
         const pCityTour = await serviciosDB.productosCityTourOrdena.toArray();
         const pFullDay = await serviciosDB.productos.toArray();
         const stored = [...pFullDay, ...pCityTour];
+        let normalizedCanales = await getCanalOptionsFromDB();
+
+        // La DB puede estar parcialmente poblada (sin canales), forzamos sync y relectura.
+        if (hasData && !normalizedCanales.length) {
+          await loadServicios();
+          normalizedCanales = await getCanalOptionsFromDB();
+        }
+
         if (!canceled) {
           setProductos(stored);
+          setCanalOptions(normalizedCanales);
         }
       } catch (err) {
         console.error("Error cargando productos", err);
@@ -535,7 +797,7 @@ const LiquidacionesPage = () => {
     return () => {
       canceled = true;
     };
-  }, [loadServicios, loadServiciosFromDB]);
+  }, [getCanalOptionsFromDB, loadServicios, loadServiciosFromDB]);
   const resolveProductId = (row: LiquidacionRow) => {
     const normalizedRowName = normalizeProductName(row.productoNombre);
     if (!normalizedRowName) return 0;
@@ -741,7 +1003,11 @@ const LiquidacionesPage = () => {
     }
     const servicios = await getServiciosFromDB();
     const data = row;
-    const detalle = await fetchDetalleActividades(row.notaId);
+    const [detalle /*, liquidacionesNotaRaw*/] = await Promise.all([
+      fetchDetalleActividades(row.notaId),
+      //fetchLiquidacionNota(row.notaId),
+    ]);
+    //const liquidacionesNota = parseLiquidacionNotaPayload(liquidacionesNotaRaw);
     const hoteles = await serviciosDB.hoteles.toArray();
     const hotel = hoteles.find((h) => h.nombre === row.hotel);
     const canalDeVenta = canalVentaList.find(
@@ -809,6 +1075,8 @@ const LiquidacionesPage = () => {
       nserie: data.serie,
       ndocumento: data.numero,
       clienteId: data.clienteId,
+      notaImagen: data.notaImagen,
+      // transactions: liquidacionesNota,
       _editMode: true,
       estado: data.estado,
     };
@@ -986,7 +1254,6 @@ const LiquidacionesPage = () => {
   );
 
   const handleRangeSearch = () => {
-    stopNumberSearch();
     reload(pendingStartDate, pendingEndDate);
   };
 
@@ -1010,11 +1277,105 @@ const LiquidacionesPage = () => {
     }
   }, [refreshKey, reload]);
   const endDateRef = useRef<HTMLInputElement | null>(null);
+
+  const SearchModeFilterInput = ({
+    globalFilter,
+    setGlobalFilter,
+  }: {
+    globalFilter: string;
+    setGlobalFilter: (value: string) => void;
+  }) => (
+    <div className="w-full max-w-full space-y-2 sm:max-w-lg lg:max-w-xl">
+      <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={searchMode === "numero"}
+            onChange={(e) => handleToggleSearchByNumero(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+          />
+          Numero de pedido
+        </label>
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={searchMode === "canal"}
+            onChange={(e) => handleToggleSearchByCanal(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+          />
+          Canal de venta
+        </label>
+      </div>
+
+      {searchMode === "none" && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <input
+            type="text"
+            value={globalFilter ?? ""}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            placeholder="Buscar en toda la tabla..."
+            className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-10 text-sm text-slate-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+          {globalFilter && (
+            <button
+              type="button"
+              onClick={() => setGlobalFilter("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {searchMode === "numero" && (
+        <div className="space-y-1">
+          <input
+            type="text"
+            value={searchNumber}
+            onChange={(e) => setSearchNumber(e.target.value)}
+            placeholder="Buscar por numero de pedido"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+          />
+          {searchLoading && (
+            <span className="text-[0.7rem] text-slate-500">Buscando...</span>
+          )}
+          {searchError && (
+            <span className="text-[0.7rem] text-red-600">{searchError}</span>
+          )}
+        </div>
+      )}
+
+      {searchMode === "canal" && (
+        <div className="w-full">
+          <Autocomplete
+            size="small"
+            options={canalOptions}
+            value={searchCanal}
+            inputValue={searchCanalInput}
+            onChange={(_, value) => setSearchCanal(value)}
+            onInputChange={(_, value) => setSearchCanalInput(value)}
+            noOptionsText="Sin canales"
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                fullWidth
+                placeholder="Selecciona canal de venta"
+              />
+            )}
+          />
+        </div>
+      )}
+    </div>
+  );
+
   const DateRangeFilter = () => (
     <div
       className="
-                flex flex-col gap-3
-                md:flex-row md:items-end md:gap-4
+                w-full flex flex-col gap-3
+                sm:flex-row sm:flex-wrap sm:items-end sm:gap-3
+                lg:gap-4
               "
     >
       <div className="text-sm font-semibold text-slate-900">Buscar por</div>
@@ -1032,7 +1393,7 @@ const LiquidacionesPage = () => {
             }
           }}
           className="
-      w-full md:w-32
+      w-full sm:w-40 md:w-32
       rounded-md border border-slate-200
       bg-white/80 px-2 py-1
       text-xs text-slate-700
@@ -1053,7 +1414,7 @@ const LiquidacionesPage = () => {
             reload(pendingStartDateRef.current, value);
           }}
           className="
-      w-full md:w-32
+      w-full sm:w-40 md:w-32
       rounded-md border border-slate-200
       bg-white/80 px-2 py-1
       text-xs text-slate-700
@@ -1070,7 +1431,7 @@ const LiquidacionesPage = () => {
             setSelectedFlagServicio(value ? Number(value) : null);
           }}
           className="
-        w-full md:w-32
+        w-full sm:w-40 md:w-32
         rounded-md border border-slate-200
         bg-white/80 px-2 py-1
         text-xs text-slate-700
@@ -1086,36 +1447,32 @@ const LiquidacionesPage = () => {
       </div>
 
       <div className="flex flex-col text-xs text-slate-500">
-        <span>Número de pedido</span>
-        <input
-          type="text"
-          value={searchNumber}
-          onChange={(e) => setSearchNumber(e.target.value)}
-          placeholder="Ej. 12345"
+        <span>Condicion</span>
+        <select
+          value={selectedCondicion}
+          onChange={(e) =>
+            setSelectedCondicion(e.target.value as CondicionFilterValue)
+          }
           className="
-        w-full md:w-40
+        w-full sm:w-40 md:w-32
         rounded-md border border-slate-200
         bg-white/80 px-2 py-1
         text-xs text-slate-700
       "
-        />
-        {searchLoading && (
-          <span className="mt-1 text-[0.65rem] text-slate-500">
-            Buscando...
-          </span>
-        )}
-        {searchError && (
-          <span className="mt-1 text-[0.65rem] text-red-600">
-            {searchError}
-          </span>
-        )}
+        >
+          {CONDICION_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* ACCIONES */}
       <div
         className="
-      flex gap-4
-      md:items-center
+      flex w-full gap-3
+      sm:w-auto sm:gap-4 sm:items-center
     "
       >
         <button
@@ -1175,6 +1532,7 @@ const LiquidacionesPage = () => {
           "notaId",
         ]}
         enableSearching
+        searchInputComponent={SearchModeFilterInput}
         isLoading={loading}
         emptyMessage="No se encontraron liquidaciones"
         dateFilterComponent={DateRangeFilter}
