@@ -83,7 +83,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const fixedProductOption = useMemo(() => {
     const fixedId = String(precioProducto?.id ?? "").trim();
     if (!fixedId) return null;
-    return productOptions.find((option) => String(option.value) === fixedId) ?? null;
+    return (
+      productOptions.find((option) => String(option.value) === fixedId) ?? null
+    );
   }, [productOptions, precioProducto?.id]);
 
   const SubTotal = ({ name, visible = true }) => {
@@ -109,7 +111,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const isRowLocked = (rowKey: ActivityRowKey) => rowKey === FIXED_ACTIVITY_KEY;
 
   const handlePrecioChange = (rowKey: ActivityRowKey, value: number) => {
-    if (!isEditing || isRowLocked(rowKey)) return;
+    if (!isEditing) return;
 
     const rounded = roundCurrency(value);
     const cant = Number(getValues(`detalle.${rowKey}.cant`)) || 0;
@@ -514,11 +516,13 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       }
                     >
                       <option value="">(SELECCIONE)</option>
-                      {getActivityOptions(row.key, field.value?.value).map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                      {getActivityOptions(row.key, field.value?.value).map(
+                        (option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ),
+                      )}
                     </select>
                   )}
                 />
@@ -565,7 +569,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
                         value={field.value === 0 ? "" : field.value}
                         disabled={
-                          !isEditing || isRowInactive(row.key) || isRowLocked(row.key)
+                          !isEditing ||
+                          isRowInactive(row.key) ||
+                          isRowLocked(row.key)
                         }
                         onChange={(e) => {
                           const raw = e.target.value;
@@ -635,11 +641,13 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       }
                     >
                       <option value="">(SELECCIONE)</option>
-                      {getActivityOptions(row.key, field.value?.value).map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                      {getActivityOptions(row.key, field.value?.value).map(
+                        (option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ),
+                      )}
                     </select>
                   )}
                 />
@@ -678,9 +686,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       inputMode="decimal"
                       className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
                       value={field.value === 0 ? "" : field.value}
-                      disabled={
-                        !isEditing || isRowInactive(row.key) || isRowLocked(row.key)
-                      }
+                      disabled={!isEditing || isRowInactive(row.key)}
                       onChange={(e) => {
                         const raw = e.target.value;
                         handlePrecioChange(
