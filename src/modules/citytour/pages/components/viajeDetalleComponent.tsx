@@ -176,6 +176,27 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
 
   const getTurnoOptions = () => TURNOS;
 
+  const handleKeyNav = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+
+    e.preventDefault();
+    const container = e.currentTarget.closest("[data-grid-form]");
+    if (!container) return;
+
+    const sameColumnInputs = Array.from(
+      container.querySelectorAll<HTMLInputElement>(
+        'input[data-nav-col="precio"]:not([disabled])',
+      ),
+    ).filter((el) => el.offsetParent !== null);
+
+    const currentIndex = sameColumnInputs.indexOf(e.currentTarget);
+    if (currentIndex === -1) return;
+
+    const nextIndex = e.key === "ArrowDown" ? currentIndex + 1 : currentIndex - 1;
+    const target = sameColumnInputs[nextIndex];
+    target?.focus();
+  };
+
   useEffect(() => {
     if (!isEditing) return;
     if (disponibles <= 0) return;
@@ -273,11 +294,13 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     const currentServicio = getValues(`detalle.${FIXED_ACTIVITY_KEY}.servicio`);
     const currentValue = String(currentServicio?.value ?? "").trim();
     const fixedValue = String(fixedProductOption.value ?? "").trim();
-    const targetPrecio = getPrecioActividad(fixedProductOption);
-    const targetCant = cantPax;
-    const targetTotal = roundCurrency(targetPrecio * targetCant);
+    const defaultPrecio = getPrecioActividad(fixedProductOption);
     const currentPrecio =
       Number(getValues(`detalle.${FIXED_ACTIVITY_KEY}.precio`)) || 0;
+    const targetPrecio =
+      currentValue !== fixedValue ? defaultPrecio : currentPrecio;
+    const targetCant = cantPax;
+    const targetTotal = roundCurrency(targetPrecio * targetCant);
     const currentCant =
       Number(getValues(`detalle.${FIXED_ACTIVITY_KEY}.cant`)) || 0;
     const currentTotal =
@@ -292,12 +315,16 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       return;
     }
 
-    setValue(`detalle.${FIXED_ACTIVITY_KEY}.servicio`, fixedProductOption, {
-      shouldDirty: false,
-    });
-    setValue(`detalle.${FIXED_ACTIVITY_KEY}.precio`, targetPrecio, {
-      shouldDirty: false,
-    });
+    if (currentValue !== fixedValue) {
+      setValue(`detalle.${FIXED_ACTIVITY_KEY}.servicio`, fixedProductOption, {
+        shouldDirty: false,
+      });
+    }
+    if (targetPrecio !== currentPrecio) {
+      setValue(`detalle.${FIXED_ACTIVITY_KEY}.precio`, targetPrecio, {
+        shouldDirty: false,
+      });
+    }
     setValue(`detalle.${FIXED_ACTIVITY_KEY}.cant`, targetCant, {
       shouldDirty: false,
     });
@@ -566,6 +593,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         type="number"
                         step="0.01"
                         inputMode="decimal"
+                        data-nav-col="precio"
                         className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
                         value={field.value === 0 ? "" : field.value}
                         disabled={
@@ -580,6 +608,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                             raw === "" ? 0 : Number(raw || 0),
                           );
                         }}
+                        onKeyDown={handleKeyNav}
                       />
                     )}
                   />
@@ -684,6 +713,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       type="number"
                       step="0.01"
                       inputMode="decimal"
+                      data-nav-col="precio"
                       className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
                       value={field.value === 0 ? "" : field.value}
                       disabled={!isEditing || isRowInactive(row.key)}
@@ -694,6 +724,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                           raw === "" ? 0 : Number(raw || 0),
                         );
                       }}
+                      onKeyDown={handleKeyNav}
                     />
                   )}
                 />
