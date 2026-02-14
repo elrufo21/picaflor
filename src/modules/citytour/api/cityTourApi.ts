@@ -58,7 +58,7 @@ export async function fetchListadoByProducto(
     valores: `${dateValue}|${dateValue}|${idProducto}`,
   };
 
-  const res = await fetch(`${API_BASE_URL}/Programacion/lista-full-day`, {
+  const res = await fetch(`${API_BASE_URL}/Programacion/lista-city-tour-web`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

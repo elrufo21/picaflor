@@ -888,11 +888,19 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                     ) : (
                       <option value="-">-</option>
                     )}
-                    {row.options?.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
+                    {row.options
+                      ?.filter(
+                        (o) =>
+                          !row.key.startsWith("act") ||
+                          !actividadesSeleccionadas.includes(o.value) ||
+                          getValues(`detalle.${row.key}.servicio`)?.value ===
+                            o.value,
+                      )
+                      .map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}
@@ -904,16 +912,41 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                   <label className="block text-xs font-semibold mb-1">
                     Precio
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
-                    value={getValues(`detalle.${row.key}.precio`) || ""}
-                    disabled={isRowEmpty(row.key) || row.key === "entrada"}
-                    onChange={(e) =>
-                      handlePrecioChange(row.key, Number(e.target.value || 0))
-                    }
+                  <Controller
+                    name={`detalle.${row.key}.precio`}
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        type="number"
+                        step="0.01"
+                        inputMode="decimal"
+                        className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
+                        disabled={
+                          row.key === "entrada" || isPrecioDisabled(row.key)
+                        }
+                        value={field.value === 0 ? "" : field.value}
+                        onChange={(e) => {
+                          if (!isEditing) return;
+
+                          const raw = e.target.value;
+                          const precio = raw === "" ? 0 : Number(raw);
+                          const roundedPrecio = roundCurrency(precio);
+
+                          field.onChange(roundedPrecio);
+
+                          const cant =
+                            Number(getValues(`detalle.${row.key}.cant`)) || 0;
+
+                          setValue(
+                            `detalle.${row.key}.total`,
+                            roundCurrency(roundedPrecio * cant),
+                          );
+                        }}
+                        onBlur={() => {
+                          if (!field.value) field.onChange(0);
+                        }}
+                      />
+                    )}
                   />
                 </div>
 
@@ -922,20 +955,56 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                   <label className="block text-xs font-semibold mb-1">
                     Cant
                   </label>
-                  <input
-                    type="number"
-                    step="1"
-                    min={0}
-                    max={cantPax}
-                    inputMode="numeric"
-                    className={`w-full border px-2 py-1 text-right ${
-                      !canEditCantidad(row.key) ? "bg-slate-100" : ""
-                    }`}
-                    value={getValues(`detalle.${row.key}.cant`) || ""}
-                    disabled={!canEditCantidad(row.key)}
-                    onChange={(e) =>
-                      handleCantidadChange(row.key, Number(e.target.value || 0))
-                    }
+                  <Controller
+                    name={`detalle.${row.key}.cant`}
+                    control={control}
+                    render={({ field }) => {
+                      const editable = canEditCantidad(row.key);
+
+                      return (
+                        <input
+                          type="number"
+                          step="1"
+                          min={0}
+                          max={cantPax}
+                          inputMode="numeric"
+                          className={`w-full border px-2 py-1 text-right ${
+                            !editable ? "bg-slate-100" : ""
+                          }`}
+                          value={field.value === 0 ? "" : field.value}
+                          disabled={!editable}
+                          onChange={(e) => {
+                            if (!editable) return;
+
+                            let cant = Math.floor(Number(e.target.value || 0));
+
+                            if (cant > cantPax) {
+                              showToast({
+                                title: "Alerta",
+                                description:
+                                  "La cantidad no puede superar el número de pasajeros.",
+                                type: "error",
+                              });
+                              cant = cantPax;
+                            }
+
+                            field.onChange(cant);
+
+                            const precio =
+                              Number(getValues(`detalle.${row.key}.precio`)) ||
+                              0;
+
+                            setValue(
+                              `detalle.${row.key}.total`,
+                              roundCurrency(precio * cant),
+                            );
+                          }}
+                          onBlur={() => {
+                            if (!field.value) field.onChange(0);
+                          }}
+                        />
+                      );
+                    }}
                   />
                 </div>
 
@@ -1025,7 +1094,8 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                             (o) =>
                               !row.key.startsWith("act") ||
                               !actividadesSeleccionadas.includes(o.value) ||
-                              field.value?.value === o.value,
+                              getValues(`detalle.${row.key}.servicio`)
+                                ?.value === o.value,
                           )
                           .map((o) => (
                             <option key={o.value} value={o.value}>

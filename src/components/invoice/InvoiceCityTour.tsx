@@ -14,6 +14,7 @@ import {
 type InvoiceActivity = {
   label: string;
   actividad: string;
+  turno?: string | null;
   cantidad?: number | null;
 };
 
@@ -503,7 +504,7 @@ const contactS = StyleSheet.create({
     textAlign: "center",
   },
   tarifaColHeader: {
-    width: "15%",
+    width: "11.25%",
     fontSize: 8,
     color: "#C05A1A",
     textAlign: "center",
@@ -517,10 +518,16 @@ const contactS = StyleSheet.create({
     padding: 3,
   },
   tarifaDesc: { width: "35%", fontSize: 8, padding: 3 },
-  tarifaUnit: { width: "15%", fontSize: 8, textAlign: "center", padding: 3 },
-  tarifaCant: { width: "15%", fontSize: 8, textAlign: "center", padding: 3 },
+  tarifaTurno: {
+    width: "11.25%",
+    fontSize: 8,
+    textAlign: "center",
+    padding: 3,
+  },
+  tarifaUnit: { width: "11.25%", fontSize: 8, textAlign: "center", padding: 3 },
+  tarifaCant: { width: "11.25%", fontSize: 8, textAlign: "center", padding: 3 },
   tarifaSub: {
-    width: "15%",
+    width: "11.25%",
     fontSize: 8,
     textAlign: "right",
     padding: 3,
@@ -659,8 +666,16 @@ const InvoiceCityTour = ({
     igv,
     cargosExtra,
   } = invoiceData;
-
   const currencySymbol = invoiceData.moneda === "DOLARES" ? "USD$" : "S/";
+  const actividad1Meta = actividades?.[0];
+  const actividad2Meta = actividades?.[1];
+  const actividad3Meta = actividades?.[2];
+  const actividad1Item = items?.[1];
+  const actividad2Item = items?.[2];
+  const actividad3Item = items?.[3];
+  const formatSubtotal = (value?: number | null) =>
+    typeof value === "number" ? value.toFixed(2) : "";
+
   const formatNumber = (value: unknown) => {
     const parsed = Number(value ?? 0);
     if (!Number.isFinite(parsed)) return "";
@@ -676,7 +691,7 @@ const InvoiceCityTour = ({
         <Image src="/images/invoice/header.jpeg" />
 
         <View style={styles.content}>
-          <Text style={styles.title}>{destino || ""}</Text>
+          <Text style={styles.title}>ATRACTIVOS DE LIMA</Text>
 
           {/* Info Section */}
           <View style={{ flexDirection: "row", marginBottom: 10 }}>
@@ -827,27 +842,78 @@ const InvoiceCityTour = ({
             {/* HEADER */}
             <View style={contactS.tarifaHeaderRow}>
               <Text style={contactS.tarifaTitle}>DETALLE DE TARIFA :</Text>
+              <Text style={contactS.tarifaColHeader}>Turno</Text>
               <Text style={contactS.tarifaColHeader}>Precio Unit.</Text>
               <Text style={contactS.tarifaColHeader}>Cant.</Text>
               <Text style={contactS.tarifaColHeader}>Sub Total</Text>
             </View>
 
-            {/* ACTIVIDADES (SOLO 2) */}
+            {/* ACTIVIDADES */}
             <View style={contactS.tarifaRow}>
-              <Text style={contactS.tarifaLabel}>Tarifa de Tour :</Text>
-              <Text style={[contactS.tarifaDesc, { fontStyle: "italic" }]}>
-                {data?.items[0].descripcion}
+              <Text style={contactS.tarifaLabel}>Actividad 1:</Text>
+              <Text style={[contactS.tarifaDesc]}>
+                {actividad1Meta?.actividad ??
+                  actividad1Item?.descripcion ??
+                  "-"}
               </Text>
-              <Text style={contactS.tarifaUnit}>{data?.items[0].precio}</Text>
-              <Text style={contactS.tarifaCant}>{data?.items[0].cantidad}</Text>
+              <Text style={contactS.tarifaTurno}>
+                {actividad1Meta?.turno ?? "-"}
+              </Text>
+              <Text style={contactS.tarifaUnit}>
+                {actividad1Item?.precio ?? ""}
+              </Text>
+              <Text style={contactS.tarifaCant}>
+                {actividad1Item?.cantidad ?? ""}
+              </Text>
               <Text style={contactS.tarifaSub}>
-                {data?.items[0].subtotal?.toFixed(2)}
+                {formatSubtotal(actividad1Item?.subtotal)}
+              </Text>
+            </View>
+            <View style={contactS.tarifaRow}>
+              <Text style={contactS.tarifaLabel}>Actividad 2:</Text>
+              <Text style={[contactS.tarifaDesc]}>
+                {actividad2Meta?.actividad ??
+                  actividad2Item?.descripcion ??
+                  "-"}
+              </Text>
+              <Text style={contactS.tarifaTurno}>
+                {actividad2Meta?.turno ?? "-"}
+              </Text>
+              <Text style={contactS.tarifaUnit}>
+                {actividad2Item?.precio ?? ""}
+              </Text>
+              <Text style={contactS.tarifaCant}>
+                {actividad2Item?.cantidad ?? ""}
+              </Text>
+              <Text style={contactS.tarifaSub}>
+                {formatSubtotal(actividad2Item?.subtotal)}
+              </Text>
+            </View>
+            <View style={contactS.tarifaRow}>
+              <Text style={contactS.tarifaLabel}>Actividad 3:</Text>
+              <Text style={[contactS.tarifaDesc]}>
+                {actividad3Meta?.actividad ??
+                  actividad3Item?.descripcion ??
+                  "-"}
+              </Text>
+              <Text style={contactS.tarifaTurno}>
+                {actividad3Meta?.turno ?? "-"}
+              </Text>
+              <Text style={contactS.tarifaUnit}>
+                {actividad3Item?.precio ?? ""}
+              </Text>
+              <Text style={contactS.tarifaCant}>
+                {actividad3Item?.cantidad ?? ""}
+              </Text>
+              <Text style={contactS.tarifaSub}>
+                {formatSubtotal(actividad3Item?.subtotal)}
               </Text>
             </View>
             {/* TRASLADOS (FIJO) */}
             <View style={contactS.tarifaRow}>
               <Text style={contactS.tarifaLabel}>Traslados :</Text>
               <Text style={contactS.tarifaDesc}>N/A</Text>
+              <Text style={contactS.tarifaTurno}></Text>
               <Text style={contactS.tarifaUnit}></Text>
               <Text style={contactS.tarifaCant}></Text>
               <Text style={contactS.tarifaSub}></Text>
@@ -859,6 +925,7 @@ const InvoiceCityTour = ({
               <Text style={[contactS.tarifaDesc, { fontStyle: "italic" }]}>
                 N/A
               </Text>
+              <Text style={contactS.tarifaTurno}></Text>
               <Text style={contactS.tarifaUnit}></Text>
               <Text style={contactS.tarifaCant}></Text>
               <Text style={contactS.tarifaSub}></Text>
@@ -868,6 +935,7 @@ const InvoiceCityTour = ({
             <View style={contactS.tarifaRow}>
               <Text style={contactS.tarifaLabel}>Otros Pagos :</Text>
               <Text style={contactS.tarifaDesc}>N/A</Text>
+              <Text style={contactS.tarifaTurno}></Text>
               <Text style={contactS.tarifaUnit}></Text>
               <Text style={contactS.tarifaCant}></Text>
               <Text style={contactS.tarifaSub}></Text>
@@ -967,7 +1035,7 @@ const InvoiceCityTour = ({
                       style={[
                         contactS.noDebtBox,
                         data.condicion !== "CANCELADO" && {
-                          backgroundColor: "#C00000",
+                          backgroundColor: "#9b111e",
                         },
                       ]}
                     >

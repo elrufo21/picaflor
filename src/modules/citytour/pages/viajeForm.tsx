@@ -102,15 +102,14 @@ const validarTurnoActividad = (
     return null;
   }
 
-  const horaVacia = isEmptyOrDash(actividad?.hora);
   const turnoVacio = isEmptyOrDash(actividad?.turno);
 
-  if (horaVacia && turnoVacio) {
+  if (turnoVacio) {
     return {
-      message: `LA ${
+      message: `SELECCIONE EL TURNO (AM / PM) DE LA ${
         key === "act1" ? "PRIMERA" : "SEGUNDA"
-      } ACTIVIDAD REQUIERE HORA O TURNO (AM / PM)`,
-      focus: `detalle.${key}.hora`,
+      } ACTIVIDAD`,
+      focus: `detalle.${key}.turno`,
     };
   }
 
@@ -140,9 +139,6 @@ const validateViajeValues = (values: any): ValidationError | null => {
       focus: "condicion",
     };
   }
-  // ===============================
-  // VALIDAR TARIFA DEL TOUR
-  // ===============================
   const documentoCobranza = String(values.documentoCobranza ?? "").trim();
 
   // 🔹 FILTRO AUTOMÁTICO
@@ -175,16 +171,19 @@ const validateViajeValues = (values: any): ValidationError | null => {
       };
     }
   }
+  const puntoSelected = String(values.puntoPartida ?? "")
+    .trim()
+    .toUpperCase();
 
-  const tarifa = values?.detalle?.tarifa;
-
-  if (isServicioVacio(tarifa?.servicio)) {
-    return {
-      message: "SELECCIONE LA TARIFA DEL TOUR",
-      focus: "detalle.tarifa.servicio",
-    };
+  if (puntoSelected === "OTROS") {
+    if (!values.otrosPartidas?.trim()) {
+      return {
+        message:
+          "SI SELECCIONO OTROS, INGRESE EL CAMPO OTROS PUNTOS DE PARTIDA.",
+        focus: "otrosPartidas",
+      };
+    }
   }
-
   // ===============================
   // VALIDAR TURNOS DE ACTIVIDADES
   // ===============================
@@ -216,12 +215,12 @@ const validateViajeValues = (values: any): ValidationError | null => {
     act2.servicio !== "-" &&
     (act2.servicio.value || act2.servicio.label);
 
-  /*if (!act1Selected && !act2Selected) {
+  if (!act1Selected && !act2Selected) {
     return {
       message: "DEBE SELECCIONAR AL MENOS UNA ACTIVIDAD",
       focus: "detalle.act1.servicio",
     };
-  }*/
+  }
 
   // ===============================
   // VALIDAR PUNTO DE PARTIDA
@@ -384,17 +383,36 @@ function resolveServicioLabel(servicio: any) {
   return String(servicio).trim();
 }
 
+function resolveServicioProductoId(servicio: unknown): number {
+  if (!servicio || typeof servicio !== "object") return 0;
+
+  const servicioObj = servicio as Record<string, unknown>;
+  const rawId = servicioObj.id ?? servicioObj.idProducto ?? servicioObj.value;
+  const parsed = Number(rawId);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function normalizarDetalleCreate(detalle: any): string {
-  return Object.values(detalle)
-    .map((i: any) => {
+  const detalleKeys = ["act1", "act2", "act3"] as const;
+
+  return detalleKeys
+    .map((key) => {
+      const i = detalle?.[key] ?? {};
       const label = resolveServicioLabel(i?.servicio) || "-";
+      const idProductoDetalle = resolveServicioProductoId(i?.servicio);
 
       const hora =
         typeof i?.turno === "string" && i.turno.trim() ? i.turno.trim() : "-";
 
-      return [label, d(i?.precio), Number(i?.cant), d(i?.total), hora].join(
-        "|",
-      );
+      return [
+        label,
+        d(i?.precio),
+        Number(i?.cant),
+        d(i?.total),
+        hora,
+        idProductoDetalle,
+      ].join("|");
     })
     .join(";");
 }
@@ -405,6 +423,9 @@ function normalizarDetalleEdit(detalle: any): string {
       const hasServicioObject = i?.servicio && typeof i.servicio === "object";
       const detalleId =
         i?.detalleId ?? (hasServicioObject ? i.servicio.detalleId : undefined);
+      const idProductoDetalle =
+        resolveServicioProductoId(i?.servicio) ||
+        Number(i?.idProductoDetalle ?? i?.idProducto ?? 0);
 
       let resolvedServicioLabel = resolveServicioLabel(i?.servicio) || "";
       const normalizedLabel = resolvedServicioLabel.trim().toUpperCase();
@@ -424,6 +445,7 @@ function normalizarDetalleEdit(detalle: any): string {
         precio: i?.precio,
         total: i?.total,
         hora,
+        idProductoDetalle,
       };
     })
     .filter(
@@ -440,6 +462,7 @@ function normalizarDetalleEdit(detalle: any): string {
         item.cant,
         d(item.total),
         item.hora, // 👈 AM / PM
+        item.idProductoDetalle, // 👈 IdProductoDetalle
       ].join("|"),
     )
     .join(";");
@@ -552,7 +575,7 @@ function buildListaOrdenCreate(data) {
     data.region, // 50 Region
   ].join("|");
 
-  return `${orden}[${detalle}]`;
+  return `${orden}[${detalle}`;
 }
 
 function buildListaOrdenEdit(data) {
@@ -609,13 +632,13 @@ function buildListaOrdenEdit(data) {
     Number(data.notaId), // 45 NotaId
     0, // 46 Aviso
     n(data.moneda), // 47 Monedas
-    n(data.detalle.tarifa.servicio.label ?? ""), // 48 IncluyeALmuerzo
+    n(data?.detalle?.tarifa?.servicio?.label ?? ""), // 48 IncluyeALmuerzo
     "", // 49 NotaImagen
     n(data?.hotel?.label ?? ""), // 50 Hotel
     n(data.region), // 51 Region
   ].join("|");
 
-  return `${orden}[${detalle}]`;
+  return `${orden}[${detalle}`;
 }
 
 async function agregarViaje(valores, edit) {
@@ -693,7 +716,7 @@ export function adaptViajeJsonToInvoice(
       }
     : parseBackendResponse(String(backendResponse));
 
-  const actividades = ["act1", "act2"].map((key, idx) => {
+  const actividades = ["act1", "act2", "act3"].map((key, idx) => {
     const act = viajeJson.detalle?.[key];
 
     const actividad =
@@ -714,6 +737,7 @@ export function adaptViajeJsonToInvoice(
   });
 
   const detalle = viajeJson.detalle || {};
+
   const detalleRows = [
     { key: "tarifa", label: "Tarifa de Tour :" },
     { key: "act1", label: "Actividad 01 :" },
@@ -724,6 +748,16 @@ export function adaptViajeJsonToInvoice(
   ];
 
   const items = detalleRows.map(({ key, label }) => {
+    if (key === "tarifa") {
+      return {
+        label,
+        descripcion: "-",
+        precio: null,
+        cantidad: null,
+        subtotal: null,
+      };
+    }
+
     const row = detalle[key] || {};
     const servicio = row.servicio;
     const descripcion =
@@ -788,7 +822,7 @@ export function adaptViajeJsonToInvoice(
     nroDocumento: backend.nroDocumento,
 
     observaciones: viajeJson.observaciones ?? "",
-    mensajePasajero: viajeJson.mensajePasajero.toUpperCase() ?? "",
+    mensajePasajero: String(viajeJson.mensajePasajero ?? "").toUpperCase(),
     precioTotal: viajeJson.precioTotal,
     moneda: viajeJson.moneda,
     igv: viajeJson.igv,
@@ -847,8 +881,8 @@ const ViajeForm = () => {
       medioPago: "",
       detalle: {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
-        act1: { servicio: null, precio: 0, cant: 0, total: 0 },
-        act2: { servicio: null, precio: 0, cant: 0, total: 0 },
+        act1: { servicio: null, turno: "", precio: 0, cant: 0, total: 0 },
+        act2: { servicio: null, turno: "", precio: 0, cant: 0, total: 0 },
         act3: { servicio: null, precio: 0, cant: 0, total: 0 },
         traslado: { servicio: null, precio: 0, cant: 0, total: 0 },
         entrada: { servicio: null, precio: 0, cant: 0, total: 0 },
@@ -871,8 +905,8 @@ const ViajeForm = () => {
 
       detalle: formData.detalle ?? {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
-        act1: { servicio: null, precio: 0, cant: 0, total: 0 },
-        act2: { servicio: null, precio: 0, cant: 0, total: 0 },
+        act1: { servicio: null, turno: "", precio: 0, cant: 0, total: 0 },
+        act2: { servicio: null, turno: "", precio: 0, cant: 0, total: 0 },
         act3: { servicio: null, precio: 0, cant: 0, total: 0 },
         traslado: { servicio: null, precio: 0, cant: 0, total: 0 },
         entrada: { servicio: null, precio: 0, cant: 0, total: 0 },

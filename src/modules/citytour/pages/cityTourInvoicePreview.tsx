@@ -5,6 +5,7 @@ import { showToast } from "@/components/ui/AppToast";
 import PdfDocument, { type InvoiceData } from "@/components/invoice/Invoice";
 import { formatFechaParaMostrar } from "@/shared/helpers/helpers";
 import InvoiceCityTour from "@/components/invoice/InvoiceCityTour";
+import { ChevronLeft } from "lucide-react";
 
 type LocationState = {
   invoiceData?: InvoiceData;
@@ -133,7 +134,13 @@ const CityInvoicePreview = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="rounded-lg bg-slate-50 px-4 py-2">
+        <div className="rounded-lg bg-slate-50 px-4 py-2 flex">
+          <ChevronLeft
+            className="cursor-pointer mr-8"
+            onClick={() => {
+              navigate("/fullday/programacion/liquidaciones");
+            }}
+          />
           {backendInfo.orden ? (
             <p className="text-slate-800">
               <span className="font-semibold">Nro Liquidacion:</span>{" "}

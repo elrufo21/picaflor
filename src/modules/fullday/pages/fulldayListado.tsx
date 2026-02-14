@@ -16,6 +16,7 @@ import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/fulldayStore";
 import { showToast } from "@/components/ui/AppToast";
 import { toPlainText } from "@/shared/helpers/safeText";
+import { normalizeLegacyXmlPayload } from "@/shared/helpers/normalizeLegacyXmlPayload";
 const NUMERIC_KEYS = ["pax", "islas", "tubu"];
 
 const LISTADO_FIELDS = [
@@ -37,7 +38,7 @@ const LISTADO_FIELDS = [
 ];
 
 const parseListadoRow = (rowText: string, index: number) => {
-  const values = rowText.split("|");
+  const values = normalizeLegacyXmlPayload(rowText).split("|");
   const expectedLength =
     Math.max(...LISTADO_FIELDS.map((field) => field.sourceIndex)) + 1;
   let normalizedValues = values;
@@ -49,7 +50,9 @@ const parseListadoRow = (rowText: string, index: number) => {
 
   const row: Record<string, string> = {};
   LISTADO_FIELDS.forEach((field) => {
-    row[field.key] = normalizedValues[field.sourceIndex] ?? "";
+    row[field.key] = normalizeLegacyXmlPayload(
+      normalizedValues[field.sourceIndex] ?? "",
+    );
   });
 
   const lq = Number(row.lq);
@@ -84,7 +87,10 @@ const normalizeObjectRow = (item: Record<string, unknown>, index: number) => {
         (acc, key) => acc ?? item[key],
         item[field.label],
       ) ?? "";
-    row[field.key] = value === null || value === undefined ? "" : String(value);
+    row[field.key] =
+      value === null || value === undefined
+        ? ""
+        : normalizeLegacyXmlPayload(String(value));
   });
 
   const idCandidate =
@@ -104,7 +110,7 @@ const parseListado = (raw: unknown) => {
   if (Array.isArray(raw)) {
     if (raw.every((item) => typeof item === "string")) {
       return raw.flatMap((item, idx) =>
-        String(item)
+        normalizeLegacyXmlPayload(String(item))
           .split("¬")
           .map((row) => row.trim())
           .filter(Boolean)
@@ -119,7 +125,7 @@ const parseListado = (raw: unknown) => {
   }
 
   if (typeof raw === "string") {
-    return raw
+    return normalizeLegacyXmlPayload(raw)
       .split("¬")
       .map((row) => row.trim())
       .filter(Boolean)

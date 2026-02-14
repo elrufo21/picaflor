@@ -939,7 +939,7 @@ const PdfDocument = ({
                       style={[
                         contactS.noDebtBox,
                         condicion !== "CANCELADO" && {
-                          backgroundColor: "#C00000",
+                          backgroundColor: "#9b111e",
                         },
                       ]}
                     >

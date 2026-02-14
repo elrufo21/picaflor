@@ -1,218 +1,178 @@
 import { Autocomplete, TextField } from "@mui/material";
-import { Controller, useForm, useWatch } from "react-hook-form";
-import { useEffect, useRef } from "react";
+import { Controller, useWatch } from "react-hook-form";
+import { useEffect, useMemo, useRef } from "react";
 import { usePackageData } from "../../hooks/usePackageData";
 import { TextControlled } from "@/components/ui/inputs";
 import { showToast } from "@/components/ui/AppToast";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
+import { normalizeLegacyXmlPayload } from "@/shared/helpers/normalizeLegacyXmlPayload";
 import { usePackageStore } from "../../store/cityTourStore";
 import { useParams } from "react-router";
 
-const TARIFA_CITY_OPTIONS = [
-  { value: "INCLUYE ENTRADA", label: "INCLUYE ENTRADA" },
-  { value: "NO INCLUYE ENTRADA", label: "NO INCLUYE ENTRADA" },
-];
-
-/* =============================================
-   COMPONENTE REUTILIZABLE: TableRow
-============================================= */
-const TableRow = ({
-  rowKey,
-  label,
-  bgColor = "bg-orange-500",
-  control,
-  isEditing,
-  options = [],
-  showSelect = false,
-  canEditPrecio = true,
-  canEditCant = true,
-  onPrecioChange,
-  onCantChange,
-  onServiceChange,
-}) => {
-  const precio = useWatch({ control, name: `detalle.${rowKey}.precio` });
-  const cant = useWatch({ control, name: `detalle.${rowKey}.cant` });
-  const total = useWatch({ control, name: `detalle.${rowKey}.total` });
-
-  return (
-    <div className="border-b">
-      {/* MOBILE */}
-      <div className="md:hidden p-3 space-y-3">
-        <span className={`${bgColor} text-white text-xs px-2 py-1 rounded`}>
-          {label}
-        </span>
-
-        {showSelect && (
-          <>
-            <label className="text-xs font-semibold">Detalle</label>
-            <Controller
-              name={`detalle.${rowKey}.servicio`}
-              control={control}
-              render={({ field }) => (
-                <select
-                  className="w-full border rounded px-2 py-1"
-                  value={field.value?.value ?? ""}
-                  onChange={(e) => {
-                    if (!isEditing) return;
-                    const value = e.target.value;
-                    field.onChange({ value, label: value });
-                    onServiceChange?.(rowKey, { value, label: value });
-                  }}
-                >
-                  {options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            />
-          </>
-        )}
-
-        <div className="grid grid-cols-3 gap-2">
-          <input
-            type="number"
-            className="border px-2 py-1 text-right"
-            value={precio || ""}
-            disabled={!isEditing || !canEditPrecio}
-            onChange={(e) =>
-              onPrecioChange(rowKey, Number(e.target.value || 0))
-            }
-          />
-
-          <input
-            type="number"
-            className="border px-2 py-1 text-right"
-            value={cant || ""}
-            disabled={!isEditing || !canEditCant}
-            onChange={(e) => onCantChange(rowKey, Number(e.target.value || 0))}
-          />
-
-          <div className="border px-2 py-1 text-right font-bold bg-slate-50">
-            {total && Number(total) !== 0 ? formatCurrency(total) : null}
-          </div>
-        </div>
-      </div>
-
-      {/* DESKTOP */}
-      <div className="hidden md:grid grid-cols-[160px_1fr_120px_120px_120px]">
-        <div className="flex items-center px-2">
-          <span className={`${bgColor} text-white text-xs px-2 py-1 rounded`}>
-            {label}
-          </span>
-        </div>
-
-        <div className="border-l p-1">
-          {showSelect ? (
-            <Controller
-              name={`detalle.${rowKey}.servicio`}
-              control={control}
-              render={({ field }) => (
-                <select
-                  className="w-full border rounded px-2 py-1"
-                  value={field.value?.value ?? ""}
-                  onChange={(e) => {
-                    if (!isEditing) return;
-                    const value = e.target.value;
-                    field.onChange({ value, label: value });
-                    onServiceChange?.(rowKey, { value, label: value });
-                  }}
-                >
-                  {options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            />
-          ) : (
-            <div className="p-2">-</div>
-          )}
-        </div>
-
-        <div className="border-l p-1">
-          <input
-            type="number"
-            className="w-full border px-2 py-1 text-right"
-            value={precio || ""}
-            disabled={!isEditing || !canEditPrecio}
-            onChange={(e) =>
-              onPrecioChange(rowKey, Number(e.target.value || 0))
-            }
-          />
-        </div>
-
-        <div className="border-l p-1">
-          <input
-            type="number"
-            className="w-full border px-2 py-1 text-right"
-            value={cant || ""}
-            disabled
-            onChange={(e) => onCantChange(rowKey, Number(e.target.value || 0))}
-          />
-        </div>
-
-        <div className="border-l p-2 text-right font-bold">
-          {total && Number(total) !== 0 ? formatCurrency(total) : null}
-        </div>
-      </div>
-    </div>
-  );
+type ActivityRowKey = "act1" | "act2" | "act3";
+type ActivityOption = {
+  value: string;
+  label: string;
+  id?: string;
+  precioVenta?: number;
+  precioBase?: number;
+  visitas?: string;
 };
 
-/* =============================================
-   COMPONENTE PRINCIPAL
-============================================= */
+const ACTIVITY_ROWS: { key: ActivityRowKey; label: string }[] = [
+  { key: "act1", label: "Actividad 1" },
+  { key: "act2", label: "Actividad 2" },
+  { key: "act3", label: "Actividad 3" },
+];
+
+const TURNOS = ["AM", "PM"];
+const FIXED_ACTIVITY_KEY: ActivityRowKey = "act1";
+
 const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const { idProduct } = useParams();
   const { isEditing } = usePackageStore();
-  const { partidas, hoteles, horasPartida, precioProducto, direccionesHotel } =
-    usePackageData(idProduct, setValue);
-
+  const {
+    partidas,
+    hoteles,
+    horasPartida,
+    precioProducto,
+    direccionesHotel,
+    productosCityTourDetalle,
+  } = usePackageData(idProduct, setValue);
   const cantPax = Number(watch("cantPax") || 0);
   const disponibles = Number(watch("disponibles") ?? 0);
+  const prevCantPaxRef = useRef<number | null>(null);
+  const productOptions = useMemo<ActivityOption[]>(
+    () =>
+      (productosCityTourDetalle || [])
+        .map((producto) => ({
+          value: String(producto.id),
+          label: normalizeLegacyXmlPayload(
+            String(producto.nombre ?? ""),
+          ).trim(),
+          id: String(producto.id),
+          precioVenta: Number(producto.precioVenta || 0),
+          precioBase: Number(producto.precioBase || 0),
+          visitas: normalizeLegacyXmlPayload(
+            String(producto.visitas ?? ""),
+          ).trim(),
+        }))
+        .filter((option) => option.value && option.label),
+    [productosCityTourDetalle],
+  );
 
-  const tarifaInicializadaRef = useRef(false);
-  const prevCantPaxRef = useRef(null);
-  const enteredEditModePrecioRef = useRef(false);
-  const prevPrecioRef = useRef<number | null>(null);
+  const serviciosWatch = useWatch({
+    control,
+    name: [
+      "detalle.act1.servicio",
+      "detalle.act2.servicio",
+      "detalle.act3.servicio",
+    ],
+  });
+  const visitasValue = watch("visitas") || "";
 
-  /* =========================
-     EFFECTS
-  ========================= */
-  useEffect(() => {
-    const precioActual = Number(getValues("detalle.tarifa.precio")) || 0;
+  const totales = useWatch({
+    control,
+    name: ["detalle.act1.total", "detalle.act2.total", "detalle.act3.total"],
+  });
 
-    // Entramos a edición → NO tocar precio
-    if (isEditing && !enteredEditModePrecioRef.current) {
-      enteredEditModePrecioRef.current = true;
-      prevPrecioRef.current = precioActual;
-      return;
-    }
+  const selectedActivityValues = (serviciosWatch || [])
+    .map((servicio) => String(servicio?.value ?? "").trim())
+    .filter(Boolean);
 
-    // Salimos de edición
-    if (!isEditing) {
-      enteredEditModePrecioRef.current = false;
-      return;
-    }
+  const fixedProductOption = useMemo(() => {
+    const fixedId = String(precioProducto?.id ?? "").trim();
+    if (!fixedId) return null;
+    return productOptions.find((option) => String(option.value) === fixedId) ?? null;
+  }, [productOptions, precioProducto?.id]);
 
-    // Si ya hay precio, NO inicializar
-    if (precioActual > 0) return;
+  const SubTotal = ({ name, visible = true }) => {
+    const total = useWatch({ control, name });
 
-    // Inicializar SOLO si está vacío
-    if (!precioProducto?.precioBase) return;
+    if (!visible || !total || Number(total) === 0) return null;
+    return <>{formatCurrency(total)}</>;
+  };
 
-    const base = roundCurrency(Number(precioProducto.precioBase));
+  const getPrecioActividad = (option: ActivityOption | null) => {
+    if (!option) return 0;
+    const precioVenta = Number(option.precioVenta || 0);
+    const precioBase = Number(option.precioBase || 0);
+    const precio = precioVenta > 0 ? precioVenta : precioBase;
+    return roundCurrency(precio);
+  };
 
-    setValue("detalle.tarifa.precio", base, { shouldDirty: false });
+  const isRowInactive = (rowKey: ActivityRowKey) => {
+    const servicio = getValues(`detalle.${rowKey}.servicio`);
+    return !servicio || !servicio.value;
+  };
 
-    const cant = Number(getValues("detalle.tarifa.cant")) || 1;
-    setValue("detalle.tarifa.total", roundCurrency(base * cant), {
-      shouldDirty: false,
+  const isRowLocked = (rowKey: ActivityRowKey) => rowKey === FIXED_ACTIVITY_KEY;
+
+  const handlePrecioChange = (rowKey: ActivityRowKey, value: number) => {
+    if (!isEditing || isRowLocked(rowKey)) return;
+
+    const rounded = roundCurrency(value);
+    const cant = Number(getValues(`detalle.${rowKey}.cant`)) || 0;
+
+    setValue(`detalle.${rowKey}.precio`, rounded, { shouldDirty: true });
+    setValue(`detalle.${rowKey}.total`, roundCurrency(rounded * cant), {
+      shouldDirty: true,
     });
-  }, [isEditing, precioProducto, getValues, setValue]);
+  };
+
+  const handleServiceChange = (
+    rowKey: ActivityRowKey,
+    value: string,
+    onChange: (value: ActivityOption | null) => void,
+  ) => {
+    if (!isEditing || isRowLocked(rowKey)) return;
+
+    if (cantPax <= 0 && value !== "") {
+      showToast({
+        title: "Alerta",
+        description: "Anade un pasajero por lo menos.",
+        type: "error",
+      });
+      return;
+    }
+
+    const selected =
+      (productOptions || []).find((option) => option.value === value) ?? null;
+    onChange(selected);
+
+    if (!selected) {
+      setValue(`detalle.${rowKey}.turno`, "", { shouldDirty: true });
+      setValue(`detalle.${rowKey}.precio`, 0, { shouldDirty: true });
+      setValue(`detalle.${rowKey}.cant`, 0, { shouldDirty: true });
+      setValue(`detalle.${rowKey}.total`, 0, { shouldDirty: true });
+      return;
+    }
+
+    const precio = getPrecioActividad(selected);
+    setValue(`detalle.${rowKey}.precio`, precio, { shouldDirty: true });
+    setValue(`detalle.${rowKey}.cant`, cantPax, { shouldDirty: true });
+    setValue(`detalle.${rowKey}.total`, roundCurrency(precio * cantPax), {
+      shouldDirty: true,
+    });
+  };
+
+  const getActivityOptions = (
+    rowKey: ActivityRowKey,
+    currentValue: string,
+  ): (ActivityOption & { descripcion?: string })[] => {
+    if (isRowLocked(rowKey)) {
+      return fixedProductOption ? [fixedProductOption] : [];
+    }
+
+    return (productOptions || []).filter((option) => {
+      const value = String(option.value ?? "").trim();
+      if (!value) return false;
+      if (value === String(currentValue ?? "").trim()) return true;
+      return !selectedActivityValues.includes(value);
+    });
+  };
+
+  const getTurnoOptions = () => TURNOS;
 
   useEffect(() => {
     if (!isEditing) return;
@@ -228,126 +188,159 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   }, [cantPax, disponibles, setValue, isEditing]);
 
   useEffect(() => {
-    if (!isEditing) return;
-    if (!precioProducto?.precioVenta) return;
-
-    const tarifa = getValues("detalle.tarifa");
-
-    if (
-      tarifaInicializadaRef.current &&
-      tarifa?.precio > 0 &&
-      tarifa?.cant > 0
-    ) {
-      return;
-    }
-
-    const base = roundCurrency(Number(precioProducto.precioVenta));
-
-    setValue("detalle.tarifa.precioBase", base);
-    setValue("detalle.tarifa.precio", base);
-    setValue("detalle.tarifa.cant", cantPax || 0);
-    setValue("detalle.tarifa.total", roundCurrency(base * (cantPax || 0)));
-
-    tarifaInicializadaRef.current = true;
-  }, [precioProducto, cantPax, isEditing, getValues, setValue]);
-
-  const totales = useWatch({
-    control,
-    name: ["detalle.tarifa.total"],
-  });
-
-  useEffect(() => {
-    const suma = totales.reduce((acc, v) => acc + Number(v || 0), 0);
+    const suma = (totales || []).reduce(
+      (acc, val) => acc + Number(val || 0),
+      0,
+    );
     setValue("precioTotal", roundCurrency(suma));
   }, [totales, setValue]);
 
-  const tarifaServicio = useWatch({
-    control,
-    name: "detalle.tarifa.servicio",
-  });
+  useEffect(() => {
+    const selectedValues = (serviciosWatch || [])
+      .map((servicio) => String(servicio?.value ?? "").trim())
+      .filter(Boolean);
+
+    const visitasProductos = selectedValues
+      .map(
+        (value) =>
+          productOptions?.find((producto) => String(producto.value) === value)
+            ?.visitas,
+      )
+      .map((visitasProducto) =>
+        normalizeLegacyXmlPayload(String(visitasProducto ?? "")).trim(),
+      )
+      .filter((visitasProducto): visitasProducto is string =>
+        Boolean(visitasProducto),
+      );
+
+    const visitasBase = normalizeLegacyXmlPayload(
+      String(precioProducto?.visitas || ""),
+    );
+
+    const visitasFromActivities =
+      visitasProductos.length > 0
+        ? Array.from(new Set(visitasProductos)).join(" / ")
+        : visitasBase;
+
+    const currentVisitas = normalizeLegacyXmlPayload(
+      String(getValues("visitas") || ""),
+    );
+    if (currentVisitas === visitasFromActivities) return;
+
+    setValue("visitas", visitasFromActivities, {
+      shouldDirty: true,
+      shouldTouch: false,
+    });
+  }, [
+    serviciosWatch,
+    productOptions,
+    precioProducto?.visitas,
+    getValues,
+    setValue,
+  ]);
 
   useEffect(() => {
-    if (!isEditing) return;
-
-    if (!tarifaServicio || tarifaServicio.value === "") {
-      setValue("detalle.tarifa.precio", 0, { shouldDirty: true });
-      setValue("detalle.tarifa.total", 0, { shouldDirty: true });
-    }
-  }, [tarifaServicio, isEditing, setValue]);
-
-  const enteredEditModeRef = useRef(false);
-
-  useEffect(() => {
-    // Entramos a modo edición
-    if (isEditing && !enteredEditModeRef.current) {
-      enteredEditModeRef.current = true;
+    if (!isEditing) {
       prevCantPaxRef.current = cantPax;
       return;
     }
 
-    // Salimos de edición
-    if (!isEditing) {
-      enteredEditModeRef.current = false;
-      return;
-    }
-
-    // Si cantPax no cambió, NO tocar cantidad
     if (prevCantPaxRef.current === cantPax) return;
-
     prevCantPaxRef.current = cantPax;
 
-    const precio = Number(getValues("detalle.tarifa.precio")) || 0;
+    ACTIVITY_ROWS.forEach((row) => {
+      const servicio = getValues(`detalle.${row.key}.servicio`);
+      if (!servicio || !servicio.value) {
+        setValue(`detalle.${row.key}.cant`, 0, { shouldDirty: true });
+        setValue(`detalle.${row.key}.total`, 0, { shouldDirty: true });
+        return;
+      }
 
-    setValue("detalle.tarifa.cant", cantPax, { shouldDirty: true });
-    setValue("detalle.tarifa.total", roundCurrency(precio * cantPax), {
-      shouldDirty: true,
+      const precio = Number(getValues(`detalle.${row.key}.precio`)) || 0;
+      setValue(`detalle.${row.key}.cant`, cantPax, { shouldDirty: true });
+      setValue(`detalle.${row.key}.total`, roundCurrency(precio * cantPax), {
+        shouldDirty: true,
+      });
     });
   }, [cantPax, isEditing, getValues, setValue]);
 
-  /* =========================
-     HANDLERS
-  ========================= */
-  const handlePrecioChange = (rowKey, value) => {
-    if (!isEditing) return;
-
-    const rounded = roundCurrency(value);
-    setValue(`detalle.${rowKey}.precio`, rounded);
-
-    const cant = Number(getValues(`detalle.${rowKey}.cant`)) || 0;
-    setValue(`detalle.${rowKey}.total`, roundCurrency(rounded * cant));
-  };
-
-  const handleCantidadChange = (rowKey, value) => {
-    if (!isEditing) return;
-
-    let cant = Math.min(value, cantPax);
-
-    setValue(`detalle.${rowKey}.cant`, cant);
-
-    const precio = Number(getValues(`detalle.${rowKey}.precio`)) || 0;
-    setValue(`detalle.${rowKey}.total`, roundCurrency(precio * cant));
-  };
-
-  const handleServiceChange = (rowKey, option) => {
-    // Lógica específica si es necesario
-  };
   useEffect(() => {
-    const servicio = getValues("detalle.tarifa.servicio");
+    if (!isEditing) return;
+    if (!fixedProductOption) return;
 
-    // Si ya tiene valor, NO tocar (respeta edición)
-    if (servicio?.value) return;
+    const currentServicio = getValues(`detalle.${FIXED_ACTIVITY_KEY}.servicio`);
+    const currentValue = String(currentServicio?.value ?? "").trim();
+    const fixedValue = String(fixedProductOption.value ?? "").trim();
+    const targetPrecio = getPrecioActividad(fixedProductOption);
+    const targetCant = cantPax;
+    const targetTotal = roundCurrency(targetPrecio * targetCant);
+    const currentPrecio =
+      Number(getValues(`detalle.${FIXED_ACTIVITY_KEY}.precio`)) || 0;
+    const currentCant =
+      Number(getValues(`detalle.${FIXED_ACTIVITY_KEY}.cant`)) || 0;
+    const currentTotal =
+      Number(getValues(`detalle.${FIXED_ACTIVITY_KEY}.total`)) || 0;
 
-    // Set default SOLO si está vacío
-    setValue(
-      "detalle.tarifa.servicio",
-      { value: "INCLUYE ENTRADA", label: "INCLUYE ENTRADA" },
-      { shouldDirty: false },
-    );
-  }, [getValues, setValue]);
+    if (
+      currentValue === fixedValue &&
+      currentPrecio === targetPrecio &&
+      currentCant === targetCant &&
+      currentTotal === targetTotal
+    ) {
+      return;
+    }
 
-  const handleHotelChange = (idHotel) => {
+    setValue(`detalle.${FIXED_ACTIVITY_KEY}.servicio`, fixedProductOption, {
+      shouldDirty: false,
+    });
+    setValue(`detalle.${FIXED_ACTIVITY_KEY}.precio`, targetPrecio, {
+      shouldDirty: false,
+    });
+    setValue(`detalle.${FIXED_ACTIVITY_KEY}.cant`, targetCant, {
+      shouldDirty: false,
+    });
+    setValue(`detalle.${FIXED_ACTIVITY_KEY}.total`, targetTotal, {
+      shouldDirty: false,
+    });
+  }, [isEditing, fixedProductOption, cantPax, getValues, setValue]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    ACTIVITY_ROWS.forEach((row, index) => {
+      if (isRowLocked(row.key)) return;
+
+      const servicio = serviciosWatch[index];
+      const inactive = !servicio || !servicio.value;
+      if (!inactive) return;
+
+      setValue(`detalle.${row.key}.turno`, "", { shouldDirty: true });
+      setValue(`detalle.${row.key}.precio`, 0, { shouldDirty: true });
+      setValue(`detalle.${row.key}.cant`, 0, { shouldDirty: true });
+      setValue(`detalle.${row.key}.total`, 0, { shouldDirty: true });
+    });
+  }, [serviciosWatch, isEditing, setValue]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    if (!precioProducto) return;
+    if (cantPax <= 0) return;
+
+    ACTIVITY_ROWS.forEach((row) => {
+      const servicio = getValues(`detalle.${row.key}.servicio`);
+      if (!servicio || !servicio.value) return;
+
+      const precio = Number(getValues(`detalle.${row.key}.precio`)) || 0;
+      setValue(`detalle.${row.key}.cant`, cantPax, { shouldDirty: false });
+      setValue(`detalle.${row.key}.total`, roundCurrency(precio * cantPax), {
+        shouldDirty: false,
+      });
+    });
+  }, [precioProducto, cantPax, isEditing, getValues, setValue]);
+
+  const handleHotelChange = (idHotel: string) => {
     const direccion = direccionesHotel?.find(
-      (d) => d.idHotel == Number(idHotel),
+      (direccionItem) => direccionItem.idHotel == Number(idHotel),
     );
     setValue("otrosPartidas", direccion?.direccion);
   };
@@ -367,13 +360,13 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       setValue("hotel", null, { shouldDirty: true });
       return;
     }
+
     setValue("hotel", null, { shouldDirty: true });
     setValue("otrosPartidas", "", { shouldDirty: true });
   }, [isHotel, isOtros, setValue, isEditing]);
 
   return (
     <div className="p-2.5 space-y-3">
-      {/* PARTIDA / HOTEL */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
         <label className="flex flex-col text-sm md:col-span-3">
           <span className="font-semibold mb-1">Punto partida</span>
@@ -391,11 +384,12 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                   field.onChange(selectedValue);
 
                   const partida = partidas?.find(
-                    (p) => p.value === selectedValue,
+                    (partidaItem) => partidaItem.value === selectedValue,
                   );
                   const hora =
                     horasPartida?.find(
-                      (h) => String(h.idParti) === String(partida?.id),
+                      (horaItem) =>
+                        String(horaItem.idParti) === String(partida?.id),
                     )?.hora ?? "";
 
                   setValue("horaPartida", hora, { shouldDirty: true });
@@ -405,9 +399,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                 <option value="HOTEL">Hotel</option>
                 <option value="OTROS">Otros</option>
 
-                {partidas?.map((p) => (
-                  <option key={p.id} value={p.value}>
-                    {p.label}
+                {partidas?.map((partidaItem) => (
+                  <option key={partidaItem.id} value={partidaItem.value}>
+                    {partidaItem.label}
                   </option>
                 ))}
               </select>
@@ -424,11 +418,13 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
             render={({ field }) => (
               <Autocomplete
                 options={hoteles || []}
-                getOptionLabel={(o) => o.label}
-                isOptionEqualToValue={(o, v) => o.value === v?.value}
+                getOptionLabel={(option) => option.label}
+                isOptionEqualToValue={(option, value) =>
+                  option.value === value?.value
+                }
                 size="small"
                 value={field.value || null}
-                disabled={!isHotel && !isOtros}
+                disabled={!isHotel}
                 onChange={(_, option) => {
                   if (!option) {
                     field.onChange(null);
@@ -438,7 +434,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                   handleHotelChange(option.value);
                   field.onChange(option);
                   setTimeout(() => {
-                    document.querySelector("#otrosPartidas")?.focus();
+                    document
+                      .querySelector<HTMLInputElement>("#otrosPartidas")
+                      ?.focus();
                   }, 0);
                 }}
                 renderInput={(params) => (
@@ -468,38 +466,256 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
             rows={4}
             disabled
             className="rounded-lg border px-2 py-1.5"
-            value={precioProducto?.visitas || ""}
+            value={visitasValue}
           />
         </label>
       </div>
 
-      {/* TABLA */}
       <div
         data-grid-form
         className="w-full border border-black text-sm overflow-x-auto"
       >
-        <div className="hidden md:grid grid-cols-[160px_1fr_120px_120px_120px] border-b font-bold">
+        <div className="hidden md:grid grid-cols-[140px_1fr_100px_120px_100px_120px] border-b font-bold">
           <div />
           <div className="border-l p-2">Detalle</div>
+          <div className="border-l p-2 text-center">Turno</div>
           <div className="border-l p-2 text-center">Precio</div>
           <div className="border-l p-2 text-center">Cant</div>
           <div className="border-l p-2 text-center">SubTotal</div>
         </div>
 
-        <TableRow
-          rowKey="tarifa"
-          label="Tarifa Tour"
-          bgColor="bg-orange-500"
-          control={control}
-          isEditing={isEditing}
-          showSelect={true}
-          options={TARIFA_CITY_OPTIONS}
-          canEditPrecio={true}
-          canEditCant={true}
-          onPrecioChange={handlePrecioChange}
-          onCantChange={handleCantidadChange}
-          onServiceChange={handleServiceChange}
-        />
+        {ACTIVITY_ROWS.map((row) => (
+          <div key={row.key} className="border-b">
+            <div className="md:hidden p-3 space-y-3">
+              <div>
+                <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded inline-block">
+                  {row.label}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1">
+                  Detalle
+                </label>
+                <Controller
+                  name={`detalle.${row.key}.servicio`}
+                  control={control}
+                  render={({ field }) => (
+                    <select
+                      className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                      value={field.value?.value ?? ""}
+                      disabled={!isEditing || isRowLocked(row.key)}
+                      onChange={(e) =>
+                        handleServiceChange(
+                          row.key,
+                          e.target.value,
+                          field.onChange,
+                        )
+                      }
+                    >
+                      <option value="">(SELECCIONE)</option>
+                      {getActivityOptions(row.key, field.value?.value).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1">
+                  Turno
+                </label>
+                <Controller
+                  name={`detalle.${row.key}.turno`}
+                  control={control}
+                  render={({ field }) => (
+                    <select
+                      className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                      value={field.value ?? ""}
+                      disabled={!isEditing || isRowInactive(row.key)}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    >
+                      <option value="">-</option>
+                      {getTurnoOptions().map((turno) => (
+                        <option key={turno} value={turno}>
+                          {turno}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    Precio
+                  </label>
+                  <Controller
+                    name={`detalle.${row.key}.precio`}
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        type="number"
+                        step="0.01"
+                        inputMode="decimal"
+                        className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
+                        value={field.value === 0 ? "" : field.value}
+                        disabled={
+                          !isEditing || isRowInactive(row.key) || isRowLocked(row.key)
+                        }
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          handlePrecioChange(
+                            row.key,
+                            raw === "" ? 0 : Number(raw || 0),
+                          );
+                        }}
+                      />
+                    )}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    Cant
+                  </label>
+                  <Controller
+                    name={`detalle.${row.key}.cant`}
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        readOnly
+                        className="w-full border px-2 py-1 text-right bg-slate-100"
+                        value={field.value === 0 ? "" : field.value}
+                      />
+                    )}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    SubTotal
+                  </label>
+                  <div className="w-full border px-2 py-2 text-right font-bold bg-slate-50 flex items-center justify-end min-h-[30px]">
+                    <SubTotal
+                      name={`detalle.${row.key}.total`}
+                      visible={!isRowInactive(row.key)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden md:grid grid-cols-[140px_1fr_100px_120px_100px_120px]">
+              <div className="flex items-center px-2">
+                <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                  {row.label}
+                </span>
+              </div>
+
+              <div className="border-l p-1">
+                <Controller
+                  name={`detalle.${row.key}.servicio`}
+                  control={control}
+                  render={({ field }) => (
+                    <select
+                      className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                      value={field.value?.value ?? ""}
+                      disabled={!isEditing || isRowLocked(row.key)}
+                      onChange={(e) =>
+                        handleServiceChange(
+                          row.key,
+                          e.target.value,
+                          field.onChange,
+                        )
+                      }
+                    >
+                      <option value="">(SELECCIONE)</option>
+                      {getActivityOptions(row.key, field.value?.value).map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
+              </div>
+
+              <div className="border-l p-1">
+                <Controller
+                  name={`detalle.${row.key}.turno`}
+                  control={control}
+                  render={({ field }) => (
+                    <select
+                      className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
+                      value={field.value ?? ""}
+                      disabled={!isEditing || isRowInactive(row.key)}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    >
+                      <option value="">-</option>
+                      {getTurnoOptions().map((turno) => (
+                        <option key={turno} value={turno}>
+                          {turno}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
+              </div>
+
+              <div className="border-l p-1">
+                <Controller
+                  name={`detalle.${row.key}.precio`}
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      className="w-full border px-2 py-1 text-right disabled:bg-slate-100"
+                      value={field.value === 0 ? "" : field.value}
+                      disabled={
+                        !isEditing || isRowInactive(row.key) || isRowLocked(row.key)
+                      }
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        handlePrecioChange(
+                          row.key,
+                          raw === "" ? 0 : Number(raw || 0),
+                        );
+                      }}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="border-l p-1">
+                <Controller
+                  name={`detalle.${row.key}.cant`}
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      readOnly
+                      className="w-full border px-2 py-1 text-right bg-slate-100"
+                      value={field.value === 0 ? "" : field.value}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="border-l p-2 text-right font-bold">
+                <SubTotal
+                  name={`detalle.${row.key}.total`}
+                  visible={!isRowInactive(row.key)}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
