@@ -32,7 +32,10 @@ import { API_BASE_URL } from "@/config";
 import type { InvoiceData } from "@/components/invoice/Invoice";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
-import { handleNumberInputArrowNavigation, toISODate } from "@/shared/helpers/helpers";
+import {
+  handleNumberInputArrowNavigation,
+  toISODate,
+} from "@/shared/helpers/helpers";
 import { formatDate } from "@/shared/helpers/formatDate";
 import { serviciosDB } from "@/app/db/serviciosDB";
 function parseFecha(fecha: string): string {
@@ -141,21 +144,19 @@ const validateViajeValues = (values: any): ValidationError | null => {
   }
   const documentoCobranza = String(values.documentoCobranza ?? "").trim();
 
-  // 🔹 FILTRO AUTOMÁTICO
   let nserie = String(values.nserie ?? "").toUpperCase();
   let ndocumento = String(values.ndocumento ?? "");
 
-  // solo letras y números
   nserie = nserie.replace(/[^A-Z0-9]/g, "").slice(0, 4);
 
-  // solo números para número de documento (si aplica)
   ndocumento = ndocumento.replace(/[^0-9]/g, "");
 
-  // opcional: reinyectar valores filtrados
   values.nserie = nserie;
   values.ndocumento = ndocumento;
 
-  if (documentoCobranza !== "DOCUMENTO COBRANZA") {
+  const hasDocumentoData = nserie.length > 0 || ndocumento.length > 0;
+
+  if (documentoCobranza !== "DOCUMENTO COBRANZA" && hasDocumentoData) {
     if (!/^[A-Z0-9]{4}$/.test(nserie)) {
       return {
         message:

@@ -69,6 +69,9 @@ type DndTableProps<TData extends Record<string, any>> = {
   dateFilterComponent?: (() => ReactNode) | null;
   rowColorRules?: RowColorRule<TData>[];
   enableCellNavigation?: boolean;
+  paginationState?: PaginationState;
+  onPaginationStateChange?: ((pagination: PaginationState) => void) | null;
+  autoResetPageIndex?: boolean;
 };
 
 // ============================================
@@ -97,22 +100,29 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   dateFilterComponent = null,
   rowColorRules = [] as RowColorRule<TData>[],
   enableCellNavigation = false,
+  paginationState,
+  onPaginationStateChange = null,
+  autoResetPageIndex = true,
 }: DndTableProps<TData>) => {
   const location = useLocation();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize,
-  });
+  const [pagination, setPagination] = useState<PaginationState>(
+    () =>
+      paginationState ?? {
+        pageIndex: 0,
+        pageSize,
+      },
+  );
   const [dateFilter, setDateFilter] = useState("");
   const [activeCell, setActiveCell] = useState<{
     row: number;
     col: number;
   } | null>(null);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const previousDateFilterRef = useRef<string | null>(null);
   const searchColumnsKey = (searchColumns ?? []).join(",");
   const searchColumnSet = useMemo(() => {
     if (!searchColumnsKey) return null;
@@ -148,9 +158,55 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
     setRowSelection({});
   }, [enableRowSelection]);
 
+  const handlePaginationChange = useCallback(
+    (updater: SetStateAction<PaginationState>) => {
+      setPagination((prev) => {
+        const next =
+          typeof updater === "function"
+            ? (updater as (prevState: PaginationState) => PaginationState)(prev)
+            : updater;
+
+        if (
+          next.pageIndex === prev.pageIndex &&
+          next.pageSize === prev.pageSize
+        ) {
+          return prev;
+        }
+
+        onPaginationStateChange?.(next);
+        return next;
+      });
+    },
+    [onPaginationStateChange],
+  );
+
   useEffect(() => {
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [dateFilter]);
+    if (!paginationState) return;
+
+    setPagination((prev) => {
+      if (
+        prev.pageIndex === paginationState.pageIndex &&
+        prev.pageSize === paginationState.pageSize
+      ) {
+        return prev;
+      }
+      return paginationState;
+    });
+  }, [paginationState]);
+
+  useEffect(() => {
+    if (previousDateFilterRef.current === null) {
+      previousDateFilterRef.current = dateFilter;
+      return;
+    }
+
+    if (previousDateFilterRef.current === dateFilter) {
+      return;
+    }
+
+    previousDateFilterRef.current = dateFilter;
+    handlePaginationChange((prev) => ({ ...prev, pageIndex: 0 }));
+  }, [dateFilter, handlePaginationChange]);
 
   const shouldFilter =
     enableFiltering || // actual column filters
@@ -195,7 +251,8 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     onRowSelectionChange: setRowSelection,
-    onPaginationChange: setPagination,
+    onPaginationChange: handlePaginationChange,
+    autoResetPageIndex,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     getFilteredRowModel: shouldFilter ? getFilteredRowModel() : undefined,

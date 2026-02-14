@@ -12,9 +12,13 @@ import { usePackageStore } from "@/modules/citytour/store/cityTourStore";
 const NAVIGATION_FILTER_STORAGE_RULES = [
   {
     routePrefix: "/fullday/programacion/liquidaciones",
-    storageKeys: ["fullday:programacion-liquidaciones:filters:v1"],
+    storageKeys: [
+      "fullday:programacion-liquidaciones:filters:v1",
+      "fullday:programacion-liquidaciones:pagination:v1",
+    ],
   },
 ] as const;
+const FULLDAY_PROGRAMACION_ROUTE = "/fullday/programacion/liquidaciones";
 
 const MainLayout = () => {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -55,8 +59,18 @@ const MainLayout = () => {
     if (typeof window === "undefined") return;
     const normalizedTargetPath = String(targetPath || "").toLowerCase().trim();
     const shouldKeepProgramacionFilters =
-      normalizedTargetPath === "/fullday/programacion/liquidaciones";
+      normalizedTargetPath === FULLDAY_PROGRAMACION_ROUTE;
     if (shouldKeepProgramacionFilters) return;
+
+    NAVIGATION_FILTER_STORAGE_RULES.forEach((rule) => {
+      rule.storageKeys.forEach((key) => {
+        window.sessionStorage.removeItem(key);
+      });
+    });
+  };
+
+  const clearAllPersistedNavigationState = () => {
+    if (typeof window === "undefined") return;
 
     NAVIGATION_FILTER_STORAGE_RULES.forEach((rule) => {
       rule.storageKeys.forEach((key) => {
@@ -365,6 +379,7 @@ const MainLayout = () => {
               <MenuItem
                 onClick={() => {
                   handleCloseMenu();
+                  clearAllPersistedNavigationState();
                   logout();
                   navigate("/login", { replace: true });
                 }}
