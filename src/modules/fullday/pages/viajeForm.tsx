@@ -35,7 +35,7 @@ import { API_BASE_URL } from "@/config";
 import type { InvoiceData } from "@/components/invoice/Invoice";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
-import { handleNumberInputArrowNavigation, toISODate } from "@/shared/helpers/helpers";
+import { toISODate } from "@/shared/helpers/helpers";
 import { formatDate } from "@/shared/helpers/formatDate";
 function parseFecha(fecha: string): string {
   if (!fecha) return "";
@@ -1095,8 +1095,6 @@ const ViajeForm = () => {
   }, []);
   console.log("watch", watch());
   const handleEnterFocus = (e) => {
-    if (handleNumberInputArrowNavigation(e)) return;
-
     if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
       e.preventDefault();
       const form = e.target.form;
@@ -1321,7 +1319,7 @@ const ViajeForm = () => {
                         setValue={setValue}
                       />
                       <Divider />
-                      {liquidacionId ? (
+                      {/*liquidacionId ? (
                         <div className="space-y-3">
                           <Tabs
                             value={tabValue}
@@ -1352,13 +1350,15 @@ const ViajeForm = () => {
                           watch={watch}
                           getValues={getValues}
                         />
-                      )}
-                      {/** <ViajeDetalleComponent
-                        control={control}
-                        setValue={setValue}
-                        watch={watch}
-                        getValues={getValues}
-                      /> */}
+                      )*/}
+                      {
+                        <ViajeDetalleComponent
+                          control={control}
+                          setValue={setValue}
+                          watch={watch}
+                          getValues={getValues}
+                        />
+                      }
                     </div>
                   </div>
                   <PaimentDetailComponent
