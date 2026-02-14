@@ -327,7 +327,7 @@ const PackageList = () => {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (row.original.estado === "BLOQUEADO") return;
+                if (Number(row.original.cantTotalPax) === 0) return;
                 handleListadoClick(row.original);
               }}
               className={`w-28 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200
