@@ -14,10 +14,7 @@ import {
   type ActivityDetail,
 } from "./fulldayPassengerCreate";
 import type { Producto } from "@/app/db/serviciosDB";
-import {
-  hasServiciosData,
-  serviciosDB,
-} from "@/app/db/serviciosDB";
+import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
 import { useCanalVenta } from "../hooks/useCanalVenta";
 
 type BackendDetalle = {
@@ -1011,7 +1008,10 @@ const LiquidacionesPage = () => {
     };
 
     const productosById = new Map(
-      (productosCatalogo || []).map((producto) => [Number(producto.id), producto]),
+      (productosCatalogo || []).map((producto) => [
+        Number(producto.id),
+        producto,
+      ]),
     );
     const productosByName = new Map(
       (productosCatalogo || []).map((producto) => [
@@ -1040,8 +1040,11 @@ const LiquidacionesPage = () => {
       if (!actividadRaw || actividadRaw === "-") return emptyServicio;
 
       const productId = getDetalleProductId(detalle);
-      const matchedById = productId > 0 ? productosById.get(productId) : undefined;
-      const matchedByName = productosByName.get(normalizeProductName(actividadRaw));
+      const matchedById =
+        productId > 0 ? productosById.get(productId) : undefined;
+      const matchedByName = productosByName.get(
+        normalizeProductName(actividadRaw),
+      );
       const normalizedActividad = normalizeProductName(actividadRaw);
       const matchedByContains = productosNormalized.find(
         (producto) =>
@@ -1144,7 +1147,8 @@ const LiquidacionesPage = () => {
     if (isNewCityTourFormat) {
       detalles.forEach((d, index) => {
         if (index >= 0 && index <= 2) {
-          rows[`act${index + 1}` as "act1" | "act2" | "act3"] = buildNormalRow(d);
+          rows[`act${index + 1}` as "act1" | "act2" | "act3"] =
+            buildNormalRow(d);
         }
       });
       return rows;
@@ -1257,17 +1261,11 @@ const LiquidacionesPage = () => {
       detalle:
         row.flagServicio == "1"
           ? normalizeBackendDetalleToForm(detalle)
-          : normalizeBackendDetalleToFormCityTour(
-              detalle,
-              productosLocal,
-            ),
+          : normalizeBackendDetalleToFormCityTour(detalle, productosLocal),
       detallexd:
         row.flagServicio == "1"
           ? normalizeBackendDetalleToForm(detalle)
-          : normalizeBackendDetalleToFormCityTour(
-              detalle,
-              productosLocal,
-            ),
+          : normalizeBackendDetalleToFormCityTour(detalle, productosLocal),
       canalDeVenta,
       hotel: hotel ? { label: hotel?.nombre, value: Number(hotel?.id) } : null,
       puntoPartida: data.puntoPartida,
@@ -1739,19 +1737,26 @@ const LiquidacionesPage = () => {
         enableCellNavigation={true}
         rowColorRules={[
           {
-            when: (row) => row.condicion === "CREDITO",
-            className: "bg-orange-200 text-orange-700",
-          },
-          {
-            when: (row) => row.estado === "ANULADO",
+            when: (row) => String(row.estado ?? "").trim().toUpperCase() === "ANULADO",
             className: "bg-red-50 text-red-700",
           },
           {
-            when: (row) => row.estado === "PENDIENTE",
+            when: (row) =>
+              String(row.estado ?? "").trim().toUpperCase() !== "ANULADO" &&
+              row.condicion === "CREDITO",
+            className: "bg-orange-200 text-orange-700",
+          },
+
+          {
+            when: (row) =>
+              String(row.estado ?? "").trim().toUpperCase() !== "ANULADO" &&
+              row.estado === "PENDIENTE",
             className: "bg-yellow-50 text-yellow-800",
           },
           {
-            when: (row) => row.estado === "CANCELADO",
+            when: (row) =>
+              String(row.estado ?? "").trim().toUpperCase() !== "ANULADO" &&
+              row.estado === "CANCELADO",
             className: "bg-white text-slate-900",
           },
         ]}
