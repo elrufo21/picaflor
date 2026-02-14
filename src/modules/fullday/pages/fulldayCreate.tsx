@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
+import { handleNumberInputArrowNavigation } from "@/shared/helpers/helpers";
 import { usePackageStore } from "../store/fulldayStore";
 
 type FormValues = {
@@ -37,6 +38,10 @@ const PackageCreate = () => {
     reset();
   });
 
+  const handleFormKeyDown = (e) => {
+    handleNumberInputArrowNavigation(e);
+  };
+
   return (
     <div className="max-w-2xl bg-white rounded-xl shadow-sm border border-slate-200 p-6">
       <h1 className="text-xl font-semibold text-slate-900">Nuevo Full Day</h1>
@@ -44,7 +49,7 @@ const PackageCreate = () => {
         Completa los datos y guarda para agregarlo al listado.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <form onSubmit={onSubmit} onKeyDown={handleFormKeyDown} className="mt-6 space-y-4">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-slate-800">Destino</label>
           <input

@@ -23,6 +23,7 @@ import {
 } from "../utils/payloadBuilder";
 import type { CanalOption, SelectOption } from "../hooks/canalUtils";
 import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
+import { handleNumberInputArrowNavigation } from "@/shared/helpers/helpers";
 import { API_BASE_URL } from "@/config";
 
 export const DEFAULT_FORM_PAYLOAD = {
@@ -1270,6 +1271,8 @@ const PackagePassengerCreate = () => {
   };
 
   const handleEnterFocus = (e: KeyboardEvent<HTMLFormElement>) => {
+    if (handleNumberInputArrowNavigation(e)) return;
+
     if (e.key !== "Enter") return;
     const target = e.target as HTMLElement;
     if (target.tagName === "BUTTON") return;
