@@ -32,7 +32,7 @@ import { API_BASE_URL } from "@/config";
 import type { InvoiceData } from "@/components/invoice/Invoice";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
-import { toISODate } from "@/shared/helpers/helpers";
+import { handleNumberInputArrowNavigation, toISODate } from "@/shared/helpers/helpers";
 import { formatDate } from "@/shared/helpers/formatDate";
 import { serviciosDB } from "@/app/db/serviciosDB";
 function parseFecha(fecha: string): string {
@@ -1216,6 +1216,8 @@ const ViajeForm = () => {
     setIsEditing(true);
   };
   const handleEnterFocus = (e) => {
+    if (handleNumberInputArrowNavigation(e)) return;
+
     if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
       e.preventDefault();
       const form = e.target.form;

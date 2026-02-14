@@ -220,6 +220,43 @@ export function moveFocus(current: HTMLElement, direction: "next" | "prev") {
   focusables[nextIndex]?.focus();
 }
 
+type NumberArrowNavigationEvent = {
+  key: string;
+  target: EventTarget | null;
+  defaultPrevented?: boolean;
+  preventDefault: () => void;
+};
+
+export function handleNumberInputArrowNavigation(
+  event: NumberArrowNavigationEvent,
+): boolean {
+  if (event.defaultPrevented) return false;
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return false;
+
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return false;
+  if (target.type !== "number" || target.disabled || target.readOnly) return false;
+
+  const scope =
+    target.form ??
+    target.closest<HTMLElement>("[data-number-nav-scope]") ??
+    document.body;
+
+  const numericInputs = Array.from(
+    scope.querySelectorAll<HTMLInputElement>(
+      'input[type="number"]:not([disabled]):not([readonly])',
+    ),
+  ).filter((input) => input.offsetParent !== null);
+
+  const currentIndex = numericInputs.indexOf(target);
+  if (currentIndex === -1) return false;
+
+  event.preventDefault();
+  const nextIndex = event.key === "ArrowDown" ? currentIndex + 1 : currentIndex - 1;
+  numericInputs[nextIndex]?.focus();
+  return true;
+}
+
 export function toISODate(value?: string | Date | null): string {
   if (!value) return "";
 
