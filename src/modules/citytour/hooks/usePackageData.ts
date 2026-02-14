@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { usePackageStore } from "../store/cityTourStore";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
+import { normalizeLegacyXmlPayload } from "@/shared/helpers/normalizeLegacyXmlPayload";
 import type {
   PrecioActividad,
   PrecioAlmuerzo,
@@ -9,8 +10,21 @@ import type {
 } from "@/app/db/serviciosDB";
 
 type Option = { value: string; label: string };
+type SetValueFn = (
+  name: string,
+  value: unknown,
+  options?: { shouldDirty?: boolean; shouldTouch?: boolean },
+) => void;
+type ProductoCityTourDetalle = {
+  id: number;
+  nombre: string;
+  idProducto: number;
+  precioBase: number;
+  precioVenta: number;
+  visitas: string;
+};
 
-export const usePackageData = (id: string | undefined, setValue: any) => {
+export const usePackageData = (id: string | undefined, setValue: SetValueFn) => {
   /* =========================
      STATE
   ========================= */
@@ -28,7 +42,11 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
   const [preciosAlmuerzo, setPreciosAlmuerzo] = useState<PrecioAlmuerzo[]>();
   const [preciosTraslado, setPreciosTraslado] = useState<PrecioTraslado[]>();
 
-  const [precioProducto, setPrecioProducto] = useState<any>();
+  const [precioProducto, setPrecioProducto] =
+    useState<ProductoCityTourDetalle | null>(null);
+  const [productosCityTourDetalle, setProductosCityTourDetalle] = useState<
+    ProductoCityTourDetalle[]
+  >([]);
 
   /* =========================
      STORE
@@ -57,7 +75,8 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           dataHoteles,
           dataDireccionesHotel,
           dataActividades,
-          precioProductoFromDB,
+          dataProductosCityTour,
+          dataPreciosProducto,
           dataPreciosActividades,
           dataAlmuerzos,
           dataPreciosAlmuerzo,
@@ -69,7 +88,8 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
           serviciosDB.hoteles.toArray(),
           serviciosDB.direccionesHotel.toArray(),
           serviciosDB.actividades.toArray(),
-          serviciosDB.preciosProducto.get(Number(id)),
+          serviciosDB.productosCityTourOrdena.toArray(),
+          serviciosDB.preciosProducto.toArray(),
           serviciosDB.preciosActividades.toArray(),
           serviciosDB.almuerzos.toArray(),
           serviciosDB.preciosAlmuerzo.toArray(),
@@ -110,9 +130,11 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
             .filter((a) => Number(a.idProducto) === Number(id))
             .map((a) => ({
               value: String(a.id),
-              label: a.actividad,
+              label: normalizeLegacyXmlPayload(String(a.actividad ?? "")),
               id: String(a.id),
-              descripcion: a.descripcion ?? "",
+              descripcion: normalizeLegacyXmlPayload(
+                String(a.descripcion ?? ""),
+              ),
             })),
         );
 
@@ -147,7 +169,35 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
         setPreciosAlmuerzo(dataPreciosAlmuerzo);
         setPreciosTraslado(dataPreciosTraslado);
 
-        // PRECIO PRODUCTO
+        // PRODUCTOS CITY TOUR + PRECIO PRODUCTO (solo ids coincidentes)
+        const preciosByProductId = new Map(
+          dataPreciosProducto.map((precio) => [
+            Number(precio.idProducto),
+            precio,
+          ]),
+        );
+        const detalle = dataProductosCityTour
+          .map((producto) => {
+            const precio = preciosByProductId.get(Number(producto.id));
+            if (!precio) return null;
+
+            return {
+              id: Number(producto.id),
+              nombre: normalizeLegacyXmlPayload(String(producto.nombre ?? "")),
+              idProducto: Number(precio.idProducto),
+              precioBase: Number(precio.precioBase || 0),
+              precioVenta: Number(precio.precioVenta || 0),
+              visitas: normalizeLegacyXmlPayload(String(precio.visitas ?? "")),
+            };
+          })
+          .filter(
+            (item): item is ProductoCityTourDetalle => item !== null,
+          );
+        setProductosCityTourDetalle(detalle);
+
+        // DETALLE DEL PRODUCTO ACTUAL
+        const precioProductoFromDB =
+          detalle.find((item) => Number(item.id) === Number(id)) ?? null;
         setPrecioProducto(precioProductoFromDB);
 
         if (precioProductoFromDB?.precioVenta != null) {
@@ -158,13 +208,17 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
         }
 
         if (precioProductoFromDB?.visitas) {
-          setValue("visitas", precioProductoFromDB.visitas, {
-            shouldDirty: false,
-            shouldTouch: false,
-          });
+          setValue(
+            "visitas",
+            normalizeLegacyXmlPayload(String(precioProductoFromDB.visitas)),
+            {
+              shouldDirty: false,
+              shouldTouch: false,
+            },
+          );
         }
       } catch (err) {
-        if ((err as any)?.name === "AbortError") return;
+        if ((err as { name?: string })?.name === "AbortError") return;
         console.error("Error cargando datos del producto:", err);
       }
     };
@@ -191,6 +245,7 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
     preciosActividades,
     preciosAlmuerzo,
     preciosTraslado,
-    precioProducto, // ✅ AQUÍ ESTÁ
+    precioProducto,
+    productosCityTourDetalle,
   };
 };

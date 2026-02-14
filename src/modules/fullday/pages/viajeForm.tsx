@@ -154,7 +154,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
     if (!values.otrosPartidas?.trim()) {
       return {
         message:
-          "EL CAMPO 'OTROS PUNTOS DE PARTIDA' ES OBLIGATORIO CUANDO SE SELECCIONA LA OPCIÓN OTROS.",
+          "SI SELECCIONO OTROS, EL CAMPO OTROS PUNTOS DE PARTIDA ES OBLIGATORIO.",
         focus: "otrosPartidas",
       };
     }
@@ -358,7 +358,9 @@ function normalizarDetalleCreate(detalle: any): string {
   return Object.values(detalle)
     .map((i: any) => {
       const label = resolveServicioLabel(i?.servicio) || "-";
-      return [label, d(i?.precio), Number(i?.cant), d(i?.total), ""].join("|");
+      return [label, d(i?.precio), Number(i?.cant), d(i?.total), "", 0].join(
+        "|",
+      );
     })
     .join(";");
 }
@@ -1317,7 +1319,7 @@ const ViajeForm = () => {
                         setValue={setValue}
                       />
                       <Divider />
-                      {/*liquidacionId ? (
+                      {liquidacionId ? (
                         <div className="space-y-3">
                           <Tabs
                             value={tabValue}
@@ -1348,13 +1350,13 @@ const ViajeForm = () => {
                           watch={watch}
                           getValues={getValues}
                         />
-                      )*/}
-                      <ViajeDetalleComponent
+                      )}
+                      {/** <ViajeDetalleComponent
                         control={control}
                         setValue={setValue}
                         watch={watch}
                         getValues={getValues}
-                      />
+                      /> */}
                     </div>
                   </div>
                   <PaimentDetailComponent

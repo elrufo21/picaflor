@@ -1,5 +1,4 @@
 import {
-  DateInput,
   SelectControlled,
   TextControlled,
 } from "@/components/ui/inputs";
@@ -68,17 +67,25 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
 
   const medioPago = watch("medioPago");
   const condicion = watch("condicion")?.value ?? watch("condicion");
-
-  const total = watch("precioTotal");
-  const precioTotal = Number(total ?? 0);
   const acuenta = watch("acuenta");
   const moneda = watch("moneda");
   const currencySymbol =
     moneda === "DOLARES" ? "USD$" : moneda === "SOLES" ? "S/" : "S/";
+  const precioExtraSoles = Number(watch("precioExtraSoles") ?? 0);
+  const precioExtraDolares = Number(watch("precioExtraDolares") ?? 0);
+
+  const extraAplicado =
+    moneda === "SOLES"
+      ? precioExtraSoles
+      : moneda === "DOLARES"
+        ? precioExtraDolares
+        : 0;
+
+  const totalSaldo = roundCurrency(totalFinal + extraAplicado);
   useEffect(() => {
     if (isEditing === false) return;
     if (condicion === "CANCELADO") {
-      setValue("acuenta", roundCurrency(total));
+      setValue("acuenta", roundCurrency(totalFinal));
     }
     if (condicion === "CREDITO") {
       // en crédito sí tiene sentido limpiar todo
@@ -89,7 +96,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
 
     if (medioPago === "EFECTIVO") {
       if (condicion === "CANCELADO") {
-        setValue("efectivo", roundCurrency(total || 0));
+        setValue("efectivo", roundCurrency(totalFinal || 0));
         setValue("deposito", 0);
         setValue("nroOperacion", "");
       }
@@ -100,9 +107,9 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       condicion == "CANCELADO"
     ) {
       setValue("efectivo", 0);
-      setValue("deposito", roundCurrency(total));
+      setValue("deposito", roundCurrency(totalFinal));
     }
-  }, [medioPago, condicion, total, setValue]);
+  }, [medioPago, condicion, totalFinal, setValue, isEditing]);
   useEffect(() => {
     if (condicion === "ACUENTA") {
       setValue("deposito", 0);
@@ -122,10 +129,20 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
     }
   }, [medioPago, isEditing]);
 
-  useEffect(() => {}, [condicion, total, acuenta]);
   useEffect(() => {
-    setValue("saldo", roundCurrency(totalFinal - Number(acuenta ?? 0)));
-  }, [acuenta, totalFinal]);
+    if (!isEditing) return;
+
+    if (moneda === "SOLES" && precioExtraDolares !== 0) {
+      setValue("precioExtraDolares", 0, { shouldDirty: true });
+    }
+
+    if (moneda === "DOLARES" && precioExtraSoles !== 0) {
+      setValue("precioExtraSoles", 0, { shouldDirty: true });
+    }
+  }, [moneda, precioExtraSoles, precioExtraDolares, isEditing, setValue]);
+  useEffect(() => {
+    setValue("saldo", roundCurrency(totalSaldo - Number(acuenta ?? 0)));
+  }, [acuenta, totalSaldo, setValue]);
 
   const buildMessagePassenger = ({ value }: { value: string }) => {
     let message;
@@ -135,7 +152,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       message =
         "El pasajero si tiene deuda " +
         `${currencySymbol} ` +
-        formatCurrency(precioTotal);
+        formatCurrency(totalSaldo);
     } else {
       message =
         "El pasajero si tiene deuda " +
@@ -151,19 +168,19 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
 
     if (condicion === "CANCELADO") {
       setValue("acuenta", roundCurrency(totalFinal));
-      setValue("saldo", 0);
+      setValue("saldo", roundCurrency(totalSaldo - totalFinal));
     }
 
     if (condicion === "ACUENTA") {
-      setValue("saldo", roundCurrency(totalFinal - Number(acuenta ?? 0)));
+      setValue("saldo", roundCurrency(totalSaldo - Number(acuenta ?? 0)));
     }
 
     if (condicion === "CREDITO") {
       setValue("acuenta", 0);
-      setValue("saldo", roundCurrency(totalFinal));
+      setValue("saldo", roundCurrency(totalSaldo));
       setValue("medioPago", "-");
     }
-  }, [condicion, totalFinal, acuenta, isEditing]);
+  }, [condicion, totalSaldo, totalFinal, acuenta, isEditing, setValue]);
 
   useEffect(() => {
     if (medioPago === "EFECTIVO") {
@@ -290,6 +307,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 inputProps={{ style: { textAlign: "right" } }}
                 control={control}
                 type="number"
+                disabled={!isEditing || moneda !== "SOLES"}
                 size="small"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
@@ -307,6 +325,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 inputProps={{ style: { textAlign: "right" } }}
                 name="precioExtraDolares"
                 control={control}
+                disabled={!isEditing || moneda !== "DOLARES"}
                 size="small"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
@@ -504,3 +523,4 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
   );
 };
 export default PaimentDetailComponent;
+

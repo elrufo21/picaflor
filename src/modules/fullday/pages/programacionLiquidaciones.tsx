@@ -15,7 +15,6 @@ import {
 } from "./fulldayPassengerCreate";
 import type { Producto } from "@/app/db/serviciosDB";
 import {
-  getServiciosFromDB,
   hasServiciosData,
   serviciosDB,
 } from "@/app/db/serviciosDB";
@@ -29,6 +28,10 @@ type BackendDetalle = {
   cantidad: number | null;
   turno?: string;
   importe: number | null;
+  idProducto?: number | null;
+  idProductoDetalle?: number | null;
+  IdProducto?: number | null;
+  IdProductoDetalle?: number | null;
 };
 
 function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
@@ -104,6 +107,17 @@ const CONDICION_OPTIONS = [
 type CondicionFilterValue = (typeof CONDICION_OPTIONS)[number]["value"];
 
 type SearchMode = "none" | "numero" | "canal";
+type CanalRecordLike =
+  | string
+  | {
+      nombre?: string | null;
+      auxiliar?: string | null;
+      canal?: string | null;
+      descripcion?: string | null;
+      label?: string | null;
+      value?: string | null;
+      [key: string]: unknown;
+    };
 
 const normalizeStringValue = (value?: string) => String(value ?? "").trim();
 const normalizeCondicionFilter = (value?: string) =>
@@ -123,6 +137,153 @@ const parseLegacyDate = (value?: string) => {
   if (!match) return trimmed;
   const [, day, month, year] = match;
   return `${year}-${month}-${day}`;
+};
+
+const LIQUIDACIONES_FILTERS_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:filters:v1";
+const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+type PersistedLiquidacionesFilters = {
+  pendingStartDate?: string;
+  pendingEndDate?: string;
+  selectedFlagServicio?: number | null;
+  selectedCondicion?: CondicionFilterValue;
+  searchMode?: SearchMode;
+  searchNumber?: string;
+  searchCanal?: string | null;
+  searchCanalInput?: string;
+};
+
+type InitialLiquidacionesFilters = {
+  pendingStartDate: string;
+  pendingEndDate: string;
+  selectedFlagServicio: number | null;
+  selectedCondicion: CondicionFilterValue;
+  searchMode: SearchMode;
+  searchNumber: string;
+  searchCanal: string | null;
+  searchCanalInput: string;
+};
+
+const parseDateFilterValue = (value: unknown): string | null => {
+  const normalized = normalizeStringValue(String(value ?? ""));
+  return DATE_INPUT_PATTERN.test(normalized) ? normalized : null;
+};
+
+const parseFlagServicioFilterValue = (value: unknown): number | null => {
+  const raw = normalizeStringValue(String(value ?? ""));
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return null;
+  return FLAG_SERVICIO_OPTIONS.some((option) => option.value === parsed)
+    ? parsed
+    : null;
+};
+
+const parseCondicionFilterValue = (
+  value: unknown,
+): CondicionFilterValue | null => {
+  const normalized = normalizeStringValue(String(value ?? "")).toUpperCase();
+  if (!normalized) return null;
+  return CONDICION_OPTIONS.some((option) => option.value === normalized)
+    ? (normalized as CondicionFilterValue)
+    : null;
+};
+
+const parseSearchModeValue = (value: unknown): SearchMode | null => {
+  const normalized = normalizeStringValue(String(value ?? "")).toLowerCase();
+  if (normalized === "none") return "none";
+  if (normalized === "numero") return "numero";
+  if (normalized === "canal") return "canal";
+  return null;
+};
+
+const readPersistedLiquidacionesFilters = (): PersistedLiquidacionesFilters => {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.sessionStorage.getItem(
+      LIQUIDACIONES_FILTERS_STORAGE_KEY,
+    );
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as PersistedLiquidacionesFilters)
+      : {};
+  } catch {
+    return {};
+  }
+};
+
+const writePersistedLiquidacionesFilters = (
+  filters: PersistedLiquidacionesFilters,
+) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(
+      LIQUIDACIONES_FILTERS_STORAGE_KEY,
+      JSON.stringify(filters),
+    );
+  } catch {
+    // ignorar errores de almacenamiento para no afectar la pantalla
+  }
+};
+
+const resolveInitialLiquidacionesFilters = (
+  search: string,
+  today: string,
+): InitialLiquidacionesFilters => {
+  const persisted = readPersistedLiquidacionesFilters();
+  const params = new URLSearchParams(search);
+
+  const startFromQuery = parseDateFilterValue(params.get("fechaInicio"));
+  const endFromQuery = parseDateFilterValue(params.get("fechaFin"));
+  const flagFromQuery = parseFlagServicioFilterValue(
+    params.get("flagServicio") ?? params.get("companiaId"),
+  );
+  const condicionFromQuery = parseCondicionFilterValue(params.get("condicion"));
+  const modeFromQuery = parseSearchModeValue(params.get("searchMode"));
+  const numberFromQuery = normalizeStringValue(
+    params.get("searchNumber") ?? "",
+  );
+  const canalFromQuery = normalizeStringValue(params.get("searchCanal") ?? "");
+  const canalInputFromQuery = normalizeStringValue(
+    params.get("searchCanalInput") ?? "",
+  );
+
+  const startFromStorage = parseDateFilterValue(persisted.pendingStartDate);
+  const endFromStorage = parseDateFilterValue(persisted.pendingEndDate);
+  const flagFromStorage = parseFlagServicioFilterValue(
+    persisted.selectedFlagServicio,
+  );
+  const condicionFromStorage = parseCondicionFilterValue(
+    persisted.selectedCondicion,
+  );
+  const modeFromStorage = parseSearchModeValue(persisted.searchMode);
+  const numberFromStorage = normalizeStringValue(persisted.searchNumber ?? "");
+  const canalFromStorage = normalizeStringValue(persisted.searchCanal ?? "");
+  const canalInputFromStorage = normalizeStringValue(
+    persisted.searchCanalInput ?? "",
+  );
+
+  const searchCanalInput =
+    canalInputFromQuery ||
+    canalFromQuery ||
+    canalInputFromStorage ||
+    canalFromStorage;
+
+  return {
+    pendingStartDate: startFromQuery ?? startFromStorage ?? today,
+    pendingEndDate: endFromQuery ?? endFromStorage ?? today,
+    selectedFlagServicio: flagFromQuery ?? flagFromStorage,
+    selectedCondicion:
+      condicionFromQuery ?? condicionFromStorage ?? CONDICION_OPTIONS[0].value,
+    searchMode: modeFromQuery ?? modeFromStorage ?? "none",
+    searchNumber: numberFromQuery || numberFromStorage,
+    searchCanal: canalFromQuery || canalFromStorage || null,
+    searchCanalInput,
+  };
 };
 
 type TransactionRowForm = {
@@ -461,16 +622,6 @@ const LiquidacionesPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const searchParams = useMemo(
-    () => new URLSearchParams(location.search),
-    [location.search],
-  );
-  const initialFlagServicio = useMemo(() => {
-    const raw =
-      searchParams.get("flagServicio") ?? searchParams.get("companiaId");
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }, [searchParams]);
   const { loadServicios, loadServiciosFromDB, setFormData } = usePackageStore();
   const [rows, setRows] = useState<LiquidacionRow[]>([]);
   const [allRows, setAllRows] = useState<LiquidacionRow[]>([]);
@@ -482,8 +633,20 @@ const LiquidacionesPage = () => {
     const offsetMs = now.getTimezoneOffset() * 60 * 1000;
     return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
   }, []);
-  const [pendingStartDate, setPendingStartDate] = useState(todayValue);
-  const [pendingEndDate, setPendingEndDate] = useState(todayValue);
+  const initialFiltersRef = useRef<InitialLiquidacionesFilters | null>(null);
+  if (!initialFiltersRef.current) {
+    initialFiltersRef.current = resolveInitialLiquidacionesFilters(
+      location.search,
+      todayValue,
+    );
+  }
+
+  const [pendingStartDate, setPendingStartDate] = useState(
+    initialFiltersRef.current.pendingStartDate,
+  );
+  const [pendingEndDate, setPendingEndDate] = useState(
+    initialFiltersRef.current.pendingEndDate,
+  );
   const pendingStartDateRef = useRef(pendingStartDate);
   const pendingEndDateRef = useRef(pendingEndDate);
   const initialReloadRef = useRef(false);
@@ -497,13 +660,21 @@ const LiquidacionesPage = () => {
 
   const [selectedFlagServicio, setSelectedFlagServicio] = useState<
     number | null
-  >(initialFlagServicio);
+  >(initialFiltersRef.current.selectedFlagServicio);
   const [selectedCondicion, setSelectedCondicion] =
-    useState<CondicionFilterValue>("TODOS");
-  const [searchMode, setSearchMode] = useState<SearchMode>("none");
-  const [searchNumber, setSearchNumber] = useState("");
-  const [searchCanal, setSearchCanal] = useState<string | null>(null);
-  const [searchCanalInput, setSearchCanalInput] = useState("");
+    useState<CondicionFilterValue>(initialFiltersRef.current.selectedCondicion);
+  const [searchMode, setSearchMode] = useState<SearchMode>(
+    initialFiltersRef.current.searchMode,
+  );
+  const [searchNumber, setSearchNumber] = useState(
+    initialFiltersRef.current.searchNumber,
+  );
+  const [searchCanal, setSearchCanal] = useState<CanalRecordLike | null>(
+    initialFiltersRef.current.searchCanal,
+  );
+  const [searchCanalInput, setSearchCanalInput] = useState(
+    initialFiltersRef.current.searchCanalInput,
+  );
   const [canalOptions, setCanalOptions] = useState<string[]>([]);
   const [searchResults, setSearchResults] = useState<LiquidacionRow[] | null>(
     null,
@@ -512,47 +683,31 @@ const LiquidacionesPage = () => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
+  const normalizeCanalRecordToLabel = useCallback((canal: CanalRecordLike) => {
+    if (typeof canal === "string") return normalizeStringValue(canal);
 
-  const normalizeCanalRecordToLabel = useCallback(
-    (
-      canal:
-        | string
-        | {
-            nombre?: string | null;
-            auxiliar?: string | null;
-            canal?: string | null;
-            descripcion?: string | null;
-            label?: string | null;
-            value?: string | null;
-            [key: string]: unknown;
-          },
-    ) => {
-      if (typeof canal === "string") return normalizeStringValue(canal);
+    const priorityValue =
+      canal.nombre ??
+      canal.auxiliar ??
+      canal.canal ??
+      canal.descripcion ??
+      canal.label ??
+      canal.value;
 
-      const priorityValue =
-        canal.nombre ??
-        canal.auxiliar ??
-        canal.canal ??
-        canal.descripcion ??
-        canal.label ??
-        canal.value;
+    const normalizedPriority = normalizeStringValue(
+      typeof priorityValue === "string" ? priorityValue : "",
+    );
+    if (normalizedPriority) return normalizedPriority;
 
-      const normalizedPriority = normalizeStringValue(
-        typeof priorityValue === "string" ? priorityValue : "",
-      );
-      if (normalizedPriority) return normalizedPriority;
+    for (const [key, value] of Object.entries(canal)) {
+      if (key === "id" || key === "telefono") continue;
+      if (typeof value !== "string") continue;
+      const candidate = normalizeStringValue(value);
+      if (candidate) return candidate;
+    }
 
-      for (const [key, value] of Object.entries(canal)) {
-        if (key === "id" || key === "telefono") continue;
-        if (typeof value !== "string") continue;
-        const candidate = normalizeStringValue(value);
-        if (candidate) return candidate;
-      }
-
-      return "";
-    },
-    [],
-  );
+    return "";
+  }, []);
 
   const getCanalOptionsFromDB = useCallback(async () => {
     const canales = await serviciosDB.canales.toArray();
@@ -619,8 +774,34 @@ const LiquidacionesPage = () => {
   };
 
   useEffect(() => {
-    setSelectedFlagServicio(initialFlagServicio);
-  }, [initialFlagServicio]);
+    const persistedCanal =
+      typeof searchCanal === "string"
+        ? normalizeStringValue(searchCanal)
+        : searchCanal
+          ? normalizeCanalRecordToLabel(searchCanal)
+          : "";
+
+    writePersistedLiquidacionesFilters({
+      pendingStartDate,
+      pendingEndDate,
+      selectedFlagServicio,
+      selectedCondicion,
+      searchMode,
+      searchNumber: normalizeStringValue(searchNumber),
+      searchCanal: persistedCanal || null,
+      searchCanalInput: normalizeStringValue(searchCanalInput),
+    });
+  }, [
+    pendingStartDate,
+    pendingEndDate,
+    selectedFlagServicio,
+    selectedCondicion,
+    searchMode,
+    searchNumber,
+    searchCanal,
+    searchCanalInput,
+    normalizeCanalRecordToLabel,
+  ]);
 
   const filterRowsByFlagServicio = useCallback(
     (sourceRows: LiquidacionRow[]) => {
@@ -656,8 +837,14 @@ const LiquidacionesPage = () => {
     }
 
     if (searchMode === "canal") {
+      const selectedCanalLabel =
+        typeof searchCanal === "string"
+          ? searchCanal
+          : searchCanal
+            ? normalizeCanalRecordToLabel(searchCanal)
+            : "";
       const canalQuery = normalizeStringValue(
-        searchCanalInput || searchCanal,
+        searchCanalInput || selectedCanalLabel,
       ).toLowerCase();
 
       sourceRows = canalQuery
@@ -679,6 +866,7 @@ const LiquidacionesPage = () => {
     searchResults,
     searchCanal,
     searchCanalInput,
+    normalizeCanalRecordToLabel,
   ]);
 
   useEffect(() => {
@@ -813,7 +1001,7 @@ const LiquidacionesPage = () => {
   };
   function normalizeBackendDetalleToFormCityTour(
     detalles: BackendDetalle[],
-    serviciosCatalogo: any[],
+    productosCatalogo: Producto[],
   ) {
     const emptyServicio = {
       label: "-",
@@ -822,25 +1010,61 @@ const LiquidacionesPage = () => {
       descripcion: "",
     };
 
-    // ===============================
-    // MAPA DE SERVICIOS (CATÁLOGO)
-    // ===============================
-    const serviciosMap = new Map(
-      serviciosCatalogo.map((s) => [s.actividad.trim().toLowerCase(), s]),
+    const productosById = new Map(
+      (productosCatalogo || []).map((producto) => [Number(producto.id), producto]),
     );
+    const productosByName = new Map(
+      (productosCatalogo || []).map((producto) => [
+        normalizeProductName(producto.nombre),
+        producto,
+      ]),
+    );
+    const productosNormalized = (productosCatalogo || []).map((producto) => ({
+      raw: producto,
+      normalizedName: normalizeProductName(producto.nombre),
+    }));
 
-    const findServicio = (actividad: string) => {
-      if (!actividad || actividad === "-") return emptyServicio;
+    const getDetalleProductId = (detalle: BackendDetalle) => {
+      const rawId =
+        detalle.idProducto ??
+        detalle.idProductoDetalle ??
+        detalle.IdProducto ??
+        detalle.IdProductoDetalle ??
+        0;
+      const parsed = Number(rawId);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
 
-      const match = serviciosMap.get(actividad.trim().toLowerCase());
+    const buildServicioFromDetalle = (detalle: BackendDetalle) => {
+      const actividadRaw = normalizeStringValue(detalle.actividades);
+      if (!actividadRaw || actividadRaw === "-") return emptyServicio;
 
-      if (!match) return emptyServicio;
+      const productId = getDetalleProductId(detalle);
+      const matchedById = productId > 0 ? productosById.get(productId) : undefined;
+      const matchedByName = productosByName.get(normalizeProductName(actividadRaw));
+      const normalizedActividad = normalizeProductName(actividadRaw);
+      const matchedByContains = productosNormalized.find(
+        (producto) =>
+          producto.normalizedName &&
+          (normalizedActividad.includes(producto.normalizedName) ||
+            producto.normalizedName.includes(normalizedActividad)),
+      )?.raw;
+      const matched = matchedById ?? matchedByName ?? matchedByContains;
+
+      if (matched) {
+        return {
+          label: matched.nombre,
+          value: String(matched.id),
+          id: String(matched.id),
+          descripcion: "",
+        };
+      }
 
       return {
-        label: match.actividad,
-        value: String(match.id),
-        id: String(match.id),
-        descripcion: match.descripcion ?? "",
+        label: actividadRaw,
+        value: productId > 0 ? String(productId) : "0",
+        id: productId > 0 ? String(productId) : "0",
+        descripcion: "",
       };
     };
 
@@ -848,7 +1072,7 @@ const LiquidacionesPage = () => {
     // BUILDERS
     // ===============================
 
-    // 👉 TARIFA (NO usa catálogo)
+    // 👉 TARIFA (legacy)
     const buildTarifaRow = (d: BackendDetalle) => ({
       detalleId: d.detalleId,
       servicio: {
@@ -862,10 +1086,10 @@ const LiquidacionesPage = () => {
       total: d.importe ?? 0,
     });
 
-    // 👉 ACTIVIDADES / TRASLADO
+    // 👉 ACTIVIDADES / TRASLADO (city tour nuevo formato usa productoId)
     const buildNormalRow = (d: BackendDetalle) => ({
       detalleId: d.detalleId,
-      servicio: findServicio(d.actividades),
+      servicio: buildServicioFromDetalle(d),
       hora: d.hora ?? "",
       turno: d.turno ?? d.hora ?? "",
       precio: d.precio ?? 0,
@@ -876,7 +1100,7 @@ const LiquidacionesPage = () => {
     // 👉 ENTRADA (sin hora / turno)
     const buildEntradaRow = (d: BackendDetalle) => ({
       detalleId: d.detalleId,
-      servicio: findServicio(d.actividades),
+      servicio: buildServicioFromDetalle(d),
       precio: d.precio ?? 0,
       cant: d.cantidad ?? 0,
       total: d.importe ?? 0,
@@ -912,7 +1136,20 @@ const LiquidacionesPage = () => {
 
     // ===============================
     // NORMALIZACIÓN POR POSICIÓN
+    // Nuevo formato city tour: solo act1-act3
+    // Legacy: tarifa, act1-act3, traslado, entrada
     // ===============================
+    const isNewCityTourFormat = detalles.length > 0 && detalles.length <= 3;
+
+    if (isNewCityTourFormat) {
+      detalles.forEach((d, index) => {
+        if (index >= 0 && index <= 2) {
+          rows[`act${index + 1}` as "act1" | "act2" | "act3"] = buildNormalRow(d);
+        }
+      });
+      return rows;
+    }
+
     detalles.forEach((d, index) => {
       if (index === 0) {
         rows.tarifa = buildTarifaRow(d);
@@ -936,47 +1173,6 @@ const LiquidacionesPage = () => {
 
     return rows;
   }
-
-  const findServicio = (actividad: string) => {
-    const match = serviciosMap.get(actividad.trim().toLowerCase());
-
-    const buildNormalRow = (d: BackendDetalle) => {
-      const servicio = findServicio(d.actividades);
-
-      return {
-        detalleId: d.detalleId,
-        servicio,
-        hora: d.hora ?? "",
-        turno: d.turno ?? d.hora ?? "",
-        precio: d.precio ?? 0,
-        cant: d.cantidad ?? 0,
-        total: d.importe ?? 0,
-      };
-    };
-
-    const buildEntradaRow = (d: BackendDetalle) => {
-      const servicio = findServicio(d.actividades);
-
-      return {
-        detalleId: d.detalleId,
-        servicio,
-        precio: d.precio ?? 0,
-        cant: d.cantidad ?? 0,
-        total: d.importe ?? 0,
-      };
-    };
-
-    detalles.forEach((d, index) => {
-      if (index === 0) return (rows.tarifa = buildNormalRow(d));
-      if (index >= 1 && index <= 3)
-        return (rows[`act${index}` as "act1" | "act2" | "act3"] =
-          buildNormalRow(d));
-      if (index === 4) return (rows.traslado = buildNormalRow(d));
-      if (index === 5) return (rows.entrada = buildEntradaRow(d));
-    });
-
-    return rows;
-  };
   const resolveProductIdFromList = (list: Producto[], row: LiquidacionRow) => {
     const normalizedRowName = normalizeProductName(row.productoNombre);
     if (!normalizedRowName) return 0;
@@ -995,13 +1191,14 @@ const LiquidacionesPage = () => {
   };
 
   const handleView = async (row: LiquidacionRow) => {
+    console.log("row", row);
+
     const productosLocal = await ensureProductosLoaded();
     try {
       await loadCanalVenta();
     } catch (error) {
       console.warn("No se pudieron cargar canales de venta", error);
     }
-    const servicios = await getServiciosFromDB();
     const data = row;
     const [detalle /*, liquidacionesNotaRaw*/] = await Promise.all([
       fetchDetalleActividades(row.notaId),
@@ -1054,20 +1251,22 @@ const LiquidacionesPage = () => {
       documentoCobranza: data.notaDocu,
 
       precioExtra: Number(data.adicional),
+      precioExtraSoles: data.cobroExtraSol,
+      precioExtraDolares: data.cobroExtraDol,
       observaciones: data.observaciones,
       detalle:
         row.flagServicio == "1"
           ? normalizeBackendDetalleToForm(detalle)
           : normalizeBackendDetalleToFormCityTour(
               detalle,
-              servicios.actividades,
+              productosLocal,
             ),
       detallexd:
         row.flagServicio == "1"
           ? normalizeBackendDetalleToForm(detalle)
           : normalizeBackendDetalleToFormCityTour(
               detalle,
-              servicios.actividades,
+              productosLocal,
             ),
       canalDeVenta,
       hotel: hotel ? { label: hotel?.nombre, value: Number(hotel?.id) } : null,
@@ -1290,20 +1489,20 @@ const LiquidacionesPage = () => {
         <label className="inline-flex items-center gap-2">
           <input
             type="checkbox"
-            checked={searchMode === "numero"}
-            onChange={(e) => handleToggleSearchByNumero(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-          />
-          Numero de pedido
-        </label>
-        <label className="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
             checked={searchMode === "canal"}
             onChange={(e) => handleToggleSearchByCanal(e.target.checked)}
             className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
           />
           Canal de venta
+        </label>
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={searchMode === "numero"}
+            onChange={(e) => handleToggleSearchByNumero(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+          />
+          Numero de pedido
         </label>
       </div>
 
@@ -1351,7 +1550,7 @@ const LiquidacionesPage = () => {
         <div className="w-full">
           <Autocomplete
             size="small"
-            options={canalOptions}
+            options={canalVentaList}
             value={searchCanal}
             inputValue={searchCanalInput}
             onChange={(_, value) => setSearchCanal(value)}

@@ -9,6 +9,13 @@ import { useAuthStore } from "@/store/auth/auth.store";
 import { ButtonBase, ListItemIcon, Menu, MenuItem } from "@mui/material";
 import { usePackageStore } from "@/modules/citytour/store/cityTourStore";
 
+const NAVIGATION_FILTER_STORAGE_RULES = [
+  {
+    routePrefix: "/fullday/programacion/liquidaciones",
+    storageKeys: ["fullday:programacion-liquidaciones:filters:v1"],
+  },
+] as const;
+
 const MainLayout = () => {
   const [isDesktop, setIsDesktop] = useState(false);
   const { isSidebarOpen, setSidebarOpen, toggleSidebar, closeSidebar } =
@@ -43,6 +50,28 @@ const MainLayout = () => {
   }, [isDesktop, setSidebarOpen]);
 
   const normalizedNavFilter = navFilter.trim().toLowerCase();
+
+  const clearPersistedFiltersForRoute = (targetPath: string) => {
+    if (typeof window === "undefined") return;
+    const normalizedTargetPath = String(targetPath || "").toLowerCase().trim();
+    const shouldKeepProgramacionFilters =
+      normalizedTargetPath === "/fullday/programacion/liquidaciones";
+    if (shouldKeepProgramacionFilters) return;
+
+    NAVIGATION_FILTER_STORAGE_RULES.forEach((rule) => {
+      rule.storageKeys.forEach((key) => {
+        window.sessionStorage.removeItem(key);
+      });
+    });
+  };
+
+  const handleNavRouteClick = (targetPath: string) => {
+    clearPersistedFiltersForRoute(targetPath);
+    if (!isDesktop) {
+      closeSidebar();
+    }
+  };
+
   const filteredNavigationItems = navigationItems.filter((item) => {
     if (!normalizedNavFilter) return true;
     const label = item.label.toLowerCase();
@@ -101,6 +130,7 @@ const MainLayout = () => {
               <NavLink
                 to={item.to}
                 end={item.end ?? false}
+                onClick={() => handleNavRouteClick(item.to)}
                 className={({ isActive }) =>
                   [
                     "group relative flex items-center px-3 py-2 text-sm transition-all rounded-lg",
@@ -147,6 +177,7 @@ const MainLayout = () => {
                       key={child.to}
                       to={child.to}
                       end={child.end ?? false}
+                      onClick={() => handleNavRouteClick(child.to)}
                       className={({ isActive }) =>
                         [
                           "group relative flex items-center px-3 py-2 text-sm transition-all rounded-lg ml-6 gap-2",
@@ -211,7 +242,7 @@ const MainLayout = () => {
               <NavLink
                 to={item.to}
                 end={item.end ?? false}
-                onClick={closeSidebar}
+                onClick={() => handleNavRouteClick(item.to)}
                 className={({ isActive }) =>
                   [
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
@@ -238,7 +269,7 @@ const MainLayout = () => {
                     key={child.to}
                     to={child.to}
                     end={child.end ?? false}
-                    onClick={closeSidebar}
+                    onClick={() => handleNavRouteClick(child.to)}
                     className={({ isActive }) =>
                       [
                         "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all ml-4",
