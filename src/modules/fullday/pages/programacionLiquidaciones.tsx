@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { createColumnHelper } from "@tanstack/react-table";
+import {
+  createColumnHelper,
+  type PaginationState,
+} from "@tanstack/react-table";
 import { Autocomplete, TextField } from "@mui/material";
 import { ChevronLeft, Search, X } from "lucide-react";
 
@@ -138,7 +141,13 @@ const parseLegacyDate = (value?: string) => {
 
 const LIQUIDACIONES_FILTERS_STORAGE_KEY =
   "fullday:programacion-liquidaciones:filters:v1";
+const LIQUIDACIONES_PAGINATION_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:pagination:v1";
+const LIQUIDACIONES_PAGINATION_RESET_EVENT =
+  "picaflor:fullday-programacion:reset-pagination";
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const LIQUIDACIONES_PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
+const LIQUIDACIONES_DEFAULT_PAGE_SIZE = 10;
 
 type PersistedLiquidacionesFilters = {
   pendingStartDate?: string;
@@ -221,6 +230,61 @@ const writePersistedLiquidacionesFilters = (
     window.sessionStorage.setItem(
       LIQUIDACIONES_FILTERS_STORAGE_KEY,
       JSON.stringify(filters),
+    );
+  } catch {
+    // ignorar errores de almacenamiento para no afectar la pantalla
+  }
+};
+
+const readPersistedLiquidacionesPagination = (): PaginationState => {
+  if (typeof window === "undefined") {
+    return { pageIndex: 0, pageSize: LIQUIDACIONES_DEFAULT_PAGE_SIZE };
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(
+      LIQUIDACIONES_PAGINATION_STORAGE_KEY,
+    );
+
+    if (!raw) {
+      return { pageIndex: 0, pageSize: LIQUIDACIONES_DEFAULT_PAGE_SIZE };
+    }
+
+    const parsed = JSON.parse(raw) as {
+      pageIndex?: number;
+      pageSize?: number;
+    };
+
+    const pageIndex =
+      typeof parsed?.pageIndex === "number" && parsed.pageIndex >= 0
+        ? Math.floor(parsed.pageIndex)
+        : 0;
+
+    const pageSizeCandidate =
+      typeof parsed?.pageSize === "number" ? Math.floor(parsed.pageSize) : 0;
+    const pageSize = LIQUIDACIONES_PAGE_SIZE_OPTIONS.includes(
+      pageSizeCandidate as (typeof LIQUIDACIONES_PAGE_SIZE_OPTIONS)[number],
+    )
+      ? pageSizeCandidate
+      : LIQUIDACIONES_DEFAULT_PAGE_SIZE;
+
+    return { pageIndex, pageSize };
+  } catch {
+    return { pageIndex: 0, pageSize: LIQUIDACIONES_DEFAULT_PAGE_SIZE };
+  }
+};
+
+const writePersistedLiquidacionesPagination = (pagination: PaginationState) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(
+      LIQUIDACIONES_PAGINATION_STORAGE_KEY,
+      JSON.stringify({
+        pageIndex: Math.max(0, Number(pagination.pageIndex) || 0),
+        pageSize:
+          Number(pagination.pageSize) || LIQUIDACIONES_DEFAULT_PAGE_SIZE,
+      }),
     );
   } catch {
     // ignorar errores de almacenamiento para no afectar la pantalla
@@ -658,6 +722,9 @@ const LiquidacionesPage = () => {
   const [selectedFlagServicio, setSelectedFlagServicio] = useState<
     number | null
   >(initialFiltersRef.current.selectedFlagServicio);
+  const [tablePagination, setTablePagination] = useState<PaginationState>(() =>
+    readPersistedLiquidacionesPagination(),
+  );
   const [selectedCondicion, setSelectedCondicion] =
     useState<CondicionFilterValue>(initialFiltersRef.current.selectedCondicion);
   const [searchMode, setSearchMode] = useState<SearchMode>(
@@ -799,6 +866,33 @@ const LiquidacionesPage = () => {
     searchCanalInput,
     normalizeCanalRecordToLabel,
   ]);
+
+  useEffect(() => {
+    writePersistedLiquidacionesPagination(tablePagination);
+  }, [tablePagination]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const resetPagination = () => {
+      setTablePagination({
+        pageIndex: 0,
+        pageSize: LIQUIDACIONES_DEFAULT_PAGE_SIZE,
+      });
+    };
+
+    window.addEventListener(
+      LIQUIDACIONES_PAGINATION_RESET_EVENT,
+      resetPagination,
+    );
+
+    return () => {
+      window.removeEventListener(
+        LIQUIDACIONES_PAGINATION_RESET_EVENT,
+        resetPagination,
+      );
+    };
+  }, []);
 
   const filterRowsByFlagServicio = useCallback(
     (sourceRows: LiquidacionRow[]) => {
@@ -1718,6 +1812,10 @@ const LiquidacionesPage = () => {
       <DndTable
         data={rows}
         columns={columns}
+        paginationState={tablePagination}
+        onPaginationStateChange={setTablePagination}
+        autoResetPageIndex={false}
+        pageSizeOptions={[...LIQUIDACIONES_PAGE_SIZE_OPTIONS]}
         searchColumns={[
           "productoNombre",
           "auxiliar",
@@ -1737,26 +1835,32 @@ const LiquidacionesPage = () => {
         enableCellNavigation={true}
         rowColorRules={[
           {
-            when: (row) => String(row.estado ?? "").trim().toUpperCase() === "ANULADO",
+            when: (row) =>
+              String(row.estado ?? "")
+                .trim()
+                .toUpperCase() === "ANULADO",
             className: "bg-red-50 text-red-700",
           },
           {
             when: (row) =>
-              String(row.estado ?? "").trim().toUpperCase() !== "ANULADO" &&
-              row.condicion === "CREDITO",
+              String(row.estado ?? "")
+                .trim()
+                .toUpperCase() !== "ANULADO" && row.condicion === "CREDITO",
             className: "bg-orange-200 text-orange-700",
           },
 
           {
             when: (row) =>
-              String(row.estado ?? "").trim().toUpperCase() !== "ANULADO" &&
-              row.estado === "PENDIENTE",
+              String(row.estado ?? "")
+                .trim()
+                .toUpperCase() !== "ANULADO" && row.estado === "PENDIENTE",
             className: "bg-yellow-50 text-yellow-800",
           },
           {
             when: (row) =>
-              String(row.estado ?? "").trim().toUpperCase() !== "ANULADO" &&
-              row.estado === "CANCELADO",
+              String(row.estado ?? "")
+                .trim()
+                .toUpperCase() !== "ANULADO" && row.estado === "CANCELADO",
             className: "bg-white text-slate-900",
           },
         ]}
