@@ -1,13 +1,14 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useCategoriesQuery } from "../useCategoriesQuery";
 import type { Category } from "@/types/maintenance";
 import { useDialogStore } from "@/app/store/dialogStore";
+import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 
 const CategoryList = () => {
   const navigate = useNavigate();
@@ -86,20 +87,24 @@ const CategoryList = () => {
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex justify-between items-center">
+    <MaintenancePageFrame
+      title="Categorias"
+      description="Gestiona categorias y codigos SUNAT desde un solo lugar."
+      action={
         <button
           type="button"
-          className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
           onClick={() => navigate("/maintenance/categories/create")}
         >
-          + Nueva categoría
+          <Plus className="h-4 w-4" />
+          Nueva categoria
         </button>
-      </div>
-
+      }
+    >
       <DndTable data={categories} columns={columns} enableDateFilter={false} />
-    </div>
+    </MaintenancePageFrame>
   );
 };
 
 export default CategoryList;
+

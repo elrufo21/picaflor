@@ -1,13 +1,14 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useAreasQuery } from "../useAreasQuery";
 import type { Area } from "@/types/maintenance";
 import { useDialogStore } from "@/app/store/dialogStore";
+import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 
 const AreaList = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const AreaList = () => {
   const columns = useMemo(
     () => [
       columnHelper.accessor("area", {
-        header: "Área",
+        header: "Area",
         cell: (info) => info.getValue(),
       }),
       columnHelper.display({
@@ -45,8 +46,7 @@ const AreaList = () => {
               type="button"
               onClick={() => {
                 openDialog({
-                  title: "Eliminar área",
-
+                  title: "Eliminar area",
                   size: "sm",
                   confirmLabel: "Eliminar",
                   cancelLabel: "Cancelar",
@@ -55,7 +55,7 @@ const AreaList = () => {
                   },
                   content: () => (
                     <div>
-                      ¿Estás seguro de eliminar esta área? Esta acción no se
+                      Estas seguro de eliminar esta area? Esta accion no se
                       puede deshacer.
                     </div>
                   ),
@@ -72,20 +72,24 @@ const AreaList = () => {
     ],
     [columnHelper, deleteArea, navigate, openDialog],
   );
+
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex justify-between items-center">
+    <MaintenancePageFrame
+      title="Areas"
+      description="Administra las areas internas para organizar mejor tus procesos."
+      action={
         <button
           type="button"
-          className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
           onClick={() => navigate("/maintenance/areas/create")}
         >
-          + Nueva área
+          <Plus className="h-4 w-4" />
+          Nueva area
         </button>
-      </div>
-
+      }
+    >
       <DndTable data={areas} columns={columns} enableDateFilter={false} />
-    </div>
+    </MaintenancePageFrame>
   );
 };
 

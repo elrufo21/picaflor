@@ -1,19 +1,18 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import type { Personal } from "@/types/employees";
 import { useDialogStore } from "@/app/store/dialogStore";
+import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 
 const EmployeeList = () => {
   const navigate = useNavigate();
-
   const openDialog = useDialogStore((s) => s.openDialog);
-
   const { employees, fetchEmployees, deleteEmployee } = useEmployeesStore();
 
   useEffect(() => {
@@ -45,13 +44,10 @@ const EmployeeList = () => {
         header: "Acciones",
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
-            {/* EDITAR */}
             <button
               type="button"
               onClick={() =>
-                navigate(
-                  `/maintenance/employees/${row.original.personalId}/edit`,
-                )
+                navigate(`/maintenance/employees/${row.original.personalId}/edit`)
               }
               className="text-blue-600 hover:text-blue-800"
               title="Editar"
@@ -59,7 +55,6 @@ const EmployeeList = () => {
               <Pencil className="w-4 h-4" />
             </button>
 
-            {/* ELIMINAR */}
             <button
               type="button"
               onClick={() => {
@@ -78,9 +73,9 @@ const EmployeeList = () => {
                   },
                   content: () => (
                     <p className="text-sm text-slate-700">
-                      ¿Estás seguro de eliminar este empleado?
+                      Estas seguro de eliminar este empleado?
                       <br />
-                      Esta acción no se puede deshacer.
+                      Esta accion no se puede deshacer.
                     </p>
                   ),
                 });
@@ -98,19 +93,22 @@ const EmployeeList = () => {
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex justify-between items-center">
+    <MaintenancePageFrame
+      title="Empleados"
+      description="Gestiona el personal activo y su informacion principal."
+      action={
         <button
           type="button"
-          className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
           onClick={() => navigate("/maintenance/employees/create")}
         >
-          + Nuevo empleado
+          <Plus className="h-4 w-4" />
+          Nuevo empleado
         </button>
-      </div>
-
+      }
+    >
       <DndTable data={employees} columns={columns} enableDateFilter={false} />
-    </div>
+    </MaintenancePageFrame>
   );
 };
 

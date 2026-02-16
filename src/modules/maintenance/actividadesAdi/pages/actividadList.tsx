@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -12,6 +12,7 @@ import ActividadFormDialog, {
 } from "../components/ActividadFormDialog";
 import type { ActividadAdi } from "@/types/maintenance";
 import type { UseFormReturn } from "react-hook-form";
+import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 
 const columnHelper = createColumnHelper<ActividadAdi>();
 
@@ -188,23 +189,26 @@ const ActividadAdiList = () => {
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <MaintenancePageFrame
+      title="Actividades adicionales"
+      description="Configura actividades extra y sus precios para cada producto."
+      action={
         <button
           type="button"
-          className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
           onClick={() => openActividadModal("create")}
         >
-          + Nueva actividad
+          <Plus className="h-4 w-4" />
+          Nueva actividad
         </button>
-      </div>
-
+      }
+    >
       <DndTable
         data={actividadesAdi}
         columns={columns}
         enableDateFilter={false}
       />
-    </div>
+    </MaintenancePageFrame>
   );
 };
 
