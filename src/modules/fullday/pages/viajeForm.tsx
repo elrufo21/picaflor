@@ -369,37 +369,38 @@ function normalizarDetalleEdit(detalle: any): string {
   return Object.values(detalle)
     .map((i: any) => {
       const hasServicioObject = i?.servicio && typeof i.servicio === "object";
+
       const detalleId =
         i?.detalleId ?? (hasServicioObject ? i.servicio.detalleId : undefined);
+
       let resolvedServicioLabel = resolveServicioLabel(i?.servicio) || "";
+
       const normalizedLabel = resolvedServicioLabel.trim().toUpperCase();
+
       if (!resolvedServicioLabel || normalizedLabel === "N/A") {
         resolvedServicioLabel = "-";
       }
+
       return {
-        servicioLabel: resolvedServicioLabel,
-        cant: Number(i?.cant),
-        precio: i?.precio,
-        total: i?.total,
         detalleId,
+        servicioLabel: resolvedServicioLabel,
+        cant: Number(i?.cant ?? 0),
+        precio: Number(i?.precio ?? 0),
+        total: Number(i?.total ?? 0),
+        hora: i?.hora ?? "-",
+        idProductoDetalle: 0,
       };
     })
-    .filter(
-      (item) =>
-        item.detalleId !== undefined &&
-        item.detalleId !== null &&
-        item.servicioLabel &&
-        (item.cant > 0 ||
-          ["-", "N/A"].includes(item.servicioLabel.trim().toUpperCase())),
-    )
+    .filter((item) => item.detalleId !== undefined && item.detalleId !== null)
     .map((item) =>
       [
-        item.detalleId ?? "", // 👈 SOLO EN EDIT
-        item.servicioLabel,
+        item.detalleId ?? 0,
+        item.servicioLabel || "-",
         d(item.precio),
-        item.cant,
+        item.cant ?? 0,
         d(item.total),
-        "",
+        item.hora || "-",
+        0,
       ].join("|"),
     )
     .join(";");
