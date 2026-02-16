@@ -62,13 +62,18 @@ function d(v: any) {
   return Number(v || 0).toFixed(2);
 }
 
-function isIslasBallestasActivity(servicio: any) {
+function isActivityAllowedWithoutPrice(servicio: any) {
   const label =
     servicio && typeof servicio === "object"
       ? (servicio.label ?? servicio.value)
       : servicio;
   if (!label) return false;
-  return String(label).toLowerCase().includes("islas ballestas");
+  const normalized = String(label).toLowerCase();
+  return (
+    normalized.includes("islas ballestas") ||
+    normalized.includes("castillo de chancay") ||
+    normalized.includes("castillo chancay")
+  );
 }
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -271,7 +276,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
     primeraActividad.servicio?.value &&
     !primeraActividadTieneDetalle &&
     Number(primeraActividad.precio) <= 0 &&
-    !isIslasBallestasActivity(primeraActividad.servicio)
+    !isActivityAllowedWithoutPrice(primeraActividad.servicio)
   ) {
     return {
       message: "SI SELECCIONO UNA PRIMERA ACTIVIDAD INGRESE EL PRECIO",
@@ -288,7 +293,7 @@ const validateViajeValues = (values: any): ValidationError | null => {
     segundaActividad.servicio?.value &&
     !segundaActividadTieneDetalle &&
     Number(segundaActividad.precio) <= 0 &&
-    !isIslasBallestasActivity(segundaActividad.servicio)
+    !isActivityAllowedWithoutPrice(segundaActividad.servicio)
   ) {
     return {
       message: "SI SELECCIONO UNA SEGUNDA ACTIVIDAD INGRESE EL PRECIO",
