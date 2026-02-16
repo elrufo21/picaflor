@@ -9,6 +9,8 @@ import { ChevronLeft, Search, X } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { API_BASE_URL } from "@/config";
+import { normalizeLegacyXmlPayload } from "@/shared/helpers/normalizeLegacyXmlPayload";
+import { toPlainText } from "@/shared/helpers/safeText";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { fetchLiquidacionNota, fetchPedidosFecha } from "../api/fulldayApi";
 import { usePackageStore } from "../store/fulldayStore";
@@ -55,7 +57,7 @@ function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
   };
 
   detalles.forEach((d, index) => {
-    const rawLabel = String(d.actividades ?? "").trim();
+    const rawLabel = normalizeStringValue(d.actividades);
 
     const isEntrada = index === 5;
 
@@ -119,7 +121,8 @@ type CanalRecordLike =
       [key: string]: unknown;
     };
 
-const normalizeStringValue = (value?: string) => String(value ?? "").trim();
+const normalizeStringValue = (value?: string) =>
+  toPlainText(normalizeLegacyXmlPayload(String(value ?? ""))).trim();
 const normalizeCondicionFilter = (value?: string) =>
   normalizeStringValue(value).toUpperCase().replace(/\s+/g, "");
 
@@ -519,7 +522,7 @@ const parseLiquidacionRow = (
   const rowRecord = LIQUIDACION_FIELDS.reduce(
     (acc, field) => {
       const value = normalizedValues[field.sourceIndex] ?? "";
-      acc[field.key] = value.trim();
+      acc[field.key] = normalizeStringValue(value);
       return acc;
     },
     {} as Record<LiquidacionFieldKey, string>,
@@ -1170,18 +1173,21 @@ const LiquidacionesPage = () => {
     // ===============================
 
     // 👉 TARIFA (legacy)
-    const buildTarifaRow = (d: BackendDetalle) => ({
-      detalleId: d.detalleId,
-      servicio: {
-        label: d.actividades || "-",
-        value: d.actividades || "",
-        id: d.actividades || "",
-        descripcion: "",
-      },
-      precio: d.precio ?? 0,
-      cant: d.cantidad ?? 0,
-      total: d.importe ?? 0,
-    });
+    const buildTarifaRow = (d: BackendDetalle) => {
+      const actividadLabel = normalizeStringValue(d.actividades);
+      return {
+        detalleId: d.detalleId,
+        servicio: {
+          label: actividadLabel || "-",
+          value: actividadLabel || "",
+          id: actividadLabel || "",
+          descripcion: "",
+        },
+        precio: d.precio ?? 0,
+        cant: d.cantidad ?? 0,
+        total: d.importe ?? 0,
+      };
+    };
 
     // 👉 ACTIVIDADES / TRASLADO (city tour nuevo formato usa productoId)
     const buildNormalRow = (d: BackendDetalle) => ({
