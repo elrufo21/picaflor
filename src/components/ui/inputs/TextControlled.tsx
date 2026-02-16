@@ -1,5 +1,4 @@
 import TextField, { type TextFieldProps } from "@mui/material/TextField";
-import type { ChangeEvent } from "react";
 import {
   Controller,
   type FieldValues,
@@ -68,6 +67,11 @@ function TextControlled<T extends FieldValues>({
       defaultValue={defaultValue}
       render={({ field, fieldState }) => {
         const { ref, onChange, value, ...fieldProps } = field;
+        const inputType =
+          typeof restProps.type === "string"
+            ? restProps.type.toLowerCase()
+            : "text";
+        const shouldUppercase = inputType === "text";
 
         const rawDisplayValue =
           displayZeroAsEmpty && (value === 0 || value === "0")
@@ -104,7 +108,7 @@ function TextControlled<T extends FieldValues>({
             }
           }
 
-          rest.inputProps?.onKeyDown?.(e as any);
+          rest.inputProps?.onKeyDown?.(e);
         };
 
         return (
@@ -115,12 +119,21 @@ function TextControlled<T extends FieldValues>({
             inputRef={ref}
             autoComplete={disableHistory ? "off" : restProps.autoComplete}
             onChange={(event) => {
+              const currentValue = event.target.value;
+              const normalizedValue =
+                shouldUppercase && typeof currentValue === "string"
+                  ? currentValue.toUpperCase()
+                  : currentValue;
+
               if (transform) {
-                const nextValue = transform(event.target.value);
+                const nextValue = transform(normalizedValue);
+                event.target.value = nextValue;
                 onChange(nextValue);
                 restOnChange?.(event);
                 return;
               }
+
+              event.target.value = normalizedValue;
               onChange(event);
               restOnChange?.(event);
             }}

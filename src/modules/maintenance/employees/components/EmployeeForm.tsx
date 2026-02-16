@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Backdrop from "@mui/material/Backdrop";
+import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
+import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useForm } from "react-hook-form";
 import { Camera, Plus, Save, Trash2, Upload, X } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   DateInput,
@@ -14,6 +20,8 @@ import { formatDateForInput, getTodayDateInputValue } from "@/shared/helpers/for
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Personal } from "@/types/employees";
 import { useDialogStore } from "@/app/store/dialogStore";
+import { apiRequest } from "@/shared/helpers/apiRequest";
+import { API_BASE_URL } from "@/config";
 
 type EmployeeFormProps = {
   initialData?: Partial<Personal>;
@@ -53,6 +61,18 @@ const buildDefaults = (data?: Partial<Personal>): Personal => ({
 const fallbackImage =
   "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><rect width='100%' height='100%' fill='%23f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='20' font-family='Arial, sans-serif'>No image</text></svg>";
 
+type CompanyOption = { value: number; label: string };
+type CompanyApi = {
+  id?: number | string | null;
+  nombre?: string | null;
+  companiaId?: number | string | null;
+  companiaRazonSocial?: string | null;
+};
+
+const fallbackCompanyOptions: CompanyOption[] = [{ value: 1, label: "Compania 1" }];
+const dniRegex = /^\d{8}$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
 export default function EmployeeForm({
   initialData,
   mode,
@@ -68,6 +88,11 @@ export default function EmployeeForm({
   const [takingPhoto, setTakingPhoto] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageSrc, setModalImageSrc] = useState<string | null>(null);
+  const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>(
+    fallbackCompanyOptions
+  );
   const openDialog = useDialogStore((s) => s.openDialog);
 
   const areaOptions = useMemo(
@@ -90,6 +115,7 @@ export default function EmployeeForm({
     handleSubmit,
     reset,
     setValue,
+    getValues,
     watch,
     formState: { isSubmitting },
   } = form;
@@ -125,7 +151,12 @@ export default function EmployeeForm({
       confirmLabel: "Eliminar",
       cancelLabel: "Cancelar",
       onConfirm: async () => {
-        await onDelete();
+        setIsDeleting(true);
+        try {
+          await onDelete();
+        } finally {
+          setIsDeleting(false);
+        }
       },
       content: () => (
         <div className="text-sm text-slate-700">
@@ -136,22 +167,92 @@ export default function EmployeeForm({
     });
   };
 
-  const companyOptions = useMemo(() => {
-    const base = [{ value: 1, label: "Compania 1" }];
+  useEffect(() => {
+    let active = true;
+
+    const mapCompany = (item: CompanyApi): CompanyOption | null => {
+      const id = Number(item?.companiaId ?? item?.id ?? 0);
+      if (!Number.isFinite(id) || id <= 0) return null;
+
+      const label =
+        String(item?.companiaRazonSocial ?? item?.nombre ?? "").trim() ||
+        `Compania ${id}`;
+
+      return { value: id, label };
+    };
+
+    const fetchCompanies = async () => {
+      if (active) setIsLoadingCompanies(true);
+      try {
+        const response = await apiRequest<CompanyApi[] | CompanyApi | null>({
+          url: `${API_BASE_URL}/Compania/list`,
+          method: "GET",
+          fallback: null,
+        });
+
+        const list = Array.isArray(response)
+          ? response
+          : response
+            ? [response]
+            : [];
+
+        const mapped = list
+          .map(mapCompany)
+          .filter((item): item is CompanyOption => item !== null);
+
+        if (!mapped.length) {
+          if (active) setCompanyOptions(fallbackCompanyOptions);
+          return;
+        }
+
+        const deduped = Array.from(
+          new Map(mapped.map((item) => [item.value, item])).values()
+        );
+
+        if (active) setCompanyOptions(deduped);
+      } finally {
+        if (active) setIsLoadingCompanies(false);
+      }
+    };
+
+    fetchCompanies();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const resolvedCompanyOptions = useMemo(() => {
+    const base = [...companyOptions];
+
+    const currentCompanyId = Number(initialData?.companiaId ?? 0);
     if (
-      initialData?.companiaId &&
-      !base.some((c) => Number(c.value) === Number(initialData.companiaId))
+      currentCompanyId > 0 &&
+      !base.some((c) => Number(c.value) === currentCompanyId)
     ) {
-      return [
-        {
-          value: Number(initialData.companiaId),
-          label: `Compania ${initialData.companiaId}`,
-        },
-        ...base,
-      ];
+      base.unshift({
+        value: currentCompanyId,
+        label: `Compania ${currentCompanyId}`,
+      });
     }
+
+    if (!base.some((c) => Number(c.value) === 1)) {
+      base.unshift({ value: 1, label: "Compania 1" });
+    }
+
     return base;
-  }, [initialData?.companiaId]);
+  }, [companyOptions, initialData?.companiaId]);
+
+  useEffect(() => {
+    if (mode !== "create") return;
+
+    const current = Number(getValues("companiaId") ?? 0);
+    if (current !== 1) {
+      setValue("companiaId", 1 as Personal["companiaId"], {
+        shouldDirty: false,
+      });
+    }
+  }, [mode, resolvedCompanyOptions, getValues, setValue]);
 
   const calculateAge = (value?: string | null) => {
     if (!value) return "";
@@ -167,12 +268,50 @@ export default function EmployeeForm({
   };
 
   const submit = async (values: Personal) => {
+    const codigo = (values.personalCodigo ?? "").trim();
+    if (!codigo) {
+      toast.error("El campo Codigo personal es obligatorio.");
+      return;
+    }
+
+    const areaId = Number(values.areaId ?? 0);
+    if (!areaId) {
+      toast.error("El campo Area es obligatorio.");
+      return;
+    }
+
+    const nombres = (values.personalNombres ?? "").trim();
+    if (!nombres) {
+      toast.error("El campo Nombres es obligatorio.");
+      return;
+    }
+
+    const apellidos = (values.personalApellidos ?? "").trim();
+    if (!apellidos) {
+      toast.error("El campo Apellidos es obligatorio.");
+      return;
+    }
+
+    const dni = (values.personalDni ?? "").trim();
+    if (dni && !dniRegex.test(dni)) {
+      toast.error("El DNI debe tener exactamente 8 digitos.");
+      return;
+    }
+
+    const email = (values.personalEmail ?? "").trim();
+    if (email && !emailRegex.test(email)) {
+      toast.error("Ingrese un correo valido (ejemplo: usuario@dominio.com).");
+      return;
+    }
+
     const payload: Personal = {
       ...values,
-      personalNombres: values.personalNombres?.toUpperCase() ?? "",
-      personalApellidos: values.personalApellidos?.toUpperCase() ?? "",
-      personalCodigo: values.personalCodigo?.toUpperCase() ?? "",
-      areaId: Number(values.areaId) || 0,
+      personalNombres: nombres.toUpperCase(),
+      personalApellidos: apellidos.toUpperCase(),
+      personalCodigo: codigo.toUpperCase(),
+      personalDni: dni,
+      personalEmail: email,
+      areaId,
       companiaId: Number(values.companiaId) || 1,
     };
 
@@ -190,7 +329,7 @@ export default function EmployeeForm({
     reset(
       buildDefaults({
         personalEstado: "ACTIVO",
-        companiaId: companyOptions[0]?.value ?? 1,
+        companiaId: 1,
       })
     );
     setImageFile(null);
@@ -275,10 +414,16 @@ export default function EmployeeForm({
     { value: "ACTIVO", label: "Activo" },
     { value: "INACTIVO", label: "Inactivo" },
   ];
+  const isBusy = isSubmitting || isLoadingCompanies || isDeleting;
+  const busyMessage = isDeleting
+    ? "Eliminando..."
+    : isSubmitting
+      ? "Guardando..."
+      : "Cargando datos...";
 
   return (
     <div ref={formRef} className="py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="relative max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
         <form onSubmit={handleSubmit(submit)} onKeyDown={handleEnterFocus}>
           <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
             <h1 className="text-base font-semibold">
@@ -327,9 +472,9 @@ export default function EmployeeForm({
                     name="companiaId"
                     control={control}
                     label="Compania"
-                    options={companyOptions}
+                    options={resolvedCompanyOptions}
                     size="small"
-                    defaultValue={companyOptions[0]?.value ?? 1}
+                    defaultValue={1}
                     autoAdvance
                   />
                 </div>
@@ -347,6 +492,7 @@ export default function EmployeeForm({
                   name="areaId"
                   control={control}
                   label="Area"
+                  required
                   options={[
                     { value: 0, label: "Seleccione area" },
                     ...areaOptions,
@@ -377,7 +523,7 @@ export default function EmployeeForm({
                   control={control}
                   label="DNI"
                   size="small"
-                  inputProps={{ maxLength: 8 }}
+                  inputProps={{ maxLength: 8, inputMode: "numeric", pattern: "[0-9]*" }}
                 />
 
                 <TextControlled
@@ -412,6 +558,7 @@ export default function EmployeeForm({
                   name="personalEmail"
                   control={control}
                   label="Correo"
+                  type="email"
                   size="small"
                 />
 
@@ -502,6 +649,42 @@ export default function EmployeeForm({
             </div>
           </div>
         </form>
+
+        <Backdrop
+          open={isBusy}
+          sx={{
+            position: "absolute",
+            zIndex: 20,
+            backgroundColor: "rgba(255, 255, 255, 0.55)",
+            backdropFilter: "blur(2px)",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              px: 2.5,
+              py: 1.5,
+              borderRadius: 2,
+              backgroundColor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
+              boxShadow: 4,
+              minWidth: 230,
+            }}
+          >
+            <CircularProgress size={26} thickness={4.6} sx={{ color: "#E8612A" }} />
+            <Stack spacing={0.25}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
+                Procesando solicitud
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                {busyMessage}
+              </Typography>
+            </Stack>
+          </Box>
+        </Backdrop>
 
         {isImageModalOpen && modalImageSrc && (
           <div

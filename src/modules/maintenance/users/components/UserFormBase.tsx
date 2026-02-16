@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { Save, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { toast } from "sonner";
+import { IconButton, InputAdornment } from "@mui/material";
 
 import DataTable from "./DataTable";
 import {
@@ -51,6 +52,8 @@ const estadoOptions = [
   { value: "INACTIVO", label: "Inactivo" },
 ];
 
+const passwordMinRules = /^(?=.*[A-Z])(?=.*\d).{6,}$/;
+
 export default function UserFormBase({
   initialData,
   mode,
@@ -68,7 +71,7 @@ export default function UserFormBase({
   const [showPass, setShowPass] = useState(false);
   const [showPassConfirm, setShowPassConfirm] = useState(false);
   const [usersEstado, setUsersEstado] = useState<"ACTIVO" | "INACTIVO">(
-    "ACTIVO"
+    "ACTIVO",
   );
 
   const emptyValues: UserFormValues = {
@@ -95,7 +98,7 @@ export default function UserFormBase({
         value: p.personalId,
         data: p,
       })),
-    [employees]
+    [employees],
   );
 
   const form = useForm<UserFormValues>({
@@ -141,7 +144,16 @@ export default function UserFormBase({
   }, [initialData, mode, reset, employeeOptions]);
 
   const onSubmit = async (values: UserFormValues) => {
-    if ((values.UsuarioClave ?? "") !== (values.ConfirmClave ?? "")) {
+    const password = values.UsuarioClave ?? "";
+
+    if (!passwordMinRules.test(password)) {
+      toast.error(
+        "La contraseña debe tener mínimo 6 caracteres, una mayúscula y un número",
+      );
+      return;
+    }
+
+    if (password !== (values.ConfirmClave ?? "")) {
       toast.error("Las contraseñas no coinciden");
       return;
     }
@@ -176,7 +188,7 @@ export default function UserFormBase({
   const handleRowClick = (row: any) => {
     const personalOpt =
       employeeOptions.find(
-        (opt) => Number(opt.value) === Number(row.PersonalId ?? row.personalId)
+        (opt) => Number(opt.value) === Number(row.PersonalId ?? row.personalId),
       ) ?? null;
 
     reset({
@@ -316,6 +328,29 @@ export default function UserFormBase({
                     placeholder="Ingrese contraseña"
                     required
                     size="small"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label={
+                              showPass
+                                ? "Ocultar contraseña"
+                                : "Mostrar contraseña"
+                            }
+                            onClick={() => setShowPass((prev) => !prev)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            edge="end"
+                            size="small"
+                          >
+                            {showPass ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
                 </div>
 
@@ -328,6 +363,29 @@ export default function UserFormBase({
                     placeholder="Repita la contraseña"
                     required
                     size="small"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label={
+                              showPassConfirm
+                                ? "Ocultar contraseña"
+                                : "Mostrar contraseña"
+                            }
+                            onClick={() => setShowPassConfirm((prev) => !prev)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            edge="end"
+                            size="small"
+                          >
+                            {showPassConfirm ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
                 </div>
 
@@ -344,7 +402,7 @@ export default function UserFormBase({
                 </div>
               </div>
 
-              <div className="w-full md:w-[60%] mt-6 md:mt-0">
+              <div className="w-full md:w-[60%] mt-6 md:mt-0 h-[500px]">
                 <DataTable
                   columns={columns}
                   data={users}
@@ -356,7 +414,7 @@ export default function UserFormBase({
                       onChange={(e) =>
                         setUsersEstado(e.target.value as "ACTIVO" | "INACTIVO")
                       }
-                      className="border border-gray-300 rounded px-2 py-1 text-sm"
+                      className="border border-gray-300 rounded px-2 py-1  text-sm"
                     >
                       <option value="ACTIVO">Activos</option>
                       <option value="INACTIVO">Inactivos</option>
@@ -371,4 +429,3 @@ export default function UserFormBase({
     </div>
   );
 }
-

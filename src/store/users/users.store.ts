@@ -38,15 +38,21 @@ const isAliasDuplicateResponse = (result: unknown) => {
 
   if (status === 409) return true;
 
-  const message =
+  const rawMessage =
     typeof result === "string"
       ? result
-      : (result as any)?.message ?? (result as any)?.response?.data ?? "";
+      : (result as any)?.response?.data?.message ??
+        (result as any)?.response?.data?.error ??
+        (result as any)?.response?.data ??
+        (result as any)?.message ??
+        "";
 
-  return (
-    typeof message === "string" &&
-    message.toLowerCase().includes("alias de usuario ya existe")
-  );
+  const message =
+    typeof rawMessage === "string"
+      ? rawMessage.toLowerCase()
+      : String(rawMessage ?? "").toLowerCase();
+
+  return message.includes("alias de usuario ya existe");
 };
 
 const mapUserToApiPayload = (user: Partial<User>) => ({
@@ -99,7 +105,6 @@ export const useUsersStore = create<UsersState>((set, get) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       if (isAliasDuplicateResponse(created)) {
@@ -114,6 +119,10 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       await get().fetchUsers();
       return true;
     } catch (err) {
+      if (isAliasDuplicateResponse(err)) {
+        toast.error("El alias de usuario ya existe.");
+        return false;
+      }
       console.error("Error creating user", err);
       return false;
     }
@@ -133,7 +142,6 @@ export const useUsersStore = create<UsersState>((set, get) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       if (isAliasDuplicateResponse(updated)) {
@@ -148,6 +156,10 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       await get().fetchUsers();
       return true;
     } catch (err) {
+      if (isAliasDuplicateResponse(err)) {
+        toast.error("El alias de usuario ya existe.");
+        return false;
+      }
       console.error("Error updating user", err);
       return false;
     }

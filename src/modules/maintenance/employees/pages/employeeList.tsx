@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useEmployeesStore } from "@/store/employees/employees.store";
@@ -68,7 +69,12 @@ const EmployeeList = () => {
                   confirmLabel: "Eliminar",
                   cancelLabel: "Cancelar",
                   onConfirm: async () => {
-                    await deleteEmployee(row.original.personalId);
+                    const ok = await deleteEmployee(row.original.personalId);
+                    if (!ok) {
+                      toast.error(
+                        "No se pudo eliminar, ya que tiene relacion con otros modulos",
+                      );
+                    }
                   },
                   content: () => (
                     <p className="text-sm text-slate-700">
