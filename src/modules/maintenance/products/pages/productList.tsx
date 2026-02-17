@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
+import { Plus } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -17,6 +18,7 @@ import { showToast } from "@/components/ui/AppToast";
 import { useAuthStore } from "@/store/auth/auth.store";
 import type { UseFormReturn } from "react-hook-form";
 import type { Product } from "@/types/maintenance";
+import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 
 const ProductList = () => {
   const products = useMaintenanceStore((state) => state.products);
@@ -202,19 +204,21 @@ const ProductList = () => {
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <MaintenancePageFrame
+      title="Productos"
+      action={
         <button
           type="button"
-          className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
           onClick={() => openProductModal("create")}
         >
-          + Nuevo producto
+          <Plus className="h-4 w-4" />
+          Nuevo producto
         </button>
-      </div>
-
+      }
+    >
       <DndTable data={products} columns={columns} enableDateFilter={false} />
-    </div>
+    </MaintenancePageFrame>
   );
 };
 

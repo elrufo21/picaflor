@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Save, Plus, Trash2 } from "lucide-react";
 
@@ -19,9 +19,11 @@ import type { Client } from "@/types/maintenance";
 type ClientFormProps = {
   initialData?: Partial<Client>;
   mode: "create" | "edit";
-  onSave: (data: Client) => void | Promise<void>;
+  onSave: (data: Client) => void | boolean | Promise<void | boolean>;
   onNew?: () => void;
   onDelete?: () => void;
+  hideHeaderActions?: boolean;
+  onRegisterSubmit?: (submit: (() => Promise<boolean>) | null) => void;
 };
 
 const buildDefaults = (data?: Partial<Client>): Client => ({
@@ -53,17 +55,18 @@ export default function ClientForm({
   onSave,
   onNew,
   onDelete,
+  hideHeaderActions = false,
+  onRegisterSubmit,
 }: ClientFormProps) {
   const formRef = useRef<HTMLDivElement>(null);
   const openDialog = useDialogStore((s) => s.openDialog);
-
   const defaults = useMemo(() => buildDefaults(initialData), [initialData]);
 
   const form = useForm<Client>({
     defaultValues: defaults,
   });
 
-  const { handleSubmit, control, reset } = form;
+  const { handleSubmit, control, reset, trigger, getValues } = form;
 
   useEffect(() => {
     reset(buildDefaults(initialData));
@@ -87,33 +90,51 @@ export default function ClientForm({
     return base;
   }, [initialData?.companiaId]);
 
-  const submit = async (values: Client) => {
-    const payload: Client = {
-      ...values,
-      clienteRazon: values.clienteRazon?.trim().toUpperCase() ?? "",
-      clienteRuc: values.clienteRuc?.trim() ?? "",
-      clienteDni: values.clienteDni?.trim() ?? "",
-      clienteDireccion: values.clienteDireccion?.trim() ?? "",
-      clienteMovil: values.clienteMovil?.trim() ?? "",
-      clienteTelefono: values.clienteTelefono?.trim() ?? "",
-      clienteCorreo: values.clienteCorreo?.trim() ?? "",
-      clienteDespacho: values.clienteDespacho?.trim() ?? "",
-      clienteUsuario: values.clienteUsuario?.trim() ?? "",
-      clienteEstado: values.clienteEstado ?? "ACTIVO",
-      clienteFecha: values.clienteFecha ?? "",
-      companiaId: Number(values.companiaId) || 1,
-      clienteId: Number(values.clienteId) || 0,
-      id: Number(values.clienteId) || (values.id ?? 0),
-    };
+  const submit = useCallback(
+    async (values: Client): Promise<boolean> => {
+      const payload: Client = {
+        ...values,
+        clienteRazon: values.clienteRazon?.trim().toUpperCase() ?? "",
+        clienteRuc: values.clienteRuc?.trim() ?? "",
+        clienteDni: values.clienteDni?.trim() ?? "",
+        clienteDireccion: values.clienteDireccion?.trim() ?? "",
+        clienteMovil: values.clienteMovil?.trim() ?? "",
+        clienteTelefono: values.clienteTelefono?.trim() ?? "",
+        clienteCorreo: values.clienteCorreo?.trim() ?? "",
+        clienteDespacho: values.clienteDespacho?.trim() ?? "",
+        clienteUsuario: values.clienteUsuario?.trim() ?? "",
+        clienteEstado: values.clienteEstado ?? "ACTIVO",
+        clienteFecha: values.clienteFecha ?? "",
+        companiaId: Number(values.companiaId) || 1,
+        clienteId: Number(values.clienteId) || 0,
+        id: Number(values.clienteId) || (values.id ?? 0),
+      };
 
-    await onSave(payload);
+      const ok = await onSave(payload);
+      if (ok === false) return false;
 
-    if (mode === "create") {
-      reset(buildDefaults());
-      onNew?.();
-      focusFirstInput(formRef.current);
-    }
-  };
+      if (mode === "create") {
+        reset(buildDefaults());
+        onNew?.();
+        focusFirstInput(formRef.current);
+      }
+
+      return true;
+    },
+    [mode, onSave, onNew, reset],
+  );
+
+  const submitFromOutside = useCallback(async () => {
+    const isValid = await trigger();
+    if (!isValid) return false;
+    return submit(getValues());
+  }, [trigger, submit, getValues]);
+
+  useEffect(() => {
+    if (!onRegisterSubmit) return;
+    onRegisterSubmit(submitFromOutside);
+    return () => onRegisterSubmit(null);
+  }, [onRegisterSubmit, submitFromOutside]);
 
   const handleNew = () => {
     reset(buildDefaults());
@@ -146,43 +167,45 @@ export default function ClientForm({
     <div ref={formRef} className="py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
         <form onSubmit={handleSubmit(submit)} onKeyDown={handleEnterFocus}>
-          <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
-            <h1 className="text-base font-semibold">
-              {mode === "create" ? "Registrar cliente" : "Editar cliente"}
-            </h1>
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
-                title="Guardar"
-              >
-                <Save className="w-4 h-4" />
-                <span className="hidden sm:inline">Guardar</span>
-              </button>
-              {mode !== "edit" && (
+          {!hideHeaderActions && (
+            <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
+              <h1 className="text-base font-semibold">
+                {mode === "create" ? "Registrar cliente" : "Editar cliente"}
+              </h1>
+              <div className="flex items-center gap-2">
                 <button
-                  type="button"
-                  onClick={handleNew}
+                  type="submit"
                   className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
-                  title="Nuevo"
+                  title="Guardar"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Nuevo</span>
+                  <Save className="w-4 h-4" />
+                  <span className="hidden sm:inline">Guardar</span>
                 </button>
-              )}
-              {mode === "edit" && onDelete && (
-                <button
-                  type="button"
-                  onClick={handleDeleteConfirm}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
-                  title="Eliminar"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Eliminar</span>
-                </button>
-              )}
+                {mode !== "edit" && (
+                  <button
+                    type="button"
+                    onClick={handleNew}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
+                    title="Nuevo"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Nuevo</span>
+                  </button>
+                )}
+                {mode === "edit" && onDelete && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteConfirm}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Eliminar</span>
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="p-6 sm:p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

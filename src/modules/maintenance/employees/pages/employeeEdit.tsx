@@ -42,7 +42,7 @@ const EmployeeEdit = () => {
   const handleDelete = async () => {
     const ok = await deleteEmployee(Number(id));
     if (!ok) {
-      toast.error("No se pudo eliminar el empleado");
+      toast.error("No se pudo eliminar, ya que tiene relacion con otros modulos");
       return;
     }
     toast.success("Empleado eliminado");

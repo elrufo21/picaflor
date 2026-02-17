@@ -19,11 +19,19 @@ export type DialogConfig = {
   description?: string;
   size?: DialogSize;
   content: (context: DialogContext) => ReactNode;
+  showFooter?: boolean;
   confirmLabel?: string;
+  dangerLabel?: string;
   cancelLabel?: string;
   showCancel?: boolean;
+  disableClose?: boolean;
   initialPayload?: DialogPayload;
-  onConfirm?: (payload: DialogPayload) => void | Promise<void>;
+  onConfirm?: (
+    payload: DialogPayload
+  ) => void | boolean | Promise<void | boolean>;
+  onDanger?: (
+    payload: DialogPayload
+  ) => void | boolean | Promise<void | boolean>;
   onClose?: () => void;
 };
 

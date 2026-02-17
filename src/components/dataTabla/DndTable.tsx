@@ -356,7 +356,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   }, [enableCellNavigation, location.pathname]);
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm ${className}`}>
+    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${className}`}>
       {/* Header con búsqueda y acciones */}
       {(enableFiltering || enableSearching) && (
         <TableHeader
@@ -375,7 +375,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
 
       {/* Contenedor de la tabla con scroll horizontal */}
       <div ref={tableContainerRef} className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[720px]">
           <TableHead table={table} enableSorting={enableSorting} />
           <TableBody
             table={table}
@@ -433,7 +433,7 @@ const TableHeader = ({
   }`;
 
   return (
-    <div className="p-4 sm:p-6 border-b border-slate-200">
+    <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/60">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         {/* Buscador */}
         <div className={searchContainerClassName}>
@@ -448,7 +448,7 @@ const TableHeader = ({
                   value={globalFilter ?? ""}
                   onChange={(e) => setGlobalFilter(e.target.value)}
                   placeholder="Buscar en toda la tabla..."
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-[#E8612A] text-sm"
                 />
                 {globalFilter && (
                   <button
@@ -473,7 +473,7 @@ const TableHeader = ({
                     type="date"
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
-                    className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-[#E8612A]"
                   />
                   {dateFilter && (
                     <button
@@ -486,7 +486,7 @@ const TableHeader = ({
                 </div>
               )}
           {selectedRows > 0 && (
-            <span className="text-sm text-slate-600 bg-emerald-50 px-3 py-1.5 rounded-lg">
+            <span className="text-sm text-slate-700 bg-orange-50 px-3 py-1.5 rounded-xl border border-orange-100">
               {selectedRows} seleccionado{selectedRows > 1 ? "s" : ""}
             </span>
           )}
@@ -519,7 +519,7 @@ const TableHead = <TData extends Record<string, any>>({
   enableSorting,
 }: TableHeadProps<TData>) => {
   return (
-    <thead className="bg-slate-50 border-b border-slate-200">
+    <thead className="bg-slate-100/70 border-b border-slate-200">
       {table.getHeaderGroups().map((headerGroup) => (
         <tr key={headerGroup.id}>
           {headerGroup.headers.map((header) => (
@@ -543,7 +543,7 @@ const TableHead = <TData extends Record<string, any>>({
                         : "justify-start"
                   } ${
                     header.column.getCanSort() && enableSorting
-                      ? "cursor-pointer select-none hover:text-emerald-600"
+                      ? "cursor-pointer select-none hover:text-[#E8612A]"
                       : ""
                   }`}
                   onClick={header.column.getToggleSortingHandler()}
@@ -570,10 +570,10 @@ const TableHead = <TData extends Record<string, any>>({
 // ============================================
 const SortIcon = ({ sorted }) => {
   if (sorted === "asc") {
-    return <ChevronUp className="w-4 h-4 text-emerald-600" />;
+    return <ChevronUp className="w-4 h-4 text-[#E8612A]" />;
   }
   if (sorted === "desc") {
-    return <ChevronDown className="w-4 h-4 text-emerald-600" />;
+    return <ChevronDown className="w-4 h-4 text-[#E8612A]" />;
   }
   return <ChevronsUpDown className="w-4 h-4 text-slate-400" />;
 };
@@ -650,12 +650,14 @@ const TableBody = <TData extends Record<string, any>>({
                 row.toggleSelected(true);
               }
             }
-            onRowClick && onRowClick(row.original);
+            if (onRowClick) {
+              onRowClick(row.original);
+            }
           }}
           className={`
     transition-colors
     ${getRowClassName(row.original, rowColorRules)}
-    ${row.getIsSelected() ? "bg-emerald-100" : "hover:bg-slate-50"}
+    ${row.getIsSelected() ? "bg-orange-50" : "hover:bg-slate-50"}
   `}
         >
           {row.getVisibleCells().map((cell, cellIndex) => (
@@ -678,7 +680,7 @@ const TableBody = <TData extends Record<string, any>>({
                 enableCellNavigation &&
                 activeCell?.row === rowIndex &&
                 activeCell?.col === cellIndex
-                  ? "bg-emerald-50 ring-1 ring-inset ring-emerald-500"
+                  ? "bg-orange-50 ring-1 ring-inset ring-[#E8612A]"
                   : ""
               }`}
             >
@@ -697,7 +699,7 @@ const TableBody = <TData extends Record<string, any>>({
 const LoadingSpinner = () => {
   return (
     <div className="flex flex-col items-center justify-center gap-3">
-      <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
+      <div className="w-10 h-10 border-4 border-orange-100 border-t-[#E8612A] rounded-full animate-spin"></div>
       <p className="text-slate-600">Cargando datos...</p>
     </div>
   );
@@ -734,7 +736,7 @@ const TablePagination = ({ table, pageSizeOptions }: TablePaginationProps) => {
           <select
             value={table.getState().pagination.pageSize}
             onChange={(e) => table.setPageSize(Number(e.target.value))}
-            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-[#E8612A]"
           >
             {pageSizeOptions.map((size) => (
               <option key={size} value={size}>

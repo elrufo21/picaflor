@@ -16,6 +16,10 @@ interface UsersState {
   deleteUser: (id: number) => Promise<boolean>;
 }
 
+type UserPayloadInput = Partial<User> & {
+  flag?: number;
+};
+
 const mapApiToUser = (item: any): User => ({
   UsuarioID: item?.usuarioID ?? item?.UsuarioID ?? item?.id ?? 0,
   PersonalId: item?.personalId ?? item?.PersonalId ?? item?.personalID ?? 0,
@@ -38,24 +42,31 @@ const isAliasDuplicateResponse = (result: unknown) => {
 
   if (status === 409) return true;
 
-  const message =
+  const rawMessage =
     typeof result === "string"
       ? result
-      : (result as any)?.message ?? (result as any)?.response?.data ?? "";
+      : (result as any)?.response?.data?.message ??
+        (result as any)?.response?.data?.error ??
+        (result as any)?.response?.data ??
+        (result as any)?.message ??
+        "";
 
-  return (
-    typeof message === "string" &&
-    message.toLowerCase().includes("alias de usuario ya existe")
-  );
+  const message =
+    typeof rawMessage === "string"
+      ? rawMessage.toLowerCase()
+      : String(rawMessage ?? "").toLowerCase();
+
+  return message.includes("alias de usuario ya existe");
 };
 
-const mapUserToApiPayload = (user: Partial<User>) => ({
+const mapUserToApiPayload = (user: UserPayloadInput) => ({
   usuarioID: user.UsuarioID ?? 0,
   personalId: user.PersonalId ?? 0,
   usuarioAlias: user.UsuarioAlias ?? "",
   usuarioClave: user.UsuarioClave ?? "",
   usuarioFechaReg: user.UsuarioFechaReg ?? new Date().toISOString(),
   usuarioEstado: user.UsuarioEstado ?? "ACTIVO",
+  flag: Number(user.flag ?? 0),
 });
 
 export const useUsersStore = create<UsersState>((set, get) => ({
@@ -99,7 +110,6 @@ export const useUsersStore = create<UsersState>((set, get) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       if (isAliasDuplicateResponse(created)) {
@@ -114,6 +124,10 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       await get().fetchUsers();
       return true;
     } catch (err) {
+      if (isAliasDuplicateResponse(err)) {
+        toast.error("El alias de usuario ya existe.");
+        return false;
+      }
       console.error("Error creating user", err);
       return false;
     }
@@ -133,7 +147,6 @@ export const useUsersStore = create<UsersState>((set, get) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       if (isAliasDuplicateResponse(updated)) {
@@ -148,6 +161,10 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       await get().fetchUsers();
       return true;
     } catch (err) {
+      if (isAliasDuplicateResponse(err)) {
+        toast.error("El alias de usuario ya existe.");
+        return false;
+      }
       console.error("Error updating user", err);
       return false;
     }

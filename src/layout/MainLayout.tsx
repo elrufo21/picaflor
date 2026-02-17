@@ -4,10 +4,10 @@ import { X, LogOutIcon, MenuIcon } from "lucide-react";
 import BreadCrumb from "./BreadCrumb";
 import { useLayoutStore } from "../app/store/layoutStore";
 import Dialog from "../components/ui/Dialog";
+import PasswordExpiryGate from "./PasswordExpiryGate";
 import { navigationItems } from "./navigation";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { ButtonBase, ListItemIcon, Menu, MenuItem } from "@mui/material";
-import { usePackageStore } from "@/modules/citytour/store/cityTourStore";
 
 const NAVIGATION_FILTER_STORAGE_RULES = [
   {
@@ -24,7 +24,6 @@ const MainLayout = () => {
   const [isDesktop, setIsDesktop] = useState(false);
   const { isSidebarOpen, setSidebarOpen, toggleSidebar, closeSidebar } =
     useLayoutStore();
-  const { setDate } = usePackageStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [navFilter, setNavFilter] = useState("");
   const open = Boolean(anchorEl);
@@ -410,6 +409,7 @@ const MainLayout = () => {
       </div>
 
       <Dialog />
+      <PasswordExpiryGate />
     </div>
   );
 };

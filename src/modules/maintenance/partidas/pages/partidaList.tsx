@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 
 import DndTable from "@/components/dataTabla/DndTable";
@@ -11,6 +11,7 @@ import PartidaFormDialog, {
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { usePartidasQuery } from "../usePartidasQuery";
 import type { DeparturePoint } from "@/types/maintenance";
+import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 
 const PartidaList = () => {
   const {
@@ -122,22 +123,22 @@ const PartidaList = () => {
   }, [openDialog, deletePartida, openPartidaModal]);
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Puntos de partida</h1>
-        </div>
+    <MaintenancePageFrame
+      title="Puntos de partida"
+      description="Registra y actualiza los puntos de salida para cada destino."
+      action={
         <button
           type="button"
-          className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
           onClick={() => openPartidaModal("create")}
         >
-          + Crear punto de partida
+          <Plus className="h-4 w-4" />
+          Crear punto de partida
         </button>
-      </div>
-
+      }
+    >
       <DndTable data={partidas} columns={columns} enableDateFilter={false} />
-    </div>
+    </MaintenancePageFrame>
   );
 };
 

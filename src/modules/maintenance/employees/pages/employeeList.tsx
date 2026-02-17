@@ -1,26 +1,103 @@
-import { useEffect, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import type { Personal } from "@/types/employees";
 import { useDialogStore } from "@/app/store/dialogStore";
+import MaintenancePageFrame from "../../components/MaintenancePageFrame";
+import EmployeeForm from "../components/EmployeeForm";
 
 const EmployeeList = () => {
-  const navigate = useNavigate();
-
   const openDialog = useDialogStore((s) => s.openDialog);
-
-  const { employees, fetchEmployees, deleteEmployee } = useEmployeesStore();
+  const {
+    employees,
+    fetchEmployees,
+    addEmployee,
+    updateEmployee,
+    deleteEmployee,
+  } = useEmployeesStore();
+  const submitEmployeeRef = useRef<(() => Promise<boolean>) | null>(null);
 
   useEffect(() => {
     fetchEmployees("ACTIVO");
   }, [fetchEmployees]);
 
-  const columnHelper = createColumnHelper<Personal>();
+  const openEmployeeModal = useCallback(
+    (mode: "create" | "edit", employee?: Personal) => {
+      openDialog({
+        title: mode === "create" ? "Registrar personal" : "Editar personal",
+        description:
+          mode === "create"
+            ? "Completa los datos para registrar un nuevo empleado."
+            : "Actualiza los datos del empleado seleccionado.",
+        size: "xxl",
+        confirmLabel: mode === "create" ? "Crear" : "Guardar",
+        dangerLabel: mode === "edit" ? "Eliminar" : undefined,
+        onConfirm: async () => {
+          const submitForm = submitEmployeeRef.current;
+          if (typeof submitForm !== "function") return false;
+          return submitForm();
+        },
+        onDanger:
+          mode === "edit"
+            ? async () => {
+                const id = Number(employee?.personalId ?? 0);
+                if (!id) return false;
+                const ok = await deleteEmployee(id);
+                if (!ok) {
+                  toast.error(
+                    "No se pudo eliminar, ya que tiene relacion con otros modulos",
+                  );
+                  return false;
+                }
+                toast.success("Empleado eliminado");
+                await fetchEmployees("ACTIVO");
+                return true;
+              }
+            : undefined,
+        content: () => (
+          <EmployeeForm
+            mode={mode}
+            initialData={employee}
+            hideHeaderActions
+            onRegisterSubmit={(submit) => {
+              submitEmployeeRef.current = submit;
+            }}
+            onSave={async (data) => {
+              if (mode === "create") {
+                const ok = await addEmployee(data);
+                if (!ok) {
+                  toast.error("No se pudo crear el empleado");
+                  return false;
+                }
+                toast.success("Empleado creado correctamente");
+                await fetchEmployees("ACTIVO");
+                return true;
+              }
 
+              const id = Number(employee?.personalId ?? 0);
+              if (!id) return false;
+              const ok = await updateEmployee(id, data);
+              if (!ok) {
+                toast.error("No se pudo actualizar el empleado");
+                return false;
+              }
+              toast.success("Empleado actualizado");
+              await fetchEmployees("ACTIVO");
+              return true;
+            }}
+            onNew={() => {}}
+          />
+        ),
+      });
+    },
+    [openDialog, addEmployee, updateEmployee, deleteEmployee, fetchEmployees],
+  );
+
+  const columnHelper = createColumnHelper<Personal>();
   const columns = useMemo(
     () => [
       columnHelper.accessor("personalNombres", {
@@ -43,22 +120,16 @@ const EmployeeList = () => {
         id: "acciones",
         header: "Acciones",
         cell: ({ row }) => (
-          <div className="flex items-center gap-3">
-            {/* EDITAR */}
+          <div className="flex items-center gap-3 ">
             <button
               type="button"
-              onClick={() =>
-                navigate(
-                  `/maintenance/employees/${row.original.personalId}/edit`,
-                )
-              }
+              onClick={() => openEmployeeModal("edit", row.original)}
               className="text-blue-600 hover:text-blue-800"
               title="Editar"
             >
               <Pencil className="w-4 h-4" />
             </button>
 
-            {/* ELIMINAR */}
             <button
               type="button"
               onClick={() => {
@@ -68,13 +139,22 @@ const EmployeeList = () => {
                   confirmLabel: "Eliminar",
                   cancelLabel: "Cancelar",
                   onConfirm: async () => {
-                    await deleteEmployee(row.original.personalId);
+                    const ok = await deleteEmployee(row.original.personalId);
+                    if (!ok) {
+                      toast.error(
+                        "No se pudo eliminar, ya que tiene relacion con otros modulos",
+                      );
+                      return false;
+                    }
+                    toast.success("Empleado eliminado");
+                    await fetchEmployees("ACTIVO");
+                    return true;
                   },
                   content: () => (
                     <p className="text-sm text-slate-700">
-                      ¿Estás seguro de eliminar este empleado?
+                      Estas seguro de eliminar este empleado?
                       <br />
-                      Esta acción no se puede deshacer.
+                      Esta accion no se puede deshacer.
                     </p>
                   ),
                 });
@@ -88,23 +168,32 @@ const EmployeeList = () => {
         ),
       }),
     ],
-    [columnHelper, deleteEmployee, navigate, openDialog],
+    [
+      columnHelper,
+      openDialog,
+      openEmployeeModal,
+      deleteEmployee,
+      fetchEmployees,
+    ],
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex justify-between items-center">
+    <MaintenancePageFrame
+      title="Empleados"
+      description="Gestiona el personal activo y su informacion principal."
+      action={
         <button
           type="button"
-          className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
-          onClick={() => navigate("/maintenance/employees/create")}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
+          onClick={() => openEmployeeModal("create")}
         >
-          + Nuevo empleado
+          <Plus className="h-4 w-4" />
+          Nuevo empleado
         </button>
-      </div>
-
+      }
+    >
       <DndTable data={employees} columns={columns} enableDateFilter={false} />
-    </div>
+    </MaintenancePageFrame>
   );
 };
 
