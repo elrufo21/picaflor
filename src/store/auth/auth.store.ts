@@ -23,6 +23,7 @@ export interface AuthSession {
   token: string;
   user: AuthUser;
   expiresAt: number;
+  fechaVencimientoClave: string;
 }
 
 interface LoginPayload {
@@ -41,11 +42,15 @@ interface LoginResponse {
   token: string;
   expiresAtUtc?: string;
   expiresInSeconds?: number;
+  fechaVencimientoClave?: string | null;
+  FechaVencimientoClave?: string | null;
 }
 
 interface AuthState {
   user: AuthUser | null;
   token: string | null;
+  passwordExpiryDate: string | null;
+  passwordMustChange: boolean;
   isAuthenticated: boolean;
   hydrated: boolean;
   loading: boolean;
@@ -64,7 +69,38 @@ const isAuthSession = (value: unknown): value is AuthSession =>
   "token" in value &&
   "user" in value &&
   "expiresAt" in value &&
-  typeof (value as any).token === "string";
+  "fechaVencimientoClave" in value &&
+  typeof (value as { token?: unknown }).token === "string";
+
+const normalizeDateOnly = (value?: string | null): string | null => {
+  const trimmed = String(value ?? "").trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  return `${match[1]}-${match[2]}-${match[3]}`;
+};
+
+const isPasswordExpiredByDate = (expiryDate?: string | null): boolean => {
+  const normalized = normalizeDateOnly(expiryDate);
+  if (!normalized) return true;
+
+  const [year, month, day] = normalized.split("-").map(Number);
+  const expiry = new Date(year, month - 1, day);
+  expiry.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return today.getTime() >= expiry.getTime();
+};
 
 const readSessionFromStorage = (): AuthSession | null => {
   if (typeof window === "undefined") return null;
@@ -113,6 +149,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   const hasValidStoredSession =
     storedSession && !isExpired(storedSession.expiresAt);
+  const storedPasswordExpiryDate = hasValidStoredSession
+    ? normalizeDateOnly(storedSession?.fechaVencimientoClave)
+    : null;
+  const canRestoreStoredSession =
+    !!hasValidStoredSession && !!storedPasswordExpiryDate;
 
   const logout = (reason?: string) => {
     if (sessionTimeoutId) {
@@ -124,6 +165,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
     set({
       user: null,
       token: null,
+      passwordExpiryDate: null,
+      passwordMustChange: false,
       isAuthenticated: false,
       error: reason ?? null,
       hydrated: true,
@@ -134,10 +177,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
   const hydrate = () => {
     if (get().hydrated) return;
     const session = readSessionFromStorage();
-    if (session && !isExpired(session.expiresAt)) {
+    const normalizedPasswordDate = normalizeDateOnly(
+      session?.fechaVencimientoClave,
+    );
+    if (session && !isExpired(session.expiresAt) && normalizedPasswordDate) {
       set({
         user: session.user,
         token: session.token,
+        passwordExpiryDate: normalizedPasswordDate,
+        passwordMustChange: isPasswordExpiredByDate(normalizedPasswordDate),
         isAuthenticated: true,
         hydrated: true,
       });
@@ -150,9 +198,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
   };
 
   return {
-    user: hasValidStoredSession ? storedSession?.user : null,
-    token: hasValidStoredSession ? storedSession?.token : null,
-    isAuthenticated: !!hasValidStoredSession,
+    user: canRestoreStoredSession ? storedSession?.user : null,
+    token: canRestoreStoredSession ? storedSession?.token : null,
+    passwordExpiryDate: canRestoreStoredSession ? storedPasswordExpiryDate : null,
+    passwordMustChange: canRestoreStoredSession
+      ? isPasswordExpiredByDate(storedPasswordExpiryDate)
+      : false,
+    isAuthenticated: !!canRestoreStoredSession,
     hydrated: false,
     loading: false,
     error: null,
@@ -214,6 +266,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
           isAuthenticated: false,
           user: null,
           token: null,
+          passwordExpiryDate: null,
+          passwordMustChange: false,
           error: message,
           hydrated: true,
         });
@@ -226,6 +280,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
           isAuthenticated: false,
           user: null,
           token: null,
+          passwordExpiryDate: null,
+          passwordMustChange: false,
           error: "El servidor no responde. Intenta de nuevo más tarde.",
           hydrated: true,
         });
@@ -238,7 +294,26 @@ export const useAuthStore = create<AuthState>((set, get) => {
           isAuthenticated: false,
           user: null,
           token: null,
+          passwordExpiryDate: null,
+          passwordMustChange: false,
           error: "Credenciales incorrectas",
+          hydrated: true,
+        });
+        return false;
+      }
+
+      const rawPasswordExpiryDate =
+        parsed.fechaVencimientoClave ?? parsed.FechaVencimientoClave ?? null;
+      const passwordExpiryDate = normalizeDateOnly(rawPasswordExpiryDate);
+      if (!passwordExpiryDate) {
+        set({
+          loading: false,
+          isAuthenticated: false,
+          user: null,
+          token: null,
+          passwordExpiryDate: null,
+          passwordMustChange: false,
+          error: "No se recibio fecha de vencimiento de clave.",
           hydrated: true,
         });
         return false;
@@ -253,6 +328,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const session: AuthSession = {
         token: parsed.token,
         expiresAt: expiresAt ?? Date.now() + 5 * 60 * 1000,
+        fechaVencimientoClave: passwordExpiryDate,
         user: {
           id: parsed.id,
           personalId: parsed.personalId,
@@ -272,6 +348,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         isAuthenticated: true,
         user: session.user,
         token: session.token,
+        passwordExpiryDate: session.fechaVencimientoClave,
+        passwordMustChange: isPasswordExpiredByDate(session.fechaVencimientoClave),
         hydrated: true,
         error: null,
       });
@@ -286,3 +364,4 @@ export const useAuthStore = create<AuthState>((set, get) => {
     logout: () => logout(),
   };
 });
+

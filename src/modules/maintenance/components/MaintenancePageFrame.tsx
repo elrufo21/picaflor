@@ -14,7 +14,7 @@ export default function MaintenancePageFrame({
   children,
 }: MaintenancePageFrameProps) {
   return (
-    <div className="p-4 sm:p-6 space-y-4">
+    <div className="p-4 sm:p-6 space-y-2">
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-r from-white via-orange-50/60 to-amber-50/40 shadow-sm">
         <div className="px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -24,9 +24,6 @@ export default function MaintenancePageFrame({
             <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">
               {title}
             </h1>
-            {description ? (
-              <p className="text-sm text-slate-600 mt-1">{description}</p>
-            ) : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
         </div>

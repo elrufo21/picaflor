@@ -1,19 +1,12 @@
+import { Navigate } from "react-router";
 import MaintenanceDashboard from "./pages/MaintenanceDashboard";
 import UserCreate from "./users/pages/userCreate";
 import UserEdit from "./users/pages/userEdit";
 import UserList from "./users/pages/userList";
 import AreaList from "./areas/pages/areaList";
-import AreaCreate from "./areas/pages/areaCreate";
-import AreaEdit from "./areas/pages/areaEdit";
 import CategoryList from "./categories/pages/categoryList";
-import CategoryCreate from "./categories/pages/categoryCreate";
-import CategoryEdit from "./categories/pages/categoryEdit";
 import EmployeeList from "./employees/pages/employeeList";
-import EmployeeCreate from "./employees/pages/employeeCreate";
-import EmployeeEdit from "./employees/pages/employeeEdit";
 import ClientList from "./clients/pages/clientList";
-import ClientCreate from "./clients/pages/clientCreate";
-import ClientEdit from "./clients/pages/clientEdit";
 import SalesChannelPage from "./salesChannel/pages/salesChannelPage";
 import HotelList from "./hotels/pages/hotelList";
 import PartidaList from "./partidas/pages/partidaList";
@@ -42,7 +35,7 @@ export default [
   },
   {
     path: "maintenance/categories/create",
-    element: <CategoryCreate />,
+    element: <Navigate to="/maintenance/categories" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -53,7 +46,7 @@ export default [
   },
   {
     path: "maintenance/categories/:id/edit",
-    element: <CategoryEdit />,
+    element: <Navigate to="/maintenance/categories" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -74,7 +67,7 @@ export default [
   },
   {
     path: "maintenance/areas/create",
-    element: <AreaCreate />,
+    element: <Navigate to="/maintenance/areas" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -86,7 +79,7 @@ export default [
   // Alias en singular
   {
     path: "maintenance/area/create",
-    element: <AreaCreate />,
+    element: <Navigate to="/maintenance/areas" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -97,7 +90,7 @@ export default [
   },
   {
     path: "maintenance/areas/:id/edit",
-    element: <AreaEdit />,
+    element: <Navigate to="/maintenance/areas" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -109,7 +102,7 @@ export default [
   // Alias en singular
   {
     path: "maintenance/area/:id/edit",
-    element: <AreaEdit />,
+    element: <Navigate to="/maintenance/areas" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -202,7 +195,7 @@ export default [
   },
   {
     path: "maintenance/clients/create",
-    element: <ClientCreate />,
+    element: <Navigate to="/maintenance/clients" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -213,7 +206,7 @@ export default [
   },
   {
     path: "maintenance/clients/:id/edit",
-    element: <ClientEdit />,
+    element: <Navigate to="/maintenance/clients" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -234,7 +227,7 @@ export default [
   },
   {
     path: "maintenance/employees/create",
-    element: <EmployeeCreate />,
+    element: <Navigate to="/maintenance/employees" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -245,7 +238,7 @@ export default [
   },
   {
     path: "maintenance/employees/:id/edit",
-    element: <EmployeeEdit />,
+    element: <Navigate to="/maintenance/employees" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Backdrop from "@mui/material/Backdrop";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -16,7 +16,10 @@ import {
 } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { handleEnterFocus } from "@/shared/helpers/formFocus";
-import { formatDateForInput, getTodayDateInputValue } from "@/shared/helpers/formatDate";
+import {
+  formatDateForInput,
+  getTodayDateInputValue,
+} from "@/shared/helpers/formatDate";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Personal } from "@/types/employees";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -27,10 +30,12 @@ type EmployeeFormProps = {
   initialData?: Partial<Personal>;
   mode: "create" | "edit";
   onSave: (
-    data: Personal & { imageFile?: File | null; imageRemoved?: boolean }
-  ) => void | Promise<void>;
+    data: Personal & { imageFile?: File | null; imageRemoved?: boolean },
+  ) => void | boolean | Promise<void | boolean>;
   onNew?: () => void;
   onDelete?: () => void;
+  hideHeaderActions?: boolean;
+  onRegisterSubmit?: (submit: (() => Promise<boolean>) | null) => void;
 };
 
 const buildDefaults = (data?: Partial<Personal>): Personal => ({
@@ -69,7 +74,9 @@ type CompanyApi = {
   companiaRazonSocial?: string | null;
 };
 
-const fallbackCompanyOptions: CompanyOption[] = [{ value: 1, label: "Compania 1" }];
+const fallbackCompanyOptions: CompanyOption[] = [
+  { value: 1, label: "Compania 1" },
+];
 const dniRegex = /^\d{8}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
 
@@ -79,6 +86,8 @@ export default function EmployeeForm({
   onSave,
   onNew,
   onDelete,
+  hideHeaderActions = false,
+  onRegisterSubmit,
 }: EmployeeFormProps) {
   const formRef = useRef<HTMLDivElement>(null);
   const { areas, fetchAreas } = useMaintenanceStore();
@@ -91,7 +100,7 @@ export default function EmployeeForm({
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>(
-    fallbackCompanyOptions
+    fallbackCompanyOptions,
   );
   const openDialog = useDialogStore((s) => s.openDialog);
 
@@ -101,7 +110,7 @@ export default function EmployeeForm({
         value: a.id,
         label: a.area,
       })),
-    [areas]
+    [areas],
   );
 
   const defaults = useMemo(() => buildDefaults(initialData), [initialData]);
@@ -116,6 +125,7 @@ export default function EmployeeForm({
     reset,
     setValue,
     getValues,
+    trigger,
     watch,
     formState: { isSubmitting },
   } = form;
@@ -136,7 +146,7 @@ export default function EmployeeForm({
       const stream = videoRef.current?.srcObject as MediaStream | undefined;
       stream?.getTracks().forEach((t) => t.stop());
     },
-    []
+    [],
   );
 
   const watchedImagen = watch("personalImagen") ?? "";
@@ -206,7 +216,7 @@ export default function EmployeeForm({
         }
 
         const deduped = Array.from(
-          new Map(mapped.map((item) => [item.value, item])).values()
+          new Map(mapped.map((item) => [item.value, item])).values(),
         );
 
         if (active) setCompanyOptions(deduped);
@@ -264,73 +274,91 @@ export default function EmployeeForm({
     if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
       age--;
     }
-    return `${age} anios`;
+    return `${age} años`;
   };
 
-  const submit = async (values: Personal) => {
-    const codigo = (values.personalCodigo ?? "").trim();
-    if (!codigo) {
-      toast.error("El campo Codigo personal es obligatorio.");
-      return;
-    }
+  const submit = useCallback(
+    async (values: Personal): Promise<boolean> => {
+      const codigo = (values.personalCodigo ?? "").trim();
+      if (!codigo) {
+        toast.error("El campo Codigo personal es obligatorio.");
+        return false;
+      }
 
-    const areaId = Number(values.areaId ?? 0);
-    if (!areaId) {
-      toast.error("El campo Area es obligatorio.");
-      return;
-    }
+      const areaId = Number(values.areaId ?? 0);
+      if (!areaId) {
+        toast.error("El campo Area es obligatorio.");
+        return false;
+      }
 
-    const nombres = (values.personalNombres ?? "").trim();
-    if (!nombres) {
-      toast.error("El campo Nombres es obligatorio.");
-      return;
-    }
+      const nombres = (values.personalNombres ?? "").trim();
+      if (!nombres) {
+        toast.error("El campo Nombres es obligatorio.");
+        return false;
+      }
 
-    const apellidos = (values.personalApellidos ?? "").trim();
-    if (!apellidos) {
-      toast.error("El campo Apellidos es obligatorio.");
-      return;
-    }
+      const apellidos = (values.personalApellidos ?? "").trim();
+      if (!apellidos) {
+        toast.error("El campo Apellidos es obligatorio.");
+        return false;
+      }
 
-    const dni = (values.personalDni ?? "").trim();
-    if (dni && !dniRegex.test(dni)) {
-      toast.error("El DNI debe tener exactamente 8 digitos.");
-      return;
-    }
+      const dni = (values.personalDni ?? "").trim();
+      if (dni && !dniRegex.test(dni)) {
+        toast.error("El DNI debe tener exactamente 8 digitos.");
+        return false;
+      }
 
-    const email = (values.personalEmail ?? "").trim();
-    if (email && !emailRegex.test(email)) {
-      toast.error("Ingrese un correo valido (ejemplo: usuario@dominio.com).");
-      return;
-    }
+      const email = (values.personalEmail ?? "").trim();
+      if (email && !emailRegex.test(email)) {
+        toast.error("Ingrese un correo valido (ejemplo: usuario@dominio.com).");
+        return false;
+      }
 
-    const payload: Personal = {
-      ...values,
-      personalNombres: nombres.toUpperCase(),
-      personalApellidos: apellidos.toUpperCase(),
-      personalCodigo: codigo.toUpperCase(),
-      personalDni: dni,
-      personalEmail: email,
-      areaId,
-      companiaId: Number(values.companiaId) || 1,
-    };
+      const payload: Personal = {
+        ...values,
+        personalNombres: nombres.toUpperCase(),
+        personalApellidos: apellidos.toUpperCase(),
+        personalCodigo: codigo.toUpperCase(),
+        personalDni: dni,
+        personalEmail: email,
+        areaId,
+        companiaId: Number(values.companiaId) || 1,
+      };
 
-    await onSave({ ...payload, imageFile, imageRemoved });
-    if (mode === "create") {
-      reset(buildDefaults());
-      setImageFile(null);
-      setImageRemoved(false);
-      onNew?.();
-      focusFirstInput(formRef.current);
-    }
-  };
+      const ok = await onSave({ ...payload, imageFile, imageRemoved });
+      if (ok === false) return false;
+
+      if (mode === "create") {
+        reset(buildDefaults());
+        setImageFile(null);
+        setImageRemoved(false);
+        onNew?.();
+        focusFirstInput(formRef.current);
+      }
+      return true;
+    },
+    [mode, onSave, imageFile, imageRemoved, reset, onNew],
+  );
+
+  const submitFromOutside = useCallback(async () => {
+    const isValid = await trigger();
+    if (!isValid) return false;
+    return submit(getValues());
+  }, [trigger, submit, getValues]);
+
+  useEffect(() => {
+    if (!onRegisterSubmit) return;
+    onRegisterSubmit(submitFromOutside);
+    return () => onRegisterSubmit(null);
+  }, [onRegisterSubmit, submitFromOutside]);
 
   const handleNew = () => {
     reset(
       buildDefaults({
         personalEstado: "ACTIVO",
         companiaId: 1,
-      })
+      }),
     );
     setImageFile(null);
     setImageRemoved(false);
@@ -422,47 +450,49 @@ export default function EmployeeForm({
       : "Cargando datos...";
 
   return (
-    <div ref={formRef} className="py-8 px-4 sm:px-6 lg:px-8">
-      <div className="relative max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+    <div ref={formRef} className="py-8 px-4 sm:px-6 lg:px-8  ">
+      <div className="relative max-w-8xl mx-auto bg-white rounded-2xl  overflow-hidden">
         <form onSubmit={handleSubmit(submit)} onKeyDown={handleEnterFocus}>
-          <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
-            <h1 className="text-base font-semibold">
-              {mode === "create" ? "Registrar personal" : "Editar personal"}
-            </h1>
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 disabled:opacity-70 transition-colors"
-                title="Guardar"
-              >
-                <Save className="w-4 h-4" />
-                <span className="hidden sm:inline">Guardar</span>
-              </button>
-              {mode !== "edit" && (
+          {!hideHeaderActions && (
+            <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
+              <h1 className="text-base font-semibold">
+                {mode === "create" ? "Registrar personal" : "Editar personal"}
+              </h1>
+              <div className="flex items-center gap-2">
                 <button
-                  type="button"
-                  onClick={handleNew}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
-                  title="Nuevo"
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 disabled:opacity-70 transition-colors"
+                  title="Guardar"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Nuevo</span>
+                  <Save className="w-4 h-4" />
+                  <span className="hidden sm:inline">Guardar</span>
                 </button>
-              )}
-              {mode === "edit" && onDelete && (
-                <button
-                  type="button"
-                  onClick={handleDeleteConfirm}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
-                  title="Eliminar"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Eliminar</span>
-                </button>
-              )}
+                {mode !== "edit" && (
+                  <button
+                    type="button"
+                    onClick={handleNew}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
+                    title="Nuevo"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Nuevo</span>
+                  </button>
+                )}
+                {mode === "edit" && onDelete && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteConfirm}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Eliminar</span>
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="p-6 sm:p-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -523,7 +553,11 @@ export default function EmployeeForm({
                   control={control}
                   label="DNI"
                   size="small"
-                  inputProps={{ maxLength: 8, inputMode: "numeric", pattern: "[0-9]*" }}
+                  inputProps={{
+                    maxLength: 8,
+                    inputMode: "numeric",
+                    pattern: "[0-9]*",
+                  }}
                 />
 
                 <TextControlled
@@ -674,9 +708,16 @@ export default function EmployeeForm({
               minWidth: 230,
             }}
           >
-            <CircularProgress size={26} thickness={4.6} sx={{ color: "#E8612A" }} />
+            <CircularProgress
+              size={26}
+              thickness={4.6}
+              sx={{ color: "#E8612A" }}
+            />
             <Stack spacing={0.25}>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 700, color: "text.primary" }}
+              >
                 Procesando solicitud
               </Typography>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>

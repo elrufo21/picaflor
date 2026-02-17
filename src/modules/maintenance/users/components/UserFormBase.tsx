@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Save, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -15,7 +15,7 @@ import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import { useUsersStore } from "@/store/users/users.store";
-import { useDialogStore } from "@/app/store/dialogStore"; // 👈 SOLO ESTO SE AGREGA
+import { useDialogStore } from "@/app/store/dialogStore"; // �Y'^ SOLO ESTO SE AGREGA
 
 interface UserFormBaseProps {
   initialData?: Partial<any>;
@@ -24,6 +24,9 @@ interface UserFormBaseProps {
   onNew?: () => void;
   onDelete?: () => void;
   onSelectUser?: (user: any) => void;
+  passwordChangeOnly?: boolean;
+  hideHeaderActions?: boolean;
+  onRegisterSubmit?: (submit: (() => Promise<boolean>) | null) => void;
 }
 
 type Option = { label: string; value: number | string; data?: any };
@@ -61,12 +64,15 @@ export default function UserFormBase({
   onNew,
   onDelete,
   onSelectUser,
+  passwordChangeOnly = false,
+  hideHeaderActions = false,
+  onRegisterSubmit,
 }: UserFormBaseProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { users, fetchUsers } = useUsersStore();
   const { employees, fetchEmployees } = useEmployeesStore();
 
-  const openDialog = useDialogStore((s) => s.openDialog); // 👈 SOLO ESTO
+  const openDialog = useDialogStore((s) => s.openDialog); // �Y'^ SOLO ESTO
 
   const [showPass, setShowPass] = useState(false);
   const [showPassConfirm, setShowPassConfirm] = useState(false);
@@ -105,13 +111,19 @@ export default function UserFormBase({
     defaultValues: emptyValues,
   });
 
-  const { handleSubmit, control, reset, setValue } = form;
+  const { handleSubmit, control, reset, setValue, trigger, getValues } = form;
 
   const mapInitialData = (data?: Partial<any>): UserFormValues => {
     if (!data) return emptyValues;
     const personalId = data.PersonalId ?? data.personalId ?? null;
     const personalOpt =
       employeeOptions.find((opt) => Number(opt.value) === Number(personalId)) ??
+      (personalId
+        ? {
+            value: Number(personalId),
+            label: `Personal ${personalId}`,
+          }
+        : null) ??
       null;
     return {
       PersonalId: personalOpt,
@@ -129,8 +141,9 @@ export default function UserFormBase({
   };
 
   useEffect(() => {
+    if (passwordChangeOnly) return;
     fetchUsers(usersEstado);
-  }, [fetchUsers, usersEstado]);
+  }, [fetchUsers, usersEstado, passwordChangeOnly]);
 
   useEffect(() => {
     if (!employees.length) {
@@ -143,19 +156,29 @@ export default function UserFormBase({
     focusFirstInput(containerRef.current);
   }, [initialData, mode, reset, employeeOptions]);
 
-  const onSubmit = async (values: UserFormValues) => {
+  const onSubmit = useCallback(async (values: UserFormValues): Promise<boolean> => {
     const password = values.UsuarioClave ?? "";
+    const confirmPassword = values.ConfirmClave ?? "";
+    const initialPassword = String(initialData?.UsuarioClave ?? "");
 
-    if (!passwordMinRules.test(password)) {
-      toast.error(
-        "La contraseña debe tener mínimo 6 caracteres, una mayúscula y un número",
-      );
-      return;
-    }
+    const isEditWithoutPasswordChange =
+      mode === "edit" &&
+      !passwordChangeOnly &&
+      password === initialPassword &&
+      confirmPassword === initialPassword;
 
-    if (password !== (values.ConfirmClave ?? "")) {
-      toast.error("Las contraseñas no coinciden");
-      return;
+    if (!isEditWithoutPasswordChange) {
+      if (!passwordMinRules.test(password)) {
+        toast.error(
+          "La contrasena debe tener minimo 6 caracteres, una mayuscula y un numero",
+        );
+        return false;
+      }
+
+      if (password !== confirmPassword) {
+        toast.error("Las contrasenas no coinciden");
+        return false;
+      }
     }
 
     const payload = {
@@ -163,6 +186,7 @@ export default function UserFormBase({
       UsuarioAlias: values.UsuarioAlias?.trim() ?? "",
       UsuarioClave: values.UsuarioClave ?? "",
       UsuarioEstado: values.UsuarioEstado ?? "ACTIVO",
+      flag: passwordChangeOnly ? 1 : 0,
       UsuarioSerie: values.UsuarioSerie ?? "B001",
       EnviaBoleta: Number(values.EnviaBoleta ?? 0),
       EnviarFactura: Number(values.EnviarFactura ?? 0),
@@ -172,12 +196,29 @@ export default function UserFormBase({
     };
 
     const ok = await onSave(payload);
-    if (!ok) return;
+    if (!ok) return false;
 
     reset(emptyValues);
     onNew?.();
     focusFirstInput(containerRef.current);
-  };
+    return true;
+  }, [onSave, onNew, reset, passwordChangeOnly, initialData?.UsuarioClave, mode]);
+
+  const submitFromOutside = useCallback(async () => {
+    const isValid = await trigger();
+    if (!isValid) return false;
+    return onSubmit(getValues());
+  }, [trigger, onSubmit, getValues]);
+
+  useEffect(() => {
+    if (!onRegisterSubmit) return;
+    onRegisterSubmit(submitFromOutside);
+    return () => onRegisterSubmit(null);
+  }, [onRegisterSubmit, submitFromOutside]);
+
+  const handleFormSubmit = handleSubmit(async (values) => {
+    await onSubmit(values);
+  });
 
   const handleNew = () => {
     reset(emptyValues);
@@ -186,6 +227,8 @@ export default function UserFormBase({
   };
 
   const handleRowClick = (row: any) => {
+    if (passwordChangeOnly) return;
+
     const personalOpt =
       employeeOptions.find(
         (opt) => Number(opt.value) === Number(row.PersonalId ?? row.personalId),
@@ -223,69 +266,82 @@ export default function UserFormBase({
     }),
   ];
 
+  const showUsersTable = !passwordChangeOnly;
+  const lockIdentityFields = passwordChangeOnly;
+
   return (
     <div ref={containerRef} className="h-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-        <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleEnterFocus}>
+        <form onSubmit={handleFormSubmit} onKeyDown={handleEnterFocus}>
           <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
             <h1 className="text-base font-semibold">
-              {mode === "create" ? "Crear Usuario" : "Editar Usuario"}
+              {passwordChangeOnly
+                ? "Cambio obligatorio de contraseña"
+                : mode === "create"
+                  ? "Crear Usuario"
+                  : "Editar Usuario"}
             </h1>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
-                title="Guardar"
-              >
-                <Save className="w-4 h-4" />
-                <span className="hidden sm:inline">Guardar</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleNew}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
-                title="Nuevo"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Nuevo</span>
-              </button>
-
-              {mode === "edit" && onDelete && (
+            {!hideHeaderActions && (
+              <div className="flex items-center gap-2">
                 <button
-                  type="button"
-                  onClick={() =>
-                    openDialog({
-                      title: "Eliminar usuario",
-                      size: "sm",
-                      confirmLabel: "Eliminar",
-                      cancelLabel: "Cancelar",
-                      onConfirm: async () => {
-                        await onDelete();
-                      },
-                      content: () => (
-                        <p className="text-sm text-slate-700">
-                          ¿Estás seguro de eliminar este usuario?
-                          <br />
-                          Esta acción no se puede deshacer.
-                        </p>
-                      ),
-                    })
-                  }
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
-                  title="Eliminar"
+                  type="submit"
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
+                  title="Guardar"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Eliminar</span>
+                  <Save className="w-4 h-4" />
+                  <span className="hidden sm:inline">
+                    {passwordChangeOnly ? "Actualizar clave" : "Guardar"}
+                  </span>
                 </button>
-              )}
-            </div>
+
+                {!passwordChangeOnly && (
+                  <button
+                    type="button"
+                    onClick={handleNew}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
+                    title="Nuevo"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Nuevo</span>
+                  </button>
+                )}
+
+                {mode === "edit" && onDelete && !passwordChangeOnly && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openDialog({
+                        title: "Eliminar usuario",
+                        size: "sm",
+                        confirmLabel: "Eliminar",
+                        cancelLabel: "Cancelar",
+                        onConfirm: async () => {
+                          await onDelete();
+                        },
+                        content: () => (
+                          <p className="text-sm text-slate-700">
+                            ¿Estás seguro de eliminar este usuario?
+                            <br />
+                            Esta acción no se puede deshacer.
+                          </p>
+                        ),
+                      })
+                    }
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Eliminar</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="p-6 sm:p-8">
-            <div className="flex flex-col md:flex-row gap-6">
-              <div className="w-full md:w-[40%] space-y-4">
+            <div className={`flex flex-col ${showUsersTable ? "md:flex-row" : ""} gap-6`}>
+              <div className={`w-full ${showUsersTable ? "md:w-[40%]" : ""} space-y-4`}>
                 <div className="mt-4">
                   <AutocompleteControlled
                     name="PersonalId"
@@ -299,6 +355,7 @@ export default function UserFormBase({
                     }
                     onChange={(_, value) => setValue("PersonalId", value)}
                     required
+                    disabled={lockIdentityFields}
                     size="small"
                     data-focus-next="input[name='UsuarioAlias']"
                   />
@@ -311,6 +368,7 @@ export default function UserFormBase({
                     label="Usuario / Alias"
                     placeholder="ej: jramirez"
                     required
+                    disabled={lockIdentityFields}
                     size="small"
                     onChange={(e) => {
                       const value = e.target.value.replace(/\s+/g, "");
@@ -325,6 +383,7 @@ export default function UserFormBase({
                     control={control}
                     label="Contraseña"
                     type={showPass ? "text" : "password"}
+                    disableAutoUppercase
                     placeholder="Ingrese contraseña"
                     required
                     size="small"
@@ -360,6 +419,7 @@ export default function UserFormBase({
                     control={control}
                     label="Confirmar contraseña"
                     type={showPassConfirm ? "text" : "password"}
+                    disableAutoUppercase
                     placeholder="Repita la contraseña"
                     required
                     size="small"
@@ -389,39 +449,43 @@ export default function UserFormBase({
                   />
                 </div>
 
-                <div className="mt-4">
-                  <SelectControlled
-                    name="UsuarioEstado"
-                    control={control}
-                    label="Estado"
-                    options={estadoOptions}
-                    disabled={mode === "create"}
-                    size="small"
-                    autoAdvance
-                  />
-                </div>
+                {!passwordChangeOnly && (
+                  <div className="mt-4">
+                    <SelectControlled
+                      name="UsuarioEstado"
+                      control={control}
+                      label="Estado"
+                      options={estadoOptions}
+                      disabled={mode === "create" || lockIdentityFields}
+                      size="small"
+                      autoAdvance
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="w-full md:w-[60%] mt-6 md:mt-0 h-[500px]">
-                <DataTable
-                  columns={columns}
-                  data={users}
-                  filterKeys={["UsuarioAlias", "UsuarioEstado", "area"]}
-                  onRowClick={handleRowClick}
-                  renderFilters={
-                    <select
-                      value={usersEstado}
-                      onChange={(e) =>
-                        setUsersEstado(e.target.value as "ACTIVO" | "INACTIVO")
-                      }
-                      className="border border-gray-300 rounded px-2 py-1  text-sm"
-                    >
-                      <option value="ACTIVO">Activos</option>
-                      <option value="INACTIVO">Inactivos</option>
-                    </select>
-                  }
-                />
-              </div>
+              {showUsersTable && (
+                <div className="w-full md:w-[60%] mt-6 md:mt-0 h-[500px]">
+                  <DataTable
+                    columns={columns}
+                    data={users}
+                    filterKeys={["UsuarioAlias", "UsuarioEstado", "area"]}
+                    onRowClick={handleRowClick}
+                    renderFilters={
+                      <select
+                        value={usersEstado}
+                        onChange={(e) =>
+                          setUsersEstado(e.target.value as "ACTIVO" | "INACTIVO")
+                        }
+                        className="border border-gray-300 rounded px-2 py-1  text-sm"
+                      >
+                        <option value="ACTIVO">Activos</option>
+                        <option value="INACTIVO">Inactivos</option>
+                      </select>
+                    }
+                  />
+                </div>
+              )}
             </div>
           </div>
         </form>
@@ -429,3 +493,4 @@ export default function UserFormBase({
     </div>
   );
 }
+

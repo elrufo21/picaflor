@@ -206,7 +206,6 @@ const ProductList = () => {
   return (
     <MaintenancePageFrame
       title="Productos"
-      description="Administra el catalogo de productos y su informacion comercial."
       action={
         <button
           type="button"

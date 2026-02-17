@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
@@ -9,42 +9,123 @@ import { useCategoriesQuery } from "../useCategoriesQuery";
 import type { Category } from "@/types/maintenance";
 import { useDialogStore } from "@/app/store/dialogStore";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
+import CategoryForm from "../components/CategoryForm";
+
+const resolveCategoryId = (item?: Partial<Category>) =>
+  Number(item?.id ?? item?.idSubLinea ?? 0);
 
 const CategoryList = () => {
-  const navigate = useNavigate();
   const openDialog = useDialogStore((s) => s.openDialog);
+  const { categories, fetchCategories, addCategory, updateCategory, deleteCategory } =
+    useMaintenanceStore();
+  const submitCategoryRef = useRef<(() => Promise<boolean>) | null>(null);
 
-  const { categories, fetchCategories, deleteCategory } = useMaintenanceStore();
-
-  useCategoriesQuery(); // hydrate store
+  useCategoriesQuery();
 
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
-  const columnHelper = createColumnHelper<Category>();
+  const openCategoryModal = useCallback(
+    (mode: "create" | "edit", category?: Category) => {
+      openDialog({
+        title: mode === "create" ? "Crear categoria" : "Editar categoria",
+        description:
+          mode === "create"
+            ? "Registra una nueva categoria y su codigo SUNAT."
+            : "Actualiza la categoria seleccionada.",
+        size: "xl",
+        confirmLabel: mode === "create" ? "Crear" : "Guardar",
+        dangerLabel: mode === "edit" ? "Eliminar" : undefined,
+        onConfirm: async () => {
+          const submitForm = submitCategoryRef.current;
+          if (typeof submitForm !== "function") return false;
+          return submitForm();
+        },
+        onDanger:
+          mode === "edit"
+            ? async () => {
+                const id = resolveCategoryId(category);
+                if (!id) return false;
+                const ok = await deleteCategory(id);
+                if (!ok) {
+                  toast.error("No se pudo eliminar la categoria");
+                  return false;
+                }
+                toast.success("Categoria eliminada");
+                await fetchCategories();
+                return true;
+              }
+            : undefined,
+        content: () => (
+          <CategoryForm
+            mode={mode}
+            initialData={category}
+            hideHeaderActions
+            onRegisterSubmit={(submit) => {
+              submitCategoryRef.current = submit;
+            }}
+            onSave={async (data) => {
+              if (mode === "create") {
+                const ok = await addCategory({
+                  nombreSublinea: data.nombreSublinea,
+                  codigoSunat: data.codigoSunat ?? "",
+                });
+                if (!ok) {
+                  toast.error("Ya existe esa categoria");
+                  return false;
+                }
+                toast.success("Categoria creada correctamente");
+                await fetchCategories();
+                return true;
+              }
 
+              const id = resolveCategoryId(category);
+              if (!id) return false;
+              const ok = await updateCategory(id, data);
+              if (!ok) {
+                toast.error("Ya existe esa categoria");
+                return false;
+              }
+              toast.success("Categoria actualizada");
+              await fetchCategories();
+              return true;
+            }}
+            onNew={() => {}}
+          />
+        ),
+      });
+    },
+    [
+      openDialog,
+      addCategory,
+      updateCategory,
+      deleteCategory,
+      fetchCategories,
+    ],
+  );
+
+  const columnHelper = createColumnHelper<Category>();
   const columns = useMemo(
     () => [
       columnHelper.accessor("nombreSublinea", {
-        header: "Categoría",
+        header: "Categoria",
         cell: (info) => info.getValue(),
       }),
       columnHelper.accessor("codigoSunat", {
-        header: "Código SUNAT",
+        header: "Codigo SUNAT",
         cell: (info) => info.getValue(),
       }),
       columnHelper.display({
         id: "acciones",
         header: "Acciones",
         cell: ({ row }) => {
-          const id = row.original.id ?? row.original.idSubLinea;
-
+          const id = resolveCategoryId(row.original);
           return (
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => navigate(`/maintenance/categories/${id}/edit`)}
+                onClick={() => openCategoryModal("edit", row.original)}
                 className="text-blue-600 hover:text-blue-800"
                 title="Editar"
               >
@@ -55,20 +136,26 @@ const CategoryList = () => {
                 type="button"
                 onClick={() => {
                   if (!id) return;
-
                   openDialog({
-                    title: "Eliminar categoría",
+                    title: "Eliminar categoria",
                     size: "sm",
                     confirmLabel: "Eliminar",
                     cancelLabel: "Cancelar",
                     onConfirm: async () => {
-                      await deleteCategory(Number(id));
+                      const ok = await deleteCategory(id);
+                      if (!ok) {
+                        toast.error("No se pudo eliminar la categoria");
+                        return false;
+                      }
+                      toast.success("Categoria eliminada");
+                      await fetchCategories();
+                      return true;
                     },
                     content: () => (
                       <p className="text-sm text-slate-700">
-                        ¿Estás seguro de eliminar esta categoría?
+                        Estas seguro de eliminar esta categoria?
                         <br />
-                        Esta acción no se puede deshacer.
+                        Esta accion no se puede deshacer.
                       </p>
                     ),
                   });
@@ -83,7 +170,7 @@ const CategoryList = () => {
         },
       }),
     ],
-    [columnHelper, deleteCategory, navigate, openDialog],
+    [columnHelper, openDialog, openCategoryModal, deleteCategory, fetchCategories],
   );
 
   return (
@@ -94,7 +181,7 @@ const CategoryList = () => {
         <button
           type="button"
           className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
-          onClick={() => navigate("/maintenance/categories/create")}
+          onClick={() => openCategoryModal("create")}
         >
           <Plus className="h-4 w-4" />
           Nueva categoria
@@ -107,4 +194,3 @@ const CategoryList = () => {
 };
 
 export default CategoryList;
-

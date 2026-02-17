@@ -16,6 +16,10 @@ interface UsersState {
   deleteUser: (id: number) => Promise<boolean>;
 }
 
+type UserPayloadInput = Partial<User> & {
+  flag?: number;
+};
+
 const mapApiToUser = (item: any): User => ({
   UsuarioID: item?.usuarioID ?? item?.UsuarioID ?? item?.id ?? 0,
   PersonalId: item?.personalId ?? item?.PersonalId ?? item?.personalID ?? 0,
@@ -55,13 +59,14 @@ const isAliasDuplicateResponse = (result: unknown) => {
   return message.includes("alias de usuario ya existe");
 };
 
-const mapUserToApiPayload = (user: Partial<User>) => ({
+const mapUserToApiPayload = (user: UserPayloadInput) => ({
   usuarioID: user.UsuarioID ?? 0,
   personalId: user.PersonalId ?? 0,
   usuarioAlias: user.UsuarioAlias ?? "",
   usuarioClave: user.UsuarioClave ?? "",
   usuarioFechaReg: user.UsuarioFechaReg ?? new Date().toISOString(),
   usuarioEstado: user.UsuarioEstado ?? "ACTIVO",
+  flag: Number(user.flag ?? 0),
 });
 
 export const useUsersStore = create<UsersState>((set, get) => ({

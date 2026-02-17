@@ -41,6 +41,7 @@ type Props<T extends FieldValues> = Omit<
   transform?: (value: string) => string;
   formatter?: (value: string | number) => string;
   displayZeroAsEmpty?: boolean;
+  disableAutoUppercase?: boolean;
 
   disableHistory?: boolean;
 };
@@ -52,6 +53,7 @@ function TextControlled<T extends FieldValues>({
   transform,
   formatter,
   displayZeroAsEmpty,
+  disableAutoUppercase,
   disableHistory,
   ...rest
 }: Props<T>) {
@@ -71,7 +73,7 @@ function TextControlled<T extends FieldValues>({
           typeof restProps.type === "string"
             ? restProps.type.toLowerCase()
             : "text";
-        const shouldUppercase = inputType === "text";
+        const shouldUppercase = inputType === "text" && !disableAutoUppercase;
 
         const rawDisplayValue =
           displayZeroAsEmpty && (value === 0 || value === "0")

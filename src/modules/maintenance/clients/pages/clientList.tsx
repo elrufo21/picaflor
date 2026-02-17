@@ -1,25 +1,96 @@
-import { useEffect, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useClientsStore } from "@/store/clients/clients.store";
 import type { Client } from "@/types/maintenance";
 import { useDialogStore } from "@/app/store/dialogStore";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
+import ClientForm from "../components/ClientForm";
 
 const ClientList = () => {
-  const navigate = useNavigate();
   const openDialog = useDialogStore((s) => s.openDialog);
-  const { clients, fetchClients, deleteClient } = useClientsStore();
+  const { clients, fetchClients, addClient, updateClient, deleteClient } =
+    useClientsStore();
+  const submitClientRef = useRef<(() => Promise<boolean>) | null>(null);
 
   useEffect(() => {
     fetchClients("ACTIVO");
   }, [fetchClients]);
 
-  const columnHelper = createColumnHelper<Client>();
+  const openClientModal = useCallback(
+    (mode: "create" | "edit", client?: Client) => {
+      openDialog({
+        title: mode === "create" ? "Registrar cliente" : "Editar cliente",
+        description:
+          mode === "create"
+            ? "Completa los datos principales del cliente."
+            : "Actualiza la informacion del cliente seleccionado.",
+        size: "xl",
+        confirmLabel: mode === "create" ? "Crear" : "Guardar",
+        dangerLabel: mode === "edit" ? "Eliminar" : undefined,
+        onConfirm: async () => {
+          const submitForm = submitClientRef.current;
+          if (typeof submitForm !== "function") return false;
+          return submitForm();
+        },
+        onDanger:
+          mode === "edit"
+            ? async () => {
+                const id = Number(client?.clienteId ?? 0);
+                if (!id) return false;
+                const ok = await deleteClient(id);
+                if (!ok) {
+                  toast.error("No se pudo eliminar el cliente");
+                  return false;
+                }
+                toast.success("Cliente eliminado");
+                await fetchClients("ACTIVO");
+                return true;
+              }
+            : undefined,
+        content: () => (
+          <ClientForm
+            mode={mode}
+            initialData={client}
+            hideHeaderActions
+            onRegisterSubmit={(submit) => {
+              submitClientRef.current = submit;
+            }}
+            onSave={async (data) => {
+              if (mode === "create") {
+                const ok = await addClient(data);
+                if (!ok) {
+                  toast.error("No se pudo crear el cliente");
+                  return false;
+                }
+                toast.success("Cliente creado correctamente");
+                await fetchClients("ACTIVO");
+                return true;
+              }
 
+              const id = Number(client?.clienteId ?? 0);
+              if (!id) return false;
+              const ok = await updateClient(id, data);
+              if (!ok) {
+                toast.error("No se pudo actualizar el cliente");
+                return false;
+              }
+              toast.success("Cliente actualizado");
+              await fetchClients("ACTIVO");
+              return true;
+            }}
+            onNew={() => {}}
+          />
+        ),
+      });
+    },
+    [openDialog, addClient, updateClient, deleteClient, fetchClients],
+  );
+
+  const columnHelper = createColumnHelper<Client>();
   const columns = useMemo(
     () => [
       columnHelper.accessor("clienteRazon", {
@@ -53,9 +124,7 @@ const ClientList = () => {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() =>
-                navigate(`/maintenance/clients/${row.original.clienteId}/edit`)
-              }
+              onClick={() => openClientModal("edit", row.original)}
               className="text-blue-600 hover:text-blue-800"
               title="Editar"
             >
@@ -71,7 +140,14 @@ const ClientList = () => {
                   confirmLabel: "Eliminar",
                   cancelLabel: "Cancelar",
                   onConfirm: async () => {
-                    await deleteClient(row.original.clienteId);
+                    const ok = await deleteClient(row.original.clienteId);
+                    if (!ok) {
+                      toast.error("No se pudo eliminar el cliente");
+                      return false;
+                    }
+                    toast.success("Cliente eliminado");
+                    await fetchClients("ACTIVO");
+                    return true;
                   },
                   content: () => (
                     <p className="text-sm text-slate-700">
@@ -91,7 +167,7 @@ const ClientList = () => {
         ),
       }),
     ],
-    [columnHelper, deleteClient, navigate, openDialog],
+    [columnHelper, openDialog, openClientModal, deleteClient, fetchClients],
   );
 
   return (
@@ -102,7 +178,7 @@ const ClientList = () => {
         <button
           type="button"
           className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
-          onClick={() => navigate("/maintenance/clients/create")}
+          onClick={() => openClientModal("create")}
         >
           <Plus className="h-4 w-4" />
           Nuevo cliente
