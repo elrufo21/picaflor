@@ -470,7 +470,7 @@ const PackageList = () => {
         md:ml-auto md:w-auto
       "
           >
-            {!session.user.areaId === 9 && (
+            {session.user.areaId !== "9" && (
               <button
                 onClick={handleGuardarCambios}
                 className="

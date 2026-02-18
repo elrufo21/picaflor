@@ -1295,11 +1295,9 @@ const LiquidacionesPage = () => {
   };
 
   const handleView = async (row: LiquidacionRow) => {
-    console.log("row", row);
-
     const productosLocal = await ensureProductosLoaded();
     try {
-      await loadCanalVenta();
+      //await loadCanalDeVentas();
     } catch (error) {
       console.warn("No se pudieron cargar canales de venta", error);
     }
