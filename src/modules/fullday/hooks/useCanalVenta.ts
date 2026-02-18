@@ -4,6 +4,46 @@ import { parseCanalPayload, type CanalOption } from "./canalUtils";
 import { useOnceEffect } from "@/shared/hooks/useOnceEffect";
 
 const CANAL_LIST_ENDPOINT = `${API_BASE_URL}/Programacion/traerCanalVentaDetalle`;
+const CANAL_SAVE_ENDPOINT = `${API_BASE_URL}/Canal/guardar-auxiliar`;
+
+type SaveCanalVentaPayload = {
+  idAuxiliar: number;
+  auxiliar: string;
+  telefono: string;
+  contacto: string;
+  email: string;
+};
+
+const parseSavedCanalId = (rawResponse: string): number => {
+  const trimmed = String(rawResponse ?? "").trim();
+
+  const directNumber = Number(trimmed);
+  if (Number.isFinite(directNumber)) return directNumber;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+
+    if (typeof parsed === "number" && Number.isFinite(parsed)) return parsed;
+
+    if (parsed && typeof parsed === "object") {
+      const blob = parsed as Record<string, unknown>;
+      const idCandidate =
+        blob.idAuxiliar ??
+        blob.IdAuxiliar ??
+        blob.idCanal ??
+        blob.IdCanal ??
+        blob.id ??
+        blob.Id ??
+        blob.canalId;
+      const idNumber = Number(idCandidate);
+      if (Number.isFinite(idNumber)) return idNumber;
+    }
+  } catch {
+    // noop
+  }
+
+  throw new Error("No se pudo interpretar el ID del canal guardado.");
+};
 
 export const useCanalVenta = () => {
   const [canalVentaList, setCanalVentaList] = useState<CanalOption[]>([]);
@@ -81,5 +121,24 @@ export const useCanalVenta = () => {
     });
   };
 
-  return { canalVentaList, addCanalToList };
+  const saveCanalVenta = async (payload: SaveCanalVentaPayload) => {
+    const response = await fetch(CANAL_SAVE_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "text/plain, application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = (await response.text()).trim();
+      throw new Error(errorText || `HTTP ${response.status}`);
+    }
+
+    const responseText = await response.text();
+    return parseSavedCanalId(responseText);
+  };
+
+  return { canalVentaList, addCanalToList, saveCanalVenta };
 };

@@ -165,7 +165,7 @@ export default function ClientForm({
 
   return (
     <div ref={formRef} className="py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="max-w-5xl mx-auto bg-white rounded-2xl  overflow-hidden">
         <form onSubmit={handleSubmit(submit)} onKeyDown={handleEnterFocus}>
           {!hideHeaderActions && (
             <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">

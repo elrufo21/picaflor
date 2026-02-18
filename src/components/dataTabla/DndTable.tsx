@@ -67,6 +67,7 @@ type DndTableProps<TData extends Record<string, any>> = {
   onSelectionChange?: ((rows: TData[]) => void) | null;
   searchColumns?: string[] | null;
   dateFilterComponent?: (() => ReactNode) | null;
+  headerAction?: ReactNode;
   rowColorRules?: RowColorRule<TData>[];
   enableCellNavigation?: boolean;
   paginationState?: PaginationState;
@@ -98,6 +99,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   onSelectionChange = null,
   searchColumns = null,
   dateFilterComponent = null,
+  headerAction = null,
   rowColorRules = [] as RowColorRule<TData>[],
   enableCellNavigation = false,
   paginationState,
@@ -358,7 +360,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   return (
     <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${className}`}>
       {/* Header con búsqueda y acciones */}
-      {(enableFiltering || enableSearching) && (
+      {(enableFiltering || enableSearching || headerAction) && (
         <TableHeader
           globalFilter={globalFilter}
           setGlobalFilter={setGlobalFilter}
@@ -370,6 +372,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
           searchInputComponent={searchInputComponent}
           enableFiltering={enableFiltering}
           dateFilterComponent={dateFilterComponent}
+          headerAction={headerAction}
         />
       )}
 
@@ -414,6 +417,7 @@ type TableHeaderProps = {
   searchInputComponent: ((props: SearchInputRenderProps) => ReactNode) | null;
   enableFiltering: boolean;
   dateFilterComponent: (() => ReactNode) | null;
+  headerAction: ReactNode;
 };
 
 const TableHeader = ({
@@ -427,6 +431,7 @@ const TableHeader = ({
   searchInputComponent,
   enableFiltering,
   dateFilterComponent,
+  headerAction,
 }: TableHeaderProps) => {
   const searchContainerClassName = `relative w-full flex-1 ${
     searchInputComponent ? "max-w-full sm:max-w-2xl" : "max-w-md"
@@ -435,32 +440,35 @@ const TableHeader = ({
   return (
     <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/60">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        {/* Buscador */}
-        <div className={searchContainerClassName}>
-          {enableSearching && (
-            searchInputComponent ? (
-              searchInputComponent({ globalFilter, setGlobalFilter })
-            ) : (
-              <>
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  value={globalFilter ?? ""}
-                  onChange={(e) => setGlobalFilter(e.target.value)}
-                  placeholder="Buscar en toda la tabla..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-[#E8612A] text-sm"
-                />
-                {globalFilter && (
-                  <button
-                    onClick={() => setGlobalFilter("")}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </>
-            )
-          )}
+        {/* Buscador + accion primaria */}
+        <div className="flex w-full sm:flex-1 items-center gap-2">
+          <div className={searchContainerClassName}>
+            {enableSearching && (
+              searchInputComponent ? (
+                searchInputComponent({ globalFilter, setGlobalFilter })
+              ) : (
+                <>
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={globalFilter ?? ""}
+                    onChange={(e) => setGlobalFilter(e.target.value)}
+                    placeholder="Buscar en toda la tabla..."
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-[#E8612A] text-sm"
+                  />
+                  {globalFilter && (
+                    <button
+                      onClick={() => setGlobalFilter("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </>
+              )
+            )}
+          </div>
+          {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
         </div>
 
         {/* Acciones */}

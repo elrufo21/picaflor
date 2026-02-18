@@ -9,52 +9,75 @@ import { useUsersStore } from "@/store/users/users.store";
 
 const PasswordExpiryGate = () => {
   const navigate = useNavigate();
-  const { user, passwordMustChange, passwordExpiryDate, logout } = useAuthStore();
+  const { user, passwordMustChange, passwordExpiryDate, logout } =
+    useAuthStore();
   const { users, fetchUsers, updateUser } = useUsersStore();
   const openDialog = useDialogStore((s) => s.openDialog);
   const closeDialog = useDialogStore((s) => s.closeDialog);
 
   const [loadingUser, setLoadingUser] = useState(false);
+  const [hasResolvedCurrentUser, setHasResolvedCurrentUser] = useState(false);
   const isDialogOpenedRef = useRef(false);
   const fallbackLogoutRef = useRef(false);
   const submitForcedPasswordRef = useRef<(() => Promise<boolean>) | null>(null);
 
   const currentUserId = Number(user?.id ?? 0);
-  const currentUserRecord = useMemo(() => {
-    if (!currentUserId) return null;
+  const normalizedUsername = String(user?.username ?? "")
+    .trim()
+    .toUpperCase();
 
-    const byId = users.find((u) => Number(u.UsuarioID) === currentUserId);
+  const currentUserRecord = useMemo(() => {
+    const byId =
+      currentUserId > 0
+        ? users.find((u) => Number(u.UsuarioID) === currentUserId)
+        : null;
     if (byId) return byId;
 
-    const normalizedUsername = String(user?.username ?? "").trim().toUpperCase();
     if (!normalizedUsername) return null;
+
     return (
       users.find(
-        (u) => String(u.UsuarioAlias ?? "").trim().toUpperCase() === normalizedUsername,
+        (u) =>
+          String(u.UsuarioAlias ?? "")
+            .trim()
+            .toUpperCase() === normalizedUsername,
       ) ?? null
     );
-  }, [users, currentUserId, user?.username]);
+  }, [users, currentUserId, normalizedUsername]);
 
   useEffect(() => {
-    if (!passwordMustChange || !currentUserId) return;
+    if (!passwordMustChange) {
+      setHasResolvedCurrentUser(false);
+      return;
+    }
 
     let active = true;
     const loadCurrentUser = async () => {
+      setHasResolvedCurrentUser(false);
       setLoadingUser(true);
       try {
         await fetchUsers("ACTIVO");
         if (!active) return;
 
         const usersAfterActive = useUsersStore.getState().users;
-        const hasCurrentUser = usersAfterActive.some(
-          (u) => Number(u.UsuarioID) === currentUserId,
-        );
+        const hasCurrentUser = usersAfterActive.some((u) => {
+          const matchesId =
+            currentUserId > 0 && Number(u.UsuarioID) === currentUserId;
+          const matchesAlias =
+            normalizedUsername.length > 0 &&
+            String(u.UsuarioAlias ?? "").trim().toUpperCase() ===
+              normalizedUsername;
+          return matchesId || matchesAlias;
+        });
 
         if (!hasCurrentUser) {
           await fetchUsers("");
         }
       } finally {
-        if (active) setLoadingUser(false);
+        if (active) {
+          setLoadingUser(false);
+          setHasResolvedCurrentUser(true);
+        }
       }
     };
 
@@ -62,12 +85,14 @@ const PasswordExpiryGate = () => {
     return () => {
       active = false;
     };
-  }, [passwordMustChange, currentUserId, fetchUsers]);
+  }, [passwordMustChange, currentUserId, normalizedUsername, fetchUsers]);
 
   const handleSaveForcedPassword = useCallback(
     async (values: Record<string, unknown>) => {
       if (!currentUserRecord) {
-        toast.error("No se pudo identificar el usuario actual para actualizar la clave.");
+        toast.error(
+          "No se pudo identificar el usuario actual para actualizar la clave.",
+        );
         return false;
       }
 
@@ -77,11 +102,11 @@ const PasswordExpiryGate = () => {
       });
 
       if (!ok) {
-        toast.error("No se pudo actualizar la contrasena.");
+        toast.error("No se pudo actualizar la contraseña.");
         return false;
       }
 
-      toast.success("Contrasena actualizada. Inicia sesion nuevamente.");
+      toast.success("contraseña actualizada. Inicia sesion nuevamente.");
       logout();
       navigate("/login", { replace: true });
       return true;
@@ -99,7 +124,14 @@ const PasswordExpiryGate = () => {
       return;
     }
 
-    if (loadingUser || currentUserRecord || fallbackLogoutRef.current) return;
+    if (
+      loadingUser ||
+      !hasResolvedCurrentUser ||
+      currentUserRecord ||
+      fallbackLogoutRef.current
+    ) {
+      return;
+    }
 
     fallbackLogoutRef.current = true;
     toast.error("No se pudo cargar tu usuario. Inicia sesion nuevamente.");
@@ -108,6 +140,7 @@ const PasswordExpiryGate = () => {
   }, [
     passwordMustChange,
     loadingUser,
+    hasResolvedCurrentUser,
     currentUserRecord,
     closeDialog,
     logout,
@@ -119,9 +152,9 @@ const PasswordExpiryGate = () => {
     if (isDialogOpenedRef.current) return;
 
     openDialog({
-      title: `Tu contrasena vencio el ${passwordExpiryDate ?? "sin fecha"}.`,
+      title: `Tu contraseña vencio el ${passwordExpiryDate ?? "sin fecha"}.`,
       description:
-        "Debes actualizar tu contrasena para continuar. La aplicacion permanecera bloqueada hasta completar este cambio.",
+        "Debes actualizar tu contraseña para continuar. La aplicacion permanecera bloqueada hasta completar este cambio.",
       size: "xl",
       showCancel: false,
       disableClose: true,
@@ -129,7 +162,9 @@ const PasswordExpiryGate = () => {
       onConfirm: async () => {
         const submitForcedPassword = submitForcedPasswordRef.current;
         if (typeof submitForcedPassword !== "function") {
-          toast.error("No se pudo preparar el formulario para actualizar la clave.");
+          toast.error(
+            "No se pudo preparar el formulario para actualizar la clave.",
+          );
           return false;
         }
 

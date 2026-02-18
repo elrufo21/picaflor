@@ -126,18 +126,23 @@ const PartidaList = () => {
     <MaintenancePageFrame
       title="Puntos de partida"
       description="Registra y actualiza los puntos de salida para cada destino."
-      action={
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
-          onClick={() => openPartidaModal("create")}
-        >
-          <Plus className="h-4 w-4" />
-          Crear punto de partida
-        </button>
-      }
     >
-      <DndTable data={partidas} columns={columns} enableDateFilter={false} />
+      <DndTable
+        data={partidas}
+        columns={columns}
+        enableDateFilter={false}
+        headerAction={
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            onClick={() => openPartidaModal("create")}
+            title="Crear punto de partida"
+            aria-label="Crear punto de partida"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      />
     </MaintenancePageFrame>
   );
 };

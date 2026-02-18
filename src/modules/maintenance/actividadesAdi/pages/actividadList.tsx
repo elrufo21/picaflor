@@ -67,6 +67,39 @@ const ActividadAdiList = () => {
         onConfirm: () => {
           if (!formRef.current) return;
           return formRef.current.handleSubmit(async (values) => {
+            formRef.current?.clearErrors(["productoId", "actividad"]);
+            const missingFields: string[] = [];
+            const productoId = String(values.productoId ?? "").trim();
+            const actividadNombre = String(values.actividad ?? "").trim();
+
+            if (mode === "create" && !productoId) {
+              formRef.current?.setError("productoId", {
+                type: "required",
+                message: "Destino es obligatorio.",
+              });
+              missingFields.push("Destino");
+            }
+
+            if (mode === "create" && !actividadNombre) {
+              formRef.current?.setError("actividad", {
+                type: "required",
+                message: "Actividad es obligatoria.",
+              });
+              missingFields.push("Actividad");
+            }
+
+            if (missingFields.length > 0) {
+              formRef.current?.setFocus(
+                !productoId ? "productoId" : "actividad",
+              );
+              showToast({
+                title: "Campos obligatorios",
+                description: `Completa: ${missingFields.join(", ")}.`,
+                type: "warning",
+              });
+              throw new Error("Faltan campos obligatorios de actividad");
+            }
+
             const selectedProduct = products.find(
               (product) => String(product.id) === values.productoId,
             );
@@ -93,7 +126,7 @@ const ActividadAdiList = () => {
                   : "Actividad actualizada",
               description:
                 mode === "create"
-                  ? "La actividad se guard� correctamente."
+                  ? "La actividad se guardo correctamente."
                   : "Los cambios se guardaron correctamente.",
               type: "success",
             });
@@ -135,14 +168,15 @@ const ActividadAdiList = () => {
 
   const columns = useMemo(
     () => [
-      columnHelper.accessor("destino", {
-        header: "Destino",
-        cell: (info) => info.getValue(),
-      }),
       columnHelper.accessor("actividad", {
         header: "Actividad",
         cell: (info) => info.getValue(),
       }),
+      columnHelper.accessor("destino", {
+        header: "Destino",
+        cell: (info) => info.getValue(),
+      }),
+
       columnHelper.accessor("precioSol", {
         header: "Precio S/",
         cell: (info) => info.getValue().toString(),
@@ -192,21 +226,22 @@ const ActividadAdiList = () => {
     <MaintenancePageFrame
       title="Actividades adicionales"
       description="Configura actividades extra y sus precios para cada producto."
-      action={
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
-          onClick={() => openActividadModal("create")}
-        >
-          <Plus className="h-4 w-4" />
-          Nueva actividad
-        </button>
-      }
     >
       <DndTable
         data={actividadesAdi}
         columns={columns}
         enableDateFilter={false}
+        headerAction={
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            onClick={() => openActividadModal("create")}
+            title="Nueva actividad"
+            aria-label="Nueva actividad"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
       />
     </MaintenancePageFrame>
   );

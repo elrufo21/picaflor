@@ -26,6 +26,7 @@ interface UserFormBaseProps {
   onSelectUser?: (user: any) => void;
   passwordChangeOnly?: boolean;
   hideHeaderActions?: boolean;
+  showUsersTable?: boolean;
   onRegisterSubmit?: (submit: (() => Promise<boolean>) | null) => void;
 }
 
@@ -66,6 +67,7 @@ export default function UserFormBase({
   onSelectUser,
   passwordChangeOnly = false,
   hideHeaderActions = false,
+  showUsersTable: showUsersTableProp,
   onRegisterSubmit,
 }: UserFormBaseProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,6 +81,8 @@ export default function UserFormBase({
   const [usersEstado, setUsersEstado] = useState<"ACTIVO" | "INACTIVO">(
     "ACTIVO",
   );
+  const showUsersTable = showUsersTableProp ?? !passwordChangeOnly;
+  const lockIdentityFields = passwordChangeOnly;
 
   const emptyValues: UserFormValues = {
     PersonalId: null,
@@ -111,7 +115,17 @@ export default function UserFormBase({
     defaultValues: emptyValues,
   });
 
-  const { handleSubmit, control, reset, setValue, trigger, getValues } = form;
+  const {
+    handleSubmit,
+    control,
+    reset,
+    setValue,
+    trigger,
+    getValues,
+    setError,
+    clearErrors,
+    setFocus,
+  } = form;
 
   const mapInitialData = (data?: Partial<any>): UserFormValues => {
     if (!data) return emptyValues;
@@ -141,9 +155,9 @@ export default function UserFormBase({
   };
 
   useEffect(() => {
-    if (passwordChangeOnly) return;
+    if (passwordChangeOnly || !showUsersTable) return;
     fetchUsers(usersEstado);
-  }, [fetchUsers, usersEstado, passwordChangeOnly]);
+  }, [fetchUsers, usersEstado, passwordChangeOnly, showUsersTable]);
 
   useEffect(() => {
     if (!employees.length) {
@@ -156,53 +170,118 @@ export default function UserFormBase({
     focusFirstInput(containerRef.current);
   }, [initialData, mode, reset, employeeOptions]);
 
-  const onSubmit = useCallback(async (values: UserFormValues): Promise<boolean> => {
-    const password = values.UsuarioClave ?? "";
-    const confirmPassword = values.ConfirmClave ?? "";
-    const initialPassword = String(initialData?.UsuarioClave ?? "");
+  const onSubmit = useCallback(
+    async (values: UserFormValues): Promise<boolean> => {
+      clearErrors([
+        "PersonalId",
+        "UsuarioAlias",
+        "UsuarioClave",
+        "ConfirmClave",
+      ]);
+      const personalId = values.PersonalId
+        ? Number(values.PersonalId.value)
+        : 0;
+      const alias = String(values.UsuarioAlias ?? "")
+        .replace(/\s+/g, "")
+        .trim();
+      const password = values.UsuarioClave ?? "";
+      const confirmPassword = values.ConfirmClave ?? "";
+      const initialPassword = String(initialData?.UsuarioClave ?? "");
 
-    const isEditWithoutPasswordChange =
-      mode === "edit" &&
-      !passwordChangeOnly &&
-      password === initialPassword &&
-      confirmPassword === initialPassword;
-
-    if (!isEditWithoutPasswordChange) {
-      if (!passwordMinRules.test(password)) {
-        toast.error(
-          "La contrasena debe tener minimo 6 caracteres, una mayuscula y un numero",
-        );
+      if (!passwordChangeOnly && personalId <= 0) {
+        setError("PersonalId", {
+          type: "required",
+          message: "Selecciona un personal.",
+        });
+        setFocus("PersonalId");
+        toast.error("Selecciona un personal");
         return false;
       }
 
-      if (password !== confirmPassword) {
-        toast.error("Las contrasenas no coinciden");
+      if (!alias) {
+        setError("UsuarioAlias", {
+          type: "required",
+          message: "Usuario/Alias es obligatorio.",
+        });
+        setFocus("UsuarioAlias");
+        toast.error("Ingrese usuario o alias");
         return false;
       }
-    }
 
-    const payload = {
-      PersonalId: values.PersonalId ? Number(values.PersonalId.value) : 0,
-      UsuarioAlias: values.UsuarioAlias?.trim() ?? "",
-      UsuarioClave: values.UsuarioClave ?? "",
-      UsuarioEstado: values.UsuarioEstado ?? "ACTIVO",
-      flag: passwordChangeOnly ? 1 : 0,
-      UsuarioSerie: values.UsuarioSerie ?? "B001",
-      EnviaBoleta: Number(values.EnviaBoleta ?? 0),
-      EnviarFactura: Number(values.EnviarFactura ?? 0),
-      EnviaNC: Number(values.EnviaNC ?? 0),
-      EnviaND: Number(values.EnviaND ?? 0),
-      Administrador: Number(values.Administrador ?? 0),
-    };
+      const isEditWithoutPasswordChange =
+        mode === "edit" &&
+        !passwordChangeOnly &&
+        password === initialPassword &&
+        confirmPassword === initialPassword;
 
-    const ok = await onSave(payload);
-    if (!ok) return false;
+      if (!isEditWithoutPasswordChange) {
+        if (!password?.trim()) {
+          setError("UsuarioClave", {
+            type: "required",
+            message: "Contraseña es obligatoria.",
+          });
+          setFocus("UsuarioClave");
+          toast.error("Ingrese la contraseña");
+          return false;
+        }
 
-    reset(emptyValues);
-    onNew?.();
-    focusFirstInput(containerRef.current);
-    return true;
-  }, [onSave, onNew, reset, passwordChangeOnly, initialData?.UsuarioClave, mode]);
+        if (!confirmPassword?.trim()) {
+          setError("ConfirmClave", {
+            type: "required",
+            message: "Confirma la contraseña.",
+          });
+          setFocus("ConfirmClave");
+          toast.error("Confirma la contraseña");
+          return false;
+        }
+
+        if (!passwordMinRules.test(password)) {
+          toast.error(
+            "La contraseña debe tener minimo 6 caracteres, una mayuscula y un numero",
+          );
+          return false;
+        }
+
+        if (password !== confirmPassword) {
+          toast.error("Las contraseñas no coinciden");
+          return false;
+        }
+      }
+
+      const payload = {
+        PersonalId: personalId,
+        UsuarioAlias: alias,
+        UsuarioClave: values.UsuarioClave ?? "",
+        UsuarioEstado: values.UsuarioEstado ?? "ACTIVO",
+        flag: passwordChangeOnly ? 1 : 0,
+        UsuarioSerie: values.UsuarioSerie ?? "B001",
+        EnviaBoleta: Number(values.EnviaBoleta ?? 0),
+        EnviarFactura: Number(values.EnviarFactura ?? 0),
+        EnviaNC: Number(values.EnviaNC ?? 0),
+        EnviaND: Number(values.EnviaND ?? 0),
+        Administrador: Number(values.Administrador ?? 0),
+      };
+
+      const ok = await onSave(payload);
+      if (!ok) return false;
+
+      reset(emptyValues);
+      onNew?.();
+      focusFirstInput(containerRef.current);
+      return true;
+    },
+    [
+      clearErrors,
+      setError,
+      setFocus,
+      onSave,
+      onNew,
+      reset,
+      passwordChangeOnly,
+      initialData?.UsuarioClave,
+      mode,
+    ],
+  );
 
   const submitFromOutside = useCallback(async () => {
     const isValid = await trigger();
@@ -266,82 +345,17 @@ export default function UserFormBase({
     }),
   ];
 
-  const showUsersTable = !passwordChangeOnly;
-  const lockIdentityFields = passwordChangeOnly;
-
   return (
-    <div ref={containerRef} className="h-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+    <div ref={containerRef} className="h-auto  px-4 sm:px-6 lg:px-8">
+      <div className="bg-white rounded-2xl  overflow-hidden">
         <form onSubmit={handleFormSubmit} onKeyDown={handleEnterFocus}>
-          <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
-            <h1 className="text-base font-semibold">
-              {passwordChangeOnly
-                ? "Cambio obligatorio de contraseña"
-                : mode === "create"
-                  ? "Crear Usuario"
-                  : "Editar Usuario"}
-            </h1>
-
-            {!hideHeaderActions && (
-              <div className="flex items-center gap-2">
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
-                  title="Guardar"
-                >
-                  <Save className="w-4 h-4" />
-                  <span className="hidden sm:inline">
-                    {passwordChangeOnly ? "Actualizar clave" : "Guardar"}
-                  </span>
-                </button>
-
-                {!passwordChangeOnly && (
-                  <button
-                    type="button"
-                    onClick={handleNew}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
-                    title="Nuevo"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span className="hidden sm:inline">Nuevo</span>
-                  </button>
-                )}
-
-                {mode === "edit" && onDelete && !passwordChangeOnly && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openDialog({
-                        title: "Eliminar usuario",
-                        size: "sm",
-                        confirmLabel: "Eliminar",
-                        cancelLabel: "Cancelar",
-                        onConfirm: async () => {
-                          await onDelete();
-                        },
-                        content: () => (
-                          <p className="text-sm text-slate-700">
-                            ¿Estás seguro de eliminar este usuario?
-                            <br />
-                            Esta acción no se puede deshacer.
-                          </p>
-                        ),
-                      })
-                    }
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
-                    title="Eliminar"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span className="hidden sm:inline">Eliminar</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
           <div className="p-6 sm:p-8">
-            <div className={`flex flex-col ${showUsersTable ? "md:flex-row" : ""} gap-6`}>
-              <div className={`w-full ${showUsersTable ? "md:w-[40%]" : ""} space-y-4`}>
+            <div
+              className={`flex flex-col ${showUsersTable ? "md:flex-row" : ""} gap-6`}
+            >
+              <div
+                className={`w-full ${showUsersTable ? "md:w-[40%]" : ""} space-y-4`}
+              >
                 <div className="mt-4">
                   <AutocompleteControlled
                     name="PersonalId"
@@ -366,6 +380,7 @@ export default function UserFormBase({
                     name="UsuarioAlias"
                     control={control}
                     label="Usuario / Alias"
+                    disableAutoUppercase={true}
                     placeholder="ej: jramirez"
                     required
                     disabled={lockIdentityFields}
@@ -475,7 +490,9 @@ export default function UserFormBase({
                       <select
                         value={usersEstado}
                         onChange={(e) =>
-                          setUsersEstado(e.target.value as "ACTIVO" | "INACTIVO")
+                          setUsersEstado(
+                            e.target.value as "ACTIVO" | "INACTIVO",
+                          )
                         }
                         className="border border-gray-300 rounded px-2 py-1  text-sm"
                       >
@@ -493,4 +510,3 @@ export default function UserFormBase({
     </div>
   );
 }
-

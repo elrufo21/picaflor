@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import {
   ChevronLeft,
+  FileText,
   Loader2,
   Lock,
   Plus,
@@ -37,7 +38,6 @@ import {
   toISODate,
 } from "@/shared/helpers/helpers";
 import { formatDate } from "@/shared/helpers/formatDate";
-import { serviciosDB } from "@/app/db/serviciosDB";
 function parseFecha(fecha: string): string {
   if (!fecha) return "";
 
@@ -71,8 +71,6 @@ function isIslasBallestasActivity(servicio: any) {
   if (!label) return false;
   return String(label).toLowerCase().includes("islas ballestas");
 }
-
-const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 type ValidationError = {
   message: string;
@@ -537,13 +535,13 @@ function buildListaOrdenCreate(data) {
     d(data.totalGeneral), // 11 NotaTotal
     d(data.acuenta), // 12 NotaAcuenta
     d(data.saldo), // 13 NotaSaldo
-    d(data.precioExtra), // 14 NotaAdicional
+    d(data.cargosExtra), // 14 NotaAdicional
     d(data.totalGeneral), // 15 NotaPagar
     n(data.condicion?.value), // 16 NotaEstado
-    1, // 17 CompaniaId
-    "N/A", // 18 IncluyeIGV
-    "", // 19 Serie
-    "", // 20 Numero
+    data.companiaId, // 17 CompaniaId
+    Number(data.igv) > 0 ? n(data.igv) : "N/A", // 18 IncluyeIGV
+    n(data.nserie), // 18 Serie
+    n(data.ndocumento), // 20 Numero
     0, // 21 NotaGanancia
     data.usuarioId, // 22 UsuarioId
     n(data.entidadBancaria), // 23 EntidadBancaria
@@ -567,8 +565,8 @@ function buildListaOrdenCreate(data) {
     tubulares, // 41 Tubulares
     otros, // 42 otros
     data.fechaViaje, // 43 FechaViaje
-    0, // 44 IGV
-    "N/A", // 45 IncluyeCargos
+    data.igv ?? 0, // 44 IGV
+    data.medioPago == "TARJETA" ? "Pagos Visa Mastercard" : "N/A", // 45 IncluyeCargos
     data.moneda, // 46 Monedas
     n(data?.detalle?.tarifa?.servicio?.label ?? ""), // 47 IncluyeALmuerzo
     "", // 48 NotaImagen
@@ -602,7 +600,7 @@ function buildListaOrdenEdit(data) {
     d(data.totalGeneral), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
     1, // 16 CompaniaId (hardcoded to 2)
-    "N/A", // 17 IncluyeIGV
+    Number(data.igv) > 0 ? n(data.igv) : "N/A", // 17 IncluyeIGV
     n(data.nserie), // 18 Serie
     n(data.ndocumento), // 19 Numero
     0, // 20 NotaGanancia
@@ -628,8 +626,8 @@ function buildListaOrdenEdit(data) {
     tubulares, // 40 Tubulares
     otros, // 41 otros
     n(toISODate(data.fechaViaje)), // 42 FechaViaje
-    0, // 43 IGV
-    "N/A", // 44 IncluyeCargos
+    data.igv ?? 0, // 43 IGV
+    data.medioPago == "TARJETA" ? "Pagos Visa Mastercard" : "N/A", // 44 IncluyeCargos
     Number(data.notaId), // 45 NotaId
     0, // 46 Aviso
     n(data.moneda), // 47 Monedas
@@ -1160,6 +1158,23 @@ const ViajeForm = () => {
     }
   };
 
+  const handleOpenBoleta = () => {
+    if (!idProduct) {
+      showToast({
+        title: "Error",
+        description: "No se pudo resolver el identificador del producto.",
+        type: "error",
+      });
+      return;
+    }
+
+    navigate(`/citytour/${idProduct}/passengers/boleta`, {
+      state: {
+        boletaData: getValues(),
+      },
+    });
+  };
+
   const handleDelete = async () => {
     if (!liquidacionId) return;
 
@@ -1408,6 +1423,22 @@ const ViajeForm = () => {
                   <Printer size={16} />
                   <span className="text-sm hidden sm:inline">Imprimir</span>
                 </button>
+
+                {!isEditing && liquidacionId && (
+                  <button
+                    type="button"
+                    onClick={handleOpenBoleta}
+                    className="
+                    inline-flex items-center gap-1
+                    rounded-lg bg-rose-600 px-3 py-2
+                    text-white ring-1 ring-rose-600/30
+                    hover:bg-rose-700 transition
+                  "
+                  >
+                    <FileText size={16} />
+                    <span className="text-sm hidden sm:inline">Boleta</span>
+                  </button>
+                )}
 
                 {liquidacionId && !isEditing && (
                   <button

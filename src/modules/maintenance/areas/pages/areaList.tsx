@@ -41,14 +41,30 @@ const AreaList = () => {
         onDanger:
           mode === "edit" && area?.id
             ? async () => {
-                const ok = await deleteArea(area.id);
-                if (!ok) {
-                  toast.error("No se pudo eliminar el area");
-                  return false;
-                }
-                toast.success("Area eliminada");
-                await fetchAreas();
-                return true;
+                openDialog({
+                  title: "Eliminar area",
+                  size: "sm",
+                  confirmLabel: "Eliminar",
+                  cancelLabel: "Cancelar",
+                  onConfirm: async () => {
+                    const ok = await deleteArea(area.id);
+                    if (!ok) {
+                      toast.error("No se pudo eliminar el area");
+                      return false;
+                    }
+                    toast.success("Area eliminada");
+                    await fetchAreas();
+                    return true;
+                  },
+                  content: () => (
+                    <p className="text-sm text-slate-700">
+                      Estas seguro de eliminar esta area?
+                      <br />
+                      Esta accion no se puede deshacer.
+                    </p>
+                  ),
+                });
+                return false;
               }
             : undefined,
         content: () => (
@@ -60,8 +76,14 @@ const AreaList = () => {
               submitAreaRef.current = submit;
             }}
             onSave={async (data) => {
+              const areaName = String(data.area ?? "").trim();
+              if (!areaName) {
+                toast.error("Ingrese el nombre del area");
+                return false;
+              }
+
               if (mode === "create") {
-                const ok = await addArea({ area: data.area });
+                const ok = await addArea({ area: areaName });
                 if (!ok) {
                   toast.error("Ya existe esta area");
                   return false;
@@ -72,7 +94,10 @@ const AreaList = () => {
               }
 
               if (!area?.id) return false;
-              await updateArea(area.id, data);
+              await updateArea(area.id, {
+                ...data,
+                area: areaName,
+              });
               toast.success("Area actualizada");
               await fetchAreas();
               return true;
@@ -146,18 +171,23 @@ const AreaList = () => {
     <MaintenancePageFrame
       title="Areas"
       description="Administra las areas internas para organizar mejor tus procesos."
-      action={
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
-          onClick={() => openAreaModal("create")}
-        >
-          <Plus className="h-4 w-4" />
-          Nueva area
-        </button>
-      }
     >
-      <DndTable data={areas} columns={columns} enableDateFilter={false} />
+      <DndTable
+        data={areas}
+        columns={columns}
+        enableDateFilter={false}
+        headerAction={
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            onClick={() => openAreaModal("create")}
+            title="Nueva area"
+            aria-label="Nueva area"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      />
     </MaintenancePageFrame>
   );
 };

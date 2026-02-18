@@ -41,14 +41,30 @@ const ClientList = () => {
             ? async () => {
                 const id = Number(client?.clienteId ?? 0);
                 if (!id) return false;
-                const ok = await deleteClient(id);
-                if (!ok) {
-                  toast.error("No se pudo eliminar el cliente");
-                  return false;
-                }
-                toast.success("Cliente eliminado");
-                await fetchClients("ACTIVO");
-                return true;
+                openDialog({
+                  title: "Eliminar cliente",
+                  size: "sm",
+                  confirmLabel: "Eliminar",
+                  cancelLabel: "Cancelar",
+                  onConfirm: async () => {
+                    const ok = await deleteClient(id);
+                    if (!ok) {
+                      toast.error("No se pudo eliminar el cliente");
+                      return false;
+                    }
+                    toast.success("Cliente eliminado");
+                    await fetchClients("ACTIVO");
+                    return true;
+                  },
+                  content: () => (
+                    <p className="text-sm text-slate-700">
+                      Estas seguro de eliminar este cliente?
+                      <br />
+                      Esta accion no se puede deshacer.
+                    </p>
+                  ),
+                });
+                return false;
               }
             : undefined,
         content: () => (
@@ -174,18 +190,23 @@ const ClientList = () => {
     <MaintenancePageFrame
       title="Clientes"
       description="Consulta, crea y edita clientes de forma rapida."
-      action={
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
-          onClick={() => openClientModal("create")}
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo cliente
-        </button>
-      }
     >
-      <DndTable data={clients} columns={columns} enableDateFilter={false} />
+      <DndTable
+        data={clients}
+        columns={columns}
+        enableDateFilter={false}
+        headerAction={
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            onClick={() => openClientModal("create")}
+            title="Nuevo cliente"
+            aria-label="Nuevo cliente"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      />
     </MaintenancePageFrame>
   );
 };

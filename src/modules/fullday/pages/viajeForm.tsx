@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import {
   ChevronLeft,
+  FileText,
   Loader2,
   Lock,
   Plus,
@@ -479,13 +480,13 @@ function buildListaOrdenCreate(data) {
     d(data.totalGeneral),
     d(data.acuenta),
     d(data.saldo),
-    d(data.precioExtra),
+    d(data.cargosExtra),
     d(data.totalGeneral),
     n(data.condicion?.value),
     data.companiaId,
-    "NO",
-    "",
-    "",
+    Number(data.igv) > 0 ? "INCLUYE IMPUESTOS" : "N/A",
+    n(data.nserie),
+    n(data.ndocumento),
     0,
     data.usuarioId,
     n(data.entidadBancaria),
@@ -509,8 +510,8 @@ function buildListaOrdenCreate(data) {
     tubulares,
     otros,
     data.fechaViaje,
-    0,
-    "NO",
+    data.igv ?? 0,
+    data.medioPago == "TARJETA" ? "PAGOS CON VISA MASTERCARD" : "N/A",
     data.moneda,
     n(data.detalle.tarifa.servicio.label ?? ""),
     "",
@@ -545,7 +546,7 @@ function buildListaOrdenEdit(data) {
     d(data.totalGeneral), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
     Number(data.companiaId), // 16 CompaniaId
-    "NO", // 17 IncluyeIGV
+    Number(data.igv) > 0 ? n(data.igv) : "N/A", // 17 IncluyeIGV
     n(data.nserie), // 18 Serie
     n(data.ndocumento), // 19 Numero
     0, // 20 NotaGanancia
@@ -571,8 +572,8 @@ function buildListaOrdenEdit(data) {
     tubulares, // 40 Tubulares
     otros, // 41 otros
     n(toISODate(data.fechaViaje)), // 42 FechaViaje
-    0, // 43 IGV
-    "NO", // 44 IncluyeCargos
+    data.igv ?? 0, // 43 IGV
+    data.medioPago == "TARJETA" ? "PAGOS CON VISA MASTERCARD" : "N/A", // 44 IncluyeCargos
     Number(data.notaId), // 45 NotaId
     0, // 46 Aviso
     n(data.moneda), // 47 Monedas
@@ -1038,6 +1039,23 @@ const ViajeForm = () => {
     }
   };
 
+  const handleOpenBoleta = () => {
+    if (!idProduct) {
+      showToast({
+        title: "Error",
+        description: "No se pudo resolver el identificador del producto.",
+        type: "error",
+      });
+      return;
+    }
+
+    navigate(`/fullday/${idProduct}/passengers/boleta`, {
+      state: {
+        boletaData: getValues(),
+      },
+    });
+  };
+
   const handleDelete = async () => {
     if (!liquidacionId) return;
 
@@ -1290,6 +1308,22 @@ const ViajeForm = () => {
                   <Printer size={16} />
                   <span className="text-sm hidden sm:inline">Imprimir</span>
                 </button>
+
+                {!isEditing && liquidacionId && (
+                  <button
+                    type="button"
+                    onClick={handleOpenBoleta}
+                    className="
+                    inline-flex items-center gap-1
+                    rounded-lg bg-rose-600 px-3 py-2
+                    text-white ring-1 ring-rose-600/30
+                    hover:bg-rose-700 transition
+                  "
+                  >
+                    <FileText size={16} />
+                    <span className="text-sm hidden sm:inline">Docu</span>
+                  </button>
+                )}
 
                 {liquidacionId && !isEditing && (
                   <button

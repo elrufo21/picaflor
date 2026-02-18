@@ -104,6 +104,7 @@ const Login = () => {
                   control={control}
                   label="Usuario"
                   size="small"
+                  disableAutoUppercase
                   InputLabelProps={{
                     sx: {
                       color: "#94a3b8",
@@ -148,6 +149,7 @@ const Login = () => {
                   label="Contraseña"
                   id="password"
                   type="password"
+                  disableAutoUppercase
                   size="small"
                   InputLabelProps={{
                     sx: {

@@ -20,6 +20,31 @@ import type { UseFormReturn } from "react-hook-form";
 import type { Product } from "@/types/maintenance";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 
+type RequiredProductField = {
+  key: keyof ProductFormValues;
+  label: string;
+};
+
+const getMissingRequiredFields = (
+  values: ProductFormValues,
+): RequiredProductField[] => {
+  const missing: RequiredProductField[] = [];
+
+  if (!String(values.categoria ?? "").trim()) {
+    missing.push({ key: "categoria", label: "Categoría" });
+  }
+
+  if (!String(values.region ?? "").trim()) {
+    missing.push({ key: "region", label: "Región" });
+  }
+
+  if (!String(values.descripcion ?? "").trim()) {
+    missing.push({ key: "descripcion", label: "Producto" });
+  }
+
+  return missing;
+};
+
 const ProductList = () => {
   const products = useMaintenanceStore((state) => state.products);
   const fetchProducts = useMaintenanceStore((state) => state.fetchProducts);
@@ -39,7 +64,7 @@ const ProductList = () => {
   const openProductModal = useCallback(
     (mode: "create" | "edit", product?: Product) => {
       if (formRef.current) {
-        formRef.current.reset(); // ensure form resets before reuse
+        formRef.current.reset();
       }
       openDialog({
         title: mode === "create" ? "Nuevo producto" : "Editar producto",
@@ -56,6 +81,31 @@ const ProductList = () => {
         onConfirm: () => {
           if (!formRef.current) return;
           return formRef.current.handleSubmit(async (values) => {
+            formRef.current?.clearErrors([
+              "categoria",
+              "region",
+              "descripcion",
+            ]);
+            const missingFields = getMissingRequiredFields(values);
+            if (missingFields.length > 0) {
+              missingFields.forEach((field) => {
+                formRef.current?.setError(field.key, {
+                  type: "required",
+                  message: `${field.label} es obligatorio.`,
+                });
+              });
+              const firstMissing = missingFields[0];
+              if (firstMissing) {
+                formRef.current?.setFocus(firstMissing.key);
+              }
+              showToast({
+                title: "Campos obligatorios",
+                description: `Completa: ${missingFields.map((item) => item.label).join(", ")}.`,
+                type: "warning",
+              });
+              throw new Error("Faltan campos obligatorios del producto");
+            }
+
             const payload = buildProductPayload(
               values,
               username,
@@ -204,20 +254,23 @@ const ProductList = () => {
   );
 
   return (
-    <MaintenancePageFrame
-      title="Productos"
-      action={
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
-          onClick={() => openProductModal("create")}
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo producto
-        </button>
-      }
-    >
-      <DndTable data={products} columns={columns} enableDateFilter={false} />
+    <MaintenancePageFrame title="Productos">
+      <DndTable
+        data={products}
+        columns={columns}
+        enableDateFilter={false}
+        headerAction={
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            onClick={() => openProductModal("create")}
+            title="Nuevo producto"
+            aria-label="Nuevo producto"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      />
     </MaintenancePageFrame>
   );
 };

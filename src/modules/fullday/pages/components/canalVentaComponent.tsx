@@ -3,15 +3,102 @@ import {
   SelectControlled,
   TextControlled,
 } from "@/components/ui/inputs";
+import { useForm } from "react-hook-form";
 import { useCanalVenta } from "../../hooks/useCanalVenta";
 import { showToast } from "@/components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { usePackageStore } from "../../store/fulldayStore";
 
+type CanalVentaDialogValues = {
+  label: string;
+  contacto: string;
+  telefono: string;
+  email: string;
+};
+
+const CanalVentaDialogForm = ({
+  payload,
+  setPayload,
+}: {
+  payload: Partial<CanalVentaDialogValues>;
+  setPayload: (next: Record<string, unknown>) => void;
+}) => {
+  const { control } = useForm<CanalVentaDialogValues>({
+    defaultValues: {
+      label: String(payload.label ?? ""),
+      contacto: String(payload.contacto ?? ""),
+      telefono: String(payload.telefono ?? ""),
+      email: String(payload.email ?? ""),
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="label"
+            control={control}
+            label="Nombre"
+            placeholder="Ej: AEROMAR TRAVEL"
+            required
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, label: e.target.value });
+            }}
+          />
+        </div>
+        <TextControlled<CanalVentaDialogValues>
+          name="contacto"
+          control={control}
+          label="Contacto"
+          placeholder="Ej: DIANA"
+          required
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, contacto: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="telefono"
+          control={control}
+          label="Teléfono"
+          placeholder="Ej: 984821760"
+          required
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, telefono: e.target.value });
+          }}
+        />
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="email"
+            control={control}
+            label="Email"
+            type="email"
+            disableAutoUppercase
+            placeholder="Ej: contacto@canal.com"
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, email: e.target.value });
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CanalVentaComponent = ({ control, setValue, watch }) => {
   const { isEditing } = usePackageStore();
   const { openDialog } = useDialogStore();
-  const { canalVentaList, addCanalToList } = useCanalVenta();
+  const { canalVentaList, addCanalToList, saveCanalVenta } = useCanalVenta();
+
+  const parseCanalId = (value: string) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   const handleAddCanalVenta = () => {
     openDialog({
       title: "Nuevo canal de venta",
@@ -27,162 +114,11 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
         editingValue: "",
       },
       confirmLabel: "Guardar canal",
-      content: ({ payload, setPayload, close }: any) => {
-        const search = String(payload.search ?? "").toLowerCase();
-        const filtered = canalVentaList.filter((opt) => {
-          const haystack = [
-            opt.label,
-            opt.contacto ?? "",
-            opt.telefono ?? "",
-            opt.email ?? "",
-          ]
-            .join(" ")
-            .toLowerCase();
-          return haystack.includes(search);
-        });
-
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1 text-sm text-slate-700">
-                <span className="font-semibold text-slate-800">Nombre</span>
-                <input
-                  type="text"
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  value={String(payload.label ?? "")}
-                  onChange={(e) =>
-                    setPayload({ ...payload, label: e.target.value })
-                  }
-                  placeholder="Ej: AEROMAR TRAVEL"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-slate-700">
-                <span className="font-semibold text-slate-800">
-                  Código interno (opcional)
-                </span>
-                <input
-                  type="text"
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  value={String(payload.value ?? "")}
-                  onChange={(e) =>
-                    setPayload({ ...payload, value: e.target.value })
-                  }
-                  placeholder="Ej: WEB_PERU"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-slate-700">
-                <span className="font-semibold text-slate-800">Contacto</span>
-                <input
-                  type="text"
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  value={String(payload.contacto ?? "")}
-                  onChange={(e) =>
-                    setPayload({ ...payload, contacto: e.target.value })
-                  }
-                  placeholder="Ej: DIANA"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-slate-700">
-                <span className="font-semibold text-slate-800">Teléfono</span>
-                <input
-                  type="text"
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  value={String(payload.telefono ?? "")}
-                  onChange={(e) =>
-                    setPayload({ ...payload, telefono: e.target.value })
-                  }
-                  placeholder="Ej: 984821760"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-slate-700 md:col-span-2">
-                <span className="font-semibold text-slate-800">Email</span>
-                <input
-                  type="email"
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  value={String(payload.email ?? "")}
-                  onChange={(e) =>
-                    setPayload({ ...payload, email: e.target.value })
-                  }
-                  placeholder="Ej: contacto@canal.com"
-                />
-              </label>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <label className="text-xs font-semibold text-slate-700">
-                  Lista de canales
-                </label>
-                <input
-                  type="text"
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  placeholder="Buscar..."
-                  value={String(payload.search ?? "")}
-                  onChange={(e) =>
-                    setPayload({ ...payload, search: e.target.value })
-                  }
-                />
-              </div>
-              <div className="border border-slate-200 rounded-lg max-h-64 overflow-auto divide-y divide-slate-200">
-                {filtered.length === 0 && (
-                  <p className="text-sm text-slate-500 px-3 py-2">
-                    No hay canales para mostrar.
-                  </p>
-                )}
-                {filtered?.map((opt) => (
-                  <div
-                    key={opt.value}
-                    className="flex items-center justify-between px-3 py-2 bg-white hover:bg-slate-50"
-                  >
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-semibold text-slate-800">
-                        {opt.label}
-                      </p>
-                      <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
-                        {opt.contacto && <span>Contacto: {opt.contacto}</span>}
-                        {opt.telefono && <span>Teléfono: {opt.telefono}</span>}
-                        {opt.email && <span>Email: {opt.email}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        className="text-xs font-semibold text-amber-600 hover:text-amber-700 underline cursor-pointer"
-                        onClick={() =>
-                          setPayload({
-                            ...payload,
-                            label: opt.label,
-                            value: opt.value,
-                            contacto: opt.contacto ?? "",
-                            telefono: opt.telefono ?? "",
-                            email: opt.email ?? "",
-                            editingValue: opt.value,
-                          })
-                        }
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline cursor-pointer"
-                        onClick={() => {
-                          setValue("canalDeVenta", opt);
-                          close();
-                        }}
-                      >
-                        Usar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      },
-      onConfirm: (data: any) => {
+      content: ({ payload, setPayload }: any) => (
+        <CanalVentaDialogForm payload={payload} setPayload={setPayload} />
+      ),
+      onConfirm: async (data: any) => {
         const label = String(data.label ?? "").trim();
-        const customValue = String(data.value ?? "").trim();
         const contacto = String(data.contacto ?? "").trim();
         const telefono = String(data.telefono ?? "").trim();
         const email = String(data.email ?? "").trim();
@@ -197,17 +133,73 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
           throw new Error("Nombre de canal de venta requerido");
         }
 
-        const newOption = {
-          label,
-          value: customValue || label.trim().toUpperCase().replace(/\s+/g, "_"),
-          contacto: contacto || undefined,
-          telefono: telefono || undefined,
-          email: email || undefined,
-          auxiliar: label,
-        };
+        if (!contacto) {
+          showToast({
+            title: "Atención",
+            description: "Ingresa el contacto del canal de venta.",
+            type: "warning",
+          });
+          throw new Error("Contacto de canal de venta requerido");
+        }
 
-        addCanalToList(newOption, editingValue);
-        setValue("canalVenta", newOption);
+        if (!telefono) {
+          showToast({
+            title: "Atención",
+            description: "Ingresa el teléfono del canal de venta.",
+            type: "warning",
+          });
+          throw new Error("Teléfono de canal de venta requerido");
+        }
+
+        if (email && !/^[^\s@]+@[^\s@]+\.com$/i.test(email)) {
+          showToast({
+            title: "Atención",
+            description:
+              "Si ingresas correo, debe tener un formato válido con @ y .com",
+            type: "warning",
+          });
+          throw new Error("Formato de email inválido");
+        }
+
+        try {
+          const savedId = await saveCanalVenta({
+            idAuxiliar: parseCanalId(editingValue),
+            auxiliar: label,
+            telefono,
+            contacto,
+            email,
+          });
+
+          const savedOption = {
+            label,
+            value: String(savedId),
+            contacto: contacto || undefined,
+            telefono: telefono || undefined,
+            email: email || undefined,
+            auxiliar: label,
+          };
+
+          addCanalToList(savedOption, editingValue);
+          setValue("canalDeVenta", savedOption);
+          setValue("canalVenta", label);
+          setValue("canalDeVentaTelefono", savedOption.telefono ?? "");
+          showToast({
+            title: "Exito",
+            description: `Canal guardado correctamente (ID ${savedId}).`,
+            type: "success",
+          });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : String(error ?? "");
+          const description =
+            message.trim() || "No se pudo guardar el canal de venta.";
+          showToast({
+            title: "Error",
+            description,
+            type: "error",
+          });
+          throw error;
+        }
       },
     });
   };
@@ -232,7 +224,7 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <div className="col-span-2">
           <AutocompleteControlled
-            onValueChange={(value, { setNextFocus }) => {
+            onValueChange={(value) => {
               handleCanalDeVentaChange(value);
 
               setTimeout(() => {
@@ -337,3 +329,4 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
 };
 
 export default CanalVentaComponent;
+

@@ -1,7 +1,5 @@
 import { Navigate } from "react-router";
 import MaintenanceDashboard from "./pages/MaintenanceDashboard";
-import UserCreate from "./users/pages/userCreate";
-import UserEdit from "./users/pages/userEdit";
 import UserList from "./users/pages/userList";
 import AreaList from "./areas/pages/areaList";
 import CategoryList from "./categories/pages/categoryList";
@@ -163,7 +161,7 @@ export default [
   },
   {
     path: "maintenance/users/create",
-    element: <UserCreate />,
+    element: <Navigate to="/maintenance/users" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
@@ -174,7 +172,7 @@ export default [
   },
   {
     path: "maintenance/users/:id/edit",
-    element: <UserEdit />,
+    element: <Navigate to="/maintenance/users" replace />,
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
