@@ -47,14 +47,30 @@ const CategoryList = () => {
             ? async () => {
                 const id = resolveCategoryId(category);
                 if (!id) return false;
-                const ok = await deleteCategory(id);
-                if (!ok) {
-                  toast.error("No se pudo eliminar la categoria");
-                  return false;
-                }
-                toast.success("Categoria eliminada");
-                await fetchCategories();
-                return true;
+                openDialog({
+                  title: "Eliminar categoria",
+                  size: "sm",
+                  confirmLabel: "Eliminar",
+                  cancelLabel: "Cancelar",
+                  onConfirm: async () => {
+                    const ok = await deleteCategory(id);
+                    if (!ok) {
+                      toast.error("No se pudo eliminar la categoria");
+                      return false;
+                    }
+                    toast.success("Categoria eliminada");
+                    await fetchCategories();
+                    return true;
+                  },
+                  content: () => (
+                    <p className="text-sm text-slate-700">
+                      Estas seguro de eliminar esta categoria?
+                      <br />
+                      Esta accion no se puede deshacer.
+                    </p>
+                  ),
+                });
+                return false;
               }
             : undefined,
         content: () => (
@@ -66,9 +82,15 @@ const CategoryList = () => {
               submitCategoryRef.current = submit;
             }}
             onSave={async (data) => {
+              const nombreSublinea = String(data.nombreSublinea ?? "").trim();
+              if (!nombreSublinea) {
+                toast.error("Ingrese el nombre de la categoria");
+                return false;
+              }
+
               if (mode === "create") {
                 const ok = await addCategory({
-                  nombreSublinea: data.nombreSublinea,
+                  nombreSublinea,
                   codigoSunat: data.codigoSunat ?? "",
                 });
                 if (!ok) {
@@ -82,7 +104,10 @@ const CategoryList = () => {
 
               const id = resolveCategoryId(category);
               if (!id) return false;
-              const ok = await updateCategory(id, data);
+              const ok = await updateCategory(id, {
+                ...data,
+                nombreSublinea,
+              });
               if (!ok) {
                 toast.error("Ya existe esa categoria");
                 return false;
@@ -177,18 +202,23 @@ const CategoryList = () => {
     <MaintenancePageFrame
       title="Categorias"
       description="Gestiona categorias y codigos SUNAT desde un solo lugar."
-      action={
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
-          onClick={() => openCategoryModal("create")}
-        >
-          <Plus className="h-4 w-4" />
-          Nueva categoria
-        </button>
-      }
     >
-      <DndTable data={categories} columns={columns} enableDateFilter={false} />
+      <DndTable
+        data={categories}
+        columns={columns}
+        enableDateFilter={false}
+        headerAction={
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            onClick={() => openCategoryModal("create")}
+            title="Nueva categoria"
+            aria-label="Nueva categoria"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      />
     </MaintenancePageFrame>
   );
 };

@@ -7,6 +7,7 @@ import ViajeForm from "./pages/viajeForm";
 import CityTourListado from "./pages/cityTourListado";
 import CityInvoicePreview from "./pages/cityTourInvoicePreview";
 import ProgramacionLiquidaciones from "./pages/gramacionLiquidaciones";
+import CityTourBoletaPreview from "./pages/cityTourBoletaPreview";
 
 export default [
   {
@@ -52,6 +53,13 @@ export default [
         { label: "City Tour", to: "/citytour" },
         { label: "Factura" },
       ],
+    },
+  },
+  {
+    path: "citytour/:idProduct/passengers/boleta",
+    element: <CityTourBoletaPreview />,
+    handle: {
+      breadcrumb: [{ label: "City Tour", to: "/citytour" }, { label: "Boleta" }],
     },
   },
   {

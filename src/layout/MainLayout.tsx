@@ -56,7 +56,9 @@ const MainLayout = () => {
 
   const clearPersistedFiltersForRoute = (targetPath: string) => {
     if (typeof window === "undefined") return;
-    const normalizedTargetPath = String(targetPath || "").toLowerCase().trim();
+    const normalizedTargetPath = String(targetPath || "")
+      .toLowerCase()
+      .trim();
     const shouldKeepProgramacionFilters =
       normalizedTargetPath === FULLDAY_PROGRAMACION_ROUTE;
     if (shouldKeepProgramacionFilters) return;
@@ -400,7 +402,7 @@ const MainLayout = () => {
 
         <main className="flex-1 overflow-y-auto bg-paper">
           <div className="mx-auto max-w-8xl px-4 sm:px-6 lg:px-8 py-4">
-            {location.pathname.startsWith("/maintenance") && <BreadCrumb />}
+            {/*location.pathname.startsWith("/maintenance") && <BreadCrumb />*/}
             <div className="mt-2 w-full">
               <Outlet />
             </div>

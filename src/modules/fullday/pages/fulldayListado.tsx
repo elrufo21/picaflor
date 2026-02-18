@@ -19,7 +19,14 @@ import { toPlainText } from "@/shared/helpers/safeText";
 import { normalizeLegacyXmlPayload } from "@/shared/helpers/normalizeLegacyXmlPayload";
 const NUMERIC_KEYS = ["pax", "islas", "tubu"];
 
-const LISTADO_FIELDS = [
+type ListadoField = {
+  key: string;
+  label: string;
+  sourceIndex: number;
+  meta?: { align: "center" };
+};
+
+const BASE_LISTADO_FIELDS: ListadoField[] = [
   { key: "hora", label: "Hora", sourceIndex: 0 },
   { key: "lq", label: "LQ", sourceIndex: 1 },
   { key: "nombreApellidos", label: "NombreApellidos", sourceIndex: 3 },
@@ -37,10 +44,64 @@ const LISTADO_FIELDS = [
   { key: "hotel", label: "Hotel", sourceIndex: 15 },
 ];
 
+const normalizeProductName = (value: unknown) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+
+const PRODUCT_ACTIVITY_HEADER_MAP: Record<
+  string,
+  Partial<Record<"tubu" | "islas" | "reseN", string>>
+> = {
+  "FULL DAY LUNAHUANA": {
+    tubu: "CUATRI",
+    islas: "CANOT",
+    reseN: "CANOP",
+  },
+  "FULL DAY AUCALLAMA CHANCAY": {
+    tubu: "CAST.CHA",
+    islas: "HAC.HUA",
+    reseN: "ECO.PARK",
+  },
+  "FULL DAY LOMAS DE LACHAY": {
+    tubu: "CAST.CHA",
+    islas: "ECO.PARK",
+  },
+  "FULL DAY PLAYA LA MINA": {
+    tubu: "RESE.N",
+    islas: "PAR.AC",
+  },
+  "FULL DAY CALICHERA CHANCAY": {
+    tubu: "HAC.HUA",
+    islas: "ECO.PARK",
+    reseN: "CAST.CHA",
+  },
+};
+
+const resolveListadoFieldsByProduct = (productName: string): ListadoField[] => {
+  const normalizedProduct = normalizeProductName(productName);
+  const mappedLabels = PRODUCT_ACTIVITY_HEADER_MAP[normalizedProduct];
+
+  if (!mappedLabels) return BASE_LISTADO_FIELDS;
+
+  return BASE_LISTADO_FIELDS.map((field) => {
+    if (field.key === "islas" || field.key === "tubu" || field.key === "reseN") {
+      const customLabel = mappedLabels[field.key as "islas" | "tubu" | "reseN"];
+      if (customLabel) {
+        return { ...field, label: customLabel };
+      }
+    }
+    return field;
+  });
+};
+
 const parseListadoRow = (rowText: string, index: number) => {
   const values = normalizeLegacyXmlPayload(rowText).split("|");
   const expectedLength =
-    Math.max(...LISTADO_FIELDS.map((field) => field.sourceIndex)) + 1;
+    Math.max(...BASE_LISTADO_FIELDS.map((field) => field.sourceIndex)) + 1;
   let normalizedValues = values;
 
   if (values.length > expectedLength) {
@@ -49,7 +110,7 @@ const parseListadoRow = (rowText: string, index: number) => {
   }
 
   const row: Record<string, string> = {};
-  LISTADO_FIELDS.forEach((field) => {
+  BASE_LISTADO_FIELDS.forEach((field) => {
     row[field.key] = normalizeLegacyXmlPayload(
       normalizedValues[field.sourceIndex] ?? "",
     );
@@ -80,7 +141,7 @@ const normalizeObjectRow = (item: Record<string, unknown>, index: number) => {
   };
 
   const row: Record<string, string> = {};
-  LISTADO_FIELDS.forEach((field) => {
+  BASE_LISTADO_FIELDS.forEach((field) => {
     const candidates = fallbackKeys[field.key] ?? [field.key];
     const value =
       candidates.reduce<unknown>(
@@ -170,6 +231,10 @@ const FulldayListado = () => {
   const displayName = toPlainText(
     selectedFullDayName || selectedProducto?.destino || "Sin nombre",
   );
+  const listadoFields = useMemo(
+    () => resolveListadoFieldsByProduct(displayName),
+    [displayName],
+  );
 
   const normalizedListado = useMemo(() => parseListado(listado), [listado]);
   const filteredListado = useMemo(() => {
@@ -182,14 +247,14 @@ const FulldayListado = () => {
 
   const columns = useMemo(
     () =>
-      LISTADO_FIELDS.map((field) => ({
+      listadoFields.map((field) => ({
         accessorKey: field.key,
         header: field.label,
         meta: field.meta,
         cell: ({ getValue }: { getValue: () => unknown }) =>
           toPlainText(getValue()),
       })),
-    [],
+    [listadoFields],
   );
 
   const exportCsvValue = (value: string) => {
@@ -212,7 +277,7 @@ const FulldayListado = () => {
     const data = normalizedListado.map((row: any) => {
       const obj: any = {};
 
-      LISTADO_FIELDS.forEach((f) => {
+      listadoFields.forEach((f) => {
         const value = row?.[f.key];
 
         if (NUMERIC_KEYS.includes(f.key)) {
@@ -231,7 +296,7 @@ const FulldayListado = () => {
       skipHeader: true,
     });
 
-    LISTADO_FIELDS.forEach((field, index) => {
+    listadoFields.forEach((field, index) => {
       const ref = XLSX.utils.encode_cell({ r: 0, c: index });
       ws[ref] = {
         t: "s",
@@ -256,21 +321,21 @@ const FulldayListado = () => {
 
     const centeredKeys = NUMERIC_KEYS;
 
-    const centeredCols = LISTADO_FIELDS.map((f, i) =>
+    const centeredCols = listadoFields.map((f, i) =>
       centeredKeys.includes(f.key) ? i : null,
     ).filter((i) => i !== null) as number[];
-    const horaColIndex = LISTADO_FIELDS.findIndex(
+    const horaColIndex = listadoFields.findIndex(
       (field) => field.key === "hora",
     );
 
-    const lastCol = XLSX.utils.encode_col(LISTADO_FIELDS.length - 1);
+    const lastCol = XLSX.utils.encode_col(listadoFields.length - 1);
     const lastRow = data.length + 1;
 
     ws["!autofilter"] = {
       ref: `A1:${lastCol}${lastRow}`,
     };
 
-    ws["!cols"] = LISTADO_FIELDS.map((f) => {
+    ws["!cols"] = listadoFields.map((f) => {
       if (f.key.includes("observaciones")) return { wch: 40 };
       if (f.key.includes("nombreApellidos")) return { wch: 30 };
       if (f.key.includes("puntoEmbarque") || f.key.includes("puntoParida")) {
@@ -278,7 +343,7 @@ const FulldayListado = () => {
       }
       return { wch: 18 };
     });
-    const numericCols = LISTADO_FIELDS.map((f, i) =>
+    const numericCols = listadoFields.map((f, i) =>
       NUMERIC_KEYS.includes(f.key) ? i : null,
     ).filter((i) => i !== null) as number[];
 
@@ -350,7 +415,7 @@ const FulldayListado = () => {
         <Text style={pdfStyles.meta}>Full Day: {displayName}</Text>
         <View style={pdfStyles.table}>
           <View style={[pdfStyles.row, pdfStyles.header]}>
-            {LISTADO_FIELDS.map((field) => (
+            {listadoFields.map((field) => (
               <Text key={field.key} style={pdfStyles.cell}>
                 {field.label}
               </Text>
@@ -358,7 +423,7 @@ const FulldayListado = () => {
           </View>
           {filteredListado.map((row: any, index: number) => (
             <View key={row.id ?? index} style={pdfStyles.row}>
-              {LISTADO_FIELDS.map((field) => (
+              {listadoFields.map((field) => (
                 <Text key={field.key} style={pdfStyles.cell}>
                   {toPlainText(row?.[field.key])}
                 </Text>

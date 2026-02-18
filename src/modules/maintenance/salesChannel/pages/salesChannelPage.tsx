@@ -184,7 +184,7 @@ const SalesChannelPage = () => {
 
   return (
     <div className="h-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="bg-white rounded-2xl  overflow-hidden">
         <form onSubmit={handleSubmit(handleSave)}>
           <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
             <h1 className="text-base font-semibold">

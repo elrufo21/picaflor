@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import {
   ChevronLeft,
+  FileText,
   Loader2,
   Lock,
   Plus,
@@ -411,50 +412,127 @@ function normalizarDetalleEdit(detalle: any): string {
     .join(";");
 }
 
-function resolveActividadesEspeciales(detalle: any, idProducto: number) {
-  if (Number(idProducto) !== 4) {
+const normalizeActividadText = (value: unknown) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+
+type ActividadesEspecialesRule = {
+  islas: string[];
+  tubulares: string[];
+  otros: string[];
+};
+
+const ACTIVIDADES_ESPECIALES_BY_PRODUCT: Record<
+  string,
+  ActividadesEspecialesRule
+> = {
+  "FULL DAY PARACAS ICA": {
+    islas: ["EXCURSION ISLAS BALLESTAS"],
+    tubulares: ["AVENTURA EN TUBULARES Y SANDBOARD"],
+    otros: ["RESERVA NACIONAL PARACAS"],
+  },
+  "FULL DAY LUNAHUANA": {
+    islas: ["CUATRIMOTOS"],
+    tubulares: ["CANOTAJE"],
+    otros: ["CANOPY"],
+  },
+  "FULL DAY AUCALLAMA CHANCAY": {
+    islas: ["CASTILLO DE CHANCAY"],
+    tubulares: ["HACIENDA HUANDO"],
+    otros: ["ECOTRULY PARK"],
+  },
+  "FULL DAY LOMAS DE LACHAY": {
+    islas: ["CASTILLO DE CHANCAY"],
+    tubulares: ["ECOTRULY PARK"],
+    otros: [],
+  },
+  "FULL DAY PLAYA LA MINA": {
+    islas: ["RESERVA NACIONAL PARACAS"],
+    tubulares: ["PARQUE ACUATICO YAKU PARK"],
+    otros: [],
+  },
+  "FULL DAY CALICHERA CHANCAY": {
+    islas: ["HACIENDA HUANDO"],
+    tubulares: ["ECOTRULY PARK"],
+    otros: ["CASTILLO DE CHANCAY"],
+  },
+  "FULL DAY PARACAS ICA PRIVADO": {
+    islas: ["EXCURSION ISLAS BALLESTAS"],
+    tubulares: ["AVENTURA EN TUBULARES Y SANDBOARD"],
+    otros: ["RESERVA NACIONAL PARACAS", "ECOTRULY PARK"],
+  },
+};
+
+const resolveActividadLabel = (servicio: unknown) => {
+  if (!servicio) return "";
+  if (typeof servicio === "object") {
+    return normalizeActividadText(
+      (servicio as any).label ?? (servicio as any).value ?? "",
+    );
+  }
+  return normalizeActividadText(servicio);
+};
+
+function resolveActividadesEspeciales(
+  detalle: any,
+  idProducto: number,
+  destino?: string,
+) {
+  const productKey = normalizeActividadText(destino);
+  const productRules = ACTIVIDADES_ESPECIALES_BY_PRODUCT[productKey];
+
+  if (!productRules && Number(idProducto) !== 4) {
     return { islas: "", tubulares: "", otros: "" };
   }
 
-  let islas = "";
-  let tubulares = "";
-  let otros = "";
+  let islas = 0;
+  let tubulares = 0;
+  let otros = 0;
 
   const actividades = ["act1", "act2", "act3"];
 
   actividades.forEach((key) => {
     const act = detalle?.[key];
-    if (!act?.servicio || Number(act.cant) <= 0) return;
+    const cantidad = Number(act?.cant ?? 0);
+    if (!act?.servicio || cantidad <= 0) return;
 
-    const label =
-      typeof act.servicio === "object"
-        ? (act.servicio.label ?? act.servicio.value)
-        : act.servicio;
+    const actividadLabel = resolveActividadLabel(act.servicio);
+    if (!actividadLabel || actividadLabel === "N A") return;
 
-    if (!label || label === "-" || label === "N/A") return;
-
-    const text = String(label).toLowerCase();
-
-    if (text.includes("islas ballestas")) {
-      islas = String(act.cant);
+    if (productRules) {
+      if (productRules.islas.includes(actividadLabel)) {
+        islas = Math.max(islas, cantidad);
+      }
+      if (productRules.tubulares.includes(actividadLabel)) {
+        tubulares = Math.max(tubulares, cantidad);
+      }
+      if (productRules.otros.includes(actividadLabel)) {
+        otros = Math.max(otros, cantidad);
+      }
+      return;
     }
 
-    if (text.includes("tubulares")) {
-      tubulares = String(act.cant);
+    // Fallback histórico para producto 4 sin configuración explícita
+    if (actividadLabel.includes("ISLAS BALLESTAS")) {
+      islas = Math.max(islas, cantidad);
+    }
+    if (actividadLabel.includes("TUBULARES")) {
+      tubulares = Math.max(tubulares, cantidad);
+    }
+    if (key === "act3") {
+      otros = Math.max(otros, cantidad);
     }
   });
 
-  const act3 = detalle?.act3;
-  if (
-    act3?.servicio &&
-    act3.servicio !== "-" &&
-    act3.servicio !== "N/A" &&
-    Number(act3.cant) > 0
-  ) {
-    otros = String(act3.cant);
-  }
-
-  return { islas, tubulares, otros };
+  return {
+    islas: islas > 0 ? String(islas) : "",
+    tubulares: tubulares > 0 ? String(tubulares) : "",
+    otros: otros > 0 ? String(otros) : "",
+  };
 }
 
 function buildListaOrdenCreate(data) {
@@ -463,6 +541,7 @@ function buildListaOrdenCreate(data) {
   const { islas, tubulares, otros } = resolveActividadesEspeciales(
     data.detalle,
     data.idProducto,
+    data.destino,
   );
 
   const orden = [
@@ -479,13 +558,13 @@ function buildListaOrdenCreate(data) {
     d(data.totalGeneral),
     d(data.acuenta),
     d(data.saldo),
-    d(data.precioExtra),
+    d(data.cargosExtra),
     d(data.totalGeneral),
     n(data.condicion?.value),
     data.companiaId,
-    "NO",
-    "",
-    "",
+    Number(data.igv) > 0 ? "INCLUYE IMPUESTOS" : "N/A",
+    n(data.nserie),
+    n(data.ndocumento),
     0,
     data.usuarioId,
     n(data.entidadBancaria),
@@ -509,8 +588,8 @@ function buildListaOrdenCreate(data) {
     tubulares,
     otros,
     data.fechaViaje,
-    0,
-    "NO",
+    data.igv ?? 0,
+    data.medioPago == "TARJETA" ? "PAGOS CON VISA MASTERCARD" : "N/A",
     data.moneda,
     n(data.detalle.tarifa.servicio.label ?? ""),
     "",
@@ -526,6 +605,7 @@ function buildListaOrdenEdit(data) {
   const { islas, tubulares, otros } = resolveActividadesEspeciales(
     data.detalle,
     data.idProducto,
+    data.destino,
   );
   const orden = [
     n(data.documentoCobranza), // 1  NotaDocu
@@ -545,7 +625,7 @@ function buildListaOrdenEdit(data) {
     d(data.totalGeneral), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
     Number(data.companiaId), // 16 CompaniaId
-    "NO", // 17 IncluyeIGV
+    Number(data.igv) > 0 ? n(data.igv) : "N/A", // 17 IncluyeIGV
     n(data.nserie), // 18 Serie
     n(data.ndocumento), // 19 Numero
     0, // 20 NotaGanancia
@@ -571,8 +651,8 @@ function buildListaOrdenEdit(data) {
     tubulares, // 40 Tubulares
     otros, // 41 otros
     n(toISODate(data.fechaViaje)), // 42 FechaViaje
-    0, // 43 IGV
-    "NO", // 44 IncluyeCargos
+    data.igv ?? 0, // 43 IGV
+    data.medioPago == "TARJETA" ? "PAGOS CON VISA MASTERCARD" : "N/A", // 44 IncluyeCargos
     Number(data.notaId), // 45 NotaId
     0, // 46 Aviso
     n(data.moneda), // 47 Monedas
@@ -1038,6 +1118,23 @@ const ViajeForm = () => {
     }
   };
 
+  const handleOpenBoleta = () => {
+    if (!idProduct) {
+      showToast({
+        title: "Error",
+        description: "No se pudo resolver el identificador del producto.",
+        type: "error",
+      });
+      return;
+    }
+
+    navigate(`/fullday/${idProduct}/passengers/boleta`, {
+      state: {
+        boletaData: getValues(),
+      },
+    });
+  };
+
   const handleDelete = async () => {
     if (!liquidacionId) return;
 
@@ -1099,7 +1196,6 @@ const ViajeForm = () => {
       setFormData(null);
     };
   }, []);
-  console.log("watch", watch());
   const handleEnterFocus = (e) => {
     if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
       e.preventDefault();
@@ -1290,6 +1386,22 @@ const ViajeForm = () => {
                   <Printer size={16} />
                   <span className="text-sm hidden sm:inline">Imprimir</span>
                 </button>
+
+                {!isEditing && liquidacionId && (
+                  <button
+                    type="button"
+                    onClick={handleOpenBoleta}
+                    className="
+                    inline-flex items-center gap-1
+                    rounded-lg bg-rose-600 px-3 py-2
+                    text-white ring-1 ring-rose-600/30
+                    hover:bg-rose-700 transition
+                  "
+                  >
+                    <FileText size={16} />
+                    <span className="text-sm hidden sm:inline">Docu</span>
+                  </button>
+                )}
 
                 {liquidacionId && !isEditing && (
                   <button

@@ -91,7 +91,8 @@ const PackageList = () => {
   const [cantMaxChanges, setCantMaxChanges] = useState<CantMaxChange[]>([]);
 
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
-
+  const sessionRaw = localStorage.getItem("picaflor.auth.session");
+  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const {
     packages,
     loadPackages,
@@ -469,9 +470,10 @@ const PackageList = () => {
         md:ml-auto md:w-auto
       "
           >
-            <button
-              onClick={handleGuardarCambios}
-              className="
+            {session.user.areaId !== "9" && (
+              <button
+                onClick={handleGuardarCambios}
+                className="
           w-full sm:w-auto
           px-5 py-2
           rounded-lg
@@ -479,9 +481,10 @@ const PackageList = () => {
           hover:bg-blue-700
           transition
         "
-            >
-              Guardar
-            </button>
+              >
+                Guardar
+              </button>
+            )}
 
             <button
               onClick={() => loadPackages(date)}

@@ -10,12 +10,15 @@ import citytourRoutes from "../modules/citytour/router";
 import maintenanceRoutes from "../modules/maintenance/routes";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
+import { PDFViewer } from "@react-pdf/renderer";
+import { InvoiceDocument } from "@/components/invoice/boleta";
 
 const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
   },
+
   {
     path: "/",
     element: (
@@ -33,6 +36,16 @@ const router = createBrowserRouter([
       ...cashFlowRoutes,
       ...maintenanceRoutes,
       { path: "*", element: <Navigate to="/fullday" replace /> },
+      {
+        path: "test",
+        element: (
+          <div className="w-full h-full">
+            <PDFViewer style={{ width: "100%", height: "500px" }}>
+              <InvoiceDocument />
+            </PDFViewer>
+          </div>
+        ),
+      },
     ],
   },
 ]);

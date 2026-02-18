@@ -7,6 +7,7 @@ import ViajeForm from "./pages/viajeForm";
 import FulldayListado from "./pages/fulldayListado";
 import InvoicePreview from "./pages/fulldayInvoicePreview";
 import ProgramacionLiquidaciones from "./pages/programacionLiquidaciones";
+import FullDayBoletaPreview from "./pages/fulldayBoletaPreview";
 
 export default [
   {
@@ -49,6 +50,13 @@ export default [
     element: <InvoicePreview />,
     handle: {
       breadcrumb: [{ label: "Full Day", to: "/fullday" }, { label: "Factura" }],
+    },
+  },
+  {
+    path: "fullday/:idProduct/passengers/boleta",
+    element: <FullDayBoletaPreview />,
+    handle: {
+      breadcrumb: [{ label: "Full Day", to: "/fullday" }, { label: "Boleta" }],
     },
   },
   {

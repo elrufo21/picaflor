@@ -129,18 +129,23 @@ const HotelList = () => {
     <MaintenancePageFrame
       title="Hoteles"
       description="Consulta y actualiza horarios y direccion de hoteles registrados."
-      action={
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#E8612A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#d55320]"
-          onClick={() => openHotelModal("create")}
-        >
-          <Plus className="h-4 w-4" />
-          Crear hotel
-        </button>
-      }
     >
-      <DndTable data={hotels} columns={columns} enableDateFilter={false} />
+      <DndTable
+        data={hotels}
+        columns={columns}
+        enableDateFilter={false}
+        headerAction={
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            onClick={() => openHotelModal("create")}
+            title="Crear hotel"
+            aria-label="Crear hotel"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      />
     </MaintenancePageFrame>
   );
 };
