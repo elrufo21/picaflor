@@ -101,6 +101,7 @@ export default function HotelFormDialog({
         required
         inputProps={{ "data-focus-first": "true" }}
         transform={(v) => v.toUpperCase()}
+        disableHistory
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
         <TimePickerControlled

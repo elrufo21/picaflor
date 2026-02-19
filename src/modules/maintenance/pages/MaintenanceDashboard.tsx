@@ -63,11 +63,11 @@ export default function MaintenanceDashboard() {
       route: "/maintenance/partidas",
     },
     {
-      title: "Clientes",
-      desc: "Registra y controla los clientes.",
-      icon: Building2,
-      iconClass: "text-slate-700",
-      route: "/maintenance/clients",
+      title: "Canal de venta",
+      desc: "Registra y controla canales de venta.",
+      icon: Handshake,
+      iconClass: "text-cyan-700",
+      route: "/maintenance/salesChannel",
     },
     {
       title: "Empleados",
@@ -83,13 +83,6 @@ export default function MaintenanceDashboard() {
       iconClass: "text-violet-600",
       route: "/maintenance/users",
     },
-    {
-      title: "Canal de venta",
-      desc: "Registra y controla canales de venta.",
-      icon: Handshake,
-      iconClass: "text-cyan-700",
-      route: "/maintenance/salesChannel",
-    },
   ];
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -98,7 +91,9 @@ export default function MaintenanceDashboard() {
     : items.filter((item) => {
         const title = item.title.toLowerCase();
         const desc = item.desc.toLowerCase();
-        return title.includes(normalizedQuery) || desc.includes(normalizedQuery);
+        return (
+          title.includes(normalizedQuery) || desc.includes(normalizedQuery)
+        );
       });
 
   return (
@@ -109,9 +104,12 @@ export default function MaintenanceDashboard() {
             <p className="text-xs font-semibold tracking-wide uppercase text-[#E8612A]">
               Panel de mantenimiento
             </p>
-            <h1 className="text-2xl font-semibold text-slate-900">Modulos de configuracion</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Modulos de configuracion
+            </h1>
             <p className="text-sm text-slate-600 mt-1">
-              Accede rapido a los catalogos y parametros principales del sistema.
+              Accede rapido a los catalogos y parametros principales del
+              sistema.
             </p>
           </div>
 
@@ -147,7 +145,9 @@ export default function MaintenanceDashboard() {
                 <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-[#E8612A]" />
               </div>
 
-              <h2 className="mt-3 text-base font-semibold text-slate-900">{item.title}</h2>
+              <h2 className="mt-3 text-base font-semibold text-slate-900">
+                {item.title}
+              </h2>
               <p className="mt-1 text-sm text-slate-600">{item.desc}</p>
             </button>
           );

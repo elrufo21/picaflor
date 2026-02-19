@@ -481,44 +481,46 @@ type ActividadesEspecialesRule = {
   otros: string[];
 };
 
-const ACTIVIDADES_ESPECIALES_BY_PRODUCT: Record<string, ActividadesEspecialesRule> =
-  {
-    "FULL DAY PARACAS ICA": {
-      islas: ["EXCURSION ISLAS BALLESTAS"],
-      tubulares: ["AVENTURA EN TUBULARES Y SANDBOARD"],
-      otros: ["RESERVA NACIONAL PARACAS"],
-    },
-    "FULL DAY LUNAHUANA": {
-      islas: ["CUATRIMOTOS"],
-      tubulares: ["CANOTAJE"],
-      otros: ["CANOPY"],
-    },
-    "FULL DAY AUCALLAMA CHANCAY": {
-      islas: ["CASTILLO DE CHANCAY"],
-      tubulares: ["HACIENDA HUANDO"],
-      otros: ["ECOTRULY PARK"],
-    },
-    "FULL DAY LOMAS DE LACHAY": {
-      islas: ["CASTILLO DE CHANCAY"],
-      tubulares: ["ECOTRULY PARK"],
-      otros: [],
-    },
-    "FULL DAY PLAYA LA MINA": {
-      islas: ["RESERVA NACIONAL PARACAS"],
-      tubulares: ["PARQUE ACUATICO YAKU PARK"],
-      otros: [],
-    },
-    "FULL DAY CALICHERA CHANCAY": {
-      islas: ["HACIENDA HUANDO"],
-      tubulares: ["ECOTRULY PARK"],
-      otros: ["CASTILLO DE CHANCAY"],
-    },
-    "FULL DAY PARACAS ICA PRIVADO": {
-      islas: ["EXCURSION ISLAS BALLESTAS"],
-      tubulares: ["AVENTURA EN TUBULARES Y SANDBOARD"],
-      otros: ["RESERVA NACIONAL PARACAS", "ECOTRULY PARK"],
-    },
-  };
+const ACTIVIDADES_ESPECIALES_BY_PRODUCT: Record<
+  string,
+  ActividadesEspecialesRule
+> = {
+  "FULL DAY PARACAS ICA": {
+    islas: ["EXCURSION ISLAS BALLESTAS"],
+    tubulares: ["AVENTURA EN TUBULARES Y SANDBOARD"],
+    otros: ["RESERVA NACIONAL PARACAS"],
+  },
+  "FULL DAY LUNAHUANA": {
+    islas: ["CUATRIMOTOS"],
+    tubulares: ["CANOTAJE"],
+    otros: ["CANOPY"],
+  },
+  "FULL DAY AUCALLAMA CHANCAY": {
+    islas: ["CASTILLO DE CHANCAY"],
+    tubulares: ["HACIENDA HUANDO"],
+    otros: ["ECOTRULY PARK"],
+  },
+  "FULL DAY LOMAS DE LACHAY": {
+    islas: ["CASTILLO DE CHANCAY"],
+    tubulares: ["ECOTRULY PARK"],
+    otros: [],
+  },
+  "FULL DAY PLAYA LA MINA": {
+    islas: ["RESERVA NACIONAL PARACAS"],
+    tubulares: ["PARQUE ACUATICO YAKU PARK"],
+    otros: [],
+  },
+  "FULL DAY CALICHERA CHANCAY": {
+    islas: ["HACIENDA HUANDO"],
+    tubulares: ["ECOTRULY PARK"],
+    otros: ["CASTILLO DE CHANCAY"],
+  },
+  "FULL DAY PARACAS ICA PRIVADO": {
+    islas: ["EXCURSION ISLAS BALLESTAS"],
+    tubulares: ["AVENTURA EN TUBULARES Y SANDBOARD"],
+    otros: ["RESERVA NACIONAL PARACAS", "ECOTRULY PARK"],
+  },
+};
 
 const resolveActividadLabel = (servicio: unknown) => {
   if (!servicio) return "";
@@ -673,7 +675,7 @@ function buildListaOrdenEdit(data) {
     d(data.totalGeneral), // 10 NotaTotal
     d(data.acuenta), // 11 NotaAcuenta
     d(data.saldo), // 12 NotaSaldo
-    d(data.precioExtra), // 13 NotaAdicional
+    d(data.cargosExtra), // 13 NotaAdicional
     d(data.totalGeneral), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
     1, // 16 CompaniaId (hardcoded to 2)

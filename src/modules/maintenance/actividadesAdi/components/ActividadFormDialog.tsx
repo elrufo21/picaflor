@@ -1,7 +1,7 @@
 ﻿import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
-import { useForm, type UseFormReturn, useWatch } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 
-import { SelectControlled, TextControlled } from "@/components/ui/inputs";
+import { AutocompleteControlled, TextControlled } from "@/components/ui/inputs";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import type { ActividadAdi, Product } from "@/types/maintenance";
@@ -23,13 +23,15 @@ type ActividadFormDialogProps = {
   products: Product[];
 };
 
+const PRODUCT_FALLBACK_LABEL = "Producto";
 const normalizeText = (value?: string) => value?.trim().toLowerCase() ?? "";
 
 const findProductIdByDestino = (destino?: string, products: Product[] = []) => {
   if (!destino?.trim()) return undefined;
   const normalizedDestino = normalizeText(destino);
   const match = products.find((product) => {
-    const label = product.descripcion || product.codigo || Producto;
+    const label =
+      product.descripcion || product.codigo || PRODUCT_FALLBACK_LABEL;
     return normalizeText(label) === normalizedDestino;
   });
   return match?.id;
@@ -53,11 +55,7 @@ const buildDefaults = (
 };
 
 const buildProductOptions = (products: Product[]) => {
-  const mapped = products.map((product) => {
-    const label = product.descripcion || product.codigo || Producto;
-    return { value: String(product.id), label };
-  });
-  return [{ value: "", label: "Selecciona un destino" }, ...mapped];
+  return products.map((product) => String(product.id));
 };
 
 const parseNumber = (value?: string | number) => {
@@ -107,7 +105,7 @@ export default function ActividadFormDialog({
   const form = useForm<ActividadFormValues>({
     defaultValues: defaults,
   });
-  const { control, reset, setValue } = form;
+  const { control, reset } = form;
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -128,16 +126,17 @@ export default function ActividadFormDialog({
     () => buildProductOptions(products),
     [products],
   );
+  const productLabelsById = useMemo(() => {
+    const labels = new Map<string, string>();
+    products.forEach((product) => {
+      labels.set(
+        String(product.id),
+        product.descripcion || product.codigo || PRODUCT_FALLBACK_LABEL,
+      );
+    });
+    return labels;
+  }, [products]);
 
-  const selectedProductId = useWatch({
-    control,
-    name: "productoId",
-  });
-
-  const selectedProduct = useMemo(
-    () => products.find((product) => String(product.id) === selectedProductId),
-    [products, selectedProductId],
-  );
   return (
     <form
       ref={containerRef}
@@ -146,14 +145,15 @@ export default function ActividadFormDialog({
       onSubmit={(event) => event.preventDefault()}
     >
       <div className="mt-1">
-        {" "}
-        <SelectControlled
+        <AutocompleteControlled
           name="productoId"
           control={control}
           label="Destino"
           size="small"
           options={productOptions}
-          required
+          getOptionLabel={(option) => productLabelsById.get(option) ?? option}
+          isOptionEqualToValue={(option, value) => option === value}
+          noOptionsText="No hay destinos"
         />
       </div>
       <div className="mt-1">
@@ -164,6 +164,7 @@ export default function ActividadFormDialog({
           size="small"
           className="mt-3"
           transform={(value) => value.toUpperCase()}
+          disableHistory
         />
       </div>
       <div className="mt-1">

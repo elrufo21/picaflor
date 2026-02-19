@@ -1,6 +1,6 @@
 import { Autocomplete, TextField } from "@mui/material";
-import { Controller, useWatch } from "react-hook-form";
-import { useEffect, useMemo, useRef } from "react";
+import { Controller, useWatch, type UseFormReturn } from "react-hook-form";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePackageData } from "../../hooks/usePackageData";
 import { TextControlled } from "@/components/ui/inputs";
 import { showToast } from "@/components/ui/AppToast";
@@ -8,6 +8,13 @@ import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import { normalizeLegacyXmlPayload } from "@/shared/helpers/normalizeLegacyXmlPayload";
 import { usePackageStore } from "../../store/cityTourStore";
 import { useParams } from "react-router";
+import { useDialogStore } from "@/app/store/dialogStore";
+import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
+import HotelFormDialog, {
+  type HotelFormValues,
+} from "@/modules/maintenance/hotels/components/HotelFormDialog";
+import { serviciosDB, type DireccionHotel } from "@/app/db/serviciosDB";
+import { refreshServiciosData } from "@/app/db/serviciosSync";
 
 type ActivityRowKey = "act1" | "act2" | "act3";
 type ActivityOption = {
@@ -27,10 +34,13 @@ const ACTIVITY_ROWS: { key: ActivityRowKey; label: string }[] = [
 
 const TURNOS = ["AM", "PM"];
 const FIXED_ACTIVITY_KEY: ActivityRowKey = "act1";
+const HOTEL_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const { idProduct } = useParams();
   const { isEditing } = usePackageStore();
+  const { openDialog } = useDialogStore();
+  const addHotel = useMaintenanceStore((state) => state.addHotel);
   const {
     partidas,
     hoteles,
@@ -42,6 +52,19 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const cantPax = Number(watch("cantPax") || 0);
   const disponibles = Number(watch("disponibles") ?? 0);
   const prevCantPaxRef = useRef<number | null>(null);
+  const hotelFormRef = useRef<UseFormReturn<HotelFormValues> | null>(null);
+  const [hotelesOptions, setHotelesOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [direccionesHotelOptions, setDireccionesHotelOptions] = useState<
+    DireccionHotel[]
+  >([]);
+  useEffect(() => {
+    setHotelesOptions(hoteles ?? []);
+  }, [hoteles]);
+  useEffect(() => {
+    setDireccionesHotelOptions(direccionesHotel ?? []);
+  }, [direccionesHotel]);
   const productOptions = useMemo<ActivityOption[]>(
     () =>
       (productosCityTourDetalle || [])
@@ -192,7 +215,8 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     const currentIndex = sameColumnInputs.indexOf(e.currentTarget);
     if (currentIndex === -1) return;
 
-    const nextIndex = e.key === "ArrowDown" ? currentIndex + 1 : currentIndex - 1;
+    const nextIndex =
+      e.key === "ArrowDown" ? currentIndex + 1 : currentIndex - 1;
     const target = sameColumnInputs[nextIndex];
     target?.focus();
   };
@@ -368,10 +392,140 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   }, [precioProducto, cantPax, isEditing, getValues, setValue]);
 
   const handleHotelChange = (idHotel: string) => {
-    const direccion = direccionesHotel?.find(
+    const direccion = direccionesHotelOptions?.find(
       (direccionItem) => direccionItem.idHotel == Number(idHotel),
     );
-    setValue("otrosPartidas", direccion?.direccion);
+    setValue("otrosPartidas", direccion?.direccion ?? "");
+  };
+  const normalizeHotelName = (value?: string) =>
+    String(value ?? "")
+      .trim()
+      .toUpperCase();
+  const upsertHotelOption = (option: { value: string; label: string }) => {
+    setHotelesOptions((prev) => {
+      const next = (prev ?? []).filter(
+        (item) =>
+          normalizeHotelName(item.label) !== normalizeHotelName(option.label),
+      );
+      return [...next, option];
+    });
+  };
+  const handleAddHotel = () => {
+    openDialog({
+      title: "Nuevo hotel",
+      description: "Crea un hotel sin salir del formulario.",
+      size: "md",
+      confirmLabel: "Guardar hotel",
+      content: () => <HotelFormDialog formRef={hotelFormRef} />,
+      onConfirm: () => {
+        if (!hotelFormRef.current) return;
+        return hotelFormRef.current.handleSubmit(async (values) => {
+          const hotelName = normalizeHotelName(values.hotel);
+          const region = String(values.region ?? "").trim();
+          const horaIngreso = String(values.horaIngreso ?? "").trim();
+          const horaSalida = String(values.horaSalida ?? "").trim();
+          const direccion = String(values.direccion ?? "")
+            .trim()
+            .toUpperCase();
+
+          if (!region) {
+            showToast({
+              title: "Atención",
+              description: "Ingresa la región del hotel.",
+              type: "warning",
+            });
+            throw new Error("Región de hotel requerida");
+          }
+          if (!hotelName) {
+            showToast({
+              title: "Atención",
+              description: "Ingresa el nombre del hotel.",
+              type: "warning",
+            });
+            throw new Error("Nombre de hotel requerido");
+          }
+
+          if (
+            (hotelesOptions ?? []).some(
+              (hotelOption) =>
+                normalizeHotelName(hotelOption.label) === hotelName,
+            )
+          ) {
+            showToast({
+              title: "Atención",
+              description: "Ese hotel ya existe en la lista.",
+              type: "warning",
+            });
+            throw new Error("Hotel duplicado");
+          }
+
+          await addHotel({
+            hotel: hotelName,
+            region,
+            horaIngreso,
+            horaSalida,
+            direccion,
+          });
+          await refreshServiciosData();
+
+          const hotelesPersistidos = await serviciosDB.hoteles.toArray();
+          const persistedHotel =
+            hotelesPersistidos.find(
+              (hotelItem) =>
+                normalizeHotelName(hotelItem.nombre) === hotelName &&
+                String(hotelItem.region ?? "")
+                  .trim()
+                  .toUpperCase() === region.toUpperCase(),
+            ) ??
+            hotelesPersistidos.find(
+              (hotelItem) => normalizeHotelName(hotelItem.nombre) === hotelName,
+            );
+
+          if (!persistedHotel) {
+            showToast({
+              title: "Error",
+              description:
+                "No se pudo sincronizar el hotel en la base local. Intenta nuevamente.",
+              type: "error",
+            });
+            throw new Error("Hotel sin sincronizacion local");
+          }
+
+          const persistedHotelId = Number(persistedHotel.id);
+
+          if (direccion) {
+            await serviciosDB.direccionesHotel.put({
+              idHotel: persistedHotelId,
+              direccion,
+            });
+          }
+
+          upsertHotelOption({
+            value: String(persistedHotelId),
+            label: persistedHotel.nombre,
+          });
+          if (direccion) {
+            setDireccionesHotelOptions((prev) => [
+              ...(prev ?? []).filter(
+                (item) => item.idHotel !== persistedHotelId,
+              ),
+              { idHotel: persistedHotelId, direccion },
+            ]);
+          }
+          setValue(
+            "hotel",
+            { value: String(persistedHotelId), label: persistedHotel.nombre },
+            { shouldDirty: true },
+          );
+          if (isHotel && direccion) {
+            setValue("otrosPartidas", direccion, { shouldDirty: true });
+          }
+          setTimeout(() => {
+            document.querySelector<HTMLInputElement>("#otrosPartidas")?.focus();
+          }, 0);
+        })();
+      },
+    });
   };
 
   const puntoPartida = watch("puntoPartida");
@@ -446,7 +600,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
             control={control}
             render={({ field }) => (
               <Autocomplete
-                options={hoteles || []}
+                options={hotelesOptions || []}
                 getOptionLabel={(option) => option.label}
                 isOptionEqualToValue={(option, value) =>
                   option.value === value?.value
@@ -469,7 +623,27 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                   }, 0);
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} placeholder="-" />
+                  <TextField
+                    {...params}
+                    placeholder="-"
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          <button
+                            type="button"
+                            className="mr-2 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={handleAddHotel}
+                            disabled={!isEditing}
+                          >
+                            Nuevo
+                          </button>
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
                 )}
               />
             )}

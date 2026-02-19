@@ -119,8 +119,12 @@ async function persistServiciosData(data: ServiciosData): Promise<void> {
       await serviciosDB.traslados.bulkPut(data.traslados);
       await serviciosDB.preciosAlmuerzo.bulkPut(data.preciosAlmuerzo);
       await serviciosDB.preciosTraslado.bulkPut(data.preciosTraslado);
-      await serviciosDB.hoteles.bulkPut(data.hoteles);
-      await serviciosDB.direccionesHotel.bulkPut(data.direccionesHotel);
+      await fullSyncTable(serviciosDB.hoteles, data.hoteles, "id");
+      await fullSyncTable(
+        serviciosDB.direccionesHotel,
+        data.direccionesHotel,
+        "idHotel",
+      );
       await serviciosDB.ubigeos.bulkPut(data.ubigeos);
     },
   );

@@ -621,7 +621,7 @@ function buildListaOrdenEdit(data) {
     d(data.totalGeneral), // 10 NotaTotal
     d(data.acuenta), // 11 NotaAcuenta
     d(data.saldo), // 12 NotaSaldo
-    d(data.precioExtra), // 13 NotaAdicional
+    d(data.cargosExtra), // 13 NotaAdicional
     d(data.totalGeneral), // 14 NotaPagar
     n(data.condicion?.value), // 15 NotaEstado
     Number(data.companiaId), // 16 CompaniaId

@@ -443,81 +443,97 @@ const LIQUIDACION_FIELDS = [
   { key: "productoNombre", label: "ProductoNombre", sourceIndex: 3 },
   { key: "fechaViaje", label: "FechaViaje", sourceIndex: 4 },
   { key: "fechaRegistro", label: "FechaRegistro", sourceIndex: 5 },
-  { key: "clienteId", label: "ClienteId", sourceIndex: 6 },
-  { key: "horaPartida", label: "HoraPartida", sourceIndex: 7 },
-  { key: "clienteNombre", label: "ClienteNombre", sourceIndex: 8 },
-  { key: "clienteTelefono", label: "ClienteTelefono", sourceIndex: 9 },
-  { key: "notaUsuario", label: "NotaUsuario", sourceIndex: 10 },
-  { key: "cantidadPax", label: "CantidadPax", sourceIndex: 11 },
-  { key: "islas", label: "Islas", sourceIndex: 12 },
-  { key: "tubulares", label: "Tubulares", sourceIndex: 13 },
-  { key: "otros", label: "Otros", sourceIndex: 14 },
+  { key: "horaPartida", label: "HoraPartida", sourceIndex: 6 },
+  { key: "clienteNombre", label: "ClienteNombre", sourceIndex: 7 },
+  { key: "clienteTelefono", label: "ClienteTelefono", sourceIndex: 8 },
+  { key: "notaUsuario", label: "NotaUsuario", sourceIndex: 9 },
+  { key: "cantidadPax", label: "CantidadPax", sourceIndex: 10 },
+  { key: "islas", label: "Islas", sourceIndex: 11 },
+  { key: "tubulares", label: "Tubulares", sourceIndex: 12 },
+  { key: "otros", label: "Otros", sourceIndex: 13 },
   {
     key: "fullPunto",
     label: "PuntoPartida + Hotel + OtrasPartidas",
-    sourceIndex: 15,
+    sourceIndex: 14,
   },
-  { key: "condicion", label: "Condicion", sourceIndex: 16 },
-  { key: "formaPago", label: "FormaPago", sourceIndex: 17 },
-  { key: "totalPagar", label: "TotalPagar", sourceIndex: 18 },
-  { key: "acuenta", label: "Acuenta", sourceIndex: 19 },
-  { key: "saldo", label: "Saldo", sourceIndex: 20 },
-  { key: "auxiliar", label: "Auxiliar", sourceIndex: 21 },
-  { key: "observaciones", label: "Observaciones", sourceIndex: 22 },
-  { key: "ganancia", label: "Ganancia", sourceIndex: 23 },
-  { key: "subtotal", label: "Subtotal", sourceIndex: 24 },
-  { key: "igv", label: "IGV", sourceIndex: 25 },
-  { key: "adicional", label: "Adicional", sourceIndex: 26 },
-  { key: "estado", label: "Estado", sourceIndex: 27 },
-  { key: "modificadoPor", label: "ModificadoPor", sourceIndex: 28 },
-  { key: "fechaEdita", label: "FechaEdita", sourceIndex: 29 },
-  { key: "serie", label: "Serie", sourceIndex: 30 },
-  { key: "numero", label: "Numero", sourceIndex: 31 },
-  { key: "efectivo", label: "Efectivo", sourceIndex: 32 },
-  { key: "deposito", label: "Deposito", sourceIndex: 33 },
-  { key: "entidadBancaria", label: "EntidadBancaria", sourceIndex: 34 },
-  { key: "nroOperacion", label: "NroOperacion", sourceIndex: 35 },
-  { key: "telefonoAuxiliar", label: "TelefonoAuxiliar", sourceIndex: 36 },
-  { key: "visitasExCur", label: "VisitasExCur", sourceIndex: 37 },
-  { key: "cobroExtraSol", label: "CobroExtraSol", sourceIndex: 38 },
-  { key: "cobroExtraDol", label: "CobroExtraDol", sourceIndex: 39 },
-  { key: "fechaAdelanto", label: "FechaAdelanto", sourceIndex: 40 },
-  { key: "otrasPartidas", label: "OtrasPartidas", sourceIndex: 41 },
-  { key: "incluyeIgv", label: "IncluyeIGV", sourceIndex: 42 },
-  { key: "incluyeCargos", label: "IncluyeCargos", sourceIndex: 43 },
-  { key: "moneda", label: "Moneda", sourceIndex: 44 },
-  { key: "incluyeAlmuerzo", label: "IncluyeAlmuerzo", sourceIndex: 45 },
-  { key: "notaImagen", label: "NotaImagen", sourceIndex: 46 },
-  { key: "clienteDni", label: "ClienteDNI", sourceIndex: 47 },
-  { key: "notaDocu", label: "NotaDocu", sourceIndex: 48 },
-  { key: "hotel", label: "Hotel", sourceIndex: 49 },
-  { key: "regionProducto", label: "RegionProducto", sourceIndex: 50 },
-  { key: "regionNota", label: "RegionNota", sourceIndex: 51 },
-  { key: "flagServicio", label: "FlagServicio", sourceIndex: 52 }, // 👈 NUEVO
+  { key: "condicion", label: "Condicion", sourceIndex: 15 },
+  { key: "formaPago", label: "FormaPago", sourceIndex: 16 },
+  { key: "totalPagar", label: "TotalPagar", sourceIndex: 17 },
+  { key: "acuenta", label: "Acuenta", sourceIndex: 18 },
+  { key: "saldo", label: "Saldo", sourceIndex: 19 },
+  { key: "auxiliar", label: "Auxiliar", sourceIndex: 20 },
+  { key: "observaciones", label: "Observaciones", sourceIndex: 21 },
+  { key: "ganancia", label: "Ganancia", sourceIndex: 22 },
+  { key: "subtotal", label: "Subtotal", sourceIndex: 23 },
+  { key: "igv", label: "IGV", sourceIndex: 24 },
+  { key: "adicional", label: "Adicional", sourceIndex: 25 },
+  { key: "estado", label: "Estado", sourceIndex: 26 },
+  { key: "modificadoPor", label: "ModificadoPor", sourceIndex: 27 },
+  { key: "fechaEdita", label: "FechaEdita", sourceIndex: 28 },
+  { key: "serie", label: "Serie", sourceIndex: 29 },
+  { key: "numero", label: "Numero", sourceIndex: 30 },
+  { key: "efectivo", label: "Efectivo", sourceIndex: 31 },
+  { key: "deposito", label: "Deposito", sourceIndex: 32 },
+  { key: "entidadBancaria", label: "EntidadBancaria", sourceIndex: 33 },
+  { key: "nroOperacion", label: "NroOperacion", sourceIndex: 34 },
+  { key: "telefonoAuxiliar", label: "TelefonoAuxiliar", sourceIndex: 35 },
+  { key: "visitasExCur", label: "VisitasExCur", sourceIndex: 36 },
+  { key: "cobroExtraSol", label: "CobroExtraSol", sourceIndex: 37 },
+  { key: "cobroExtraDol", label: "CobroExtraDol", sourceIndex: 38 },
+  { key: "fechaAdelanto", label: "FechaAdelanto", sourceIndex: 39 },
+  { key: "otrasPartidas", label: "OtrasPartidas", sourceIndex: 40 },
+  { key: "incluyeIgv", label: "IncluyeIGV", sourceIndex: 41 },
+  { key: "incluyeCargos", label: "IncluyeCargos", sourceIndex: 42 },
+  { key: "moneda", label: "Moneda", sourceIndex: 43 },
+  { key: "incluyeAlmuerzo", label: "IncluyeAlmuerzo", sourceIndex: 44 },
+  { key: "notaImagen", label: "NotaImagen", sourceIndex: 45 },
+  { key: "clienteDni", label: "ClienteDNI", sourceIndex: 46 },
+  { key: "notaDocu", label: "NotaDocu", sourceIndex: 47 },
+  { key: "hotel", label: "Hotel", sourceIndex: 48 },
+  { key: "regionProducto", label: "RegionProducto", sourceIndex: 49 },
+  { key: "regionNota", label: "RegionNota", sourceIndex: 50 },
+  { key: "flagServicio", label: "FlagServicio", sourceIndex: 51 },
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
 type LiquidacionFieldKey = LiquidacionFieldDefinition["key"];
 type LiquidacionRow = Record<LiquidacionFieldKey, string> & {
   id: string;
+  clienteId?: string;
   companiaId?: string;
   CompaniaId?: string;
 };
 
 const EXPECTED_FIELDS =
   Math.max(...LIQUIDACION_FIELDS.map((field) => field.sourceIndex)) + 1;
+const LEGACY_EXPECTED_FIELDS = EXPECTED_FIELDS + 1;
+const LEGACY_CLIENTE_ID_INDEX = 6;
 
 const parseLiquidacionRow = (
   rowText: string,
   index: number,
 ): LiquidacionRow => {
   const rawValues = rowText.split("|");
-  const normalizedValues =
-    rawValues.length > EXPECTED_FIELDS
-      ? rawValues
-          .slice(0, EXPECTED_FIELDS - 1)
-          .concat(rawValues.slice(EXPECTED_FIELDS - 1).join("|"))
-      : rawValues;
+  const normalizeToExpectedLength = (values: string[], expectedLength: number) =>
+    values.length > expectedLength
+      ? values
+          .slice(0, expectedLength - 1)
+          .concat(values.slice(expectedLength - 1).join("|"))
+      : values;
+
+  const looksLikeLegacyPayload = rawValues.length >= LEGACY_EXPECTED_FIELDS;
+  const valuesByFormat = normalizeToExpectedLength(
+    rawValues,
+    looksLikeLegacyPayload ? LEGACY_EXPECTED_FIELDS : EXPECTED_FIELDS,
+  );
+  const legacyClienteId = looksLikeLegacyPayload
+    ? normalizeStringValue(valuesByFormat[LEGACY_CLIENTE_ID_INDEX] ?? "")
+    : "";
+  const normalizedValues = looksLikeLegacyPayload
+    ? valuesByFormat.filter(
+        (_, valueIndex) => valueIndex !== LEGACY_CLIENTE_ID_INDEX,
+      )
+    : valuesByFormat;
 
   const rowRecord = LIQUIDACION_FIELDS.reduce(
     (acc, field) => {
@@ -530,10 +546,10 @@ const parseLiquidacionRow = (
 
   return {
     ...rowRecord,
+    clienteId: legacyClienteId,
     id: rowRecord.notaId || String(index + 1),
   };
 };
-
 const parseLiquidacionesPayload = (payload: string | null | undefined) => {
   const trimmed = String(payload ?? "").trim();
   if (!trimmed || trimmed === "~") return [];
