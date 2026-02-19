@@ -58,7 +58,10 @@ export default function AreaForm({
 
   const submit = useCallback(
     async (values: AreaFormValues): Promise<boolean> => {
-      const payload = normalizePayload(values, initialData?.id as number | undefined);
+      const payload = normalizePayload(
+        values,
+        initialData?.id as number | undefined,
+      );
       const ok = await onSave(payload);
       if (ok === false) return false;
 
@@ -173,6 +176,7 @@ export default function AreaForm({
           size="small"
           inputProps={{ "data-focus-first": "true" }}
           disabled={mode === "edit"}
+          disableHistory
         />
       </div>
     </form>

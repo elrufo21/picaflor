@@ -122,17 +122,17 @@ export default function PartidaFormDialog({
       onKeyDown={handleEnterFocus}
       onSubmit={(event) => event.preventDefault()}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <AutocompleteControlled
-          name="destination"
-          control={control}
-          label="Destino"
-          size="small"
-          options={destinationOptions}
-          getOptionLabel={(option) => option}
-          autoAdvance
-        />
+      <AutocompleteControlled
+        name="destination"
+        control={control}
+        label="Destino"
+        size="small"
+        options={destinationOptions}
+        getOptionLabel={(option) => option}
+        autoAdvance
+      />
 
+      <div className=" mb-2">
         <TextControlled
           name="pointName"
           control={control}
@@ -141,6 +141,7 @@ export default function PartidaFormDialog({
           size="small"
           required
           transform={(v) => v.toUpperCase()}
+          disableHistory
         />
       </div>
 

@@ -1,120 +1,90 @@
 import { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/config";
+import { parseCanalPayload } from "@/modules/fullday/hooks/canalUtils";
 
 export type SalesChannelDetail = {
+  id: number;
   idCanal: number;
   canalNombre: string;
-  region?: string;
   contacto?: string;
   telefono?: string;
   email?: string;
-  precio1?: number;
-  precio2?: number;
-  precio3?: number;
 };
 
-const SALES_CHANNEL_ENDPOINT = `${API_BASE_URL}/Canal/detalle`;
-
-const parseNumber = (value: unknown): number | undefined => {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : undefined;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
+export type SaveSalesChannelPayload = {
+  idAuxiliar: number;
+  auxiliar: string;
+  telefono: string;
+  contacto: string;
+  email: string;
 };
 
-const pickValue = (blob: Record<string, unknown>, ...keys: string[]) => {
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(blob, key)) {
-      return blob[key];
+const SALES_CHANNEL_LIST_ENDPOINT = `${API_BASE_URL}/Programacion/traerCanalVentaDetalle`;
+const SALES_CHANNEL_SAVE_ENDPOINT = `${API_BASE_URL}/Canal/guardar-auxiliar`;
+
+const parseRawPayload = (rawText: string): unknown => {
+  const trimmed = String(rawText ?? "").trim();
+  if (!trimmed) return [];
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+};
+
+const parseSavedCanalId = (rawResponse: string): number => {
+  const trimmed = String(rawResponse ?? "").trim();
+  const directNumber = Number(trimmed);
+
+  if (Number.isFinite(directNumber)) {
+    return directNumber;
+  }
+
+  const parsed = parseRawPayload(trimmed);
+  if (parsed && typeof parsed === "object") {
+    const blob = parsed as Record<string, unknown>;
+    const idCandidate =
+      blob.idCanal ??
+      blob.IdCanal ??
+      blob.idAuxiliar ??
+      blob.IdAuxiliar ??
+      blob.id ??
+      blob.Id ??
+      blob.canalId;
+
+    const parsedId = Number(idCandidate);
+    if (Number.isFinite(parsedId)) {
+      return parsedId;
     }
   }
-  return undefined;
+
+  throw new Error("No se pudo interpretar el ID del canal guardado.");
 };
 
-const normalizeItem = (item: unknown): SalesChannelDetail | null => {
-  if (!item || typeof item !== "object") return null;
-  const blob = item as Record<string, unknown>;
-  const normalized = {
-    idCanal:
-      parseNumber(
-        pickValue(
-          blob,
-          "idCanal",
-          "IdCanal",
-          "Id",
-          "id",
-          "CanalId",
-          "canalId",
-        ),
-      ) ?? 0,
-    canalNombre:
-      String(
-        pickValue(
-          blob,
-          "canalNombre",
-          "CanalNombre",
-          "canal",
-          "name",
-          "descripcion",
-          "Nombre",
-        ) ?? "",
-      )
-        .trim(),
-    region:
-      String(
-        pickValue(blob, "region", "Region", "reg", "Reg") ?? "",
-      ).trim() || undefined,
-    contacto:
-      String(
-        pickValue(blob, "contacto", "Contacto", "Contact") ?? "",
-      ).trim() || undefined,
-    telefono:
-      String(
-        pickValue(blob, "telefono", "Telefono", "ContactoTelefono") ?? "",
-      ).trim() || undefined,
-    email:
-      String(
-        pickValue(blob, "email", "Email", "correo", "Correo") ?? "",
-      ).trim() || undefined,
-    precio1:
-      parseNumber(
-        pickValue(
-          blob,
-          "precio1",
-          "Precio1",
-          "precio_1",
-          "precioUno",
-        ),
-      ) ?? undefined,
-    precio2:
-      parseNumber(
-        pickValue(
-          blob,
-          "precio2",
-          "Precio2",
-          "precio_2",
-          "precioDos",
-        ),
-      ) ?? undefined,
-    precio3:
-      parseNumber(
-        pickValue(
-          blob,
-          "precio3",
-          "Precio3",
-          "precio_3",
-          "precioTres",
-        ),
-      ) ?? undefined,
-  };
+const parseChannels = (payload: unknown): SalesChannelDetail[] => {
+  const mapped = parseCanalPayload(payload);
 
-  if (!normalized.canalNombre) return null;
+  return mapped
+    .map((item, index) => {
+      const parsedId = Number(item.value);
+      const idCanal = Number.isFinite(parsedId) ? parsedId : 0;
+      const canalNombre = String(
+        item.auxiliar ?? item.label ?? item.value ?? "",
+      ).trim();
 
-  return normalized;
+      if (!canalNombre) return null;
+
+      return {
+        id: idCanal > 0 ? idCanal : index + 1,
+        idCanal,
+        canalNombre,
+        contacto: item.contacto,
+        telefono: item.telefono,
+        email: item.email,
+      } as SalesChannelDetail;
+    })
+    .filter((item): item is SalesChannelDetail => Boolean(item));
 };
 
 export const useSalesChannels = () => {
@@ -122,49 +92,70 @@ export const useSalesChannels = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const loadChannels = useCallback(
-    async (signal: AbortSignal) => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(SALES_CHANNEL_ENDPOINT, {
-          headers: { accept: "text/plain, application/json" },
-          signal,
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const payload = await response.json();
-        if (!Array.isArray(payload)) {
-          throw new Error("Respuesta inesperada al cargar canales de venta");
-        }
+  const loadChannels = useCallback(async (signal?: AbortSignal) => {
+    setIsLoading(true);
 
-        const mapped = payload
-          .map(normalizeItem)
-          .filter((item): item is SalesChannelDetail => Boolean(item));
+    try {
+      const response = await fetch(SALES_CHANNEL_LIST_ENDPOINT, {
+        headers: { accept: "application/json, text/plain" },
+        signal,
+      });
 
-        setChannels(mapped);
-        setError(null);
-      } catch (fetchError) {
-        if ((fetchError as { name?: string }).name === "AbortError") return;
-        console.error("fetchSalesChannels error", fetchError);
-        setError(fetchError as Error);
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
-    },
-    [],
-  );
+
+      const rawText = await response.text();
+      const parsed = parseRawPayload(rawText);
+      const source =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? ((parsed as { data?: unknown }).data ?? parsed)
+          : parsed;
+      const mapped = parseChannels(source);
+
+      setChannels(mapped);
+      setError(null);
+    } catch (fetchError) {
+      if ((fetchError as { name?: string }).name === "AbortError") return;
+
+      console.error("fetchSalesChannels error", fetchError);
+      setError(fetchError as Error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
     void loadChannels(controller.signal);
-    return () => controller.abort();
+
+    return () => {
+      controller.abort();
+    };
   }, [loadChannels]);
 
-  const refresh = useCallback(() => {
-    const controller = new AbortController();
-    void loadChannels(controller.signal);
+  const refresh = useCallback(async () => {
+    await loadChannels();
   }, [loadChannels]);
 
-  return { channels, isLoading, error, refresh };
+  const saveChannel = useCallback(async (payload: SaveSalesChannelPayload) => {
+    const response = await fetch(SALES_CHANNEL_SAVE_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "text/plain, application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = (await response.text()).trim();
+      throw new Error(errorText || `HTTP ${response.status}`);
+    }
+
+    const responseText = await response.text();
+    return parseSavedCanalId(responseText);
+  }, []);
+
+  return { channels, isLoading, error, refresh, saveChannel };
 };

@@ -15,7 +15,7 @@ import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import { useUsersStore } from "@/store/users/users.store";
-import { useDialogStore } from "@/app/store/dialogStore"; // �Y'^ SOLO ESTO SE AGREGA
+import { useDialogStore } from "@/app/store/dialogStore"; // óY'^ SOLO ESTO SE AGREGA
 
 interface UserFormBaseProps {
   initialData?: Partial<any>;
@@ -74,7 +74,7 @@ export default function UserFormBase({
   const { users, fetchUsers } = useUsersStore();
   const { employees, fetchEmployees } = useEmployeesStore();
 
-  const openDialog = useDialogStore((s) => s.openDialog); // �Y'^ SOLO ESTO
+  const openDialog = useDialogStore((s) => s.openDialog); // óY'^ SOLO ESTO
 
   const [showPass, setShowPass] = useState(false);
   const [showPassConfirm, setShowPassConfirm] = useState(false);

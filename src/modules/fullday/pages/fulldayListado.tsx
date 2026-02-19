@@ -35,7 +35,7 @@ const BASE_LISTADO_FIELDS: ListadoField[] = [
   { key: "pax", label: "PAX", sourceIndex: 6, meta: { align: "center" } },
   { key: "islas", label: "Islas", sourceIndex: 7, meta: { align: "center" } },
   { key: "tubu", label: "Tubu", sourceIndex: 8, meta: { align: "center" } },
-  { key: "reseN", label: "Rese.N", sourceIndex: 9 },
+  { key: "reseN", label: "Otros", sourceIndex: 9 },
   { key: "puntoEmbarque", label: "PuntoEmbarque", sourceIndex: 10 },
   { key: "clasificacion", label: "Clasificacion", sourceIndex: 11 },
   { key: "condicion", label: "Condicion", sourceIndex: 12 },
@@ -88,7 +88,11 @@ const resolveListadoFieldsByProduct = (productName: string): ListadoField[] => {
   if (!mappedLabels) return BASE_LISTADO_FIELDS;
 
   return BASE_LISTADO_FIELDS.map((field) => {
-    if (field.key === "islas" || field.key === "tubu" || field.key === "reseN") {
+    if (
+      field.key === "islas" ||
+      field.key === "tubu" ||
+      field.key === "reseN"
+    ) {
       const customLabel = mappedLabels[field.key as "islas" | "tubu" | "reseN"];
       if (customLabel) {
         return { ...field, label: customLabel };
@@ -321,9 +325,9 @@ const FulldayListado = () => {
 
     const centeredKeys = NUMERIC_KEYS;
 
-    const centeredCols = listadoFields.map((f, i) =>
-      centeredKeys.includes(f.key) ? i : null,
-    ).filter((i) => i !== null) as number[];
+    const centeredCols = listadoFields
+      .map((f, i) => (centeredKeys.includes(f.key) ? i : null))
+      .filter((i) => i !== null) as number[];
     const horaColIndex = listadoFields.findIndex(
       (field) => field.key === "hora",
     );
@@ -343,9 +347,9 @@ const FulldayListado = () => {
       }
       return { wch: 18 };
     });
-    const numericCols = listadoFields.map((f, i) =>
-      NUMERIC_KEYS.includes(f.key) ? i : null,
-    ).filter((i) => i !== null) as number[];
+    const numericCols = listadoFields
+      .map((f, i) => (NUMERIC_KEYS.includes(f.key) ? i : null))
+      .filter((i) => i !== null) as number[];
 
     const range = XLSX.utils.decode_range(ws["!ref"]!);
     for (let R = 1; R <= range.e.r; R++) {

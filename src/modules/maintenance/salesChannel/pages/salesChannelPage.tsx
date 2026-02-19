@@ -1,164 +1,249 @@
-import { useDialogStore } from "@/app/store/dialogStore";
-import DndTable from "@/components/dataTabla/DndTable";
-import { TextControlled } from "@/components/ui/inputs";
-
+import { useCallback, useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
-import { Plus, Save, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { API_BASE_URL } from "@/config";
-import {
-  type SalesChannelDetail,
-  useSalesChannels,
-} from "../hooks/useSalesChannels";
+import { Pencil, Plus } from "lucide-react";
+
+import DndTable from "@/components/dataTabla/DndTable";
+import { useDialogStore } from "@/app/store/dialogStore";
 import { showToast } from "@/components/ui/AppToast";
 import { queueServiciosRefresh } from "@/app/db/serviciosSync";
+import { TextControlled } from "@/components/ui/inputs";
+import MaintenancePageFrame from "../../components/MaintenancePageFrame";
+import {
+  type SalesChannelDetail,
+  type SaveSalesChannelPayload,
+  useSalesChannels,
+} from "../hooks/useSalesChannels";
 
-type SalesChannelFormValues = {
-  auxiliar: string;
+const emailRegex = /^[^\s@]+@[^\s@]+\.com$/i;
+
+type CanalVentaDialogValues = {
+  label: string;
   contacto: string;
   telefono: string;
   email: string;
-  precio1: string;
-  precio2: string;
-  precio3: string;
 };
 
-const defaultFormValues: SalesChannelFormValues = {
-  auxiliar: "",
-  contacto: "",
-  telefono: "",
-  email: "",
-  precio1: "0",
-  precio2: "0",
-  precio3: "0",
+type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
+  value?: string;
+  search?: string;
+  editingValue?: string;
 };
 
-const SALES_CHANNEL_SAVE_ENDPOINT = `${API_BASE_URL}/Canal/guardar`;
+const CanalVentaDialogForm = ({
+  payload,
+  setPayload,
+}: {
+  payload: CanalVentaDialogPayload;
+  setPayload: (next: Record<string, unknown>) => void;
+}) => {
+  const { control } = useForm<CanalVentaDialogValues>({
+    defaultValues: {
+      label: String(payload.label ?? ""),
+      contacto: String(payload.contacto ?? ""),
+      telefono: String(payload.telefono ?? ""),
+      email: String(payload.email ?? ""),
+    },
+  });
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+      }}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="label"
+            control={control}
+            label="Nombre"
+            placeholder="Ej: AEROMAR TRAVEL"
+            required
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, label: e.target.value });
+            }}
+          />
+        </div>
+        <TextControlled<CanalVentaDialogValues>
+          name="contacto"
+          control={control}
+          label="Contacto"
+          placeholder="Ej: DIANA"
+          required
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, contacto: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="telefono"
+          control={control}
+          label="Telefono"
+          placeholder="Ej: 984821760"
+          required
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, telefono: e.target.value });
+          }}
+        />
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="email"
+            control={control}
+            label="Email"
+            type="email"
+            disableAutoUppercase
+            placeholder="Ej: contacto@canal.com"
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, email: e.target.value });
+            }}
+          />
+        </div>
+      </div>
+    </form>
+  );
+};
+
+const parseCanalId = (value?: string) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const buildPayload = (
+  values: CanalVentaDialogValues,
+  idAuxiliar: number,
+): SaveSalesChannelPayload => ({
+  idAuxiliar,
+  auxiliar: String(values.label ?? "").trim(),
+  telefono: String(values.telefono ?? "").trim(),
+  contacto: String(values.contacto ?? "").trim(),
+  email: String(values.email ?? "").trim(),
+});
 
 const SalesChannelPage = () => {
-  const { channels, isLoading, refresh } = useSalesChannels();
-  const [mode, setMode] = useState("create");
-  const [editingChannel, setEditingChannel] =
-    useState<SalesChannelDetail | null>(null);
+  const { channels, isLoading, error, refresh, saveChannel } = useSalesChannels();
+  const openDialog = useDialogStore((state) => state.openDialog);
 
-  const { openDialog } = useDialogStore();
-  const { control, reset, handleSubmit } = useForm<SalesChannelFormValues>({
-    defaultValues: defaultFormValues,
-  });
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const openSalesChannelModal = useCallback(
+    (mode: "create" | "edit", channel?: SalesChannelDetail) => {
+      const editingValue =
+        mode === "edit" ? String(channel?.idCanal ?? "") : "";
 
-  const handleNew = (options?: { clearFeedback?: boolean }) => {
-    setMode("create");
-    setEditingChannel(null);
-    reset(defaultFormValues);
-    if (options?.clearFeedback ?? true) {
-      setSaveError(null);
-      setSaveSuccess(null);
-    }
-  };
-
-  const handleEditClick = (item: SalesChannelDetail) => {
-    setMode("edit");
-    setEditingChannel(item);
-    reset({
-      auxiliar: item.canalNombre ?? "",
-      contacto: item.contacto ?? "",
-      telefono: item.telefono ?? "",
-      email: item.email ?? "",
-      precio1: item.precio1?.toString() ?? "0",
-      precio2: item.precio2?.toString() ?? "0",
-      precio3: item.precio3?.toString() ?? "0",
-    });
-  };
-
-  const parsePrice = (value: string) => {
-    const normalized = value.replace(",", ".");
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
-
-  const handleSave = async (values: SalesChannelFormValues) => {
-    setIsSaving(true);
-    setSaveError(null);
-    setSaveSuccess(null);
-    const payload = {
-      idCanal: mode === "edit" ? (editingChannel?.idCanal ?? 0) : 0,
-      region: editingChannel?.region ?? null,
-      canalNombre: values.auxiliar,
-      contacto: values.contacto,
-      telefono: values.telefono,
-      email: values.email,
-      fechaNacimiento: null,
-      fechaAniversario: null,
-      precio1: parsePrice(values.precio1),
-      precio2: parsePrice(values.precio2),
-      precio3: parsePrice(values.precio3),
-      fechaActualizacion: null,
-      usuario: "admin",
-    };
-
-    try {
-      const response = await fetch(SALES_CHANNEL_SAVE_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          accept: "text/plain, application/json",
+      openDialog({
+        title: mode === "create" ? "Crear canal de venta" : "Editar canal de venta",
+        description:
+          mode === "create"
+            ? "Crea un canal de venta sin salir del formulario."
+            : "Actualiza los datos del canal de venta.",
+        size: "md",
+        initialPayload: {
+          label: channel?.canalNombre ?? "",
+          value: editingValue,
+          contacto: channel?.contacto ?? "",
+          telefono: channel?.telefono ?? "",
+          email: channel?.email ?? "",
+          search: "",
+          editingValue,
         },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const responseText = await response.text();
-      const savedId = Number(responseText);
-      const successMessage = Number.isFinite(savedId)
-        ? `Canal guardado correctamente (ID ${savedId}).`
-        : "Canal guardado correctamente.";
-      showToast({
-        title: "Exito",
-        description: successMessage,
-        type: "success",
-      });
-      setSaveSuccess(successMessage);
-      if (mode === "create") {
-        handleNew({ clearFeedback: false });
-      } else {
-        setEditingChannel((prev) =>
-          prev
-            ? {
-                ...prev,
-                canalNombre: values.auxiliar,
-                contacto: values.contacto,
-                telefono: values.telefono,
-                email: values.email,
-                precio1: parsePrice(values.precio1),
-                precio2: parsePrice(values.precio2),
-                precio3: parsePrice(values.precio3),
-              }
-            : prev,
-        );
-      }
-      await refresh();
-      queueServiciosRefresh();
-    } catch (error) {
-      setSaveError((error as Error).message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+        confirmLabel: "Guardar canal",
+        cancelLabel: "Cancelar",
+        content: ({ payload, setPayload }) => (
+          <CanalVentaDialogForm
+            payload={payload as CanalVentaDialogPayload}
+            setPayload={setPayload}
+          />
+        ),
+        onConfirm: async (data) => {
+          const label = String(data.label ?? "").trim();
+          const contacto = String(data.contacto ?? "").trim();
+          const telefono = String(data.telefono ?? "").trim();
+          const email = String(data.email ?? "").trim();
+          const idAuxiliar = parseCanalId(
+            String(data.editingValue ?? editingValue),
+          );
 
-  const columnHelper = createColumnHelper<SalesChannelDetail>();
-  const columns = useMemo(
-    () => [
+          if (!label) {
+            showToast({
+              title: "Atencion",
+              description: "Ingresa el nombre del canal de venta.",
+              type: "warning",
+            });
+            throw new Error("Nombre de canal de venta requerido");
+          }
+
+          if (!contacto) {
+            showToast({
+              title: "Atencion",
+              description: "Ingresa el contacto del canal de venta.",
+              type: "warning",
+            });
+            throw new Error("Contacto de canal de venta requerido");
+          }
+
+          if (!telefono) {
+            showToast({
+              title: "Atencion",
+              description: "Ingresa el telefono del canal de venta.",
+              type: "warning",
+            });
+            throw new Error("Telefono de canal de venta requerido");
+          }
+
+          if (email && !emailRegex.test(email)) {
+            showToast({
+              title: "Atencion",
+              description:
+                "Si ingresas correo, debe tener un formato valido con @ y .com",
+              type: "warning",
+            });
+            throw new Error("Formato de email invalido");
+          }
+
+          try {
+            const payload = buildPayload(
+              { label, contacto, telefono, email },
+              idAuxiliar,
+            );
+            const savedId = await saveChannel(payload);
+            await refresh();
+            queueServiciosRefresh();
+
+            showToast({
+              title: "Exito",
+              description: `Canal guardado correctamente (ID ${savedId}).`,
+              type: "success",
+            });
+            return true;
+          } catch (saveError) {
+            const message =
+              saveError instanceof Error
+                ? saveError.message
+                : "No se pudo guardar el canal de venta.";
+
+            showToast({
+              title: "Error",
+              description: message,
+              type: "error",
+            });
+            throw saveError;
+          }
+        },
+      });
+    },
+    [openDialog, refresh, saveChannel],
+  );
+
+  const columns = useMemo(() => {
+    const columnHelper = createColumnHelper<SalesChannelDetail>();
+
+    return [
       columnHelper.accessor("canalNombre", {
         header: "Canal",
-      }),
-      columnHelper.accessor("region", {
-        header: "Region",
-        cell: (info) => info.getValue() ?? "-",
+        cell: (info) => info.getValue(),
       }),
       columnHelper.accessor("contacto", {
         header: "Contacto",
@@ -172,159 +257,57 @@ const SalesChannelPage = () => {
         header: "Email",
         cell: (info) => info.getValue() ?? "-",
       }),
-      columnHelper.accessor("precio1", {
-        header: "Precio 1",
-        cell: (info) => (info.getValue() !== undefined ? info.getValue() : "-"),
+      columnHelper.display({
+        id: "acciones",
+        header: "Acciones",
+        meta: { align: "center" },
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => openSalesChannelModal("edit", row.original)}
+              className="text-blue-600 hover:text-blue-900"
+              title="Editar"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          </div>
+        ),
       }),
-    ],
-    [columnHelper],
-  );
-
-  const onDelete = () => {};
+    ];
+  }, [openSalesChannelModal]);
 
   return (
-    <div className="h-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white rounded-2xl  overflow-hidden">
-        <form onSubmit={handleSubmit(handleSave)}>
-          <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
-            <h1 className="text-base font-semibold">
-              {mode === "create"
-                ? "Crear Canal de venta"
-                : "Editar Canal de venta"}
-            </h1>
+    <MaintenancePageFrame
+      title="Canal de venta"
+      description="Registra y actualiza canales de venta para los viajes."
+    >
+      {error ? (
+        <p className="px-1 pb-2 text-sm text-red-600">
+          No se pudo cargar el listado: {error.message}
+        </p>
+      ) : null}
 
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
-                title="Guardar"
-                disabled={isSaving}
-              >
-                <Save className="w-4 h-4" />
-                <span className="hidden sm:inline">Guardar</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleNew}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-white/10 hover:bg-white/20 transition-colors"
-                title="Nuevo"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Nuevo</span>
-              </button>
-
-              {mode === "edit" && onDelete && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    openDialog({
-                      title: "Eliminar Canal de venta",
-                      size: "sm",
-                      confirmLabel: "Eliminar",
-                      cancelLabel: "Cancelar",
-                      onConfirm: async () => {
-                        await onDelete();
-                      },
-                      content: () => (
-                        <p className="text-sm text-slate-700">
-                          Estas seguro de eliminar este Canal de venta?
-                          <br />
-                          Esta accion no se puede deshacer.
-                        </p>
-                      ),
-                    })
-                  }
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 transition-colors"
-                  title="Eliminar"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Eliminar</span>
-                </button>
-              )}
-            </div>
-
-            {saveError && (
-              <p className="mt-2 text-sm text-red-600">{saveError}</p>
-            )}
-          </div>
-
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-col md:flex-row gap-6">
-              <div className="w-full md:w-[40%] space-y-4">
-                <div className="mt-4">
-                  <TextControlled
-                    name="auxiliar"
-                    label="Auxiliar"
-                    size="small"
-                    control={control}
-                  />
-                </div>
-                <div className="mt-4">
-                  <TextControlled
-                    name="contacto"
-                    label="Contacto"
-                    size="small"
-                    control={control}
-                  />
-                </div>
-                <div className="mt-4">
-                  <TextControlled
-                    name="telefono"
-                    label="Telefono"
-                    size="small"
-                    control={control}
-                  />
-                </div>
-                <div className="mt-4">
-                  <TextControlled
-                    name="email"
-                    label="email"
-                    size="small"
-                    control={control}
-                  />
-                </div>
-                <div className="mt-4">
-                  <TextControlled
-                    name="precio1"
-                    label="Precio 1"
-                    size="small"
-                    control={control}
-                  />
-                </div>
-                <div className="mt-4">
-                  <TextControlled
-                    name="precio2"
-                    label="Precio 2"
-                    size="small"
-                    control={control}
-                  />
-                </div>
-                <div className="mt-4">
-                  <TextControlled
-                    name="precio3"
-                    label="Precio 3"
-                    size="small"
-                    control={control}
-                  />
-                </div>
-              </div>
-              <div className="w-full md-w-[60%] mt-6 md:mt-0">
-                <DndTable
-                  enableDateFilter={false}
-                  enableSearching={false}
-                  columns={columns}
-                  data={channels}
-                  isLoading={isLoading}
-                  emptyMessage="No hay canales cargados"
-                  onRowClick={handleEditClick}
-                />
-              </div>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
+      <DndTable
+        columns={columns}
+        data={channels}
+        isLoading={isLoading}
+        enableDateFilter={false}
+        emptyMessage="No hay canales cargados"
+        onRowClick={(row) => openSalesChannelModal("edit", row)}
+        headerAction={
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            onClick={() => openSalesChannelModal("create")}
+            title="Crear canal de venta"
+            aria-label="Crear canal de venta"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        }
+      />
+    </MaintenancePageFrame>
   );
 };
 

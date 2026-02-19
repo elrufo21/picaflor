@@ -516,6 +516,7 @@ export default function EmployeeForm({
                   required
                   size="small"
                   inputProps={{ "data-focus-first": "true" }}
+                  disableHistory
                 />
 
                 <SelectControlled
@@ -538,6 +539,7 @@ export default function EmployeeForm({
                   label="Nombres"
                   required
                   size="small"
+                  disableHistory
                 />
 
                 <TextControlled
@@ -546,6 +548,7 @@ export default function EmployeeForm({
                   label="Apellidos"
                   required
                   size="small"
+                  disableHistory
                 />
 
                 <TextControlled
@@ -558,6 +561,7 @@ export default function EmployeeForm({
                     inputMode: "numeric",
                     pattern: "[0-9]*",
                   }}
+                  disableHistory
                 />
 
                 <TextControlled
@@ -565,6 +569,7 @@ export default function EmployeeForm({
                   control={control}
                   label="Direccion"
                   size="small"
+                  disableHistory
                 />
 
                 <DateInput
@@ -586,6 +591,7 @@ export default function EmployeeForm({
                   control={control}
                   label="Telefono"
                   size="small"
+                  disableHistory
                 />
 
                 <TextControlled
@@ -594,6 +600,7 @@ export default function EmployeeForm({
                   label="Correo"
                   type="email"
                   size="small"
+                  disableHistory
                 />
 
                 <DateInput

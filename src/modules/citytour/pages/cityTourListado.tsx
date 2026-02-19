@@ -19,6 +19,7 @@ import { toPlainText } from "@/shared/helpers/safeText";
 import { normalizeLegacyXmlPayload } from "@/shared/helpers/normalizeLegacyXmlPayload";
 
 const NUMERIC_KEYS = ["pax", "islas", "tubu"];
+const EXCEL_EXCLUDED_KEYS = new Set(["clienteMovil", "clienteDespacho"]);
 
 const LISTADO_FIELDS = [
   { key: "lq", label: "LQ", sourceIndex: 1 },
@@ -206,9 +207,13 @@ const CityTourListado = () => {
       });
       return;
     }
+    const excelFields = LISTADO_FIELDS.filter(
+      (field) => !EXCEL_EXCLUDED_KEYS.has(field.key),
+    );
+
     const data = normalizedListado.map((row: any) => {
       const obj: any = {};
-      LISTADO_FIELDS.forEach((f) => {
+      excelFields.forEach((f) => {
         const value = row?.[f.key];
         if (NUMERIC_KEYS.includes(f.key)) {
           const num = Number(value);
@@ -225,7 +230,7 @@ const CityTourListado = () => {
       skipHeader: true,
     });
 
-    LISTADO_FIELDS.forEach((field, index) => {
+    excelFields.forEach((field, index) => {
       const ref = XLSX.utils.encode_cell({ r: 0, c: index });
       ws[ref] = {
         t: "s",
@@ -250,21 +255,21 @@ const CityTourListado = () => {
 
     const centeredKeys = NUMERIC_KEYS;
 
-    const centeredCols = LISTADO_FIELDS.map((f, i) =>
+    const centeredCols = excelFields.map((f, i) =>
       centeredKeys.includes(f.key) ? i : null,
     ).filter((i) => i !== null) as number[];
-    const horaColIndex = LISTADO_FIELDS.findIndex(
+    const horaColIndex = excelFields.findIndex(
       (field) => field.key === "hora",
     );
 
-    const lastCol = XLSX.utils.encode_col(LISTADO_FIELDS.length - 1);
+    const lastCol = XLSX.utils.encode_col(excelFields.length - 1);
     const lastRow = data.length + 1;
 
     ws["!autofilter"] = {
       ref: `A1:${lastCol}${lastRow}`,
     };
 
-    ws["!cols"] = LISTADO_FIELDS.map((f) => {
+    ws["!cols"] = excelFields.map((f) => {
       if (f.key.includes("observaciones")) return { wch: 40 };
       if (f.key.includes("nombreApellidos")) return { wch: 30 };
       if (f.key.includes("puntoEmbarque") || f.key.includes("puntoParida")) {
@@ -272,7 +277,7 @@ const CityTourListado = () => {
       }
       return { wch: 18 };
     });
-    const numericCols = LISTADO_FIELDS.map((f, i) =>
+    const numericCols = excelFields.map((f, i) =>
       NUMERIC_KEYS.includes(f.key) ? i : null,
     ).filter((i) => i !== null) as number[];
 
