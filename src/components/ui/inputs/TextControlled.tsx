@@ -1,4 +1,5 @@
 import TextField, { type TextFieldProps } from "@mui/material/TextField";
+import { useState } from "react";
 import {
   Controller,
   type FieldValues,
@@ -59,9 +60,11 @@ function TextControlled<T extends FieldValues>({
 }: Props<T>) {
   const {
     onChange: restOnChange,
+    onFocus: restOnFocus,
     inputProps: restInputProps,
     ...restProps
   } = rest;
+  const [historyUnlocked, setHistoryUnlocked] = useState(false);
   return (
     <Controller
       name={name}
@@ -73,6 +76,13 @@ function TextControlled<T extends FieldValues>({
           typeof restProps.type === "string"
             ? restProps.type.toLowerCase()
             : "text";
+        const historyAutoCompleteValue = disableHistory
+          ? inputType === "password"
+            ? "new-password"
+            : "off"
+          : restProps.autoComplete;
+        const lockPasswordHistory =
+          disableHistory && inputType === "password" && !historyUnlocked;
         const shouldUppercase = inputType === "text" && !disableAutoUppercase;
 
         const rawDisplayValue =
@@ -119,7 +129,13 @@ function TextControlled<T extends FieldValues>({
             {...fieldProps}
             value={displayValue}
             inputRef={ref}
-            autoComplete={disableHistory ? "off" : restProps.autoComplete}
+            autoComplete={historyAutoCompleteValue}
+            onFocus={(event) => {
+              if (disableHistory && inputType === "password" && !historyUnlocked) {
+                setHistoryUnlocked(true);
+              }
+              restOnFocus?.(event);
+            }}
             onChange={(event) => {
               const currentValue = event.target.value;
               const normalizedValue =
@@ -142,12 +158,16 @@ function TextControlled<T extends FieldValues>({
             inputProps={{
               ...restInputProps,
               onKeyDown: handleKeyDown,
+              readOnly: lockPasswordHistory || restInputProps?.readOnly,
 
               ...(disableHistory && {
-                autoComplete: "off",
+                autoComplete: historyAutoCompleteValue,
                 autoCorrect: "off",
                 spellCheck: false,
                 "aria-autocomplete": "none",
+                "data-lpignore": "true",
+                "data-1p-ignore": "true",
+                "data-bwignore": "true",
               }),
             }}
             fullWidth

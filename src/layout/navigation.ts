@@ -1,12 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
-  Package,
   Wrench,
   Plane,
   Car,
   CalendarDays,
-  Sparkles,
 } from "lucide-react";
 
 export type NavigationItem = {
@@ -16,6 +14,7 @@ export type NavigationItem = {
   description?: string;
   children?: NavigationItem[];
   end?: boolean;
+  requiresAreaId?: string;
 };
 
 export const navigationItems: NavigationItem[] = [
@@ -54,5 +53,6 @@ export const navigationItems: NavigationItem[] = [
     to: "/maintenance",
     icon: Wrench,
     description: "Catálogos y usuarios",
+    requiresAreaId: "6",
   },
 ];

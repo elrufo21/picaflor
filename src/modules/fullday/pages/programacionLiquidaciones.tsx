@@ -5,7 +5,7 @@ import {
   type PaginationState,
 } from "@tanstack/react-table";
 import { Autocomplete, TextField } from "@mui/material";
-import { ChevronLeft, Search, X } from "lucide-react";
+import { Check, ChevronLeft, Search, X } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { API_BASE_URL } from "@/config";
@@ -157,6 +157,7 @@ type PersistedLiquidacionesFilters = {
   pendingEndDate?: string;
   selectedFlagServicio?: number | null;
   selectedCondicion?: CondicionFilterValue;
+  searchByFechaViaje?: boolean;
   searchMode?: SearchMode;
   searchNumber?: string;
   searchCanal?: string | null;
@@ -168,6 +169,7 @@ type InitialLiquidacionesFilters = {
   pendingEndDate: string;
   selectedFlagServicio: number | null;
   selectedCondicion: CondicionFilterValue;
+  searchByFechaViaje: boolean;
   searchMode: SearchMode;
   searchNumber: string;
   searchCanal: string | null;
@@ -204,6 +206,13 @@ const parseSearchModeValue = (value: unknown): SearchMode | null => {
   if (normalized === "none") return "none";
   if (normalized === "numero") return "numero";
   if (normalized === "canal") return "canal";
+  return null;
+};
+const parseBooleanFilterValue = (value: unknown): boolean | null => {
+  const normalized = normalizeStringValue(String(value ?? "")).toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "true" || normalized === "1") return true;
+  if (normalized === "false" || normalized === "0") return false;
   return null;
 };
 
@@ -307,6 +316,7 @@ const resolveInitialLiquidacionesFilters = (
     params.get("flagServicio") ?? params.get("companiaId"),
   );
   const condicionFromQuery = parseCondicionFilterValue(params.get("condicion"));
+  const fechaViajeFromQuery = parseBooleanFilterValue(params.get("esViaje"));
   const modeFromQuery = parseSearchModeValue(params.get("searchMode"));
   const numberFromQuery = normalizeStringValue(
     params.get("searchNumber") ?? "",
@@ -323,6 +333,9 @@ const resolveInitialLiquidacionesFilters = (
   );
   const condicionFromStorage = parseCondicionFilterValue(
     persisted.selectedCondicion,
+  );
+  const fechaViajeFromStorage = parseBooleanFilterValue(
+    persisted.searchByFechaViaje,
   );
   const modeFromStorage = parseSearchModeValue(persisted.searchMode);
   const numberFromStorage = normalizeStringValue(persisted.searchNumber ?? "");
@@ -343,6 +356,7 @@ const resolveInitialLiquidacionesFilters = (
     selectedFlagServicio: flagFromQuery ?? flagFromStorage,
     selectedCondicion:
       condicionFromQuery ?? condicionFromStorage ?? CONDICION_OPTIONS[0].value,
+    searchByFechaViaje: fechaViajeFromQuery ?? fechaViajeFromStorage ?? false,
     searchMode: modeFromQuery ?? modeFromStorage ?? "none",
     searchNumber: numberFromQuery || numberFromStorage,
     searchCanal: canalFromQuery || canalFromStorage || null,
@@ -493,6 +507,7 @@ const LIQUIDACION_FIELDS = [
   { key: "regionProducto", label: "RegionProducto", sourceIndex: 49 },
   { key: "regionNota", label: "RegionNota", sourceIndex: 50 },
   { key: "flagServicio", label: "FlagServicio", sourceIndex: 51 },
+  { key: "flagVerificado", label: "FlagVerificado", sourceIndex: 52 },
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
@@ -514,7 +529,10 @@ const parseLiquidacionRow = (
   index: number,
 ): LiquidacionRow => {
   const rawValues = rowText.split("|");
-  const normalizeToExpectedLength = (values: string[], expectedLength: number) =>
+  const normalizeToExpectedLength = (
+    values: string[],
+    expectedLength: number,
+  ) =>
     values.length > expectedLength
       ? values
           .slice(0, expectedLength - 1)
@@ -746,6 +764,9 @@ const LiquidacionesPage = () => {
   );
   const [selectedCondicion, setSelectedCondicion] =
     useState<CondicionFilterValue>(initialFiltersRef.current.selectedCondicion);
+  const [searchByFechaViaje, setSearchByFechaViaje] = useState(
+    initialFiltersRef.current.searchByFechaViaje,
+  );
   const [searchMode, setSearchMode] = useState<SearchMode>(
     initialFiltersRef.current.searchMode,
   );
@@ -855,6 +876,10 @@ const LiquidacionesPage = () => {
     setSearchMode("none");
     stopCanalSearch();
   };
+  const handleToggleSearchByFechaViaje = (checked: boolean) => {
+    setSearchByFechaViaje(checked);
+    reload(pendingStartDateRef.current, pendingEndDateRef.current, checked);
+  };
 
   useEffect(() => {
     const persistedCanal =
@@ -869,6 +894,7 @@ const LiquidacionesPage = () => {
       pendingEndDate,
       selectedFlagServicio,
       selectedCondicion,
+      searchByFechaViaje,
       searchMode,
       searchNumber: normalizeStringValue(searchNumber),
       searchCanal: persistedCanal || null,
@@ -879,6 +905,7 @@ const LiquidacionesPage = () => {
     pendingEndDate,
     selectedFlagServicio,
     selectedCondicion,
+    searchByFechaViaje,
     searchMode,
     searchNumber,
     searchCanal,
@@ -1390,6 +1417,7 @@ const LiquidacionesPage = () => {
       // transactions: liquidacionesNota,
       _editMode: true,
       estado: data.estado,
+      flagVerificado: data.flagVerificado,
     };
     const productId = resolveProductIdFromList(productosLocal, row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
@@ -1409,13 +1437,40 @@ const LiquidacionesPage = () => {
   };
 
   const columnHelper = createColumnHelper<LiquidacionRow>();
+  const isPagoVerificado = useCallback((row: LiquidacionRow) => {
+    return normalizeStringValue(row.flagVerificado) === "1";
+  }, []);
+  const sessionRaw = localStorage.getItem("picaflor.auth.session");
+  const sessionStore = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const columns = useMemo(() => {
+    const cols = [];
 
-  const columns = useMemo(
-    () => [
+    if (sessionStore.user.areaId === "6") {
+      cols.push(
+        columnHelper.display({
+          id: "pVerificado",
+          size: 110,
+          header: "P.Verificado",
+          cell: ({ row }) =>
+            isPagoVerificado(row.original) ? (
+              <Check
+                className="mx-auto h-4 w-4 text-emerald-600"
+                aria-label="Verificado"
+              />
+            ) : (
+              <X
+                className="mx-auto h-4 w-4 text-slate-400"
+                aria-label="No verificado"
+              />
+            ),
+        }),
+      );
+    }
+
+    cols.push(
       columnHelper.display({
         id: "acciones",
         size: 80,
-
         header: "Ver",
         cell: ({ row }) => (
           <button
@@ -1427,73 +1482,74 @@ const LiquidacionesPage = () => {
           </button>
         ),
       }),
+
       columnHelper.accessor("notaId", {
         header: "Número",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("productoNombre", {
         header: "Tours",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("fechaViaje", {
         header: "FechaViaje",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("fechaRegistro", {
         header: "Registro",
-        cell: (info) => info.getValue(),
       }),
 
       columnHelper.accessor("horaPartida", {
         header: "Horapartida",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("auxiliar", {
         header: "Canal de venta",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("clienteNombre", {
         header: "Pasajero",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("clienteTelefono", {
         header: "Celular",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("notaUsuario", {
         header: "Counter",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("condicion", {
         header: "Condicion",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("formaPago", {
         header: "Forma de pago",
-        cell: (info) => info.getValue(),
       }),
+
       columnHelper.accessor("totalPagar", {
         header: "Total",
-        cell: (info) => info.getValue(),
         meta: { align: "right" },
       }),
+
       columnHelper.accessor("acuenta", {
         header: "Acuenta",
-        cell: (info) => info.getValue(),
         meta: { align: "right" },
       }),
+
       columnHelper.accessor("saldo", {
         header: "Saldo",
-        cell: (info) => info.getValue(),
         meta: { align: "right" },
       }),
+
       columnHelper.accessor("estado", {
         header: "Estado",
-        cell: (info) => info.getValue(),
       }),
-    ],
-    [columnHelper, navigate],
-  );
+    );
+
+    return cols;
+  }, [columnHelper, isPagoVerificado, navigate, sessionStore.user.areaId]);
+
   const productosPromiseRef = useRef<Promise<Producto[]> | null>(null);
 
   const ensureProductosLoaded = useCallback(async () => {
@@ -1524,7 +1580,7 @@ const LiquidacionesPage = () => {
   }, [productos, loadServicios, loadServiciosFromDB]);
 
   const reload = useCallback(
-    async (startDate?: string, endDate?: string) => {
+    async (startDate?: string, endDate?: string, esViaje?: boolean) => {
       if (!user) {
         setError("Usuario no autenticado");
         return;
@@ -1533,6 +1589,7 @@ const LiquidacionesPage = () => {
       const usuarioId = Number(user.id ?? 0);
       const rangeStart = startDate ?? pendingStartDateRef.current ?? todayValue;
       const rangeEnd = endDate ?? pendingEndDateRef.current ?? todayValue;
+      const useFechaViaje = esViaje ?? searchByFechaViaje;
       if (!areaId || !usuarioId) {
         setError("Falta área o usuario");
         return;
@@ -1546,6 +1603,7 @@ const LiquidacionesPage = () => {
           fechaFin: rangeEnd,
           areaId,
           usuarioId,
+          ...(useFechaViaje ? { esViaje: true } : {}),
         };
 
         const response = await fetchPedidosFecha(payload);
@@ -1561,7 +1619,7 @@ const LiquidacionesPage = () => {
         setLoading(false);
       }
     },
-    [todayValue, user],
+    [searchByFechaViaje, todayValue, user],
   );
 
   const handleRangeSearch = () => {
@@ -1615,6 +1673,15 @@ const LiquidacionesPage = () => {
             className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
           />
           Numero de pedido
+        </label>
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={searchByFechaViaje}
+            onChange={(e) => handleToggleSearchByFechaViaje(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+          />
+          Fecha viaje
         </label>
       </div>
 

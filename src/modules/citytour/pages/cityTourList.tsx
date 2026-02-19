@@ -396,7 +396,8 @@ const PackageList = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [confirmDeleteSelected]);
-
+  const sessionRaw = localStorage.getItem("picaflor.auth.session");
+  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   return (
     <div className="w-full">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
@@ -468,20 +469,21 @@ const PackageList = () => {
         md:ml-auto md:w-auto
       "
           >
-            <button
-              onClick={handleGuardarCambios}
-              className="
+            {session.user.areaId !== "9" && (
+              <button
+                onClick={handleGuardarCambios}
+                className="
           w-full sm:w-auto
-          px-5 py-2
-          rounded-lg
-          bg-blue-600 text-white
-          hover:bg-blue-700
-          transition
-        "
-            >
-              Guardar
-            </button>
-
+                px-5 py-2
+                rounded-lg
+                bg-blue-600 text-white
+                hover:bg-blue-700
+                transition
+              "
+              >
+                Guardar
+              </button>
+            )}
             <button
               onClick={() => loadPackages(date)}
               title="Refrescar"
