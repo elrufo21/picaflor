@@ -826,6 +826,15 @@ export function adaptViajeJsonToInvoice(
   });
 
   const detalle = viajeJson.detalle || {};
+  const hotelLabel =
+    viajeJson?.hotel && typeof viajeJson.hotel === "object"
+      ? String(viajeJson.hotel.label ?? viajeJson.hotel.value ?? "").trim()
+      : String(viajeJson?.hotel ?? "").trim();
+  const puntoPartidaRaw = String(viajeJson?.puntoPartida ?? "").trim();
+  const puntoPartidaPdf =
+    puntoPartidaRaw.toUpperCase() === "HOTEL"
+      ? hotelLabel || puntoPartidaRaw
+      : puntoPartidaRaw;
 
   const detalleRows = [
     { key: "tarifa", label: "Tarifa de Tour :" },
@@ -887,7 +896,7 @@ export function adaptViajeJsonToInvoice(
     actividades,
 
     detalleServicio: {
-      puntoPartida: viajeJson.puntoPartida,
+      puntoPartida: puntoPartidaPdf,
       horaPartida: viajeJson.horaPartida,
       otrosPuntos: "-",
       visitas: viajeJson.visitas,

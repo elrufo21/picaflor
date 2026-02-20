@@ -51,6 +51,7 @@ const CanalVentaDialogForm = ({
             onChange={(e) => {
               setPayload({ ...payload, label: e.target.value });
             }}
+            disableHistory
           />
         </div>
         <TextControlled<CanalVentaDialogValues>
@@ -63,6 +64,7 @@ const CanalVentaDialogForm = ({
           onChange={(e) => {
             setPayload({ ...payload, contacto: e.target.value });
           }}
+          disableHistory
         />
         <TextControlled<CanalVentaDialogValues>
           name="telefono"
@@ -74,6 +76,7 @@ const CanalVentaDialogForm = ({
           onChange={(e) => {
             setPayload({ ...payload, telefono: e.target.value });
           }}
+          disableHistory
         />
         <div className="md:col-span-2">
           <TextControlled<CanalVentaDialogValues>
@@ -87,6 +90,7 @@ const CanalVentaDialogForm = ({
             onChange={(e) => {
               setPayload({ ...payload, email: e.target.value });
             }}
+            disableHistory
           />
         </div>
       </div>
@@ -334,4 +338,3 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
 };
 
 export default CanalVentaComponent;
-

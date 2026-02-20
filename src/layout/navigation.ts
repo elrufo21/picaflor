@@ -5,6 +5,7 @@ import {
   Plane,
   Car,
   CalendarDays,
+  Briefcase,
 } from "lucide-react";
 
 export type NavigationItem = {
@@ -47,6 +48,13 @@ export const navigationItems: NavigationItem[] = [
     description: "Turismo local",
     end: true,
   },
+  /** {
+    label: "Paquete de Viaje",
+    to: "/paquete-viaje",
+    icon: Briefcase,
+    description: "Formulario de itinerario",
+    end: true,
+  }, */
 
   {
     label: "Mantenimiento",
