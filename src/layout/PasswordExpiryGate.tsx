@@ -159,6 +159,14 @@ const PasswordExpiryGate = () => {
       showCancel: false,
       disableClose: true,
       confirmLabel: "Actualizar clave",
+      dangerLabel: "Cerrar sesión",
+      onDanger: async () => {
+        submitForcedPasswordRef.current = null;
+        isDialogOpenedRef.current = false;
+        logout();
+        navigate("/login", { replace: true });
+        return true;
+      },
       onConfirm: async () => {
         const submitForcedPassword = submitForcedPasswordRef.current;
         if (typeof submitForcedPassword !== "function") {

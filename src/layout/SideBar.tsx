@@ -12,6 +12,7 @@ import {
 import { NavLink, useLocation } from "react-router";
 import { X } from "lucide-react";
 import { navigationItems } from "./navigation";
+import { useAuthStore } from "@/store/auth/auth.store";
 
 type SideBarProps = {
   open: boolean;
@@ -22,6 +23,10 @@ type SideBarProps = {
 
 const SideBar = ({ open, onClose, isDesktop, drawerWidth }: SideBarProps) => {
   const location = useLocation();
+  const areaId = String(useAuthStore((state) => state.user?.areaId ?? "") ?? "");
+  const visibleNavigationItems = navigationItems.filter(
+    (item) => !item.requiresAreaId || item.requiresAreaId === areaId,
+  );
 
   const content = (
     <Box
@@ -66,7 +71,7 @@ const SideBar = ({ open, onClose, isDesktop, drawerWidth }: SideBarProps) => {
       <Divider />
 
       <List sx={{ px: 1, py: 1, flex: 1 }}>
-        {navigationItems.map((item) => {
+        {visibleNavigationItems.map((item) => {
           const Icon = item.icon;
           const isActive =
             location.pathname === item.to ||

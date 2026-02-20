@@ -10,9 +10,10 @@ import HotelList from "./hotels/pages/hotelList";
 import PartidaList from "./partidas/pages/partidaList";
 import ProductList from "./products/pages/productList";
 import ActividadAdiList from "./actividadesAdi/pages/actividadList";
+import RequireMaintenanceAccess from "@/app/components/RequireMaintenanceAccess";
 
 // Por ahora dejamos solo usuarios y áreas activas en mantenimiento.
-export default [
+const maintenanceRoutes = [
   {
     path: "maintenance",
     element: <MaintenanceDashboard />,
@@ -256,3 +257,10 @@ export default [
     },
   },
 ];
+
+const guardedMaintenanceRoutes = maintenanceRoutes.map((route) => ({
+  ...route,
+  element: <RequireMaintenanceAccess>{route.element}</RequireMaintenanceAccess>,
+}));
+
+export default guardedMaintenanceRoutes;

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/config";
-import { parseCanalPayload } from "@/modules/fullday/hooks/canalUtils";
 
 export type SalesChannelDetail = {
   id: number;
@@ -19,7 +18,7 @@ export type SaveSalesChannelPayload = {
   email: string;
 };
 
-const SALES_CHANNEL_LIST_ENDPOINT = `${API_BASE_URL}/Programacion/traerCanalVentaDetalle`;
+const SALES_CHANNEL_LIST_ENDPOINT = `${API_BASE_URL}/Canal/list`;
 const SALES_CHANNEL_SAVE_ENDPOINT = `${API_BASE_URL}/Canal/guardar-auxiliar`;
 
 const parseRawPayload = (rawText: string): unknown => {
@@ -31,6 +30,85 @@ const parseRawPayload = (rawText: string): unknown => {
   } catch {
     return trimmed;
   }
+};
+
+const normalizeText = (value: unknown) => String(value ?? "").trim();
+
+const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] => {
+  if (!payload) return [];
+
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item, index) => {
+        const row = item as Record<string, unknown>;
+        const idCandidate =
+          row.idCanal ??
+          row.IdCanal ??
+          row.idAuxiliar ??
+          row.IdAuxiliar ??
+          row.id ??
+          row.Id;
+        const parsedId = Number(idCandidate);
+        const idCanal = Number.isFinite(parsedId) ? parsedId : 0;
+        const canalNombre = normalizeText(
+          row.canalNombre ?? row.CanalNombre ?? row.auxiliar ?? row.Auxiliar,
+        );
+
+        if (!canalNombre) return null;
+
+        return {
+          id: idCanal > 0 ? idCanal : index + 1,
+          idCanal,
+          canalNombre,
+          contacto: normalizeText(row.contacto ?? row.Contacto) || undefined,
+          telefono: normalizeText(row.telefono ?? row.Telefono) || undefined,
+          email: normalizeText(row.email ?? row.Email) || undefined,
+        } as SalesChannelDetail;
+      })
+      .filter((item): item is SalesChannelDetail => Boolean(item));
+  }
+
+  if (typeof payload === "object") {
+    const maybeData = (payload as { data?: unknown }).data;
+    if (maybeData !== undefined) {
+      return parseSalesChannelsListPayload(maybeData);
+    }
+    return [];
+  }
+
+  if (typeof payload !== "string") return [];
+
+  const normalizedRaw = payload.replace(/Â¬/g, "¬").trim();
+  if (!normalizedRaw || normalizedRaw === "~") return [];
+
+  const rows = normalizedRaw
+    .split("¬")
+    .map((row) => row.trim())
+    .filter((row) => Boolean(row) && row !== "~");
+
+  return rows
+    .map((row, index) => {
+      const parts = row.split("|");
+      const parsedId = Number(normalizeText(parts[0]));
+      const idCanal = Number.isFinite(parsedId) ? parsedId : 0;
+      const canalNombre = normalizeText(parts[1]);
+
+      if (!canalNombre) return null;
+
+      const contacto = normalizeText(parts[2]);
+      const telefono = normalizeText(parts[3]);
+      const email = normalizeText(parts[4]);
+
+      return {
+        id: idCanal > 0 ? idCanal : index + 1,
+        idCanal,
+        canalNombre,
+        contacto: contacto || undefined,
+        telefono: telefono || undefined,
+        email: email || undefined,
+      } as SalesChannelDetail;
+    })
+    .filter((item): item is SalesChannelDetail => Boolean(item));
 };
 
 const parseSavedCanalId = (rawResponse: string): number => {
@@ -62,31 +140,6 @@ const parseSavedCanalId = (rawResponse: string): number => {
   throw new Error("No se pudo interpretar el ID del canal guardado.");
 };
 
-const parseChannels = (payload: unknown): SalesChannelDetail[] => {
-  const mapped = parseCanalPayload(payload);
-
-  return mapped
-    .map((item, index) => {
-      const parsedId = Number(item.value);
-      const idCanal = Number.isFinite(parsedId) ? parsedId : 0;
-      const canalNombre = String(
-        item.auxiliar ?? item.label ?? item.value ?? "",
-      ).trim();
-
-      if (!canalNombre) return null;
-
-      return {
-        id: idCanal > 0 ? idCanal : index + 1,
-        idCanal,
-        canalNombre,
-        contacto: item.contacto,
-        telefono: item.telefono,
-        email: item.email,
-      } as SalesChannelDetail;
-    })
-    .filter((item): item is SalesChannelDetail => Boolean(item));
-};
-
 export const useSalesChannels = () => {
   const [channels, setChannels] = useState<SalesChannelDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -107,11 +160,7 @@ export const useSalesChannels = () => {
 
       const rawText = await response.text();
       const parsed = parseRawPayload(rawText);
-      const source =
-        parsed && typeof parsed === "object" && !Array.isArray(parsed)
-          ? ((parsed as { data?: unknown }).data ?? parsed)
-          : parsed;
-      const mapped = parseChannels(source);
+      const mapped = parseSalesChannelsListPayload(parsed);
 
       setChannels(mapped);
       setError(null);

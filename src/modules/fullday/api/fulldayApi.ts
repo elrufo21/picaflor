@@ -175,6 +175,7 @@ export async function fetchPedidosFecha(payload: {
   fechaFin: string;
   areaId: number | string;
   usuarioId: number | string;
+  esViaje?: boolean;
 }) {
   try {
     const response = await apiRequest<string>({

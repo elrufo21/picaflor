@@ -8,6 +8,7 @@ import fulldayRoutes from "../modules/fullday/router";
 import cashFlowRoutes from "../modules/cashFlow/routes";
 import citytourRoutes from "../modules/citytour/router";
 import maintenanceRoutes from "../modules/maintenance/routes";
+import travelPackageRoutes from "../modules/travelPackage/router";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
 import { PDFViewer } from "@react-pdf/renderer";
@@ -33,6 +34,7 @@ const router = createBrowserRouter([
       { path: "settings", element: <Settings /> },
       ...fulldayRoutes,
       ...citytourRoutes,
+      ...travelPackageRoutes,
       ...cashFlowRoutes,
       ...maintenanceRoutes,
       { path: "*", element: <Navigate to="/fullday" replace /> },

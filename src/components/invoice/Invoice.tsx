@@ -115,6 +115,7 @@ type BuildInvoiceFormValues = {
   counter?: string;
   condicion?: unknown;
   puntoPartida?: string;
+  hotel?: unknown;
   otrosPartidas?: string;
   horaPresentacion?: string;
   visitas?: string;
@@ -202,6 +203,16 @@ const resolvePartida = (value: unknown, partidas: OptionItem[] | undefined) => {
   if (!key) return "";
   if (key === "HOTEL" || key === "OTROS") return key;
   return resolveOptionLabel(partidas, key) || key;
+};
+
+const resolveHotelLabel = (value: unknown) => {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "object") {
+    const typed = value as { label?: string; value?: string };
+    return textValue(typed.label ?? typed.value);
+  }
+  return textValue(value);
 };
 
 const buildDocumentoNumero = (serie: unknown, numero: unknown) => {
@@ -303,6 +314,12 @@ export const buildInvoiceData = ({
       : subtotal + impuestos + cargos + extraSoles;
   const acuenta = toNumber(values.acuenta);
   const saldoValue = saldo !== undefined ? toNumber(saldo) : total - acuenta;
+  const resolvedPartida = resolvePartida(values.puntoPartida, partidas);
+  const resolvedHotel = resolveHotelLabel(values.hotel);
+  const puntoPartidaPdf =
+    resolvedPartida.toUpperCase() === "HOTEL"
+      ? resolvedHotel || resolvedPartida
+      : resolvedPartida;
 
   return {
     destino: textValue(values.destino) || textValue(pkg?.destino),
@@ -318,7 +335,7 @@ export const buildInvoiceData = ({
     pasajeroCant: toNumber(values.cantPax) || null,
     actividades: actividadesData,
     detalleServicio: {
-      puntoPartida: resolvePartida(values.puntoPartida, partidas),
+      puntoPartida: puntoPartidaPdf,
       horaPartida: textValue(values.horaPresentacion),
       otrosPuntos: textValue(values.otrosPartidas) || "",
       visitas: textValue(values.visitas),

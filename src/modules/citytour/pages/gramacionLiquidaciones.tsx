@@ -14,7 +14,7 @@ import {
 import type { Producto } from "@/app/db/serviciosDB";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
 import { useCanalVenta } from "../hooks/useCanalVenta";
-import { ChevronLeft } from "lucide-react";
+import { Check, ChevronLeft, X } from "lucide-react";
 
 type BackendDetalle = {
   detalleId: number; // ✅ faltaba
@@ -155,6 +155,8 @@ const LIQUIDACION_FIELDS = [
   { key: "hotel", label: "Hotel", sourceIndex: 49 },
   { key: "regionProducto", label: "RegionProducto", sourceIndex: 50 },
   { key: "regionNota", label: "RegionNota", sourceIndex: 51 },
+  { key: "flagServicio", label: "FlagServicio", sourceIndex: 52 },
+  { key: "flagVerificado", label: "FlagVerificado", sourceIndex: 53 },
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
@@ -211,6 +213,15 @@ const normalizeProductName = (value?: string) =>
   String(value ?? "")
     .trim()
     .toLowerCase();
+const resolveVerificadoFlag = (row: LiquidacionRow): "0" | "1" => {
+  const verificadoRaw = normalizeStringValue(row.flagVerificado).toLowerCase();
+  if (verificadoRaw === "1" || verificadoRaw === "true") return "1";
+  if (verificadoRaw === "0" || verificadoRaw === "false") return "0";
+
+  // Compatibilidad cuando el backend solo envía un flag al final.
+  const fallbackRaw = normalizeStringValue(row.flagServicio);
+  return fallbackRaw === "1" || fallbackRaw === "0" ? fallbackRaw : "0";
+};
 
 const buildLiquidacionFormData = (row: LiquidacionRow) => {
   const normalizedName = normalizeProductName(row.productoNombre);
@@ -464,6 +475,7 @@ const LiquidacionesPage = () => {
       clienteId: data.clienteId,
       _editMode: true,
       estado: data.estado,
+      flagVerificado: resolveVerificadoFlag(data),
     };
     const productId = resolveProductId(row);
     const targetId = productId || Number(row.notaId) || Number(row.id) || 0;
@@ -477,9 +489,30 @@ const LiquidacionesPage = () => {
   };
 
   const columnHelper = createColumnHelper<LiquidacionRow>();
+  const isPagoVerificado = useCallback(
+    (row: LiquidacionRow) => resolveVerificadoFlag(row) === "1",
+    [],
+  );
 
   const columns = useMemo(
     () => [
+      columnHelper.display({
+        id: "pVerificado",
+        size: 110,
+        header: "P.Verificado",
+        cell: ({ row }) =>
+          isPagoVerificado(row.original) ? (
+            <Check
+              className="mx-auto h-4 w-4 text-emerald-600"
+              aria-label="Verificado"
+            />
+          ) : (
+            <X
+              className="mx-auto h-4 w-4 text-slate-400"
+              aria-label="No verificado"
+            />
+          ),
+      }),
       columnHelper.display({
         id: "acciones",
         size: 80,
@@ -560,7 +593,7 @@ const LiquidacionesPage = () => {
         cell: (info) => info.getValue(),
       }),
     ],
-    [columnHelper, navigate],
+    [columnHelper, isPagoVerificado, navigate],
   );
 
   const reload = useCallback(

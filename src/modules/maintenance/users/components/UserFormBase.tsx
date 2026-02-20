@@ -348,7 +348,25 @@ export default function UserFormBase({
   return (
     <div ref={containerRef} className="h-auto  px-4 sm:px-6 lg:px-8">
       <div className="bg-white rounded-2xl  overflow-hidden">
-        <form onSubmit={handleFormSubmit} onKeyDown={handleEnterFocus}>
+        <form
+          onSubmit={handleFormSubmit}
+          onKeyDown={handleEnterFocus}
+          autoComplete="off"
+        >
+          <input
+            type="text"
+            name="fake_username"
+            autoComplete="username"
+            tabIndex={-1}
+            className="hidden"
+          />
+          <input
+            type="text"
+            name="fake_password"
+            autoComplete="off"
+            tabIndex={-1}
+            className="hidden"
+          />
           <div className="p-6 sm:p-8">
             <div
               className={`flex flex-col ${showUsersTable ? "md:flex-row" : ""} gap-6`}
@@ -380,15 +398,20 @@ export default function UserFormBase({
                     name="UsuarioAlias"
                     control={control}
                     label="Usuario / Alias"
+                    autoComplete="off"
                     disableAutoUppercase={true}
                     placeholder="ej: jramirez"
                     required
                     disabled={lockIdentityFields}
                     size="small"
+                    inputProps={{
+                      name: "usr_alias_new",
+                    }}
                     onChange={(e) => {
                       const value = e.target.value.replace(/\s+/g, "");
                       e.target.value = value;
                     }}
+                    disableHistory
                   />
                 </div>
 
@@ -397,12 +420,22 @@ export default function UserFormBase({
                     name="UsuarioClave"
                     control={control}
                     label="Contraseña"
-                    type={showPass ? "text" : "password"}
+                    type="text"
+                    autoComplete="off"
                     disableAutoUppercase
                     placeholder="Ingrese contraseña"
                     required
                     size="small"
+                    disableHistory
+                    inputProps={{
+                      name: "usr_pwd_new",
+                    }}
                     InputProps={{
+                      sx: {
+                        "& input": {
+                          WebkitTextSecurity: showPass ? "none" : "disc",
+                        },
+                      },
                       endAdornment: (
                         <InputAdornment position="end">
                           <IconButton
@@ -433,12 +466,22 @@ export default function UserFormBase({
                     name="ConfirmClave"
                     control={control}
                     label="Confirmar contraseña"
-                    type={showPassConfirm ? "text" : "password"}
+                    type="text"
+                    autoComplete="off"
                     disableAutoUppercase
                     placeholder="Repita la contraseña"
                     required
                     size="small"
+                    disableHistory
+                    inputProps={{
+                      name: "usr_pwd_new_confirm",
+                    }}
                     InputProps={{
+                      sx: {
+                        "& input": {
+                          WebkitTextSecurity: showPassConfirm ? "none" : "disc",
+                        },
+                      },
                       endAdornment: (
                         <InputAdornment position="end">
                           <IconButton

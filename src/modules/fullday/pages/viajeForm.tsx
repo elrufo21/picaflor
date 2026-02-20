@@ -14,12 +14,14 @@ import {
   Tabs,
 } from "@mui/material";
 import {
+  CheckCircle,
   ChevronLeft,
   FileText,
   Loader2,
   Lock,
   Plus,
   Printer,
+  RefreshCw,
   Save,
   Trash,
 } from "lucide-react";
@@ -33,6 +35,7 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import { usePackageStore } from "../store/fulldayStore";
 import axios from "axios";
 import { API_BASE_URL } from "@/config";
+import { useDialogStore } from "@/app/store/dialogStore";
 import type { InvoiceData } from "@/components/invoice/Invoice";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
@@ -61,6 +64,14 @@ function n(v: any) {
 
 function d(v: any) {
   return Number(v || 0).toFixed(2);
+}
+
+function normalizeFlagVerificado(value: unknown): "0" | "1" {
+  if (value === true || value === 1) return "1";
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return normalized === "1" || normalized === "true" ? "1" : "0";
 }
 
 function isActivityAllowedWithoutPrice(servicio: any) {
@@ -759,6 +770,15 @@ export function adaptViajeJsonToInvoice(
   });
 
   const detalle = viajeJson.detalle || {};
+  const hotelLabel =
+    viajeJson?.hotel && typeof viajeJson.hotel === "object"
+      ? String(viajeJson.hotel.label ?? viajeJson.hotel.value ?? "").trim()
+      : String(viajeJson?.hotel ?? "").trim();
+  const puntoPartidaRaw = String(viajeJson?.puntoPartida ?? "").trim();
+  const puntoPartidaPdf =
+    puntoPartidaRaw.toUpperCase() === "HOTEL"
+      ? hotelLabel || puntoPartidaRaw
+      : puntoPartidaRaw;
   const detalleRows = [
     { key: "tarifa", label: "Tarifa de Tour :" },
     { key: "act1", label: "Actividad 01 :" },
@@ -809,7 +829,7 @@ export function adaptViajeJsonToInvoice(
     actividades,
 
     detalleServicio: {
-      puntoPartida: viajeJson.puntoPartida,
+      puntoPartida: puntoPartidaPdf,
       horaPartida: viajeJson.horaPartida,
       otrosPuntos: "-",
       visitas: viajeJson.visitas,
@@ -861,6 +881,7 @@ export function parseDateForInput(
 
 const ViajeForm = () => {
   const { formData, setFormData, isEditing, setIsEditing } = usePackageStore();
+  const openDialog = useDialogStore((state) => state.openDialog);
   const location = useLocation();
   const incomingFormData = (location.state as { formData?: any })?.formData;
   //Precargar los valores en modo edicion
@@ -894,6 +915,7 @@ const ViajeForm = () => {
       fechaAdelanto: parseDateForInput(Date()),
       saldo: "0",
       medioPago: "",
+      flagVerificado: "0",
       transactions: [],
       detalle: {
         tarifa: { servicio: null, precio: 0, cant: 1, total: 0 },
@@ -917,6 +939,7 @@ const ViajeForm = () => {
         value: "PENDIENTE",
         label: "Pendiente",
       },
+      flagVerificado: normalizeFlagVerificado(formData.flagVerificado),
       transactions: formData.transactions ?? [],
 
       detalle: formData.detalle ?? {
@@ -934,6 +957,8 @@ const ViajeForm = () => {
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const { idProduct, liquidacionId } = useParams();
+  const canToggleVerificado =
+    Boolean(liquidacionId) && String(session?.user?.areaId ?? "") === "6";
   const { packages, date, loadPackages } = usePackageStore();
   useEffect(() => {
     if (!incomingFormData || formData) return;
@@ -946,6 +971,7 @@ const ViajeForm = () => {
   }, [formData, incomingFormData, liquidacionId, navigate]);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingVerificado, setIsUpdatingVerificado] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -991,6 +1017,8 @@ const ViajeForm = () => {
   const destino = watch("destino");
   const fechaViaje = watch("fechaViaje");
   const fechaEmision = watch("fechaEmision");
+  const flagVerificado = watch("flagVerificado");
+  const isVerificado = normalizeFlagVerificado(flagVerificado) === "1";
 
   const fieldsetDisabled = isSubmitting || isSaving || !isEditing;
   const saveButtonLabel = isSaving ? "Guardando..." : "Guardar";
@@ -1095,6 +1123,94 @@ const ViajeForm = () => {
 
   const handleNew = () => {
     navigate(`/fullday`);
+  };
+
+  const handleToggleVerificado = async () => {
+    if (String(session?.user?.areaId ?? "") !== "6") return;
+    if (!liquidacionId) return;
+
+    const notaId = Number(liquidacionId);
+    if (!Number.isFinite(notaId) || notaId <= 0) {
+      showToast({
+        title: "Verificación",
+        description: "No se pudo resolver el identificador de la liquidación.",
+        type: "error",
+      });
+      return;
+    }
+
+    const nextEstado = !isVerificado;
+
+    try {
+      setIsUpdatingVerificado(true);
+      const response = await axios.post(
+        `${API_BASE_URL}/Programacion/actualizar-verificado`,
+        {
+          notaId,
+          estado: nextEstado,
+          usuario: String(session?.user?.displayName ?? "").trim(),
+        },
+        {
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      const backendRejected =
+        response?.data === false || response?.data === "false";
+      if (backendRejected) {
+        showToast({
+          title: "Verificación",
+          description: "No se pudo actualizar el estado de verificación.",
+          type: "error",
+        });
+        return;
+      }
+
+      setValue("flagVerificado", nextEstado ? "1" : "0", {
+        shouldDirty: true,
+      });
+      showToast({
+        title: nextEstado ? "Confirmado" : "Revertido",
+        description: nextEstado
+          ? "La liquidación fue marcada como verificada."
+          : "La liquidación fue marcada como no verificada.",
+        type: "success",
+      });
+      navigate("/fullday/programacion/liquidaciones");
+    } catch (error) {
+      console.error("Error al actualizar verificado:", error);
+      showToast({
+        title: "Verificación",
+        description: "Ocurrió un error al actualizar el estado.",
+        type: "error",
+      });
+    } finally {
+      setIsUpdatingVerificado(false);
+    }
+  };
+  const handleConfirmToggleVerificado = () => {
+    if (!liquidacionId) return;
+
+    const nextEstado = !isVerificado;
+    openDialog({
+      title: nextEstado ? "Confirmar verificación" : "Revertir verificación",
+      size: "sm",
+      confirmLabel: nextEstado ? "Confirmar" : "Revertir",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        await handleToggleVerificado();
+      },
+      content: () => (
+        <p className="text-sm text-slate-700">
+          {nextEstado
+            ? "¿Deseas marcar esta liquidación como verificada?"
+            : "¿Deseas marcar esta liquidación como no verificada?"}
+        </p>
+      ),
+    });
   };
 
   const handlePrint = () => {
@@ -1387,10 +1503,55 @@ const ViajeForm = () => {
                   <span className="text-sm hidden sm:inline">Imprimir</span>
                 </button>
 
+                {canToggleVerificado && (
+                  <button
+                    type="button"
+                    onClick={handleConfirmToggleVerificado}
+                    disabled={isSaving || isUpdatingVerificado}
+                    className={`
+                      inline-flex items-center gap-1
+                      rounded-lg px-3 py-2
+                      ring-1 transition
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      ${
+                        isVerificado
+                          ? "bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100"
+                          : "bg-emerald-600 text-white ring-emerald-600/30 hover:bg-emerald-700"
+                      }
+                    `}
+                  >
+                    {isUpdatingVerificado ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isVerificado ? (
+                      <RefreshCw size={16} />
+                    ) : (
+                      <CheckCircle size={16} />
+                    )}
+                    <span className="text-sm hidden sm:inline">
+                      {isUpdatingVerificado
+                        ? "Procesando..."
+                        : isVerificado
+                          ? "Revertir"
+                          : "Confirmar"}
+                    </span>
+                  </button>
+                )}
+
                 {!isEditing && liquidacionId && (
                   <button
                     type="button"
-                    onClick={handleOpenBoleta}
+                    onClick={() => {
+                      if (watch("estado") === "ANULADO") {
+                        showToast({
+                          title: "Imprimir",
+                          description:
+                            "Esta liquidación está anulada, por favor modificar y volver a intentar.",
+                          type: "error",
+                        });
+                        return;
+                      }
+                      handleOpenBoleta();
+                    }}
                     className="
                     inline-flex items-center gap-1
                     rounded-lg bg-rose-600 px-3 py-2
