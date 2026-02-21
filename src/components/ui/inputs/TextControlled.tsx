@@ -72,15 +72,18 @@ function TextControlled<T extends FieldValues>({
       defaultValue={defaultValue}
       render={({ field, fieldState }) => {
         const { ref, onChange, value, ...fieldProps } = field;
+        const shouldDisableHistory = disableHistory ?? true;
         const inputType =
           typeof restProps.type === "string"
             ? restProps.type.toLowerCase()
             : "text";
-        const historyAutoCompleteValue = disableHistory
-          ? "new-password"
+        const historyAutoCompleteValue = shouldDisableHistory
+          ? "off"
           : restProps.autoComplete;
+        const inputAutoCompleteValue =
+          inputType === "password" ? "new-password" : "off";
         const lockPasswordHistory =
-          disableHistory && inputType === "password" && !historyUnlocked;
+          shouldDisableHistory && inputType === "password" && !historyUnlocked;
         const shouldUppercase = inputType === "text" && !disableAutoUppercase;
 
         const rawDisplayValue =
@@ -129,7 +132,11 @@ function TextControlled<T extends FieldValues>({
             inputRef={ref}
             autoComplete={historyAutoCompleteValue}
             onFocus={(event) => {
-              if (disableHistory && inputType === "password" && !historyUnlocked) {
+              if (
+                shouldDisableHistory &&
+                inputType === "password" &&
+                !historyUnlocked
+              ) {
                 setHistoryUnlocked(true);
               }
               restOnFocus?.(event);
@@ -158,10 +165,11 @@ function TextControlled<T extends FieldValues>({
               onKeyDown: handleKeyDown,
               readOnly: lockPasswordHistory || restInputProps?.readOnly,
 
-              ...(disableHistory && {
-                autoComplete: historyAutoCompleteValue,
+              ...(shouldDisableHistory && {
+                autoComplete: inputAutoCompleteValue,
                 autoCorrect: "off",
                 spellCheck: false,
+                autoCapitalize: "off",
                 "aria-autocomplete": "none",
                 "data-lpignore": "true",
                 "data-1p-ignore": "true",
