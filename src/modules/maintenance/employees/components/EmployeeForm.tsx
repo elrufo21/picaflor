@@ -452,7 +452,11 @@ export default function EmployeeForm({
   return (
     <div ref={formRef} className="py-8 px-4 sm:px-6 lg:px-8  ">
       <div className="relative max-w-8xl mx-auto bg-white rounded-2xl  overflow-hidden">
-        <form onSubmit={handleSubmit(submit)} onKeyDown={handleEnterFocus}>
+        <form
+          onSubmit={handleSubmit(submit)}
+          onKeyDown={handleEnterFocus}
+          autoComplete="off"
+        >
           {!hideHeaderActions && (
             <div className="bg-[#E8612A] text-white px-4 py-3 flex items-center justify-between">
               <h1 className="text-base font-semibold">
@@ -539,6 +543,9 @@ export default function EmployeeForm({
                   label="Nombres"
                   required
                   size="small"
+                  inputProps={{
+                    name: "emp_nombre_new",
+                  }}
                   disableHistory
                 />
 
@@ -548,6 +555,9 @@ export default function EmployeeForm({
                   label="Apellidos"
                   required
                   size="small"
+                  inputProps={{
+                    name: "emp_apellidos_new",
+                  }}
                   disableHistory
                 />
 
@@ -569,6 +579,9 @@ export default function EmployeeForm({
                   control={control}
                   label="Direccion"
                   size="small"
+                  inputProps={{
+                    name: "emp_direccion_new",
+                  }}
                   disableHistory
                 />
 

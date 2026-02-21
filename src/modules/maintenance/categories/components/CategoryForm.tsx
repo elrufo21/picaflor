@@ -183,6 +183,7 @@ export default function CategoryForm({
             required
             size="small"
             inputProps={{ "data-focus-first": "true" }}
+            disableHistory
           />
         </div>
 
@@ -193,6 +194,7 @@ export default function CategoryForm({
             label="Codigo SUNAT"
             placeholder="Ingrese codigo SUNAT"
             size="small"
+            disableHistory
           />
         </div>
       </div>

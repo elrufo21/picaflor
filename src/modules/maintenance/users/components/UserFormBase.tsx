@@ -119,7 +119,6 @@ export default function UserFormBase({
     handleSubmit,
     control,
     reset,
-    setValue,
     trigger,
     getValues,
     setError,
@@ -385,11 +384,13 @@ export default function UserFormBase({
                     isOptionEqualToValue={(opt, val) =>
                       String(opt.value) === String(val.value)
                     }
-                    onChange={(_, value) => setValue("PersonalId", value)}
+                    onValueChange={() => {
+                      setTimeout(() => setFocus("UsuarioAlias"), 0);
+                    }}
                     required
                     disabled={lockIdentityFields}
                     size="small"
-                    data-focus-next="input[name='UsuarioAlias']"
+                    data-focus-next="input[name='usr_alias_new']"
                   />
                 </div>
 

@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { useForm } from "react-hook-form";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -113,6 +113,11 @@ const parseCanalId = (value?: string) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const resolveSalesChannelId = (channel?: Partial<SalesChannelDetail>) => {
+  const parsed = Number(channel?.idCanal ?? channel?.id ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const buildPayload = (
   values: CanalVentaDialogValues,
   idAuxiliar: number,
@@ -125,8 +130,64 @@ const buildPayload = (
 });
 
 const SalesChannelPage = () => {
-  const { channels, isLoading, error, refresh, saveChannel } = useSalesChannels();
+  const { channels, isLoading, error, refresh, saveChannel, deleteChannel } =
+    useSalesChannels();
   const openDialog = useDialogStore((state) => state.openDialog);
+
+  const openDeleteSalesChannelDialog = useCallback(
+    (channel?: SalesChannelDetail) => {
+      const id = resolveSalesChannelId(channel);
+      if (!id) {
+        showToast({
+          title: "Atencion",
+          description: "No se pudo determinar el canal a eliminar.",
+          type: "warning",
+        });
+        return;
+      }
+
+      openDialog({
+        title: "Autorizacion de eliminacion",
+        description:
+          "Confirma la eliminacion del canal. Esta accion no se puede deshacer.",
+        size: "sm",
+        confirmLabel: "Autorizar y eliminar",
+        cancelLabel: "Cancelar",
+        content: () => (
+          <p className="text-sm text-slate-700">
+            ¿Deseas eliminar el canal{" "}
+            <span className="font-semibold">{channel?.canalNombre ?? "-"}</span>?
+          </p>
+        ),
+        onConfirm: async () => {
+          try {
+            await deleteChannel(id);
+            await refresh();
+            queueServiciosRefresh();
+            showToast({
+              title: "Exito",
+              description: "Canal eliminado correctamente.",
+              type: "success",
+            });
+            return true;
+          } catch (deleteError) {
+            const message =
+              deleteError instanceof Error
+                ? deleteError.message
+                : "No se pudo eliminar el canal de venta.";
+
+            showToast({
+              title: "Error",
+              description: message,
+              type: "error",
+            });
+            return false;
+          }
+        },
+      });
+    },
+    [deleteChannel, openDialog, refresh],
+  );
 
   const openSalesChannelModal = useCallback(
     (mode: "create" | "edit", channel?: SalesChannelDetail) => {
@@ -151,12 +212,20 @@ const SalesChannelPage = () => {
         },
         confirmLabel: "Guardar canal",
         cancelLabel: "Cancelar",
+        dangerLabel: mode === "edit" ? "Eliminar canal" : undefined,
         content: ({ payload, setPayload }) => (
           <CanalVentaDialogForm
             payload={payload as CanalVentaDialogPayload}
             setPayload={setPayload}
           />
         ),
+        onDanger:
+          mode === "edit"
+            ? async () => {
+                openDeleteSalesChannelDialog(channel);
+                return false;
+              }
+            : undefined,
         onConfirm: async (data) => {
           const label = String(data.label ?? "").trim();
           const contacto = String(data.contacto ?? "").trim();
@@ -234,7 +303,7 @@ const SalesChannelPage = () => {
         },
       });
     },
-    [openDialog, refresh, saveChannel],
+    [openDeleteSalesChannelDialog, openDialog, refresh, saveChannel],
   );
 
   const columns = useMemo(() => {
@@ -265,17 +334,31 @@ const SalesChannelPage = () => {
           <div className="flex items-center justify-center gap-2">
             <button
               type="button"
-              onClick={() => openSalesChannelModal("edit", row.original)}
+              onClick={(event) => {
+                event.stopPropagation();
+                openSalesChannelModal("edit", row.original);
+              }}
               className="text-blue-600 hover:text-blue-900"
               title="Editar"
             >
               <Pencil className="w-4 h-4" />
             </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                openDeleteSalesChannelDialog(row.original);
+              }}
+              className="text-red-600 hover:text-red-900"
+              title="Eliminar"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         ),
       }),
     ];
-  }, [openSalesChannelModal]);
+  }, [openDeleteSalesChannelDialog, openSalesChannelModal]);
 
   return (
     <MaintenancePageFrame
