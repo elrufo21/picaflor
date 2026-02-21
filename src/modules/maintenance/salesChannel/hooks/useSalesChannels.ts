@@ -20,6 +20,7 @@ export type SaveSalesChannelPayload = {
 
 const SALES_CHANNEL_LIST_ENDPOINT = `${API_BASE_URL}/Canal/list`;
 const SALES_CHANNEL_SAVE_ENDPOINT = `${API_BASE_URL}/Canal/guardar-auxiliar`;
+const SALES_CHANNEL_DELETE_ENDPOINT = `${API_BASE_URL}/Canal/auxiliar`;
 
 const parseRawPayload = (rawText: string): unknown => {
   const trimmed = String(rawText ?? "").trim();
@@ -140,6 +141,45 @@ const parseSavedCanalId = (rawResponse: string): number => {
   throw new Error("No se pudo interpretar el ID del canal guardado.");
 };
 
+const parseDeleteResponse = (rawResponse: string): boolean => {
+  const trimmed = String(rawResponse ?? "").trim();
+  if (!trimmed) return true;
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "true" || normalized === "ok") return true;
+  if (normalized === "false") return false;
+
+  const directNumber = Number(trimmed);
+  if (Number.isFinite(directNumber)) return directNumber > 0;
+
+  const parsed = parseRawPayload(trimmed);
+
+  if (typeof parsed === "boolean") return parsed;
+  if (typeof parsed === "number") return parsed > 0;
+  if (parsed && typeof parsed === "object") {
+    const blob = parsed as Record<string, unknown>;
+    const successCandidate =
+      blob.success ??
+      blob.Success ??
+      blob.result ??
+      blob.Result ??
+      blob.ok ??
+      blob.Ok;
+
+    if (typeof successCandidate === "boolean") return successCandidate;
+    if (typeof successCandidate === "number") return successCandidate > 0;
+    if (typeof successCandidate === "string") {
+      const normalizedSuccess = successCandidate.trim().toLowerCase();
+      if (normalizedSuccess === "true" || normalizedSuccess === "ok") return true;
+      if (normalizedSuccess === "false") return false;
+      const parsedSuccessNumber = Number(normalizedSuccess);
+      if (Number.isFinite(parsedSuccessNumber)) return parsedSuccessNumber > 0;
+    }
+  }
+
+  return false;
+};
+
 export const useSalesChannels = () => {
   const [channels, setChannels] = useState<SalesChannelDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -206,5 +246,34 @@ export const useSalesChannels = () => {
     return parseSavedCanalId(responseText);
   }, []);
 
-  return { channels, isLoading, error, refresh, saveChannel };
+  const deleteChannel = useCallback(async (idAuxiliar: number) => {
+    const id = Number(idAuxiliar);
+    if (!Number.isFinite(id) || id <= 0) {
+      throw new Error("ID de canal invalido para eliminar.");
+    }
+
+    const response = await fetch(`${SALES_CHANNEL_DELETE_ENDPOINT}/${id}`, {
+      method: "DELETE",
+      headers: {
+        accept: "text/plain, application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = (await response.text()).trim();
+      throw new Error(errorText || `HTTP ${response.status}`);
+    }
+
+    if (response.status === 204) return true;
+
+    const responseText = await response.text();
+    const success = parseDeleteResponse(responseText);
+    if (!success) {
+      throw new Error("No se pudo eliminar el canal de venta.");
+    }
+
+    return true;
+  }, []);
+
+  return { channels, isLoading, error, refresh, saveChannel, deleteChannel };
 };

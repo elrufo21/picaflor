@@ -68,6 +68,8 @@ type DndTableProps<TData extends Record<string, any>> = {
   searchColumns?: string[] | null;
   dateFilterComponent?: (() => ReactNode) | null;
   headerAction?: ReactNode;
+  paginationTopContent?: ReactNode;
+  paginationBottomContent?: ReactNode;
   rowColorRules?: RowColorRule<TData>[];
   enableCellNavigation?: boolean;
   paginationState?: PaginationState;
@@ -100,6 +102,8 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   searchColumns = null,
   dateFilterComponent = null,
   headerAction = null,
+  paginationTopContent = null,
+  paginationBottomContent = null,
   rowColorRules = [] as RowColorRule<TData>[],
   enableCellNavigation = false,
   paginationState,
@@ -396,9 +400,15 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
       </div>
 
       {/* Paginación */}
+      {paginationTopContent ? (
+        <div className="border-t border-slate-100">{paginationTopContent}</div>
+      ) : null}
       {enablePagination && (
         <TablePagination table={table} pageSizeOptions={pageSizeOptions} />
       )}
+      {paginationBottomContent ? (
+        <div className="border-t border-slate-100">{paginationBottomContent}</div>
+      ) : null}
     </div>
   );
 };

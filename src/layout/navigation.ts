@@ -18,6 +18,30 @@ export type NavigationItem = {
   requiresAreaId?: string;
 };
 
+export const filterNavigationItemsByArea = (
+  items: NavigationItem[],
+  areaId: string,
+): NavigationItem[] => {
+  const normalizedAreaId = String(areaId ?? "").trim();
+
+  return items
+    .filter(
+      (item) =>
+        !item.requiresAreaId || item.requiresAreaId === normalizedAreaId,
+    )
+    .map((item) =>
+      item.children?.length
+        ? {
+            ...item,
+            children: filterNavigationItemsByArea(
+              item.children,
+              normalizedAreaId,
+            ),
+          }
+        : item,
+    );
+};
+
 export const navigationItems: NavigationItem[] = [
   {
     label: "Full Day",

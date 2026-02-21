@@ -5,7 +5,11 @@ import {
   type PaginationState,
 } from "@tanstack/react-table";
 import { Autocomplete, TextField } from "@mui/material";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { Check, ChevronLeft, Search, X } from "lucide-react";
+import dayjs from "dayjs";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { API_BASE_URL } from "@/config";
@@ -141,6 +145,35 @@ const parseLegacyDate = (value?: string) => {
   const [, day, month, year] = match;
   return `${year}-${month}-${day}`;
 };
+
+const normalizeCurrencyForTotals = (value?: string) => {
+  const currency = normalizeStringValue(value).toUpperCase();
+  if (
+    currency === "DOL" ||
+    currency === "DOLAR" ||
+    currency === "DOLARES" ||
+    currency === "USD" ||
+    currency === "$"
+  ) {
+    return "DOLARES";
+  }
+  if (
+    currency === "SOL" ||
+    currency === "SOLES" ||
+    currency === "PEN" ||
+    currency === "S/" ||
+    currency === "S/."
+  ) {
+    return "SOLES";
+  }
+  return normalizeLegacyCurrencyToUi(currency);
+};
+
+const formatTotalsAmount = (value: number) =>
+  new Intl.NumberFormat("es-PE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 
 const LIQUIDACIONES_FILTERS_STORAGE_KEY =
   "fullday:programacion-liquidaciones:filters:v1";
@@ -787,6 +820,35 @@ const LiquidacionesPage = () => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
+  const lastReloadRangeRef = useRef<{ start: string; end: string } | null>(
+    null,
+  );
+  const endDateAcceptedRef = useRef(false);
+  const liquidacionTotals = useMemo(() => {
+    return rows.reduce(
+      (acc, row) => {
+        const currency = normalizeCurrencyForTotals(row.moneda);
+        const efectivo = parseMoneyValue(row.efectivo);
+        const depTarYa = parseMoneyValue(row.deposito);
+
+        if (currency === "DOLARES") {
+          acc.efectivoDolares += efectivo;
+          acc.depTarYaDolares += depTarYa;
+        } else if (currency === "SOLES") {
+          acc.efectivoSoles += efectivo;
+          acc.depTarYaSoles += depTarYa;
+        }
+
+        return acc;
+      },
+      {
+        efectivoDolares: 0,
+        depTarYaDolares: 0,
+        efectivoSoles: 0,
+        depTarYaSoles: 0,
+      },
+    );
+  }, [rows]);
   const normalizeCanalRecordToLabel = useCallback((canal: CanalRecordLike) => {
     if (typeof canal === "string") return normalizeStringValue(canal);
 
@@ -1498,7 +1560,9 @@ const LiquidacionesPage = () => {
       columnHelper.accessor("fechaRegistro", {
         header: "Registro",
       }),
-
+      columnHelper.accessor("cantidadPax", {
+        header: "Cant.Pax",
+      }),
       columnHelper.accessor("horaPartida", {
         header: "Horapartida",
       }),
@@ -1589,6 +1653,7 @@ const LiquidacionesPage = () => {
       const usuarioId = Number(user.id ?? 0);
       const rangeStart = startDate ?? pendingStartDateRef.current ?? todayValue;
       const rangeEnd = endDate ?? pendingEndDateRef.current ?? todayValue;
+      lastReloadRangeRef.current = { start: rangeStart, end: rangeEnd };
       const useFechaViaje = esViaje ?? searchByFechaViaje;
       if (!areaId || !usuarioId) {
         setError("Falta área o usuario");
@@ -1656,6 +1721,14 @@ const LiquidacionesPage = () => {
   }) => (
     <div className="w-full max-w-full space-y-2 sm:max-w-lg lg:max-w-xl">
       <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <ChevronLeft
+            className="cursor-pointer"
+            onClick={() => {
+              navigate("/fullday");
+            }}
+          />
+        </div>
         <label className="inline-flex items-center gap-2">
           <input
             type="checkbox"
@@ -1747,7 +1820,6 @@ const LiquidacionesPage = () => {
       )}
     </div>
   );
-
   const DateRangeFilter = () => (
     <div
       className="
@@ -1760,44 +1832,131 @@ const LiquidacionesPage = () => {
 
       <div className="flex flex-col text-xs text-slate-500">
         <span>Fecha Inicio</span>
-        <input
-          type="date"
-          value={pendingStartDate}
-          onChange={(e) => setPendingStartDate(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              endDateRef.current?.focus();
-            }
-          }}
-          className="
-      w-full sm:w-40 md:w-32
-      rounded-md border border-slate-200
-      bg-white/80 px-2 py-1
-      text-xs text-slate-700
-    "
-        />
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <DatePicker
+            format="DD/MM/YY"
+            value={pendingStartDate ? dayjs(pendingStartDate) : null}
+            onChange={(value) => {
+              const nextValue = value?.format("YYYY-MM-DD") ?? "";
+              setPendingStartDate(nextValue);
+            }}
+            onAccept={(value) => {
+              const nextValue = value?.format("YYYY-MM-DD") ?? "";
+              setPendingStartDate(nextValue);
+              setTimeout(() => {
+                endDateRef.current?.focus();
+              }, 0);
+            }}
+            slotProps={{
+              textField: {
+                size: "small",
+                inputProps: {
+                  className: "text-slate-700",
+                },
+                sx: {
+                  width: { xs: "100%", sm: 160, md: 128 },
+                  "& .MuiOutlinedInput-root": {
+                    height: "28px !important",
+                    minHeight: "28px !important",
+                    borderRadius: "0.375rem",
+                    backgroundColor: "rgba(255,255,255,0.8)",
+                    paddingRight: "2px",
+                  },
+                  "& .MuiOutlinedInput-input": {
+                    fontSize: "0.7rem",
+                    lineHeight: 1.1,
+                    padding: "4px 8px !important",
+                  },
+                  "& .MuiInputAdornment-root": {
+                    marginLeft: 0,
+                    marginRight: "1px",
+                  },
+                  "& .MuiIconButton-root": {
+                    padding: "2px",
+                  },
+                  "& .MuiSvgIcon-root": {
+                    fontSize: "0.85rem",
+                  },
+                },
+              },
+            }}
+          />
+        </LocalizationProvider>
       </div>
 
       <div className="flex flex-col text-xs text-slate-500">
         <span>Fecha Fin</span>
-        <input
-          ref={endDateRef}
-          type="date"
-          value={pendingEndDate}
-          onChange={(e) => {
-            const value = e.target.value;
-            setPendingEndDate(value);
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <DatePicker
+            format="DD/MM/YY"
+            value={pendingEndDate ? dayjs(pendingEndDate) : null}
+            onOpen={() => {
+              endDateAcceptedRef.current = false;
+            }}
+            onChange={(value) => {
+              const nextValue = value?.format("YYYY-MM-DD") ?? "";
+              setPendingEndDate(nextValue);
+            }}
+            onAccept={(value) => {
+              const nextValue = value?.format("YYYY-MM-DD") ?? "";
+              endDateAcceptedRef.current = true;
+              setPendingEndDate(nextValue);
+              reload(pendingStartDateRef.current, nextValue);
+            }}
+            onClose={() => {
+              if (endDateAcceptedRef.current) {
+                endDateAcceptedRef.current = false;
+                return;
+              }
 
-            reload(pendingStartDateRef.current, value);
-          }}
-          className="
-      w-full sm:w-40 md:w-32
-      rounded-md border border-slate-200
-      bg-white/80 px-2 py-1
-      text-xs text-slate-700
-    "
-        />
+              const currentStart = pendingStartDateRef.current ?? "";
+              const currentEnd = pendingEndDateRef.current ?? "";
+              const lastRange = lastReloadRangeRef.current;
+              const mustReload =
+                !lastRange ||
+                lastRange.start !== currentStart ||
+                lastRange.end !== currentEnd;
+
+              if (mustReload) {
+                reload(currentStart, currentEnd);
+              }
+            }}
+            slotProps={{
+              textField: {
+                size: "small",
+                inputRef: endDateRef,
+                inputProps: {
+                  className: "text-slate-700",
+                },
+                sx: {
+                  width: { xs: "100%", sm: 160, md: 128 },
+                  "& .MuiOutlinedInput-root": {
+                    height: "28px !important",
+                    minHeight: "28px !important",
+                    borderRadius: "0.375rem",
+                    backgroundColor: "rgba(255,255,255,0.8)",
+                    paddingRight: "2px",
+                  },
+                  "& .MuiOutlinedInput-input": {
+                    fontSize: "0.7rem",
+                    lineHeight: 1.1,
+                    padding: "4px 8px !important",
+                  },
+                  "& .MuiInputAdornment-root": {
+                    marginLeft: 0,
+                    marginRight: "1px",
+                  },
+                  "& .MuiIconButton-root": {
+                    padding: "2px",
+                  },
+                  "& .MuiSvgIcon-root": {
+                    fontSize: "0.85rem",
+                  },
+                },
+              },
+            }}
+          />
+        </LocalizationProvider>
       </div>
 
       <div className="flex flex-col text-xs text-slate-500">
@@ -1809,7 +1968,7 @@ const LiquidacionesPage = () => {
             setSelectedFlagServicio(value ? Number(value) : null);
           }}
           className="
-        w-full sm:w-40 md:w-32
+        w-full sm:w-40 md:w-32 h-[40px]
         rounded-md border border-slate-200
         bg-white/80 px-2 py-1
         text-xs text-slate-700
@@ -1832,7 +1991,7 @@ const LiquidacionesPage = () => {
             setSelectedCondicion(e.target.value as CondicionFilterValue)
           }
           className="
-        w-full sm:w-40 md:w-32
+        w-full sm:w-40 md:w-32 h-[40px]
         rounded-md border border-slate-200
         bg-white/80 px-2 py-1
         text-xs text-slate-700
@@ -1881,15 +2040,6 @@ const LiquidacionesPage = () => {
   );
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <ChevronLeft
-          className="cursor-pointer"
-          onClick={() => {
-            navigate("/fullday");
-          }}
-        />
-      </div>
-
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
@@ -1920,6 +2070,74 @@ const LiquidacionesPage = () => {
         dateFilterComponent={DateRangeFilter}
         enableRowSelection={false}
         enableCellNavigation={true}
+        paginationBottomContent={
+          <div className="px-4 sm:px-6 py-3 bg-slate-50/60">
+            <div className="overflow-x-auto">
+              <table className="ml-auto min-w-[680px] text-right text-xs sm:text-sm">
+                <tbody>
+                  <tr className="border-b border-slate-200">
+                    <td className="px-4 py-2 align-top">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Dolares - Efectivo
+                      </div>
+                      <div className="font-medium text-slate-800">
+                        {formatTotalsAmount(liquidacionTotals.efectivoDolares)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 align-top border-l border-slate-200">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Dolares - Dep/Tar/Yape
+                      </div>
+                      <div className="font-medium text-slate-800">
+                        {formatTotalsAmount(liquidacionTotals.depTarYaDolares)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 align-top border-l border-slate-200">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Dolares - Total
+                      </div>
+                      <div className="font-semibold text-slate-900">
+                        {formatTotalsAmount(
+                          liquidacionTotals.efectivoDolares +
+                            liquidacionTotals.depTarYaDolares,
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 align-top">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Soles - Efectivo
+                      </div>
+                      <div className="font-medium text-slate-800">
+                        {formatTotalsAmount(liquidacionTotals.efectivoSoles)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 align-top border-l border-slate-200">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Soles - Dep/Tar/Yape
+                      </div>
+                      <div className="font-medium text-slate-800">
+                        {formatTotalsAmount(liquidacionTotals.depTarYaSoles)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 align-top border-l border-slate-200">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Soles - Total
+                      </div>
+                      <div className="font-semibold text-slate-900">
+                        {formatTotalsAmount(
+                          liquidacionTotals.efectivoSoles +
+                            liquidacionTotals.depTarYaSoles,
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
         rowColorRules={[
           {
             when: (row) =>

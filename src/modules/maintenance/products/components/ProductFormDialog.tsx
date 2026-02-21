@@ -88,7 +88,7 @@ export default function ProductFormDialog({
     defaultValues: defaults,
   });
 
-  const { control, reset, setValue, getValues } = form;
+  const { control, reset, setValue } = form;
   const [codeEditable, setCodeEditable] = useState(
     Boolean(initialData?.codigo),
   );
@@ -136,8 +136,6 @@ export default function ProductFormDialog({
     return [{ value: "", label: "Selecciona una región" }, ...mapped];
   }, [regions, defaults.region]);
 
-  const toggleCodeEditing = () => setCodeEditable((prev) => !prev);
-
   useEffect(() => {
     if (initialData?.codigo) {
       return;
@@ -165,6 +163,7 @@ export default function ProductFormDialog({
           options={categoryOptions}
           helperText={loadingSublineas ? "Cargando categorías..." : undefined}
           disabled={loadingSublineas && categoryOptions.length <= 1}
+          autoAdvance
         />
 
         <SelectControlled
@@ -176,6 +175,8 @@ export default function ProductFormDialog({
           options={regionOptions}
           helperText={loadingRegions ? "Cargando regiones..." : undefined}
           disabled={loadingRegions && !regionOptions.length}
+          autoAdvance
+          data-focus-next="input[name='descripcion']"
         />
       </div>
 

@@ -77,9 +77,7 @@ function TextControlled<T extends FieldValues>({
             ? restProps.type.toLowerCase()
             : "text";
         const historyAutoCompleteValue = disableHistory
-          ? inputType === "password"
-            ? "new-password"
-            : "off"
+          ? "new-password"
           : restProps.autoComplete;
         const lockPasswordHistory =
           disableHistory && inputType === "password" && !historyUnlocked;

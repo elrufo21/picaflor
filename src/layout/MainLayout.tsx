@@ -5,7 +5,11 @@ import BreadCrumb from "./BreadCrumb";
 import { useLayoutStore } from "../app/store/layoutStore";
 import Dialog from "../components/ui/Dialog";
 import PasswordExpiryGate from "./PasswordExpiryGate";
-import { navigationItems } from "./navigation";
+import {
+  filterNavigationItemsByArea,
+  navigationItems,
+  type NavigationItem,
+} from "./navigation";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { ButtonBase, ListItemIcon, Menu, MenuItem } from "@mui/material";
 
@@ -53,6 +57,7 @@ const MainLayout = () => {
   }, [isDesktop, setSidebarOpen]);
 
   const normalizedNavFilter = navFilter.trim().toLowerCase();
+  const userAreaId = String(user?.areaId ?? user?.area ?? "").trim();
 
   const clearPersistedFiltersForRoute = (targetPath: string) => {
     if (typeof window === "undefined") return;
@@ -87,15 +92,34 @@ const MainLayout = () => {
     }
   };
 
-  const filteredNavigationItems = navigationItems.filter((item) => {
-    if (!normalizedNavFilter) return true;
-    const label = item.label.toLowerCase();
-    const description = item.description?.toLowerCase() ?? "";
-    return (
-      label.includes(normalizedNavFilter) ||
-      description.includes(normalizedNavFilter)
-    );
-  });
+  const filteredNavigationItems = filterNavigationItemsByArea(
+    navigationItems,
+    userAreaId,
+  )
+    .map((item): NavigationItem | null => {
+      if (!normalizedNavFilter) return item;
+      const label = item.label.toLowerCase();
+      const description = item.description?.toLowerCase() ?? "";
+      const children = (item.children ?? []).filter((child) => {
+        const childLabel = child.label.toLowerCase();
+        const childDescription = child.description?.toLowerCase() ?? "";
+        return (
+          childLabel.includes(normalizedNavFilter) ||
+          childDescription.includes(normalizedNavFilter)
+        );
+      });
+
+      if (
+        label.includes(normalizedNavFilter) ||
+        description.includes(normalizedNavFilter) ||
+        children.length
+      ) {
+        return { ...item, children };
+      }
+
+      return null;
+    })
+    .filter((item): item is NavigationItem => Boolean(item));
 
   const desktopNav = (
     <aside

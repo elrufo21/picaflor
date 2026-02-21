@@ -126,6 +126,7 @@ const styles = StyleSheet.create({
     borderRight: "1px solid #000",
     justifyContent: "center",
     padding: 6,
+    textAlign: "center",
   },
 
   colDescripcion: {
@@ -167,7 +168,6 @@ const styles = StyleSheet.create({
   footerContainer: {
     flexDirection: "row",
     paddingVertical: 14,
-    paddingHorizontal: 14,
     marginTop: 8,
     alignItems: "flex-start",
   },
@@ -454,57 +454,113 @@ export const InvoiceDocument = ({ data }: { data: any }) => {
           </View>
 
           {/* RIGHT (TOTALES) */}
-          <View style={styles.rightFooter}>
-            {/* TOTAL EN CAJA */}
-
-            <View style={[styles.totalRow, { border: "0.8px solid #000" }]}>
-              <View
-                style={[styles.totalLabelCol, { backgroundColor: "#EDEDED" }]}
+          <View
+            style={{
+              width: 220,
+              borderColor: "#000",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "stretch",
+                borderTopWidth: 0.8,
+                borderRightWidth: 0.8,
+                borderLeftWidth: 0.8,
+              }}
+            >
+              <Text
+                style={{
+                  width: "49%",
+                  paddingTop: 4,
+                  paddingBottom: 4,
+                  paddingLeft: 6,
+                  paddingRight: 6,
+                  fontSize: 9,
+                  backgroundColor: "#EDEDED",
+                  borderRightWidth: 0.8,
+                  borderRightColor: "#000",
+                  textAlign: "right",
+                }}
               >
-                <Text style={styles.bold}>TOTAL:</Text>
-              </View>
+                Total: S/
+              </Text>
 
-              <View
-                style={[
-                  styles.totalCurrencyCol,
-                  { backgroundColor: "#EDEDED" },
-                ]}
+              <Text
+                style={{
+                  width: "45%",
+                  paddingTop: 4,
+                  paddingBottom: 4,
+                  paddingLeft: 6,
+                  paddingRight: 6,
+                  fontSize: 9,
+                  textAlign: "right",
+                  fontWeight: 700,
+                }}
               >
-                <Text>{moneda}</Text>
-              </View>
-
-              <View style={styles.totalValueCol}>
-                <Text>{formatCurrency(data.totalGeneral)}</Text>
-              </View>
-            </View>
-            {/* A CUENTA */}
-            <View style={styles.totalRow}>
-              <View style={styles.totalLabelCol}>
-                <Text style={styles.bold}>A CUENTA:</Text>
-              </View>
-
-              <View style={styles.totalCurrencyCol}>
-                <Text>{moneda}</Text>
-              </View>
-
-              <View style={styles.totalValueCol}>
-                <Text>{formatCurrency(data.acuenta)}</Text>
-              </View>
+                {formatCurrency(data.totalGeneral)}
+              </Text>
             </View>
 
-            {/* SALDO */}
-            <View style={styles.totalRow}>
-              <View style={styles.totalLabelCol}>
-                <Text style={styles.bold}>Saldo:</Text>
-              </View>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "stretch",
+                borderTopWidth: 0.8,
+              }}
+            >
+              <Text
+                style={{
+                  width: "49%",
+                  padding: 6,
+                  fontSize: 9,
+                  textAlign: "right",
+                }}
+              >
+                A cuenta: S/
+              </Text>
 
-              <View style={styles.totalCurrencyCol}>
-                <Text>{moneda}</Text>
-              </View>
+              <Text
+                style={{
+                  width: "45%",
+                  padding: 6,
+                  fontSize: 9,
+                  textAlign: "right",
+                  fontWeight: 700,
+                }}
+              >
+                {formatCurrency(data.acuenta)}
+              </Text>
+            </View>
 
-              <View style={styles.totalValueCol}>
-                <Text>{formatCurrency(data.saldo)}</Text>
-              </View>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "stretch",
+              }}
+            >
+              <Text
+                style={{
+                  width: "49%",
+                  padding: 6,
+                  fontSize: 9,
+                  textAlign: "right",
+                }}
+              >
+                Saldo: S/
+              </Text>
+
+              <Text
+                style={{
+                  width: "45%",
+                  padding: 6,
+                  fontSize: 9,
+                  textAlign: "right",
+                  fontWeight: 700,
+                }}
+              >
+                {formatCurrency(data.saldo)}
+              </Text>
             </View>
           </View>
         </View>

@@ -90,6 +90,7 @@ export default function HotelFormDialog({
           options={regionOptions}
           helperText={isLoading ? "Cargando regiones..." : undefined}
           disabled={isLoading && !regionOptions.length}
+          data-focus-next="input[name='hotel']"
         />
       </div>
       <TextControlled
@@ -99,7 +100,10 @@ export default function HotelFormDialog({
         placeholder="Ingrese nombre del hotel"
         size="small"
         required
-        inputProps={{ "data-focus-first": "true" }}
+        inputProps={{
+          "data-focus-first": "true",
+          "data-focus-next": "input[name='horaIngreso']",
+        }}
         transform={(v) => v.toUpperCase()}
         disableHistory
       />
@@ -109,12 +113,14 @@ export default function HotelFormDialog({
           control={control}
           label="Hora de ingreso"
           size="small"
+          focusNextSelector="input[name='horaSalida']"
         />
         <TimePickerControlled
           name="horaSalida"
           control={control}
           label="Hora de salida"
           size="small"
+          focusNextSelector="textarea[name='direccion']"
         />
       </div>
       <TextControlled
