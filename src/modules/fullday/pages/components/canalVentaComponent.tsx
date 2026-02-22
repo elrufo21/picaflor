@@ -98,8 +98,14 @@ const CanalVentaDialogForm = ({
   );
 };
 
-const CanalVentaComponent = ({ control, setValue, watch }) => {
+const CanalVentaComponent = ({
+  control,
+  setValue,
+  watch,
+  isEditMode = false,
+}) => {
   const { isEditing } = usePackageStore();
+  const canEditFechaViaje = isEditing && isEditMode;
   const { openDialog } = useDialogStore();
   const { canalVentaList, addCanalToList, saveCanalVenta } = useCanalVenta();
 
@@ -294,44 +300,63 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
           }}
           size="small"
         />
-        <AutocompleteControlled
-          id="condicion"
-          name="condicion"
-          control={control}
-          label="Condición"
-          onValueChange={(e) => {
-            if (e?.value === "ACUENTA" || e?.value === "CREDITO") {
-              setValue("acuenta", 0);
-              setValue("deposito", 0);
-              setValue("efectivo", 0);
+        <div className="grid grid-cols-2 gap-2">
+          <AutocompleteControlled
+            id="condicion"
+            name="condicion"
+            control={control}
+            label="Condición"
+            onValueChange={(e) => {
+              if (e?.value === "ACUENTA" || e?.value === "CREDITO") {
+                setValue("acuenta", 0);
+                setValue("deposito", 0);
+                setValue("efectivo", 0);
+              }
+              if (e?.value === "CANCELADO") {
+                setValue("acuenta", watch("precioTotal"));
+                setValue("medioPago", "");
+                setValue("entidadBancaria", "-");
+                setValue("nroOperacion", "");
+              }
+              if (e?.value === "ACUENTA") {
+                setValue("medioPago", "");
+                setValue("medioPago", "");
+                setValue("entidadBancaria", "-");
+                setValue("nroOperacion", "");
+              }
+              if (e?.value === "CREDITO") {
+                setValue("medioPago", "");
+                setValue("entidadBancaria", "-");
+                setValue("nroOperacion", "");
+              }
+            }}
+            options={estadoPagoOptions}
+            getOptionLabel={(option: any) => option.label}
+            isOptionEqualToValue={(option: any, value: any) =>
+              option.value === value.value
             }
-            if (e?.value === "CANCELADO") {
-              setValue("acuenta", watch("precioTotal"));
-              setValue("medioPago", "");
-              setValue("entidadBancaria", "-");
-              setValue("nroOperacion", "");
+            data-focus-next={
+              canEditFechaViaje
+                ? 'input[name="fechaViaje"]'
+                : 'input[name="nombreCompleto"]'
             }
-            if (e?.value === "ACUENTA") {
-              setValue("medioPago", "");
-              setValue("medioPago", "");
-              setValue("entidadBancaria", "-");
-              setValue("nroOperacion", "");
-            }
-            if (e?.value === "CREDITO") {
-              setValue("medioPago", "");
-              setValue("entidadBancaria", "-");
-              setValue("nroOperacion", "");
-            }
-          }}
-          options={estadoPagoOptions}
-          getOptionLabel={(option: any) => option.label}
-          isOptionEqualToValue={(option: any, value: any) =>
-            option.value === value.value
-          }
-          data-focus-next='input[name="nombreCompleto"]'
-          required
-          size="small"
-        />
+            required
+            size="small"
+          />
+          <TextControlled
+            id="fechaViaje"
+            name="fechaViaje"
+            control={control}
+            label="Fecha de viaje"
+            type="date"
+            size="small"
+            disabled={!canEditFechaViaje}
+            InputLabelProps={{ shrink: true }}
+            inputProps={{
+              "data-focus-next": 'input[name="nombreCompleto"]',
+            }}
+          />
+        </div>
       </div>
     </div>
   );

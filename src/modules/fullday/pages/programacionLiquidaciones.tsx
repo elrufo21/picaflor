@@ -1,3 +1,5 @@
+import * as XLSX from "xlsx-js-style";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import {
@@ -8,7 +10,7 @@ import { Autocomplete, TextField } from "@mui/material";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { Check, ChevronLeft, Search, X } from "lucide-react";
+import { Check, ChevronLeft, FileSpreadsheet, Search, X } from "lucide-react";
 import dayjs from "dayjs";
 
 import DndTable from "@/components/dataTabla/DndTable";
@@ -25,6 +27,7 @@ import {
 import type { Producto } from "@/app/db/serviciosDB";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
 import { useCanalVenta } from "../hooks/useCanalVenta";
+import { showToast } from "@/components/ui/AppToast";
 
 type BackendDetalle = {
   detalleId: number;
@@ -1512,7 +1515,7 @@ const LiquidacionesPage = () => {
         columnHelper.display({
           id: "pVerificado",
           size: 110,
-          header: "P.Verificado",
+          header: "Verificado",
           cell: ({ row }) =>
             isPagoVerificado(row.original) ? (
               <Check
@@ -1560,11 +1563,10 @@ const LiquidacionesPage = () => {
       columnHelper.accessor("fechaRegistro", {
         header: "Registro",
       }),
-      columnHelper.accessor("cantidadPax", {
-        header: "Cant.Pax",
-      }),
+
       columnHelper.accessor("horaPartida", {
         header: "Horapartida",
+        meta: { align: "center" },
       }),
 
       columnHelper.accessor("auxiliar", {
@@ -1585,6 +1587,10 @@ const LiquidacionesPage = () => {
 
       columnHelper.accessor("condicion", {
         header: "Condicion",
+      }),
+      columnHelper.accessor("cantidadPax", {
+        meta: { align: "center" },
+        header: "Cant.Pax",
       }),
 
       columnHelper.accessor("formaPago", {
@@ -1820,221 +1826,417 @@ const LiquidacionesPage = () => {
       )}
     </div>
   );
-  const DateRangeFilter = () => (
-    <div
-      className="
-                w-full flex flex-col gap-3
-                sm:flex-row sm:flex-wrap sm:items-end sm:gap-3
-                lg:gap-4
-              "
-    >
-      <div className="text-sm font-semibold text-slate-900">Buscar por</div>
+  const handleExcelExport = () => {
+    const exportableRows = rows.filter((row) => row.notaId !== "~");
+    if (exportableRows.length === 0) {
+      showToast({
+        title: "No hay datos",
+        description: "No hay datos para exportar.",
+        type: "error",
+      });
+      return;
+    }
 
-      <div className="flex flex-col text-xs text-slate-500">
-        <span>Fecha Inicio</span>
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DatePicker
-            format="DD/MM/YY"
-            value={pendingStartDate ? dayjs(pendingStartDate) : null}
-            onChange={(value) => {
-              const nextValue = value?.format("YYYY-MM-DD") ?? "";
-              setPendingStartDate(nextValue);
-            }}
-            onAccept={(value) => {
-              const nextValue = value?.format("YYYY-MM-DD") ?? "";
-              setPendingStartDate(nextValue);
-              setTimeout(() => {
-                endDateRef.current?.focus();
-              }, 0);
-            }}
-            slotProps={{
-              textField: {
-                size: "small",
-                inputProps: {
-                  className: "text-slate-700",
-                },
-                sx: {
-                  width: { xs: "100%", sm: 160, md: 128 },
-                  "& .MuiOutlinedInput-root": {
-                    height: "28px !important",
-                    minHeight: "28px !important",
-                    borderRadius: "0.375rem",
-                    backgroundColor: "rgba(255,255,255,0.8)",
-                    paddingRight: "2px",
-                  },
-                  "& .MuiOutlinedInput-input": {
-                    fontSize: "0.7rem",
-                    lineHeight: 1.1,
-                    padding: "4px 8px !important",
-                  },
-                  "& .MuiInputAdornment-root": {
-                    marginLeft: 0,
-                    marginRight: "1px",
-                  },
-                  "& .MuiIconButton-root": {
-                    padding: "2px",
-                  },
-                  "& .MuiSvgIcon-root": {
-                    fontSize: "0.85rem",
-                  },
-                },
-              },
-            }}
-          />
-        </LocalizationProvider>
-      </div>
+    type ExportColumn = {
+      key: string;
+      label: string;
+      width?: number;
+      numeric?: boolean;
+      money?: boolean;
+      align?: "center" | "right";
+      getValue: (row: LiquidacionRow) => unknown;
+    };
 
-      <div className="flex flex-col text-xs text-slate-500">
-        <span>Fecha Fin</span>
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DatePicker
-            format="DD/MM/YY"
-            value={pendingEndDate ? dayjs(pendingEndDate) : null}
-            onOpen={() => {
-              endDateAcceptedRef.current = false;
-            }}
-            onChange={(value) => {
-              const nextValue = value?.format("YYYY-MM-DD") ?? "";
-              setPendingEndDate(nextValue);
-            }}
-            onAccept={(value) => {
-              const nextValue = value?.format("YYYY-MM-DD") ?? "";
-              endDateAcceptedRef.current = true;
-              setPendingEndDate(nextValue);
-              reload(pendingStartDateRef.current, nextValue);
-            }}
-            onClose={() => {
-              if (endDateAcceptedRef.current) {
-                endDateAcceptedRef.current = false;
-                return;
-              }
+    const exportColumns: ExportColumn[] = [];
+    if (sessionStore?.user?.areaId === "6") {
+      exportColumns.push({
+        key: "pVerificado",
+        label: "Verificado",
+        width: 14,
+        align: "center",
+        getValue: (row) => (isPagoVerificado(row) ? "SI" : "NO"),
+      });
+    }
 
-              const currentStart = pendingStartDateRef.current ?? "";
-              const currentEnd = pendingEndDateRef.current ?? "";
-              const lastRange = lastReloadRangeRef.current;
-              const mustReload =
-                !lastRange ||
-                lastRange.start !== currentStart ||
-                lastRange.end !== currentEnd;
+    exportColumns.push(
+      {
+        key: "notaId",
+        label: "Numero",
+        width: 12,
+        align: "right",
+        getValue: (row) => row.notaId,
+      },
+      {
+        key: "productoNombre",
+        label: "Tours",
+        width: 28,
+        getValue: (row) => row.productoNombre,
+      },
+      {
+        key: "fechaViaje",
+        label: "FechaViaje",
+        width: 14,
+        getValue: (row) => row.fechaViaje,
+      },
+      {
+        key: "fechaRegistro",
+        label: "Registro",
+        width: 14,
+        getValue: (row) => row.fechaRegistro,
+      },
+      {
+        key: "horaPartida",
+        label: "Horapartida",
+        width: 12,
+        align: "center",
+        getValue: (row) => row.horaPartida,
+      },
+      {
+        key: "auxiliar",
+        label: "Canal de venta",
+        width: 22,
+        getValue: (row) => row.auxiliar,
+      },
+      {
+        key: "clienteNombre",
+        label: "Pasajero",
+        width: 28,
+        getValue: (row) => row.clienteNombre,
+      },
+      {
+        key: "clienteTelefono",
+        label: "Celular",
+        width: 14,
+        getValue: (row) => row.clienteTelefono,
+      },
+      {
+        key: "notaUsuario",
+        label: "Counter",
+        width: 18,
+        getValue: (row) => row.notaUsuario,
+      },
+      {
+        key: "condicion",
+        label: "Condicion",
+        width: 14,
+        getValue: (row) => row.condicion,
+      },
+      {
+        key: "cantidadPax",
+        label: "Cant.Pax",
+        width: 10,
+        numeric: true,
+        align: "center",
+        getValue: (row) => row.cantidadPax,
+      },
+      {
+        key: "moneda",
+        label: "Moneda",
+        width: 12,
+        getValue: (row) => row.moneda,
+      },
+      {
+        key: "formaPago",
+        label: "Forma de pago",
+        width: 18,
+        getValue: (row) => row.formaPago,
+      },
+      {
+        key: "nroOperacion",
+        label: "NumeroOperacion",
+        width: 18,
+        getValue: (row) => row.nroOperacion,
+      },
+      {
+        key: "totalPagar",
+        label: "Total",
+        width: 12,
+        numeric: true,
+        money: true,
+        align: "right",
+        getValue: (row) => row.totalPagar,
+      },
+      {
+        key: "acuenta",
+        label: "Acuenta",
+        width: 12,
+        numeric: true,
+        money: true,
+        align: "right",
+        getValue: (row) => row.acuenta,
+      },
+      {
+        key: "saldo",
+        label: "Saldo",
+        width: 12,
+        numeric: true,
+        money: true,
+        align: "right",
+        getValue: (row) => row.saldo,
+      },
+      {
+        key: "efectivo",
+        label: "Efectivo",
+        width: 12,
+        numeric: true,
+        money: true,
+        align: "right",
+        getValue: (row) => row.efectivo,
+      },
+      {
+        key: "deposito",
+        label: "Deposito",
+        width: 12,
+        numeric: true,
+        money: true,
+        align: "right",
+        getValue: (row) => row.deposito,
+      },
+      {
+        key: "estado",
+        label: "Estado",
+        width: 14,
+        getValue: (row) => row.estado,
+      },
+    );
 
-              if (mustReload) {
-                reload(currentStart, currentEnd);
-              }
-            }}
-            slotProps={{
-              textField: {
-                size: "small",
-                inputRef: endDateRef,
-                inputProps: {
-                  className: "text-slate-700",
-                },
-                sx: {
-                  width: { xs: "100%", sm: 160, md: 128 },
-                  "& .MuiOutlinedInput-root": {
-                    height: "28px !important",
-                    minHeight: "28px !important",
-                    borderRadius: "0.375rem",
-                    backgroundColor: "rgba(255,255,255,0.8)",
-                    paddingRight: "2px",
-                  },
-                  "& .MuiOutlinedInput-input": {
-                    fontSize: "0.7rem",
-                    lineHeight: 1.1,
-                    padding: "4px 8px !important",
-                  },
-                  "& .MuiInputAdornment-root": {
-                    marginLeft: 0,
-                    marginRight: "1px",
-                  },
-                  "& .MuiIconButton-root": {
-                    padding: "2px",
-                  },
-                  "& .MuiSvgIcon-root": {
-                    fontSize: "0.85rem",
-                  },
-                },
-              },
-            }}
-          />
-        </LocalizationProvider>
-      </div>
+    const data = exportableRows.map((row) => {
+      const rowData: Record<string, string | number> = {};
+      exportColumns.forEach((column) => {
+        const rawValue = column.getValue(row);
+        if (column.numeric) {
+          rowData[column.label] = parseMoneyValue(
+            normalizeStringValue(String(rawValue ?? "")),
+          );
+        } else {
+          rowData[column.label] = toPlainText(rawValue);
+        }
+      });
+      return rowData;
+    });
 
-      <div className="flex flex-col text-xs text-slate-500">
-        <span>Servicio</span>
-        <select
-          value={selectedFlagServicio ?? ""}
-          onChange={(e) => {
-            const value = e.target.value;
-            setSelectedFlagServicio(value ? Number(value) : null);
-          }}
-          className="
-        w-full sm:w-40 md:w-32 h-[40px]
-        rounded-md border border-slate-200
-        bg-white/80 px-2 py-1
-        text-xs text-slate-700
-      "
-        >
-          <option value="">Todas</option>
-          {FLAG_SERVICIO_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
+    const ws = XLSX.utils.json_to_sheet(data, {
+      origin: "A2",
+      skipHeader: true,
+    });
 
-      <div className="flex flex-col text-xs text-slate-500">
-        <span>Condicion</span>
-        <select
-          value={selectedCondicion}
-          onChange={(e) =>
-            setSelectedCondicion(e.target.value as CondicionFilterValue)
+    exportColumns.forEach((column, index) => {
+      const ref = XLSX.utils.encode_cell({ r: 0, c: index });
+      ws[ref] = {
+        t: "s",
+        v: column.label,
+        s: {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          alignment: {
+            horizontal: "center",
+            vertical: "center",
+            wrapText: true,
+          },
+          fill: { fgColor: { rgb: "3377FF" } },
+          border: {
+            top: { style: "thin", color: { rgb: "475569" } },
+            bottom: { style: "thin", color: { rgb: "475569" } },
+            left: { style: "thin", color: { rgb: "475569" } },
+            right: { style: "thin", color: { rgb: "475569" } },
+          },
+        },
+      };
+    });
+
+    const centerAlignedCols = exportColumns
+      .map((column, index) => (column.align === "center" ? index : null))
+      .filter((index) => index !== null) as number[];
+    const rightAlignedCols = exportColumns
+      .map((column, index) => (column.align === "right" ? index : null))
+      .filter((index) => index !== null) as number[];
+    const numericCols = exportColumns
+      .map((column, index) => (column.numeric ? index : null))
+      .filter((index) => index !== null) as number[];
+    const moneyCols = exportColumns
+      .map((column, index) => (column.money ? index : null))
+      .filter((index) => index !== null) as number[];
+
+    const lastCol = XLSX.utils.encode_col(exportColumns.length - 1);
+    const lastRow = data.length + 1;
+
+    ws["!autofilter"] = {
+      ref: `A1:${lastCol}${lastRow}`,
+    };
+
+    ws["!cols"] = exportColumns.map((column) => ({
+      wch: column.width ?? 18,
+    }));
+
+    const range = XLSX.utils.decode_range(ws["!ref"] ?? `A1:${lastCol}1`);
+    for (let r = 1; r <= range.e.r; r++) {
+      const isEven = (r - 1) % 2 === 0;
+
+      for (let c = 0; c <= range.e.c; c++) {
+        const ref = XLSX.utils.encode_cell({ r, c });
+        if (!ws[ref]) continue;
+
+        if (numericCols.includes(c)) {
+          ws[ref].t = "n";
+          ws[ref].v = Number(ws[ref].v) || 0;
+          if (moneyCols.includes(c)) {
+            ws[ref].z = "0.00";
           }
-          className="
-        w-full sm:w-40 md:w-32 h-[40px]
-        rounded-md border border-slate-200
-        bg-white/80 px-2 py-1
-        text-xs text-slate-700
-      "
-        >
-          {CONDICION_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
+        }
 
-      {/* ACCIONES */}
-      <div
-        className="
-      flex w-full gap-3
-      sm:w-auto sm:gap-4 sm:items-center
-    "
-      >
-        <button
-          type="button"
-          onClick={handleRangeSearch}
-          disabled={loading}
-          className="
-        text-sm font-semibold text-slate-700
-        underline-offset-2 hover:underline
-        disabled:opacity-60
-      "
-        >
-          Buscar
-        </button>
+        ws[ref].s = {
+          ...(ws[ref].s || {}),
+          alignment: centerAlignedCols.includes(c)
+            ? { horizontal: "center", vertical: "center" }
+            : rightAlignedCols.includes(c)
+              ? { horizontal: "right", vertical: "center" }
+              : { horizontal: "left", vertical: "center" },
+          fill: {
+            fgColor: { rgb: isEven ? "F8FAFC" : "FFFFFF" },
+          },
+          border: {
+            top: { style: "thin", color: { rgb: "E5E7EB" } },
+            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+            left: { style: "thin", color: { rgb: "E5E7EB" } },
+            right: { style: "thin", color: { rgb: "E5E7EB" } },
+          },
+        };
+      }
+    }
 
-        <button
-          type="button"
-          onClick={handleListAll}
-          className="
-        text-sm font-semibold text-slate-500
-        underline-offset-2 hover:underline
-      "
-        >
-          Listar todo
-        </button>
+    ws["!freeze"] = { ySplit: 1 };
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Liquidaciones");
+
+    const fileStart = pendingStartDateRef.current || todayValue;
+    const fileEnd = pendingEndDateRef.current || todayValue;
+    const fileDatePart =
+      fileStart === fileEnd ? fileStart : `${fileStart}_a_${fileEnd}`;
+
+    XLSX.writeFile(wb, `liquidaciones-${fileDatePart}.xlsx`);
+  };
+
+  const DateRangeFilter = () => (
+    <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
+        {/* FECHA INICIO */}
+        <div className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="font-medium text-slate-600">Fecha Inicio</label>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              format="DD/MM/YY"
+              value={pendingStartDate ? dayjs(pendingStartDate) : null}
+              onChange={(value) => {
+                const nextValue = value?.format("YYYY-MM-DD") ?? "";
+                setPendingStartDate(nextValue);
+              }}
+              slotProps={{
+                textField: {
+                  size: "small",
+                  sx: {
+                    width: { xs: "100%", sm: 170 },
+                    "& .MuiOutlinedInput-root": {
+                      height: 40,
+                      borderRadius: "0.5rem",
+                      backgroundColor: "#f8fafc",
+                    },
+                  },
+                },
+              }}
+            />
+          </LocalizationProvider>
+        </div>
+
+        {/* FECHA FIN */}
+        <div className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="font-medium text-slate-600">Fecha Fin</label>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              format="DD/MM/YY"
+              value={pendingEndDate ? dayjs(pendingEndDate) : null}
+              onChange={(value) => {
+                const nextValue = value?.format("YYYY-MM-DD") ?? "";
+                setPendingEndDate(nextValue);
+              }}
+              slotProps={{
+                textField: {
+                  size: "small",
+                  sx: {
+                    width: { xs: "100%", sm: 170 },
+                    "& .MuiOutlinedInput-root": {
+                      height: 40,
+                      borderRadius: "0.5rem",
+                      backgroundColor: "#f8fafc",
+                    },
+                  },
+                },
+              }}
+            />
+          </LocalizationProvider>
+        </div>
+
+        {/* SERVICIO */}
+        <div className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="font-medium text-slate-600">Servicio</label>
+          <select
+            value={selectedFlagServicio ?? ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedFlagServicio(value ? Number(value) : null);
+            }}
+            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+          >
+            <option value="">Todas</option>
+            {FLAG_SERVICIO_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* CONDICIÓN */}
+        <div className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="font-medium text-slate-600">Condición</label>
+          <select
+            value={selectedCondicion}
+            onChange={(e) =>
+              setSelectedCondicion(e.target.value as CondicionFilterValue)
+            }
+            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+          >
+            {CONDICION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* BOTONES */}
+        <div className="flex gap-3 lg:ml-auto">
+          {/* BUSCAR */}
+          <button
+            type="button"
+            onClick={handleRangeSearch}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800 disabled:opacity-60 transition"
+          >
+            <Search size={16} />
+            Buscar
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              handleExcelExport();
+            }}
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 transition"
+          >
+            <FileSpreadsheet size={16} />
+            Excel
+          </button>
+        </div>
       </div>
     </div>
   );

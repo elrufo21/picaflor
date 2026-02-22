@@ -1109,9 +1109,8 @@ const ViajeForm = () => {
     setIsSaving(true);
 
     try {
-      const fechaViajeValue = liquidacionId
-        ? data.fechaViaje
-        : parseFecha(data.fechaViaje);
+      const fechaViajeValue =
+        toISODate(data.fechaViaje) || parseFecha(data.fechaViaje);
 
       const payload = {
         ...data,
@@ -1702,6 +1701,7 @@ const ViajeForm = () => {
                         control={control}
                         setValue={setValue}
                         watch={watch}
+                        isEditMode={Boolean(liquidacionId)}
                       />
                       <Divider />
                       <PaxDetailComponent

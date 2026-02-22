@@ -27,7 +27,7 @@ type ListadoField = {
 };
 
 const BASE_LISTADO_FIELDS: ListadoField[] = [
-  { key: "hora", label: "Hora", sourceIndex: 0 },
+  { key: "hora", label: "Hora", sourceIndex: 0, meta: { align: "center" } },
   { key: "lq", label: "LQ", sourceIndex: 1 },
   { key: "nombreApellidos", label: "NombreApellidos", sourceIndex: 3 },
   { key: "celular", label: "Celular", sourceIndex: 4 },
@@ -323,7 +323,7 @@ const FulldayListado = () => {
       };
     });
 
-    const centeredKeys = NUMERIC_KEYS;
+    const centeredKeys = [...NUMERIC_KEYS, "hora"];
 
     const centeredCols = listadoFields
       .map((f, i) => (centeredKeys.includes(f.key) ? i : null))
