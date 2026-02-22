@@ -2154,9 +2154,36 @@ const LiquidacionesPage = () => {
             <DatePicker
               format="DD/MM/YY"
               value={pendingEndDate ? dayjs(pendingEndDate) : null}
+              onOpen={() => {
+                endDateAcceptedRef.current = false;
+              }}
               onChange={(value) => {
                 const nextValue = value?.format("YYYY-MM-DD") ?? "";
                 setPendingEndDate(nextValue);
+              }}
+              onAccept={(value) => {
+                const nextValue = value?.format("YYYY-MM-DD") ?? "";
+                endDateAcceptedRef.current = true;
+                setPendingEndDate(nextValue);
+                reload(pendingStartDateRef.current, nextValue);
+              }}
+              onClose={() => {
+                if (endDateAcceptedRef.current) {
+                  endDateAcceptedRef.current = false;
+                  return;
+                }
+
+                const currentStart = pendingStartDateRef.current ?? "";
+                const currentEnd = pendingEndDateRef.current ?? "";
+                const lastRange = lastReloadRangeRef.current;
+                const mustReload =
+                  !lastRange ||
+                  lastRange.start !== currentStart ||
+                  lastRange.end !== currentEnd;
+
+                if (mustReload) {
+                  reload(currentStart, currentEnd);
+                }
               }}
               slotProps={{
                 textField: {
