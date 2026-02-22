@@ -38,16 +38,6 @@ const router = createBrowserRouter([
       ...cashFlowRoutes,
       ...maintenanceRoutes,
       { path: "*", element: <Navigate to="/fullday" replace /> },
-      {
-        path: "test",
-        element: (
-          <div className="w-full h-full">
-            <PDFViewer style={{ width: "100%", height: "500px" }}>
-              <InvoiceDocument />
-            </PDFViewer>
-          </div>
-        ),
-      },
     ],
   },
 ]);

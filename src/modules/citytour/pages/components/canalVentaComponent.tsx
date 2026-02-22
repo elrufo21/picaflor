@@ -8,8 +8,14 @@ import { showToast } from "@/components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { usePackageStore } from "../../store/cityTourStore";
 
-const CanalVentaComponent = ({ control, setValue, watch }) => {
+const CanalVentaComponent = ({
+  control,
+  setValue,
+  watch,
+  isEditMode = false,
+}) => {
   const { isEditing } = usePackageStore();
+  const canEditFechaViaje = isEditing && isEditMode;
   const { openDialog } = useDialogStore();
   const { canalVentaList, addCanalToList } = useCanalVenta();
   const handleAddCanalVenta = () => {
@@ -232,7 +238,7 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <div className="col-span-2">
           <AutocompleteControlled
-            onValueChange={(value, { setNextFocus }) => {
+            onValueChange={(value) => {
               handleCanalDeVentaChange(value);
 
               setTimeout(() => {
@@ -293,6 +299,7 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
           }}
           size="small"
         />
+        <div className="grid grid-cols-2 gap-2">
         <AutocompleteControlled
           id="condicion"
           name="condicion"
@@ -327,10 +334,28 @@ const CanalVentaComponent = ({ control, setValue, watch }) => {
           isOptionEqualToValue={(option: any, value: any) =>
             option.value === value.value
           }
-          data-focus-next='input[name="nombreCompleto"]'
+          data-focus-next={
+            canEditFechaViaje
+              ? 'input[name="fechaViaje"]'
+              : 'input[name="nombreCompleto"]'
+          }
           required
           size="small"
         />
+        <TextControlled
+          id="fechaViaje"
+          name="fechaViaje"
+          control={control}
+          label="Fecha de viaje"
+          type="date"
+          size="small"
+          disabled={!canEditFechaViaje}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{
+            "data-focus-next": 'input[name="nombreCompleto"]',
+          }}
+        />
+        </div>
       </div>
     </div>
   );
