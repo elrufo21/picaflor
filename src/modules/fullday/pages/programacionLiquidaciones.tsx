@@ -925,6 +925,8 @@ const LiquidacionesPage = () => {
     if (checked) {
       setSearchMode("numero");
       stopCanalSearch();
+      setSearchByFechaViaje(false);
+      reload(pendingStartDateRef.current, pendingEndDateRef.current, false);
       return;
     }
     setSearchMode("none");

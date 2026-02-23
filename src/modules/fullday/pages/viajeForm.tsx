@@ -10,8 +10,6 @@ import {
   DialogContentText,
   DialogTitle,
   Divider,
-  Tab,
-  Tabs,
 } from "@mui/material";
 import {
   CheckCircle,
@@ -30,7 +28,6 @@ import CanalVentaComponent from "./components/canalVentaComponent";
 import PaxDetailComponent from "./components/paxDetailComponent";
 import ViajeDetalleComponent from "./components/viajeDetalleComponent";
 import PaimentDetailComponent from "./components/paimentDetailComponent";
-import TransactionManager from "./components/TransactionManager";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { usePackageStore } from "../store/fulldayStore";
 import axios from "axios";
@@ -1502,7 +1499,7 @@ const ViajeForm = () => {
                   <span className="text-sm hidden sm:inline">Imprimir</span>
                 </button>
 
-                {canToggleVerificado && (
+                {liquidacionId && !isEditing && (
                   <button
                     type="button"
                     onClick={handleConfirmToggleVerificado}
