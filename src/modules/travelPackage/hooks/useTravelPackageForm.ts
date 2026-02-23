@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import { useState, useCallback } from "react";
 import type {
+  HotelServicioRow,
   ItineraryDayRow,
   ItineraryEventRow,
   PassengerRow,
@@ -12,6 +13,7 @@ import {
   createEmptyPassenger,
   createEmptyEvent,
   createEmptyItineraryDay,
+  createEmptyHotelServicio,
 } from "../constants/travelPackage.constants";
 
 export const useTravelPackageForm = () => {
@@ -67,6 +69,10 @@ export const useTravelPackageForm = () => {
          }
       }
 
+      if (key === "incluyeHotel" && !value) {
+        newState.hotelesContratados = [];
+      }
+
       return newState;
     });
   };
@@ -102,6 +108,37 @@ export const useTravelPackageForm = () => {
       ...prev,
       pasajeros: prev.pasajeros.map((p) =>
         p.id === id ? { ...p, [field]: value } : p,
+      ),
+    }));
+  };
+
+  // ─── Servicios contratados (Hoteles) ───────────────────────────────────────
+
+  const addHotelServicio = () => {
+    setForm((prev) => ({
+      ...prev,
+      hotelesContratados: [...prev.hotelesContratados, createEmptyHotelServicio()],
+    }));
+  };
+
+  const removeHotelServicio = (id: number) => {
+    setForm((prev) => ({
+      ...prev,
+      hotelesContratados: prev.hotelesContratados.filter((h) => h.id !== id),
+    }));
+  };
+
+  const updateHotelServicioField = <
+    K extends keyof Omit<HotelServicioRow, "id">
+  >(
+    id: number,
+    field: K,
+    value: HotelServicioRow[K],
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      hotelesContratados: prev.hotelesContratados.map((h) =>
+        h.id === id ? { ...h, [field]: value } : h,
       ),
     }));
   };
@@ -194,6 +231,9 @@ export const useTravelPackageForm = () => {
     addPassenger,
     removePassenger,
     updatePassengerField,
+    addHotelServicio,
+    removeHotelServicio,
+    updateHotelServicioField,
     addItineraryDay,
     removeItineraryDay,
     updateItineraryDayField,

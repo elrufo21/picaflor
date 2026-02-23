@@ -36,7 +36,10 @@ const ItinerarySection = ({
     onAddEvent,
     onRemoveEvent,
     onUpdateEventField,
-}: Props) => (
+}: Props) => {
+    void onAddDay;
+    void onRemoveDay;
+    return (
     <SectionCard
         icon={Route}
         title="5. Itinerario Por Fecha"
@@ -46,9 +49,6 @@ const ItinerarySection = ({
             {itinerario.map((day, dayIndex) => {
                 // Format date: "10 dic"
                 const dateObj = dayjs(day.fecha);
-                const dateLabel = dateObj.isValid()
-                    ? dateObj.format("DD MMM").toLowerCase()
-                    : `Día ${dayIndex + 1}`;
 
                 return (
                     <div
@@ -56,9 +56,9 @@ const ItinerarySection = ({
                         className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all hover:border-emerald-200 hover:bg-white hover:shadow-sm"
                     >
                         {/* Header Row: Date & Product Selector */}
-                        <div className="flex flex-col md:flex-row gap-4 mb-4">
+                        <div className="grid grid-cols-1 xl:grid-cols-[88px_1fr_1fr] gap-4 mb-4">
                             {/* Date Badge */}
-                            <div className="flex items-center justify-center md:justify-start">
+                            <div className="flex items-center justify-center xl:justify-start">
                                 <div className="flex flex-col items-center justify-center rounded-lg bg-emerald-100/50 border border-emerald-200 p-2 min-w-[80px]">
                                     <span className="text-2xl font-bold text-emerald-700 leading-none">
                                         {dateObj.isValid() ? dateObj.format("DD") : dayIndex + 1}
@@ -70,7 +70,7 @@ const ItinerarySection = ({
                             </div>
 
                             {/* Product Selector (formerly Title) */}
-                            <div className="flex-1">
+                            <div className="w-full">
                                 <Autocomplete
                                     freeSolo
                                     options={PRODUCT_OPTIONS}
@@ -96,7 +96,7 @@ const ItinerarySection = ({
                             </div>
 
                             {/* Hotel Fields (Per Day) */}
-                            <div className="flex flex-1 gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-[1fr_160px_130px] gap-2 w-full">
                                 <TextField
                                     label="Hotel"
                                     value={day.hotel}
@@ -110,7 +110,6 @@ const ItinerarySection = ({
                                     value={day.tipoHabitacion}
                                     onChange={(e) => onUpdateDayField(day.id, "tipoHabitacion", e.target.value)}
                                     size="small"
-                                    className="w-32"
                                     sx={{ backgroundColor: 'white' }}
                                 />
                                 <TextField
@@ -118,7 +117,6 @@ const ItinerarySection = ({
                                     value={day.alimentacion}
                                     onChange={(e) => onUpdateDayField(day.id, "alimentacion", e.target.value)}
                                     size="small"
-                                    className="w-24"
                                     sx={{ backgroundColor: 'white' }}
                                 />
                             </div>
@@ -130,7 +128,7 @@ const ItinerarySection = ({
                 I will keep them for now but maybe collapsed or less prominent.
             */}
                         <div className="pl-0 md:pl-[100px] space-y-3">
-                            {day.eventos.map((event, eventIndex) => (
+                            {day.eventos.map((event) => (
                                 <div key={event.id} className="flex flex-wrap gap-2 items-center bg-white p-2 rounded border border-slate-100">
                                     <TextField
                                         select
@@ -202,6 +200,7 @@ const ItinerarySection = ({
         </div>
     */}
     </SectionCard>
-);
+    );
+};
 
 export default ItinerarySection;

@@ -14,7 +14,7 @@ const SectionCard = ({
     description,
     children,
 }: SectionCardProps) => (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+    <section className="p-4 lg:p-5">
         <header className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-100">
             <div className="flex items-center justify-center h-8 w-8 rounded-full bg-slate-50 border border-slate-100">
                 <Icon className="h-4 w-4 text-emerald-600" />

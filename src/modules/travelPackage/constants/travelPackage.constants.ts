@@ -1,4 +1,5 @@
 import type {
+  HotelServicioRow,
   ItineraryDayRow,
   ItineraryEventRow,
   PassengerRow,
@@ -27,6 +28,20 @@ export const AGENCIA_OPTIONS: SelectOption[] = [
 ];
 
 export const MOVILIDAD_OPTIONS = ["BUS", "AEREO", "CRUCERO"];
+export const HOTEL_INCLUSION_OPTIONS = [
+  { value: "SI", label: "Incluye hotel" },
+  { value: "NO", label: "No incluye hotel" },
+];
+export const ALIMENTACION_BOOL_OPTIONS = [
+  { value: "SI", label: "Incluye" },
+  { value: "NO", label: "No incluye" },
+];
+
+export const CONDICION_PAGO_OPTIONS = [
+  { value: "CANCELADO", label: "Cancelado" },
+  { value: "ACUENTA", label: "A Cuenta" },
+  { value: "CREDITO", label: "Credito" },
+];
 
 export const HABITACION_OPTIONS = [
   "Simple",
@@ -94,8 +109,9 @@ export const getSessionDisplayName = (): string => {
 export const createPassengerRow = (id: number): PassengerRow => ({
   id,
   nombres: "",
-  documento: "",
+  pasaporte: "",
   nacionalidad: "",
+  telefono: "",
   fechaNacimiento: "",
 });
 
@@ -122,12 +138,24 @@ export const createItineraryDayRow = (
   eventos: [createEventRow(eventId)],
 });
 
+export const createHotelServicioRow = (id: number): HotelServicioRow => ({
+  id,
+  region: "",
+  hotel: "",
+  habitaciones: [],
+  entrada: "",
+  salida: "",
+  incluyeAlimentacion: false,
+});
+
 // ─── Helper aliases for Hook ──────────────────────────────────────────────────
 
 export const createEmptyPassenger = () => createPassengerRow(Date.now() + Math.random());
 export const createEmptyEvent = () => createEventRow(Date.now() + Math.random());
 export const createEmptyItineraryDay = () => 
   createItineraryDayRow(Date.now() + Math.random(), Date.now() + Math.random() + 1);
+export const createEmptyHotelServicio = () =>
+  createHotelServicioRow(Date.now() + Math.random());
 
 // ─── Initial State ────────────────────────────────────────────────────────────
 
@@ -142,8 +170,11 @@ export const INITIAL_FORM_STATE: TravelPackageFormState = {
   contacto: "",
   telefono: "",
   email: "",
+  condicionPago: "CANCELADO",
   movilidadTipo: "",
   movilidadEmpresa: "",
+  incluyeHotel: false,
+  hotelesContratados: [],
   pasajeros: [createEmptyPassenger()],
   itinerario: [],
   idioma: "Espanol",
@@ -151,4 +182,5 @@ export const INITIAL_FORM_STATE: TravelPackageFormState = {
   noIncluye: "",
   impuestosAdicionales: "",
   observaciones: "",
+  cantPax: "",
 };

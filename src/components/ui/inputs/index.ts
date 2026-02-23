@@ -3,3 +3,7 @@ export { default as AutocompleteControlled } from "./AutocompleteControlled";
 export { default as DateInput } from "./DateInput";
 export { default as SelectControlled } from "./SelectControlled";
 export { default as RadioGroupControlled } from "./RadioGroupControlled";
+export { default as AutocompleteTable } from "./AutocompleteTable";
+export { default as TableTextInput } from "./TableTextInput";
+export { default as RoomQuantitySelector } from "./RoomQuantitySelector";
+export { default as TableTimePicker } from "./TableTimePicker";

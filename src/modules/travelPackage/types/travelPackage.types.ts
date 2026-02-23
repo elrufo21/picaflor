@@ -6,8 +6,9 @@ export type SelectOption = {
 export type PassengerRow = {
   id: number;
   nombres: string;
-  documento: string;
+  pasaporte: string;
   nacionalidad: string;
+  telefono: string;
   fechaNacimiento: string;
 };
 
@@ -32,6 +33,21 @@ export type ItineraryDayRow = {
   eventos: ItineraryEventRow[];
 };
 
+export type HotelRoomSelection = {
+  tipo: string;
+  cantidad: number;
+};
+
+export type HotelServicioRow = {
+  id: number;
+  region: string;
+  hotel: string;
+  habitaciones: HotelRoomSelection[];
+  entrada: string;
+  salida: string;
+  incluyeAlimentacion: boolean;
+};
+
 export type TravelPackageFormState = {
   fechaEmision: string;
   destinos: string[];
@@ -43,8 +59,11 @@ export type TravelPackageFormState = {
   contacto: string;
   telefono: string;
   email: string;
+  condicionPago: string;
   movilidadTipo: string;
   movilidadEmpresa: string;
+  incluyeHotel: boolean;
+  hotelesContratados: HotelServicioRow[];
   pasajeros: PassengerRow[];
   itinerario: ItineraryDayRow[];
   idioma: string;
@@ -52,4 +71,5 @@ export type TravelPackageFormState = {
   noIncluye: string;
   impuestosAdicionales: string;
   observaciones: string;
+  cantPax:string;
 };
