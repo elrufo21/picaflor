@@ -148,14 +148,14 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
           InputProps={{ readOnly: true }}
         />
 
-        <SelectControlled<AgencySectionFormValues>
+        {/** <SelectControlled<AgencySectionFormValues>
           name="condicionPago"
           control={control}
           options={CONDICION_PAGO_OPTIONS}
           size="small"
           label="Condicion de pago"
           onChange={(e) => onUpdateField("condicionPago", String(e.target.value))}
-        />
+        /> */}
       </div>
     </SectionCard>
   );

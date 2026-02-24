@@ -1,13 +1,16 @@
+import { useState } from "react";
 import { useTravelPackageForm } from "../hooks/useTravelPackageForm";
 import AgencySection from "../components/AgencySection";
 import GeneralDataSection from "../components/GeneralDataSection";
 import ItinerarySection from "../components/ItinerarySection";
 import PassengersSection from "../components/PassengersSection";
 import ServiciosContratadosSection from "../components/ServiciosContratadosSection";
-import { ChevronLeft } from "lucide-react";
+import PaymentDetailFloating from "../components/PaymentDetailFloating";
+import { ChevronLeft, ReceiptText } from "lucide-react";
 
 const TravelPackageForm = () => {
   const { form, handlers } = useTravelPackageForm();
+  const [isPaymentOpen, setIsPaymentOpen] = useState(true);
 
   return (
     <div className="w-full space-y-6 pb-12">
@@ -49,7 +52,16 @@ const TravelPackageForm = () => {
                 justify-end
                 shrink-0
               "
-        ></div>
+        >
+          <button
+            type="button"
+            onClick={() => setIsPaymentOpen((prev) => !prev)}
+            className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 text-white text-sm font-semibold shadow-sm hover:bg-emerald-700"
+          >
+            <ReceiptText className="h-4 w-4" />
+            {isPaymentOpen ? "Ocultar detalle pago" : "Mostrar detalle pago"}
+          </button>
+        </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 items-start">
@@ -92,6 +104,7 @@ const TravelPackageForm = () => {
           <div className="md:col-span-2">
             <ItinerarySection
               itinerario={form.itinerario}
+              cantPax={form.cantPax}
               onUpdateDayField={handlers.updateItineraryDayField}
               onAddDay={handlers.addItineraryDay}
               onRemoveDay={handlers.removeItineraryDay}
@@ -102,6 +115,12 @@ const TravelPackageForm = () => {
           </div>
         </div>
       </div>
+      <PaymentDetailFloating
+        form={form}
+        open={isPaymentOpen}
+        onClose={() => setIsPaymentOpen(false)}
+        onUpdateField={handlers.updateField}
+      />
     </div>
   );
 };

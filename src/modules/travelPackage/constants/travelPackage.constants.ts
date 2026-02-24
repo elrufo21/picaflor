@@ -1,7 +1,7 @@
 import type {
   HotelServicioRow,
   ItineraryDayRow,
-  ItineraryEventRow,
+  ItineraryActivityRow,
   PassengerRow,
   SelectOption,
   TravelPackageFormState,
@@ -115,27 +115,59 @@ export const createPassengerRow = (id: number): PassengerRow => ({
   fechaNacimiento: "",
 });
 
-export const createEventRow = (id: number): ItineraryEventRow => ({
+export const createActivityRow = (id: number): ItineraryActivityRow => ({
   id,
-  tipo: "",
-  hora: "",
-  descripcion: "",
-  movimiento: "No aplica",
+  tipo: "ACT1",
+  detalle: "-",
+  precio: 0,
+  cant: 0,
+  subtotal: 0,
 });
+
+export const createActivityRowByType = (
+  id: number,
+  tipo: ItineraryActivityRow["tipo"],
+): ItineraryActivityRow => ({
+  id,
+  tipo,
+  detalle: tipo === "ENTRADA" ? "N/A" : "-",
+  precio: 0,
+  cant: 0,
+  subtotal: 0,
+});
+
+export const createDefaultItineraryRows = (): ItineraryActivityRow[] => {
+  const baseId = Date.now() + Math.random();
+  return [
+    createActivityRowByType(baseId + 1, "ACT1"),
+    createActivityRowByType(baseId + 2, "ACT2"),
+    createActivityRowByType(baseId + 3, "ACT3"),
+    createActivityRowByType(baseId + 4, "TRASLADO"),
+    createActivityRowByType(baseId + 5, "ENTRADA"),
+  ];
+};
 
 export const createItineraryDayRow = (
   dayId: number,
-  eventId: number,
+  activityId: number,
 ): ItineraryDayRow => ({
   id: dayId,
   fecha: "",
   titulo: "",
+  precioUnitario: 0,
+  observacion: "",
   origen: "",
   destino: "",
-  hotel: "",
-  tipoHabitacion: "",
-  alimentacion: "",
-  eventos: [createEventRow(eventId)],
+  actividades:
+    activityId > 0
+      ? [
+          createActivityRowByType(activityId + 1, "ACT1"),
+          createActivityRowByType(activityId + 2, "ACT2"),
+          createActivityRowByType(activityId + 3, "ACT3"),
+          createActivityRowByType(activityId + 4, "TRASLADO"),
+          createActivityRowByType(activityId + 5, "ENTRADA"),
+        ]
+      : createDefaultItineraryRows(),
 });
 
 export const createHotelServicioRow = (id: number): HotelServicioRow => ({
@@ -151,7 +183,7 @@ export const createHotelServicioRow = (id: number): HotelServicioRow => ({
 // ─── Helper aliases for Hook ──────────────────────────────────────────────────
 
 export const createEmptyPassenger = () => createPassengerRow(Date.now() + Math.random());
-export const createEmptyEvent = () => createEventRow(Date.now() + Math.random());
+export const createEmptyActivity = () => createActivityRow(Date.now() + Math.random());
 export const createEmptyItineraryDay = () => 
   createItineraryDayRow(Date.now() + Math.random(), Date.now() + Math.random() + 1);
 export const createEmptyHotelServicio = () =>
@@ -171,8 +203,26 @@ export const INITIAL_FORM_STATE: TravelPackageFormState = {
   telefono: "",
   email: "",
   condicionPago: "CANCELADO",
+  moneda: "SOLES",
+  documentoCobranza: "DOCUMENTO COBRANZA",
+  nserie: "",
+  ndocumento: "",
+  medioPago: "",
+  entidadBancaria: "",
+  nroOperacion: "",
+  precioExtraSoles: 0,
+  precioExtraDolares: 0,
+  igv: 0,
+  cargosExtra: 0,
+  totalGeneral: 0,
+  acuenta: 0,
+  deposito: 0,
+  efectivo: 0,
+  saldo: 0,
+  mensajePasajero: "",
   movilidadTipo: "",
   movilidadEmpresa: "",
+  movilidadPrecio: 0,
   incluyeHotel: false,
   hotelesContratados: [],
   pasajeros: [createEmptyPassenger()],

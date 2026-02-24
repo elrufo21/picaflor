@@ -1,23 +1,27 @@
 import { useEffect } from "react";
-import { TextControlled } from "@/components/ui/inputs";
+import { SelectControlled, TextControlled } from "@/components/ui/inputs";
 import { useForm } from "react-hook-form";
+import { CONDICION_PAGO_OPTIONS } from "../constants/travelPackage.constants";
 
 type ProgramTransportFieldsValues = {
   programa: string;
   cantPax: string;
+  condicionPago: string;
 };
 
 type Props = {
   programa: string;
   cantPax: string;
+  condicionPago: string;
   onChange: (field: keyof ProgramTransportFieldsValues, value: string) => void;
 };
 
-const ProgramTransportFields = ({ programa, cantPax, onChange }: Props) => {
+const ProgramTransportFields = ({ programa, cantPax, condicionPago, onChange }: Props) => {
   const { control, setValue } = useForm<ProgramTransportFieldsValues>({
     defaultValues: {
       programa,
       cantPax,
+      condicionPago,
     },
   });
 
@@ -37,9 +41,17 @@ const ProgramTransportFields = ({ programa, cantPax, onChange }: Props) => {
     });
   }, [cantPax, setValue]);
 
+  useEffect(() => {
+    setValue("condicionPago", condicionPago, {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+  }, [condicionPago, setValue]);
+
   return (
     <>
-      <div className="xl:col-span-5">
+      <div className="xl:col-span-3">
         <TextControlled<ProgramTransportFieldsValues>
           fullWidth
           size="small"
@@ -50,16 +62,28 @@ const ProgramTransportFields = ({ programa, cantPax, onChange }: Props) => {
           onChange={(event) => onChange("programa", event.target.value)}
         />
       </div>
-      <div className="xl:col-span-1">
-        <TextControlled<ProgramTransportFieldsValues>
-          fullWidth
-          size="small"
-          label="Cantidad de pasajeros"
-          name="cantPax"
-          control={control}
-          disableAutoUppercase
-          onChange={(event) => onChange("cantPax", event.target.value)}
-        />
+      <div className="xl:col-span-3 grid grid-cols-2">
+        <div className="col-span-1">
+          <TextControlled<ProgramTransportFieldsValues>
+            fullWidth
+            size="small"
+            label="Cantidad de pasajeros"
+            name="cantPax"
+            control={control}
+            disableAutoUppercase
+            onChange={(event) => onChange("cantPax", event.target.value)}
+          />
+        </div>
+        <div className="col-span-1">
+          <SelectControlled<ProgramTransportFieldsValues>
+            name="condicionPago"
+            control={control}
+            options={CONDICION_PAGO_OPTIONS}
+            size="small"
+            label="Condicion de pago"
+            onChange={(e) => onChange("condicionPago", String(e.target.value))}
+          />
+        </div>
       </div>
     </>
   );

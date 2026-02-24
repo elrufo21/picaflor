@@ -758,6 +758,9 @@ const LiquidacionesPage = () => {
   const location = useLocation();
   const { loadServicios, loadServiciosFromDB, setFormData } = usePackageStore();
   const [rows, setRows] = useState<LiquidacionRow[]>([]);
+  const [filteredRowsForTotals, setFilteredRowsForTotals] = useState<
+    LiquidacionRow[]
+  >([]);
   const [allRows, setAllRows] = useState<LiquidacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -828,7 +831,7 @@ const LiquidacionesPage = () => {
   );
   const endDateAcceptedRef = useRef(false);
   const liquidacionTotals = useMemo(() => {
-    return rows.reduce(
+    return filteredRowsForTotals.reduce(
       (acc, row) => {
         const currency = normalizeCurrencyForTotals(row.moneda);
         const efectivo = parseMoneyValue(row.efectivo);
@@ -851,7 +854,7 @@ const LiquidacionesPage = () => {
         depTarYaSoles: 0,
       },
     );
-  }, [rows]);
+  }, [filteredRowsForTotals]);
   const normalizeCanalRecordToLabel = useCallback((canal: CanalRecordLike) => {
     if (typeof canal === "string") return normalizeStringValue(canal);
 
@@ -1072,6 +1075,10 @@ const LiquidacionesPage = () => {
     searchCanalInput,
     normalizeCanalRecordToLabel,
   ]);
+
+  useEffect(() => {
+    setFilteredRowsForTotals(rows);
+  }, [rows]);
 
   useEffect(() => {
     if (searchMode !== "numero") {
@@ -1509,6 +1516,7 @@ const LiquidacionesPage = () => {
   }, []);
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
   const sessionStore = sessionRaw ? JSON.parse(sessionRaw) : null;
+  console.log("rows", rows);
   const columns = useMemo(() => {
     const cols = [];
 
@@ -1597,6 +1605,9 @@ const LiquidacionesPage = () => {
 
       columnHelper.accessor("formaPago", {
         header: "Forma de pago",
+      }),
+      columnHelper.accessor("moneda", {
+        header: "Moneda",
       }),
 
       columnHelper.accessor("totalPagar", {
@@ -2279,6 +2290,7 @@ const LiquidacionesPage = () => {
 
       <DndTable
         data={rows}
+        onFilteredDataChange={setFilteredRowsForTotals}
         columns={columns}
         paginationState={tablePagination}
         onPaginationStateChange={setTablePagination}

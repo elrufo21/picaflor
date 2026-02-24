@@ -75,6 +75,7 @@ type DndTableProps<TData extends Record<string, any>> = {
   paginationState?: PaginationState;
   onPaginationStateChange?: ((pagination: PaginationState) => void) | null;
   autoResetPageIndex?: boolean;
+  onFilteredDataChange?: ((rows: TData[]) => void) | null;
 };
 
 // ============================================
@@ -109,6 +110,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   paginationState,
   onPaginationStateChange = null,
   autoResetPageIndex = true,
+  onFilteredDataChange = null,
 }: DndTableProps<TData>) => {
   const location = useLocation();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -278,6 +280,24 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
 
     onSelectionChange(selectedRows);
   }, [rowSelection, onSelectionChange, table]);
+
+  useEffect(() => {
+    if (!onFilteredDataChange) return;
+
+    const sourceRows = shouldFilter
+      ? table.getFilteredRowModel().rows
+      : table.getCoreRowModel().rows;
+
+    onFilteredDataChange(sourceRows.map((row) => row.original));
+  }, [
+    onFilteredDataChange,
+    shouldFilter,
+    table,
+    filteredData,
+    globalFilter,
+    columnFilters,
+    dateFilter,
+  ]);
 
   useEffect(() => {
     if (!enableCellNavigation) return;

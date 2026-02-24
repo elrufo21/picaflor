@@ -59,6 +59,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => (
       <ProgramTransportFields
         programa={form.programa}
         cantPax={form.cantPax}
+        condicionPago={form.condicionPago}
         onChange={(field, value) => onUpdateField(field, value)}
       />
     </div>

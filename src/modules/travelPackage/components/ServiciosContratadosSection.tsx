@@ -128,7 +128,7 @@ const ServiciosContratadosSection = ({
           </select>
         </div>
 
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-2">
           <label className="mb-1 block text-xs font-medium text-slate-600">
             Empresa de movilidad
           </label>
@@ -137,6 +137,22 @@ const ServiciosContratadosSection = ({
             onChange={(value) => onUpdateField("movilidadEmpresa", value)}
             placeholder="Empresa relacionada con movilidad"
             className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+
+        <div className="lg:col-span-1">
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Precio movilidad
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={form.movilidadPrecio ?? 0}
+            onChange={(e) =>
+              onUpdateField("movilidadPrecio", Number(e.target.value || 0))
+            }
+            className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-right focus:border-emerald-500 focus:outline-none"
           />
         </div>
 
