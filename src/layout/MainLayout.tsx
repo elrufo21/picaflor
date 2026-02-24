@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router";
 import { X, LogOutIcon, MenuIcon } from "lucide-react";
-import BreadCrumb from "./BreadCrumb";
 import { useLayoutStore } from "../app/store/layoutStore";
 import Dialog from "../components/ui/Dialog";
 import PasswordExpiryGate from "./PasswordExpiryGate";
@@ -43,6 +42,7 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const isTravelPackageRoute = location.pathname.includes("/paquete-viaje");
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -425,7 +425,13 @@ const MainLayout = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-paper">
-          <div className="mx-auto max-w-8xl px-4 sm:px-6 lg:px-8 py-4">
+          <div
+            className={
+              isTravelPackageRoute
+                ? "w-full px-3 sm:px-4 lg:px-5 py-4"
+                : "mx-auto max-w-8xl px-4 sm:px-6 lg:px-8 py-4"
+            }
+          >
             {/*location.pathname.startsWith("/maintenance") && <BreadCrumb />*/}
             <div className="mt-2 w-full">
               <Outlet />

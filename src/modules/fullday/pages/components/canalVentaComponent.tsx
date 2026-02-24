@@ -340,7 +340,6 @@ const CanalVentaComponent = ({
                 ? 'input[name="fechaViaje"]'
                 : 'input[name="nombreCompleto"]'
             }
-            required
             size="small"
           />
           <TextControlled

@@ -6,30 +6,45 @@ export type SelectOption = {
 export type PassengerRow = {
   id: number;
   nombres: string;
-  documento: string;
+  pasaporte: string;
   nacionalidad: string;
+  telefono: string;
   fechaNacimiento: string;
 };
 
-export type ItineraryEventRow = {
+export type ItineraryActivityRow = {
   id: number;
-  tipo: string;
-  hora: string;
-  descripcion: string;
-  movimiento: string;
+  tipo: "ACT1" | "ACT2" | "ACT3" | "TRASLADO" | "ENTRADA";
+  detalle: string;
+  precio: number;
+  cant: number;
+  subtotal: number;
 };
 
 export type ItineraryDayRow = {
   id: number;
   fecha: string;
   titulo: string;
+  precioUnitario: number;
+  observacion: string;
   origen: string;
   destino: string;
-  // Hotel fields per day
+  actividades: ItineraryActivityRow[];
+};
+
+export type HotelRoomSelection = {
+  tipo: string;
+  cantidad: number;
+};
+
+export type HotelServicioRow = {
+  id: number;
+  region: string;
   hotel: string;
-  tipoHabitacion: string;
-  alimentacion: string;
-  eventos: ItineraryEventRow[];
+  habitaciones: HotelRoomSelection[];
+  entrada: string;
+  salida: string;
+  incluyeAlimentacion: boolean;
 };
 
 export type TravelPackageFormState = {
@@ -43,8 +58,29 @@ export type TravelPackageFormState = {
   contacto: string;
   telefono: string;
   email: string;
+  condicionPago: string;
+  moneda: "SOLES" | "DOLARES";
+  documentoCobranza: string;
+  nserie: string;
+  ndocumento: string;
+  medioPago: string;
+  entidadBancaria: string;
+  nroOperacion: string;
+  precioExtraSoles: number;
+  precioExtraDolares: number;
+  igv: number;
+  cargosExtra: number;
+  totalGeneral: number;
+  acuenta: number;
+  deposito: number;
+  efectivo: number;
+  saldo: number;
+  mensajePasajero: string;
   movilidadTipo: string;
   movilidadEmpresa: string;
+  movilidadPrecio: number;
+  incluyeHotel: boolean;
+  hotelesContratados: HotelServicioRow[];
   pasajeros: PassengerRow[];
   itinerario: ItineraryDayRow[];
   idioma: string;
@@ -52,4 +88,5 @@ export type TravelPackageFormState = {
   noIncluye: string;
   impuestosAdicionales: string;
   observaciones: string;
+  cantPax:string;
 };
