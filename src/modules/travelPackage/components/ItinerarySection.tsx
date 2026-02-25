@@ -2,7 +2,13 @@ import { Autocomplete, TextField } from "@mui/material";
 import { Route } from "lucide-react";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { useForm } from "react-hook-form";
 import {
   serviciosDB,
@@ -187,6 +193,14 @@ const ItinerarySection = ({
   };
 
   const getObservationFieldName = (dayId: number) => `observacion_${dayId}`;
+  const focusObservationField = (dayId: number) => {
+    setTimeout(() => {
+      const observationField = document.querySelector<HTMLElement>(
+        `textarea[data-observation-day="${dayId}"], input[data-observation-day="${dayId}"]`,
+      );
+      observationField?.focus();
+    }, 0);
+  };
 
   useEffect(() => {
     itinerario.forEach((day) => {
@@ -514,6 +528,7 @@ const ItinerarySection = ({
                           onUpdateEventField(day.id, row.id, "subtotal", 0);
                         }
                       });
+                      focusObservationField(day.id);
                     }
                   }}
                   renderInput={(params) => (
@@ -850,9 +865,14 @@ const ItinerarySection = ({
                   control={control}
                   label="Observaciones del día"
                   placeholder="Escribe notas adicionales para este día"
+                  disableKeyboardNavigation
                   multiline
                   rows={3}
                   size="small"
+                  inputProps={{
+                    "data-disable-form-arrow-nav": "true",
+                    "data-observation-day": String(day.id),
+                  }}
                   onChange={(e) =>
                     onUpdateDayField(day.id, "observacion", e.target.value)
                   }

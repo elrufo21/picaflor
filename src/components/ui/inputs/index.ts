@@ -5,5 +5,6 @@ export { default as SelectControlled } from "./SelectControlled";
 export { default as RadioGroupControlled } from "./RadioGroupControlled";
 export { default as AutocompleteTable } from "./AutocompleteTable";
 export { default as TableTextInput } from "./TableTextInput";
+export { default as TableDateInput } from "./TableDateInput";
 export { default as RoomQuantitySelector } from "./RoomQuantitySelector";
 export { default as TableTimePicker } from "./TableTimePicker";

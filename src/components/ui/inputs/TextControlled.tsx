@@ -43,6 +43,7 @@ type Props<T extends FieldValues> = Omit<
   formatter?: (value: string | number) => string;
   displayZeroAsEmpty?: boolean;
   disableAutoUppercase?: boolean;
+  disableKeyboardNavigation?: boolean;
 
   disableHistory?: boolean;
 };
@@ -55,6 +56,7 @@ function TextControlled<T extends FieldValues>({
   formatter,
   displayZeroAsEmpty,
   disableAutoUppercase,
+  disableKeyboardNavigation,
   disableHistory,
   ...rest
 }: Props<T>) {
@@ -104,6 +106,11 @@ function TextControlled<T extends FieldValues>({
             : rawDisplayValue;
 
         const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (disableKeyboardNavigation) {
+            rest.inputProps?.onKeyDown?.(e);
+            return;
+          }
+
           const target = e.currentTarget;
           const nextSelector = (
             restInputProps as { "data-focus-next"?: string } | undefined

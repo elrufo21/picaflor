@@ -32,6 +32,8 @@ const TravelPackageForm = () => {
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) {
         return;
       }
+      const disableFormArrowNavigation =
+        target.getAttribute("data-disable-form-arrow-nav") === "true";
 
       const owner = target.closest('[role="combobox"]') as HTMLElement | null;
       const isAutocompleteOpen = owner?.getAttribute("aria-expanded") === "true";
@@ -48,12 +50,14 @@ const TravelPackageForm = () => {
       }
 
       if (event.key === "ArrowUp") {
+        if (disableFormArrowNavigation) return;
         event.preventDefault();
         focusSibling(target, { reverse: true });
         return;
       }
 
       if (event.key === "ArrowDown") {
+        if (disableFormArrowNavigation) return;
         event.preventDefault();
         focusSibling(target);
         return;
@@ -63,6 +67,7 @@ const TravelPackageForm = () => {
         event.key === "ArrowRight" &&
         (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
       ) {
+        if (disableFormArrowNavigation) return;
         const pos = target.selectionStart ?? 0;
         if (pos === target.value.length) {
           event.preventDefault();
@@ -75,6 +80,7 @@ const TravelPackageForm = () => {
         event.key === "ArrowLeft" &&
         (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
       ) {
+        if (disableFormArrowNavigation) return;
         const pos = target.selectionStart ?? 0;
         if (pos === 0) {
           event.preventDefault();

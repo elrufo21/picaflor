@@ -5,10 +5,7 @@ import type {
   SelectOption,
 } from "../types/travelPackage.types";
 import SectionCard from "./SectionCard";
-import {
-  AutocompleteControlled,
-  TextControlled,
-} from "@/components/ui/inputs";
+import { AutocompleteControlled, TextControlled } from "@/components/ui/inputs";
 import { useCanalVenta } from "@/modules/fullday/hooks/useCanalVenta";
 import { useForm } from "react-hook-form";
 import type { CanalOption } from "@/modules/fullday/hooks/canalUtils";
@@ -31,6 +28,7 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
     contacto: string;
     counter: string;
     condicionPago: string;
+    telPax: string;
   };
 
   const { control, setValue } = useForm<AgencySectionFormValues>({
@@ -75,7 +73,8 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
           if (!id && !label) return null;
 
           const aux = auxById.get(id);
-          const contacto = String(row.contacto ?? "").trim() || aux?.contacto || "";
+          const contacto =
+            String(row.contacto ?? "").trim() || aux?.contacto || "";
           const email = String(row.email ?? "").trim() || aux?.email || "";
           const telefono = String(aux?.telefono ?? "").trim();
 
@@ -142,8 +141,7 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
         (option) =>
           option.value === form.agencia?.value ||
           option.label === form.agencia?.label,
-      ) ??
-      null;
+      ) ?? null;
     setValue("canalDeVenta", selected);
   }, [mergedCanalVentaList, form.agencia, setValue]);
 
@@ -224,6 +222,13 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
           label="Counter"
           InputProps={{ readOnly: true }}
           disabled
+        />
+        <TextControlled<AgencySectionFormValues>
+          name="telPax"
+          control={control}
+          size="small"
+          label="Telefono Pax"
+          InputProps={{ readOnly: true }}
         />
 
         {/** <SelectControlled<AgencySectionFormValues>
