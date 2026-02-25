@@ -71,6 +71,8 @@ export type PackageItem = {
   cantMaxPax: number;
   disponibles: number;
   estado: string;
+  transporte?: string;
+  guia?: string;
   verListadoUrl?: string;
   passengers: Passenger[];
 };
@@ -113,12 +115,23 @@ type PackageState = {
   clearPackages: () => void;
   deleteProgramacion: (id: number, fecha?: string) => Promise<void>;
   editarCantMax: (
-    data: { idDetalle: number; cantMax: number }[],
+    data: {
+      idDetalle: number;
+      cantMax: number;
+      transporte?: string;
+      guia?: string;
+    }[],
     date: string,
   ) => Promise<void>;
   date: string;
   setDate: (date: string) => void;
 };
+
+const sanitizeListaOrdenText = (value: unknown) =>
+  String(value ?? "")
+    .replace(/[|;]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 function parsePackages(raw: unknown) {
   if (!raw) return [];
@@ -143,6 +156,8 @@ function parsePackages(raw: unknown) {
         region,
         accionTexto,
         idDetalle,
+        transporte,
+        guia,
       ] = row.split("|");
 
       return {
@@ -157,6 +172,8 @@ function parsePackages(raw: unknown) {
         region,
         accionTexto,
         idDetalle: Number(idDetalle),
+        transporte: transporte ?? "",
+        guia: guia ?? "",
         passengers: [],
       };
     });
@@ -384,9 +401,16 @@ export const usePackageStore = create<PackageState>()(
             return;
           }
 
-          // 🔥 transformar array → "5|30;8|45;12|20"
+          // 🔥 transformar array → "5|30|Transporte|Guia;8|45|Transporte|Guia"
           const listaOrden = changes
-            .map((x) => `${x.idDetalle}|${x.cantMax}`)
+            .map((x) =>
+              [
+                x.idDetalle,
+                x.cantMax,
+                sanitizeListaOrdenText(x.transporte),
+                sanitizeListaOrdenText(x.guia),
+              ].join("|"),
+            )
             .join(";");
 
           // 👉 llamada API

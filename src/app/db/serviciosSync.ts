@@ -14,7 +14,7 @@ export type ServiciosData = {
     visitas: string;
     precioVenta: number;
   }[];
-  canales: { id: number; nombre: string }[];
+  canales: { id: number; nombre: string; contacto?: string; email?: string }[];
   actividades: {
     id: number;
     actividad: string;
@@ -22,7 +22,12 @@ export type ServiciosData = {
     idProducto: number;
   }[];
   partidas: { id: number; partida: string; idProducto: number }[];
-  auxiliares: { id: number; telefono: string }[];
+  auxiliares: {
+    id: number;
+    telefono: string;
+    contacto?: string;
+    email?: string;
+  }[];
   preciosActividades: {
     idActi: number;
     precioSol: number;

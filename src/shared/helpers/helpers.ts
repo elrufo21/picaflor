@@ -37,6 +37,27 @@ function parseLegacyData(raw: string): string[][][] {
 
 export function transformServiciosData(raw: string) {
   const b = parseLegacyData(raw);
+  const canalById = new Map<
+    number,
+    { nombre: string; contacto?: string; email?: string }
+  >(
+    (b[2] ?? [])
+      .map(([id, nombre, contacto, email]) => ({
+        id: Number(id),
+        nombre: nombre ?? "",
+        contacto: contacto ?? "",
+        email: email ?? "",
+      }))
+      .filter((item) => Number.isFinite(item.id))
+      .map((item) => [
+        item.id,
+        {
+          nombre: item.nombre,
+          contacto: item.contacto || undefined,
+          email: item.email || undefined,
+        },
+      ]),
+  );
 
   return {
     productos:
@@ -59,9 +80,11 @@ export function transformServiciosData(raw: string) {
 
     canales:
       b[2]
-        ?.map(([id, nombre]) => ({
+        ?.map(([id, nombre, contacto, email]) => ({
           id: Number(id),
           nombre,
+          contacto: contacto || undefined,
+          email: email || undefined,
         }))
         .filter((x) => Number.isFinite(x.id)) ?? [],
 
@@ -89,6 +112,8 @@ export function transformServiciosData(raw: string) {
         ?.map(([id, telefono]) => ({
           id: Number(id),
           telefono,
+          contacto: canalById.get(Number(id))?.contacto,
+          email: canalById.get(Number(id))?.email,
         }))
         .filter((x) => Number.isFinite(x.id)) ?? [],
 

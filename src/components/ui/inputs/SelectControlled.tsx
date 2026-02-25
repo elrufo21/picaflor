@@ -40,6 +40,10 @@ function SelectControlled<T extends FieldValues>({
           select
           fullWidth
           value={field.value ?? ""}
+          SelectProps={{
+            displayEmpty: true,
+            ...(rest.SelectProps ?? {}),
+          }}
           onChange={(e) => {
             const value = e.target.value;
 

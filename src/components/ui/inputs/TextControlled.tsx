@@ -73,23 +73,29 @@ function TextControlled<T extends FieldValues>({
       render={({ field, fieldState }) => {
         const { ref, onChange, value, ...fieldProps } = field;
         const shouldDisableHistory = disableHistory ?? true;
+        const fieldKey = String(name ?? "field")
+          .replace(/[^a-zA-Z0-9_-]/g, "-")
+          .toLowerCase();
         const inputType =
           typeof restProps.type === "string"
             ? restProps.type.toLowerCase()
             : "text";
         const historyAutoCompleteValue = shouldDisableHistory
-          ? "off"
+          ? `no-history-${fieldKey}`
           : restProps.autoComplete;
-        const inputAutoCompleteValue =
-          inputType === "password" ? "new-password" : "off";
+        const inputAutoCompleteValue = shouldDisableHistory
+          ? "new-password"
+          : inputType === "password"
+            ? "new-password"
+            : restInputProps?.autoComplete ?? "on";
         const lockPasswordHistory =
           shouldDisableHistory && inputType === "password" && !historyUnlocked;
         const shouldUppercase = inputType === "text" && !disableAutoUppercase;
 
-        const rawDisplayValue =
-          displayZeroAsEmpty && (value === 0 || value === "0")
-            ? ""
-            : (value ?? "");
+        const shouldHideZero =
+          (displayZeroAsEmpty || inputType === "number") &&
+          (value === 0 || value === "0");
+        const rawDisplayValue = shouldHideZero ? "" : (value ?? "");
         const displayValue =
           formatter && rawDisplayValue !== "" && rawDisplayValue !== null
             ? formatter(rawDisplayValue)
@@ -169,11 +175,13 @@ function TextControlled<T extends FieldValues>({
                 autoComplete: inputAutoCompleteValue,
                 autoCorrect: "off",
                 spellCheck: false,
-                autoCapitalize: "off",
+                autoCapitalize: "none",
                 "aria-autocomplete": "none",
                 "data-lpignore": "true",
                 "data-1p-ignore": "true",
                 "data-bwignore": "true",
+                "data-form-type": "other",
+                "data-autocomplete": "off",
               }),
             }}
             fullWidth

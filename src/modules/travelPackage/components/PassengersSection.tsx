@@ -87,6 +87,8 @@ const PassengersSection = ({
                   <td className="px-2 py-1.5 align-middle">
                     <TableTextInput
                       value={passenger.nombres}
+                      navColumn="nombres"
+                      navRow={index}
                       onChange={(value) =>
                         onUpdateField(passenger.id, "nombres", value)
                       }
@@ -96,6 +98,8 @@ const PassengersSection = ({
                   <td className="px-2 py-1.5 align-middle">
                     <TableTextInput
                       value={passenger.pasaporte}
+                      navColumn="pasaporte"
+                      navRow={index}
                       onChange={(value) =>
                         onUpdateField(passenger.id, "pasaporte", value)
                       }
@@ -107,13 +111,20 @@ const PassengersSection = ({
                       options={paises}
                       value={selectedPais}
                       loading={loading}
-                      onChange={(pais) =>
+                      autoAdvanceOnSelect={false}
+                      onChange={(pais) => {
                         onUpdateField(
                           passenger.id,
                           "nacionalidad",
                           pais?.nombre ?? "",
-                        )
-                      }
+                        );
+                        setTimeout(() => {
+                          const next = document.getElementById(
+                            `telefono-${passenger.id}`,
+                          ) as HTMLInputElement | null;
+                          next?.focus();
+                        }, 0);
+                      }}
                       getOptionKey={(pais) => pais.id}
                       getOptionLabel={(pais) => pais.nombre}
                       columns={[
@@ -132,7 +143,10 @@ const PassengersSection = ({
                   </td>
                   <td className="px-2 py-1.5 align-middle">
                     <TableTextInput
+                      id={`telefono-${passenger.id}`}
                       value={passenger.telefono}
+                      navColumn="telefono"
+                      navRow={index}
                       onChange={(value) =>
                         onUpdateField(passenger.id, "telefono", value)
                       }
