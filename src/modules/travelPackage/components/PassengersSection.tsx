@@ -5,6 +5,7 @@ import {
   TableDateInput,
   TableTextInput,
 } from "@/components/ui/inputs";
+import { focusNextElement } from "@/shared/helpers/formFocus";
 import { getTodayIso } from "../constants/travelPackage.constants";
 import { usePaises } from "../hooks/usePaises";
 import type { PassengerRow } from "../types/travelPackage.types";
@@ -123,6 +124,7 @@ const PassengersSection = ({
                   </td>
                   <td className="px-2 py-1.5 align-middle">
                     <AutocompleteTable
+                      id={`nacionalidad-${passenger.id}`}
                       options={paises}
                       value={selectedPais}
                       loading={loading}
@@ -167,10 +169,24 @@ const PassengersSection = ({
                         }
 
                         setTimeout(() => {
-                          const next = document.getElementById(
-                            `fecha-nacimiento-${passenger.id}`,
+                          const nextRowNombres = document.querySelector(
+                            `input[data-nav-col="nombres"][data-nav-row="${String(index + 1)}"]`,
                           ) as HTMLInputElement | null;
-                          next?.focus();
+
+                          if (nextRowNombres) {
+                            nextRowNombres.focus();
+                            return;
+                          }
+
+                          const currentNacionalidadInput =
+                            document.getElementById(
+                              `nacionalidad-${passenger.id}`,
+                            );
+                          if (!currentNacionalidadInput) return;
+                          focusNextElement(
+                            currentNacionalidadInput,
+                            currentNacionalidadInput.closest("form"),
+                          );
                         }, 0);
                       }}
                       getOptionKey={(pais) => pais.id}
