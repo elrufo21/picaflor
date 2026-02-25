@@ -35,7 +35,10 @@ const TravelPackageForm = () => {
 
       const owner = target.closest('[role="combobox"]') as HTMLElement | null;
       const isAutocompleteOpen = owner?.getAttribute("aria-expanded") === "true";
-      if (isAutocompleteOpen && event.key !== "Enter") return;
+      if (isAutocompleteOpen) {
+        // Let MUI Autocomplete handle keyboard interaction (including Enter selection)
+        return;
+      }
 
       if (event.key === "Enter") {
         if (target instanceof HTMLTextAreaElement) return;
