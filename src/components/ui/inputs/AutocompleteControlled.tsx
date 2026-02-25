@@ -11,21 +11,25 @@ import {
 import { useRef, type ReactNode } from "react";
 import { focusNextElement } from "@/shared/helpers/formFocus";
 
-type Props<T extends FieldValues, Option> = Omit<
-  AutocompleteProps<Option, false, false, false>,
+type Props<
+  T extends FieldValues,
+  Option,
+  Multiple extends boolean = false,
+> = Omit<
+  AutocompleteProps<Option, Multiple, false, false>,
   "renderInput" | "name" | "defaultValue" | "onChange"
 > & {
   name: Path<T>;
   control: Control<T>;
   label?: string;
-  defaultValue?: Option | null;
+  defaultValue?: Multiple extends true ? Option[] : Option | null;
   getOptionLabel: (option: Option) => string;
   inputEndAdornment?: ReactNode;
   autoAdvance?: boolean;
 
   /** ✅ NUEVO */
   onValueChange?: (
-    value: Option | null,
+    value: Multiple extends true ? Option[] : Option | null,
     helpers: {
       name: Path<T>;
       setNextFocus: () => void;
@@ -33,23 +37,30 @@ type Props<T extends FieldValues, Option> = Omit<
   ) => void;
 };
 
-function AutocompleteControlled<T extends FieldValues, Option>({
+function AutocompleteControlled<
+  T extends FieldValues,
+  Option,
+  Multiple extends boolean = false,
+>({
   name,
   control,
   label,
-  defaultValue = null,
+  defaultValue,
   inputEndAdornment,
   autoAdvance,
   onValueChange,
   ...rest
-}: Props<T, Option>) {
+}: Props<T, Option, Multiple>) {
   const inputElementRef = useRef<HTMLInputElement | null>(null);
+  const isMultiple = Boolean((rest as { multiple?: boolean }).multiple);
+  const resolvedDefaultValue = (defaultValue ??
+    (isMultiple ? [] : null)) as any;
 
   return (
     <Controller
       name={name}
       control={control}
-      defaultValue={defaultValue as any}
+      defaultValue={resolvedDefaultValue}
       render={({ field, fieldState }) => {
         const { ref, onChange, ...fieldProps } = field;
 
@@ -79,13 +90,13 @@ function AutocompleteControlled<T extends FieldValues, Option>({
           <Autocomplete
             {...rest}
             {...fieldProps}
-            value={field.value ?? null}
+            value={(field.value ?? (isMultiple ? [] : null)) as any}
             onChange={(e, value) => {
               // 1️⃣ RHF SIEMPRE primero
-              onChange(value);
+              onChange(value as any);
 
               // 2️⃣ lógica adicional opcional
-              onValueChange?.(value, {
+              onValueChange?.(value as any, {
                 name,
                 setNextFocus: focusNext,
               });

@@ -1,10 +1,11 @@
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, useRef, type ReactNode } from "react";
 import Autocomplete, {
   type AutocompleteProps,
 } from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Paper, { type PaperProps } from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
+import { focusNextElement } from "@/shared/helpers/formFocus";
 
 type Column<Option> = {
   key: string;
@@ -27,6 +28,7 @@ type Props<Option> = Omit<
   label?: string;
   placeholder?: string;
   noOptionsText?: string;
+  autoAdvanceOnSelect?: boolean;
 };
 
 const resolveColumnWidth = (width?: string | number) => {
@@ -44,10 +46,12 @@ function AutocompleteTable<Option>({
   label,
   placeholder,
   noOptionsText = "Sin resultados",
+  autoAdvanceOnSelect = true,
   size = "small",
   className,
   ...rest
 }: Props<Option>) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const gridTemplateColumns = columns
     .map((column) => resolveColumnWidth(column.width))
     .join(" ");
@@ -115,10 +119,22 @@ function AutocompleteTable<Option>({
 
   return (
     <Autocomplete<Option, false, false, false>
+      ref={rootRef}
       className={className}
       options={options}
       value={value}
-      onChange={(_, nextValue) => onChange(nextValue)}
+      onChange={(_, nextValue) => {
+        onChange(nextValue);
+
+        if (!autoAdvanceOnSelect) return;
+
+        const input = rootRef.current?.querySelector("input");
+        if (!input) return;
+
+        setTimeout(() => {
+          focusNextElement(input as HTMLElement, input.closest("form"));
+        }, 0);
+      }}
       getOptionLabel={getOptionLabel}
       isOptionEqualToValue={(option, selectedValue) =>
         getOptionKey(option) === getOptionKey(selectedValue)
@@ -128,8 +144,34 @@ function AutocompleteTable<Option>({
       renderOption={renderOption}
       size={size}
       {...rest}
+      sx={{
+        "& .MuiAutocomplete-input": {
+          textTransform: "uppercase",
+        },
+      }}
       renderInput={(params) => (
-        <TextField {...params} label={label} placeholder={placeholder} />
+        <TextField
+          {...params}
+          label={label}
+          placeholder={placeholder}
+          inputProps={{
+            ...params.inputProps,
+            autoComplete: "new-password",
+            autoCorrect: "off",
+            spellCheck: false,
+            autoCapitalize: "none",
+            "aria-autocomplete": "none",
+            "data-lpignore": "true",
+            "data-1p-ignore": "true",
+            "data-bwignore": "true",
+            "data-form-type": "other",
+            "data-autocomplete": "off",
+            style: {
+              ...(params.inputProps?.style ?? {}),
+              textTransform: "uppercase",
+            },
+          }}
+        />
       )}
     />
   );

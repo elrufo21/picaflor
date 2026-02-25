@@ -5,6 +5,7 @@ import { DateCalendar } from "@mui/x-date-pickers/DateCalendar";
 import { PickersDay } from "@mui/x-date-pickers/PickersDay";
 import type { PickersDayProps } from "@mui/x-date-pickers/PickersDay";
 import dayjs, { type Dayjs } from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover, Box, Button, IconButton, Divider } from "@mui/material";
 
@@ -22,9 +23,23 @@ const toIso = (d: Dayjs | null): string =>
 
 const fromIso = (s: string): Dayjs | null => {
     if (!s) return null;
-    const d = dayjs(s, "YYYY-MM-DD", true);
-    return d.isValid() ? d : null;
+    const trimmed = String(s).trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const parsedIso = dayjs(trimmed, "YYYY-MM-DD", true);
+        return parsedIso.isValid() ? parsedIso : null;
+    }
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+        const parsedDmy = dayjs(trimmed, "DD/MM/YYYY", true);
+        return parsedDmy.isValid() ? parsedDmy : null;
+    }
+
+    const fallback = dayjs(trimmed);
+    return fallback.isValid() ? fallback : null;
 };
+
+dayjs.extend(customParseFormat);
 
 // ─── Custom Day Component ─────────────────────────────────────────────────────
 
@@ -120,8 +135,9 @@ export const TravelDateRangePicker = ({
         const t = fromIso(to);
         setLocalFrom(f);
         setLocalTo(t);
-        // Focus month on 'from' date or current month
-        setCurrentMonth(f ? f.startOf('month') : dayjs().startOf('month'));
+        // Focus month on from/to date or current month
+        const baseMonth = f ?? t ?? dayjs();
+        setCurrentMonth(baseMonth.startOf("month"));
     };
 
     const handleClose = () => {
@@ -215,8 +231,10 @@ export const TravelDateRangePicker = ({
                                 {currentMonth.format("MMMM YYYY")}
                             </div>
                             <DateCalendar
+                                key={`left-${currentMonth.format("YYYY-MM")}`}
                                 value={null} // Controlled manually via slots
                                 referenceDate={currentMonth}
+                                onMonthChange={(d) => setCurrentMonth(d.startOf("month"))}
                                 onYearChange={(d) => setCurrentMonth(d)}
                                 slots={{
                                     day: CustomPickersDay as any,
@@ -242,8 +260,12 @@ export const TravelDateRangePicker = ({
                                 {currentMonth.add(1, 'month').format("MMMM YYYY")}
                             </div>
                             <DateCalendar
+                                key={`right-${currentMonth.add(1, "month").format("YYYY-MM")}`}
                                 value={null}
                                 referenceDate={currentMonth.add(1, 'month')}
+                                onMonthChange={(d) =>
+                                    setCurrentMonth(d.subtract(1, "month").startOf("month"))
+                                }
                                 onChange={(newValue) => newValue && handleDayClick(newValue)}
                                 slots={{
                                     day: CustomPickersDay as any,

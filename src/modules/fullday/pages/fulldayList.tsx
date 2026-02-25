@@ -13,20 +13,6 @@ import { useDialogStore } from "@/app/store/dialogStore";
    HELPERS
 ========================= */
 
-const buildCantMaxString = (
-  data: { idDetalle: number; cantMax: number }[],
-): string => {
-  return data.map((item) => `${item.idDetalle}|${item.cantMax}`).join(";");
-};
-
-const todayISO = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
 // 🔥 PARSER BACKEND → TABLE
 function parsePackages(raw: any) {
   if (!raw) return [];
@@ -51,16 +37,27 @@ function parsePackages(raw: any) {
         cantMaxPax,
         disponibles,
         estado,
+        region,
+        accionTexto,
+        idDetalle,
+        transporte,
+        guia,
       ] = cols;
 
       return {
-        id: Number(id), // idDetalle
+        id: Number(id),
+        idProducto: Number(id),
         destino,
         fecha,
         cantTotalPax: Number(cantTotalPax),
         cantMaxPax: Number(cantMaxPax),
         disponibles: Number(disponibles),
         estado,
+        region,
+        accionTexto,
+        idDetalle: Number(idDetalle),
+        transporte: transporte ?? "",
+        guia: guia ?? "",
       };
     })
     .filter(Boolean);
@@ -73,6 +70,19 @@ function parsePackages(raw: any) {
 type CantMaxChange = {
   idDetalle: number;
   cantMax: number;
+};
+
+type TransportGuideChange = {
+  idDetalle: number;
+  transporte?: string;
+  guia?: string;
+};
+
+type ProgramacionEditChange = {
+  idDetalle: number;
+  cantMax: number;
+  transporte: string;
+  guia: string;
 };
 
 /* =========================
@@ -89,6 +99,9 @@ const PackageList = () => {
   const [destino, setDestino] = useState<string>("");
   const [selectedPackages, setSelectedPackages] = useState<any[]>([]);
   const [cantMaxChanges, setCantMaxChanges] = useState<CantMaxChange[]>([]);
+  const [transportGuideChanges, setTransportGuideChanges] = useState<
+    TransportGuideChange[]
+  >([]);
 
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
@@ -139,10 +152,32 @@ const PackageList = () => {
 
   useEffect(() => {
     setCantMaxChanges([]);
+    setTransportGuideChanges([]);
     setSelectedPackages([]);
   }, [packages]);
 
   const parsedPackages = useMemo(() => parsePackages(packages), [packages]);
+  const tableData = useMemo(() => {
+    if (!transportGuideChanges.length) return parsedPackages;
+
+    const changesById = new Map(
+      transportGuideChanges.map((change) => [change.idDetalle, change]),
+    );
+
+    return parsedPackages.map((pkg: any) => {
+      const pkgIdDetalle = pkg.idDetalle ?? pkg.id;
+      const change = changesById.get(pkgIdDetalle);
+
+      if (!change) return pkg;
+
+      return {
+        ...pkg,
+        transporte:
+          change.transporte !== undefined ? change.transporte : pkg.transporte,
+        guia: change.guia !== undefined ? change.guia : pkg.guia,
+      };
+    });
+  }, [parsedPackages, transportGuideChanges]);
 
   const handleRowClick = useCallback(
     (row: { id?: number }) => {
@@ -163,7 +198,7 @@ const PackageList = () => {
     [navigate, setSelectedFullDayName],
   );
 
-  const handleCantMaxChange = (id: number, value: number, row: any) => {
+  const handleCantMaxChange = (value: number, row: any) => {
     const idDetalle = row.original.idDetalle;
 
     setCantMaxChanges((prev) => {
@@ -185,9 +220,32 @@ const PackageList = () => {
     });
   };
 
+  const handleTransportGuideChange = (
+    idDetalle: number,
+    field: "transporte" | "guia",
+    value: string,
+  ) => {
+    setTransportGuideChanges((prev) => {
+      const exists = prev.find((p) => p.idDetalle === idDetalle);
+
+      if (exists) {
+        return prev.map((p) =>
+          p.idDetalle === idDetalle ? { ...p, [field]: value } : p,
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          idDetalle,
+          [field]: value,
+        },
+      ];
+    });
+  };
+
   const handleGuardarCambios = async () => {
-    const rs = buildCantMaxString(cantMaxChanges);
-    if (cantMaxChanges.length === 0) {
+    if (cantMaxChanges.length === 0 && transportGuideChanges.length === 0) {
       showToast({
         title: "Sin cambios",
         description: "No hay cambios para guardar",
@@ -197,8 +255,42 @@ const PackageList = () => {
     }
 
     try {
-      await editarCantMax(cantMaxChanges, date);
+      const changedIds = new Set<number>([
+        ...cantMaxChanges.map((x) => x.idDetalle),
+        ...transportGuideChanges.map((x) => x.idDetalle),
+      ]);
+
+      const rowsById = new Map<number, any>(
+        tableData.map((row: any) => [row.idDetalle ?? row.id, row]),
+      );
+
+      const payload: ProgramacionEditChange[] = Array.from(changedIds).map(
+        (idDetalle) => {
+          const row = rowsById.get(idDetalle);
+          const maxChange = cantMaxChanges.find(
+            (x) => x.idDetalle === idDetalle,
+          );
+          const tgChange = transportGuideChanges.find(
+            (x) => x.idDetalle === idDetalle,
+          );
+
+          const cantMax = Number(maxChange?.cantMax ?? row?.cantMaxPax ?? 0);
+
+          return {
+            idDetalle,
+            cantMax: Number.isFinite(cantMax) ? cantMax : 0,
+            transporte: String(
+              tgChange?.transporte ?? row?.transporte ?? "",
+            ).trim(),
+            guia: String(tgChange?.guia ?? row?.guia ?? "").trim(),
+          };
+        },
+      );
+
+      await editarCantMax(payload, date);
+
       setCantMaxChanges([]);
+      setTransportGuideChanges([]);
       showToast({
         title: "Guardado",
         description: "Cambios guardados correctamente",
@@ -273,13 +365,7 @@ const PackageList = () => {
                 row.original.cantMaxPax === 0 ? "" : row.original.cantMaxPax
               }
               onClick={(e) => e.stopPropagation()}
-              onBlur={(e) =>
-                handleCantMaxChange(
-                  row.original.id,
-                  Number(e.target.value),
-                  row,
-                )
-              }
+              onBlur={(e) => handleCantMaxChange(Number(e.target.value), row)}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown" || e.key === "Enter") {
                   e.preventDefault();
@@ -305,6 +391,48 @@ const PackageList = () => {
         header: "Disponibles",
         meta: { align: "center" },
       },
+      /**{
+        accessorKey: "transporte",
+        header: "Transporte",
+        cell: ({ row }: any) => {
+          const idDetalle = row.original.idDetalle ?? row.original.id;
+          return (
+            <input
+              type="text"
+              defaultValue={row.original.transporte ?? ""}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={(e) => {
+                const upper = e.target.value.toUpperCase();
+                e.target.value = upper;
+                handleTransportGuideChange(idDetalle, "transporte", upper);
+              }}
+              className="w-40 border text-center border-slate-300 rounded-md py-1 text-sm
+          uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          );
+        },
+      },
+      {
+        accessorKey: "guia",
+        header: "Guia",
+        cell: ({ row }: any) => {
+          const idDetalle = row.original.idDetalle ?? row.original.id;
+          return (
+            <input
+              type="text"
+              defaultValue={row.original.guia ?? ""}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={(e) => {
+                const upper = e.target.value.toUpperCase();
+                e.target.value = upper;
+                handleTransportGuideChange(idDetalle, "guia", upper);
+              }}
+              className="w-40 border border-slate-300 rounded-md py-1 text-sm
+          uppercase focus:outline-none text-center focus:ring-2 focus:ring-emerald-500"
+            />
+          );
+        },
+      }, */
       {
         id: "action",
         header: "Acciones",
@@ -507,7 +635,7 @@ const PackageList = () => {
       </div>
 
       <DndTable
-        data={parsedPackages.filter((c) => c.id)}
+        data={tableData.filter((c) => c.id)}
         columns={columns}
         isLoading={loading}
         enableRowSelection

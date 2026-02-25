@@ -9,7 +9,12 @@ export type PrecioProducto = {
   visitas: string;
   precioVenta: number;
 };
-export type Canal = { id: number; nombre: string };
+export type Canal = {
+  id: number;
+  nombre: string;
+  contacto?: string;
+  email?: string;
+};
 export type Actividad = {
   id: number;
   actividad: string;
@@ -17,7 +22,12 @@ export type Actividad = {
   descripcion?: string | null;
 };
 export type Partida = { id: number; partida: string; idProducto: number };
-export type Auxiliar = { id: number; telefono: string };
+export type Auxiliar = {
+  id: number;
+  telefono: string;
+  contacto?: string;
+  email?: string;
+};
 export type PrecioActividad = {
   idActi: number;
   precioSol: number;

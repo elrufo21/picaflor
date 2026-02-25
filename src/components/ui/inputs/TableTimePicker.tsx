@@ -3,7 +3,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs, { type Dayjs } from "dayjs";
 
-const DISPLAY_FORMAT = "hh:mmA";
+const DISPLAY_FORMAT = "hh:mm A";
 
 type Props = {
   value?: string;
@@ -15,7 +15,8 @@ type Props = {
 
 const toDayjs = (value?: string): Dayjs | null => {
   if (!value) return null;
-  const parsed = dayjs(String(value).trim().toUpperCase(), DISPLAY_FORMAT, true);
+  const normalized = String(value).trim().toUpperCase();
+  const parsed = dayjs(normalized, [DISPLAY_FORMAT, "hh:mmA", "HH:mm"], true);
   return parsed.isValid() ? parsed : null;
 };
 
@@ -38,16 +39,14 @@ function TableTimePicker({
             placeholder,
             sx: compact
               ? {
-                  width: 118,
+                  width: 150,
                   "& input": {
-                    fontSize: 12,
+                    fontSize: 10,
                     px: 1.25,
+                    pr: 0.5,
                   },
                 }
               : undefined,
-            inputProps: {
-              maxLength: 7,
-            },
           },
         }}
       />

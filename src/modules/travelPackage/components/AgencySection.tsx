@@ -1,19 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BriefcaseBusiness } from "lucide-react";
 import type {
   TravelPackageFormState,
   SelectOption,
 } from "../types/travelPackage.types";
-import { CONDICION_PAGO_OPTIONS } from "../constants/travelPackage.constants";
 import SectionCard from "./SectionCard";
 import {
   AutocompleteControlled,
-  SelectControlled,
   TextControlled,
 } from "@/components/ui/inputs";
 import { useCanalVenta } from "@/modules/fullday/hooks/useCanalVenta";
 import { useForm } from "react-hook-form";
 import type { CanalOption } from "@/modules/fullday/hooks/canalUtils";
+import { serviciosDB } from "@/app/db/serviciosDB";
 
 type Props = {
   form: TravelPackageFormState;
@@ -45,6 +44,77 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
     },
   });
   const { canalVentaList } = useCanalVenta();
+  const [localCanales, setLocalCanales] = useState<CanalOption[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadLocalCanales = async () => {
+      const [canalesRows, auxiliaresRows] = await Promise.all([
+        serviciosDB.canales.toArray(),
+        serviciosDB.auxiliares.toArray(),
+      ]);
+
+      if (!active) return;
+
+      const auxById = new Map(
+        auxiliaresRows.map((aux) => [
+          String(aux.id),
+          {
+            telefono: String(aux.telefono ?? "").trim(),
+            contacto: String(aux.contacto ?? "").trim(),
+            email: String(aux.email ?? "").trim(),
+          },
+        ]),
+      );
+
+      const mapped: CanalOption[] = canalesRows
+        .map((row) => {
+          const id = String(row.id ?? "").trim();
+          const label = String(row.nombre ?? "").trim();
+          if (!id && !label) return null;
+
+          const aux = auxById.get(id);
+          const contacto = String(row.contacto ?? "").trim() || aux?.contacto || "";
+          const email = String(row.email ?? "").trim() || aux?.email || "";
+          const telefono = String(aux?.telefono ?? "").trim();
+
+          return {
+            value: id || label,
+            label: label || id,
+            auxiliar: label || undefined,
+            contacto: contacto || undefined,
+            email: email || undefined,
+            telefono: telefono || undefined,
+          } as CanalOption;
+        })
+        .filter(Boolean) as CanalOption[];
+
+      setLocalCanales(mapped);
+    };
+
+    void loadLocalCanales();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const mergedCanalVentaList = useMemo(() => {
+    const byValue = new Map<string, CanalOption>();
+
+    localCanales.forEach((item) => {
+      byValue.set(String(item.value).toLowerCase(), item);
+    });
+
+    canalVentaList.forEach((item) => {
+      const key = String(item.value).toLowerCase();
+      if (byValue.has(key)) return;
+      byValue.set(key, item);
+    });
+
+    return Array.from(byValue.values());
+  }, [localCanales, canalVentaList]);
 
   useEffect(() => {
     setValue("telefono", form.telefono);
@@ -68,10 +138,14 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
 
   useEffect(() => {
     const selected =
-      canalVentaList.find((option) => option.value === form.agencia?.value) ??
+      mergedCanalVentaList.find(
+        (option) =>
+          option.value === form.agencia?.value ||
+          option.label === form.agencia?.label,
+      ) ??
       null;
     setValue("canalDeVenta", selected);
-  }, [canalVentaList, form.agencia, setValue]);
+  }, [mergedCanalVentaList, form.agencia, setValue]);
 
   return (
     <SectionCard
@@ -91,7 +165,7 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
               onUpdateField("contacto", value?.contacto ?? "");
             }}
             name="canalDeVenta"
-            options={canalVentaList}
+            options={mergedCanalVentaList}
             control={control}
             label="Canal de venta"
             inputEndAdornment={
@@ -112,11 +186,12 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
         </div>
 
         <TextControlled<AgencySectionFormValues>
-          name="telefono"
+          name="contacto"
           control={control}
           size="small"
-          label="Telefono"
-          onChange={(e) => onUpdateField("telefono", e.target.value)}
+          label="Contacto"
+          className="w-full"
+          onChange={(e) => onUpdateField("contacto", e.target.value)}
         />
 
         <TextControlled<AgencySectionFormValues>
@@ -131,12 +206,12 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
 
         <div className="md:col-span-2 xl:col-span-3">
           <TextControlled<AgencySectionFormValues>
-            name="contacto"
+            name="telefono"
             control={control}
             size="small"
-            label="Contacto"
-            className="w-full"
-            onChange={(e) => onUpdateField("contacto", e.target.value)}
+            label="Telefono"
+            onChange={(e) => onUpdateField("telefono", e.target.value)}
+            disableHistory
           />
         </div>
 
@@ -146,6 +221,7 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
           size="small"
           label="Counter"
           InputProps={{ readOnly: true }}
+          disabled
         />
 
         {/** <SelectControlled<AgencySectionFormValues>

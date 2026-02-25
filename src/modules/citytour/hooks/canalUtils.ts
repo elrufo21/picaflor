@@ -21,11 +21,23 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
       .map((item) => item.trim())
       .filter(Boolean)
       .map((item) => {
-        const [id, value] = item.split("|").map((part) => cleanText(part));
+        const [id, value, contacto, email] = item
+          .split("|")
+          .map((part) => cleanText(part));
         if (!id && !value) return null;
-        return { id: id ?? "", value: value ?? "" };
+        return {
+          id: id ?? "",
+          value: value ?? "",
+          contacto: contacto || undefined,
+          email: email || undefined,
+        };
       })
-      .filter(Boolean) as { id: string; value: string }[];
+      .filter(Boolean) as {
+      id: string;
+      value: string;
+      contacto?: string;
+      email?: string;
+    }[];
 
   const normalizeRow = (value: string, idx: number): CanalOption | null => {
     if (!value) return null;
@@ -40,9 +52,9 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
       return {
         value: String(val),
         label: String(nombre || val),
-        contacto: contacto && contacto !== "-" ? contacto : undefined,
-        telefono: telefono && telefono !== "-" ? telefono : undefined,
-        email: email && email !== "-" ? email : undefined,
+        contacto: contacto ?? undefined,
+        telefono: telefono ?? undefined,
+        email: email ?? undefined,
         auxiliar: nombre || undefined,
       };
     }
@@ -74,7 +86,9 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
           return {
             value: String(value),
             label: String(label),
+            contacto: canal.contacto ?? undefined,
             telefono: telefonoById.get(canal.id) ?? undefined,
+            email: canal.email ?? undefined,
             auxiliar: canal.value || undefined,
           } as CanalOption;
         })
