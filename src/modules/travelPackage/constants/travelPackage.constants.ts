@@ -84,6 +84,10 @@ export const PRODUCT_OPTIONS = [
   "Cañon del Colca 2d/1n",
 ];
 
+export const getTravelCurrencySymbol = (
+  moneda: TravelPackageFormState["moneda"],
+) => (moneda === "DOLARES" ? "USD$" : "S/");
+
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
 export const getTodayIso = (): string => {

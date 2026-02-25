@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { Users } from "lucide-react";
 import { AutocompleteTable, TableTextInput } from "@/components/ui/inputs";
 import { usePaises } from "../hooks/usePaises";
@@ -25,23 +25,16 @@ const PassengersSection = ({
   void onAdd;
   void onRemove;
   const { paises, loading, error } = usePaises();
-
-  useEffect(() => {
-    if (!paises.length) return;
-
-    pasajeros.forEach((passenger) => {
-      const nacionalidadActual = String(passenger.nacionalidad ?? "").trim();
-      if (!nacionalidadActual) return;
-
-      const matchByIso = paises.find(
-        (pais) => pais.iso.toLowerCase() === nacionalidadActual.toLowerCase(),
-      );
-
-      if (matchByIso && matchByIso.nombre !== passenger.nacionalidad) {
-        onUpdateField(passenger.id, "nacionalidad", matchByIso.nombre);
-      }
+  const paisesByValue = useMemo(() => {
+    const map = new Map<string, (typeof paises)[number]>();
+    paises.forEach((pais) => {
+      const iso = String(pais.iso ?? "").trim().toLowerCase();
+      const nombre = String(pais.nombre ?? "").trim().toLowerCase();
+      if (iso) map.set(iso, pais);
+      if (nombre) map.set(nombre, pais);
     });
-  }, [paises, pasajeros, onUpdateField]);
+    return map;
+  }, [paises]);
 
   return (
     <SectionCard
@@ -71,12 +64,8 @@ const PassengersSection = ({
           <tbody>
             {pasajeros.map((passenger, index) => {
               const selectedPais =
-                paises.find(
-                  (pais) =>
-                    pais.nombre.toLowerCase() ===
-                      passenger.nacionalidad.toLowerCase() ||
-                    pais.iso.toLowerCase() ===
-                      passenger.nacionalidad.toLowerCase(),
+                paisesByValue.get(
+                  String(passenger.nacionalidad ?? "").trim().toLowerCase(),
                 ) ?? null;
 
               return (
@@ -113,11 +102,44 @@ const PassengersSection = ({
                       loading={loading}
                       autoAdvanceOnSelect={false}
                       onChange={(pais) => {
+                        const nextNacionalidad = String(
+                          pais?.nombre ?? "",
+                        ).trim();
+                        const currentNacionalidad = String(
+                          passenger.nacionalidad ?? "",
+                        ).trim();
+                        if (
+                          nextNacionalidad.toLowerCase() ===
+                          currentNacionalidad.toLowerCase()
+                        ) {
+                          return;
+                        }
+
                         onUpdateField(
                           passenger.id,
                           "nacionalidad",
-                          pais?.nombre ?? "",
+                          nextNacionalidad,
                         );
+
+                        if (index === 0 && nextNacionalidad) {
+                          pasajeros.slice(1).forEach((nextPassenger) => {
+                            const rowNacionalidad = String(
+                              nextPassenger.nacionalidad ?? "",
+                            ).trim();
+                            if (
+                              rowNacionalidad.toLowerCase() ===
+                              nextNacionalidad.toLowerCase()
+                            ) {
+                              return;
+                            }
+                            onUpdateField(
+                              nextPassenger.id,
+                              "nacionalidad",
+                              nextNacionalidad,
+                            );
+                          });
+                        }
+
                         setTimeout(() => {
                           const next = document.getElementById(
                             `telefono-${passenger.id}`,

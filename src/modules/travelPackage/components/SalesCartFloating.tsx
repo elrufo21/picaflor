@@ -2,6 +2,7 @@ import { CreditCard, ShoppingCart, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import type { TravelPackageFormState } from "../types/travelPackage.types";
+import { getTravelCurrencySymbol } from "../constants/travelPackage.constants";
 
 type Props = {
   form: TravelPackageFormState;
@@ -125,7 +126,7 @@ const SalesCartFloating = ({ form, onUpdateField }: Props) => {
     const saldo = roundCurrency(totalConExtra - Number(form.acuenta || 0));
     if (form.saldo !== saldo) onUpdateField("saldo", saldo);
 
-    const symbol = form.moneda === "DOLARES" ? "USD$" : "S/";
+    const symbol = getTravelCurrencySymbol(form.moneda);
     const message =
       form.condicionPago === "CANCELADO"
         ? "EL PASAJERO NO TIENE DEUDA."
@@ -134,7 +135,7 @@ const SalesCartFloating = ({ form, onUpdateField }: Props) => {
     if (form.mensajePasajero !== message) onUpdateField("mensajePasajero", message);
   }, [form.acuenta, form.condicionPago, form.moneda, form.mensajePasajero, form.saldo, totalConExtra, onUpdateField]);
 
-  const currencySymbol = form.moneda === "DOLARES" ? "USD$" : "S/";
+  const currencySymbol = getTravelCurrencySymbol(form.moneda);
 
   return (
     <>

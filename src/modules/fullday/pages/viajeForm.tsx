@@ -55,6 +55,19 @@ function fechaEmisionYMD(): string {
   return `${y}-${m}-${d}`;
 }
 
+function normalizeDateInputValue(value?: string | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (/^\d{2}\/\d{2}\/\d{4}(?:\s+\d{2}:\d{2}:\d{2})?$/.test(raw)) {
+    return parseFechaToYMD(raw).slice(0, 10);
+  }
+
+  const iso = toISODate(raw);
+  return iso ? iso.slice(0, 10) : "";
+}
+
 function n(v: any) {
   return v === null || v === undefined || v === "" ? "" : String(v);
 }
@@ -930,6 +943,7 @@ const ViajeForm = () => {
 
     reset({
       ...formData,
+      fechaViaje: normalizeDateInputValue(formData.fechaViaje),
 
       // 🛡️ defaults defensivos
       condicion: formData.condicion ?? {
@@ -996,7 +1010,9 @@ const ViajeForm = () => {
     });
     setValue(
       "fechaViaje",
-      watch("fechaViaje") !== "" ? watch("fechaViaje") : selectedPackage.fecha,
+      normalizeDateInputValue(
+        watch("fechaViaje") !== "" ? watch("fechaViaje") : selectedPackage.fecha,
+      ),
       {
         shouldDirty: true,
       },

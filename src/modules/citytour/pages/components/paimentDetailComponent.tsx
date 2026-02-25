@@ -1,7 +1,4 @@
-import {
-  SelectControlled,
-  TextControlled,
-} from "@/components/ui/inputs";
+import { SelectControlled, TextControlled } from "@/components/ui/inputs";
 import { useEffect } from "react";
 import { Controller } from "react-hook-form";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
@@ -523,4 +520,3 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
   );
 };
 export default PaimentDetailComponent;
-

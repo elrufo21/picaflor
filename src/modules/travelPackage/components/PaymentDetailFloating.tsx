@@ -2,6 +2,7 @@ import { CreditCard, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import type { TravelPackageFormState } from "../types/travelPackage.types";
+import { getTravelCurrencySymbol } from "../constants/travelPackage.constants";
 
 type Props = {
   form: TravelPackageFormState;
@@ -50,7 +51,7 @@ const PaymentDetailFloating = ({
   };
 
   const paxCount = Math.max(0, Number(form.cantPax || 0));
-  const currencySymbol = form.moneda === "DOLARES" ? "USD$" : "S/";
+  const currencySymbol = getTravelCurrencySymbol(form.moneda);
 
   const base = useMemo(
     () =>
@@ -149,12 +150,16 @@ const PaymentDetailFloating = ({
   }, [form.acuenta, totalSaldo]);
 
   useEffect(() => {
+    const debtAmount =
+      form.condicionPago === "CREDITO"
+        ? totalSaldo
+        : Number(form.saldo ?? 0);
     const message =
       form.condicionPago === "CANCELADO"
         ? "EL PASAJERO NO TIENE DEUDA."
-        : form.condicionPago === "CREDITO"
-          ? `EL PASAJERO SI TIENE DEUDA ${currencySymbol} ${formatCurrency(totalSaldo)}`
-          : `EL PASAJERO SI TIENE DEUDA ${currencySymbol} ${formatCurrency(form.saldo ?? 0)}`;
+        : `EL PASAJERO SI TIENE DEUDA ${currencySymbol} ${roundCurrency(
+            debtAmount,
+          ).toFixed(2)}`;
 
     setIfChanged("mensajePasajero", message);
   }, [form.condicionPago, currencySymbol, totalSaldo, form.saldo]);

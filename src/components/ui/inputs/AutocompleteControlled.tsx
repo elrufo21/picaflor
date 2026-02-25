@@ -8,7 +8,7 @@ import {
   type Control,
   type Path,
 } from "react-hook-form";
-import { useRef, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { focusNextElement } from "@/shared/helpers/formFocus";
 
 type Props<
@@ -52,9 +52,18 @@ function AutocompleteControlled<
   ...rest
 }: Props<T, Option, Multiple>) {
   const inputElementRef = useRef<HTMLInputElement | null>(null);
+  const [historyUnlocked, setHistoryUnlocked] = useState(false);
+  const rawInputId = useId();
+  const safeInputId = rawInputId.replace(/[^a-zA-Z0-9_-]/g, "");
   const isMultiple = Boolean((rest as { multiple?: boolean }).multiple);
+  const shouldAutoAdvance = autoAdvance ?? !isMultiple;
   const resolvedDefaultValue = (defaultValue ??
     (isMultiple ? [] : null)) as any;
+  const fieldKey = String(name ?? "field")
+    .replace(/[^a-zA-Z0-9_-]/g, "-")
+    .toLowerCase();
+  const historySafeFieldName = `nh-${fieldKey}-${safeInputId}`;
+  const lockHistoryInput = isMultiple && !historyUnlocked;
 
   return (
     <Controller
@@ -78,7 +87,7 @@ function AutocompleteControlled<
             return;
           }
 
-          if (autoAdvance) {
+          if (shouldAutoAdvance) {
             const target = inputElementRef.current;
             setTimeout(() => {
               focusNextElement(target, target?.closest("form"));
@@ -111,6 +120,8 @@ function AutocompleteControlled<
                 label={label}
                 error={!!fieldState.error}
                 helperText={(rest as any).helperText}
+                autoComplete="new-password"
+                id={`${historySafeFieldName}-input`}
                 InputProps={{
                   ...params.InputProps,
                   endAdornment: (
@@ -119,6 +130,35 @@ function AutocompleteControlled<
                       {params.InputProps.endAdornment}
                     </>
                   ),
+                }}
+                inputProps={{
+                  ...params.inputProps,
+                  name: historySafeFieldName,
+                  autoComplete: "new-password",
+                  autoCorrect: "off",
+                  spellCheck: false,
+                  autoCapitalize: "none",
+                  readOnly:
+                    lockHistoryInput ||
+                    (params.inputProps as { readOnly?: boolean })?.readOnly,
+                  "aria-autocomplete": "none",
+                  "data-lpignore": "true",
+                  "data-1p-ignore": "true",
+                  "data-bwignore": "true",
+                  "data-form-type": "other",
+                  "data-autocomplete": "off",
+                  onFocus: (event: React.FocusEvent<HTMLInputElement>) => {
+                    if (!historyUnlocked) {
+                      setHistoryUnlocked(true);
+                    }
+                    (
+                      params.inputProps as {
+                        onFocus?: (
+                          e: React.FocusEvent<HTMLInputElement>,
+                        ) => void;
+                      }
+                    )?.onFocus?.(event);
+                  },
                 }}
               />
             )}
