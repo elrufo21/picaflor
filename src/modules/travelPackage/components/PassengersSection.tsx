@@ -1,6 +1,11 @@
 import { useMemo } from "react";
 import { Users } from "lucide-react";
-import { AutocompleteTable, TableTextInput } from "@/components/ui/inputs";
+import {
+  AutocompleteTable,
+  TableDateInput,
+  TableTextInput,
+} from "@/components/ui/inputs";
+import { getTodayIso } from "../constants/travelPackage.constants";
 import { usePaises } from "../hooks/usePaises";
 import type { PassengerRow } from "../types/travelPackage.types";
 import SectionCard from "./SectionCard";
@@ -25,11 +30,16 @@ const PassengersSection = ({
   void onAdd;
   void onRemove;
   const { paises, loading, error } = usePaises();
+  const maxBirthDate = useMemo(() => getTodayIso(), []);
   const paisesByValue = useMemo(() => {
     const map = new Map<string, (typeof paises)[number]>();
     paises.forEach((pais) => {
-      const iso = String(pais.iso ?? "").trim().toLowerCase();
-      const nombre = String(pais.nombre ?? "").trim().toLowerCase();
+      const iso = String(pais.iso ?? "")
+        .trim()
+        .toLowerCase();
+      const nombre = String(pais.nombre ?? "")
+        .trim()
+        .toLowerCase();
       if (iso) map.set(iso, pais);
       if (nombre) map.set(nombre, pais);
     });
@@ -53,11 +63,12 @@ const PassengersSection = ({
               <th className="px-2 py-1.5 text-left font-medium w-[16%]">
                 Pasaporte
               </th>
+
+              <th className="px-2 py-1.5 text-left font-medium w-[16%]">
+                Fecha de Nac.
+              </th>
               <th className="px-2 py-1.5 text-left font-medium w-[33%]">
                 Nacionalidad
-              </th>
-              <th className="px-2 py-1.5 text-left font-medium w-[16%]">
-                Telefono
               </th>
             </tr>
           </thead>
@@ -65,7 +76,9 @@ const PassengersSection = ({
             {pasajeros.map((passenger, index) => {
               const selectedPais =
                 paisesByValue.get(
-                  String(passenger.nacionalidad ?? "").trim().toLowerCase(),
+                  String(passenger.nacionalidad ?? "")
+                    .trim()
+                    .toLowerCase(),
                 ) ?? null;
 
               return (
@@ -93,6 +106,19 @@ const PassengersSection = ({
                         onUpdateField(passenger.id, "pasaporte", value)
                       }
                       placeholder="Pasaporte"
+                    />
+                  </td>
+
+                  <td className="px-2 py-1.5 align-middle">
+                    <TableDateInput
+                      id={`fecha-nacimiento-${passenger.id}`}
+                      value={passenger.fechaNacimiento}
+                      navColumn="fechaNacimiento"
+                      navRow={index}
+                      onChange={(value) =>
+                        onUpdateField(passenger.id, "fechaNacimiento", value)
+                      }
+                      max={maxBirthDate}
                     />
                   </td>
                   <td className="px-2 py-1.5 align-middle">
@@ -142,7 +168,7 @@ const PassengersSection = ({
 
                         setTimeout(() => {
                           const next = document.getElementById(
-                            `telefono-${passenger.id}`,
+                            `fecha-nacimiento-${passenger.id}`,
                           ) as HTMLInputElement | null;
                           next?.focus();
                         }, 0);
@@ -161,18 +187,6 @@ const PassengersSection = ({
                       }
                       placeholder="Seleccionar"
                       size="small"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5 align-middle">
-                    <TableTextInput
-                      id={`telefono-${passenger.id}`}
-                      value={passenger.telefono}
-                      navColumn="telefono"
-                      navRow={index}
-                      onChange={(value) =>
-                        onUpdateField(passenger.id, "telefono", value)
-                      }
-                      placeholder="Telefono"
                     />
                   </td>
                 </tr>

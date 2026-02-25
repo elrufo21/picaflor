@@ -238,7 +238,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             size="small"
             type="number"
             displayZeroAsEmpty
-            label="Cantidad"
+            label="Cantidad Pax"
             onChange={(event) => onUpdateField("cantPax", event.target.value)}
             inputProps={{ style: { textAlign: "center" } }}
           />

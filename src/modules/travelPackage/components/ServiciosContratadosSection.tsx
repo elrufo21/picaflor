@@ -136,7 +136,11 @@ const ServiciosContratadosSection = ({
     ) {
       options.unshift({ value: currentValue, label: currentValue });
     }
-    return [{ value: "", label: "SELECCIONE" }, ...options];
+    return [
+      { value: "", label: "SELECCIONE" },
+      { value: "-", label: "-" },
+      ...options,
+    ];
   }, [empresasMovilidad, form.movilidadEmpresa]);
 
   useEffect(() => {
@@ -248,15 +252,20 @@ const ServiciosContratadosSection = ({
               control={control}
               options={[
                 { value: "", label: "SELECCIONE" },
+                { value: "NO INCLUYE", label: "NO INCLUYE" },
                 ...MOVILIDAD_OPTIONS.map((option) => ({
                   value: option,
                   label: option,
                 })),
               ]}
               size="small"
-              onChange={(e) =>
-                onUpdateField("movilidadTipo", String(e.target.value))
-              }
+              onChange={(e) => {
+                const nextValue = String(e.target.value);
+                onUpdateField("movilidadTipo", nextValue);
+                if (nextValue === "NO INCLUYE") {
+                  onUpdateField("movilidadEmpresa", "-");
+                }
+              }}
             />
           </div>
 
@@ -269,6 +278,7 @@ const ServiciosContratadosSection = ({
               control={control}
               options={movilidadEmpresaOptions}
               size="small"
+              disabled={String(form.movilidadTipo ?? "") === "NO INCLUYE"}
               onChange={(e) =>
                 onUpdateField("movilidadEmpresa", String(e.target.value))
               }
