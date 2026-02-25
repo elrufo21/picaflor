@@ -1646,7 +1646,7 @@ const ViajeForm = () => {
                       }
                     `}
                   >
-                   {liquidacionId && !isEditing ? (
+                   {isUpdatingVerificado ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : isVerificado ? (
                       <RefreshCw size={16} />
