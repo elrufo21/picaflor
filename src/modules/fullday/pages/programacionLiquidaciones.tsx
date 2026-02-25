@@ -1516,7 +1516,6 @@ const LiquidacionesPage = () => {
   }, []);
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
   const sessionStore = sessionRaw ? JSON.parse(sessionRaw) : null;
-  console.log("rows", rows);
   const columns = useMemo(() => {
     const cols = [];
 

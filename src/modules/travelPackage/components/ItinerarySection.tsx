@@ -2,7 +2,7 @@ import { Autocomplete, TextField } from "@mui/material";
 import { Route } from "lucide-react";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useForm } from "react-hook-form";
 import {
   serviciosDB,
@@ -14,9 +14,11 @@ import {
   type Traslado,
 } from "@/app/db/serviciosDB";
 import { TextControlled } from "@/components/ui/inputs";
+import { getTravelCurrencySymbol } from "../constants/travelPackage.constants";
 import type {
   ItineraryDayRow,
   ItineraryActivityRow,
+  TravelPackageFormState,
 } from "../types/travelPackage.types";
 import SectionCard from "./SectionCard";
 
@@ -25,6 +27,7 @@ dayjs.locale("es");
 type Props = {
   itinerario: ItineraryDayRow[];
   cantPax: string;
+  moneda: TravelPackageFormState["moneda"];
   onUpdateDayField: <
     K extends keyof Omit<ItineraryDayRow, "id" | "actividades">,
   >(
@@ -77,10 +80,16 @@ const normalizeText = (value: string) =>
 const isBallestasText = (value: string) =>
   normalizeText(value) === BALLESTAS_LABEL;
 const ENTRADA_PRODUCT_ID = 4;
+const preventNumberArrowStep = (event: KeyboardEvent<HTMLInputElement>) => {
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+  }
+};
 
 const ItinerarySection = ({
   itinerario,
   cantPax,
+  moneda,
   onUpdateDayField,
   onAddDay,
   onRemoveDay,
@@ -101,11 +110,13 @@ const ItinerarySection = ({
     PrecioActividad[]
   >([]);
   const [preciosTraslado, setPreciosTraslado] = useState<PrecioTraslado[]>([]);
+  const isSyncingRowsRef = useRef(false);
   const { control, setValue } = useForm<ItinerarySectionFormValues>({
     defaultValues: {},
   });
 
   const paxCount = Math.max(0, Number(cantPax || 0));
+  const currencySymbol = getTravelCurrencySymbol(moneda);
 
   useEffect(() => {
     let active = true;
@@ -184,54 +195,50 @@ const ItinerarySection = ({
   }, [itinerario, setValue]);
 
   useEffect(() => {
+    if (isSyncingRowsRef.current) return;
+    let changed = false;
+
     itinerario.forEach((day) => {
       const selectedProduct = getProductByTitle(day.titulo ?? "");
-      const shouldShowEntrada = Number(selectedProduct?.id) === ENTRADA_PRODUCT_ID;
+      const shouldShowEntrada =
+        Number(selectedProduct?.id) === ENTRADA_PRODUCT_ID;
       if (!shouldShowEntrada) {
         const entradaRowToClear = (day.actividades ?? []).find(
           (row) => row.tipo === "ENTRADA" && row.id > 0,
         );
         if (entradaRowToClear) {
           if (String(entradaRowToClear.detalle ?? "") !== "N/A") {
+            changed = true;
             onUpdateEventField(day.id, entradaRowToClear.id, "detalle", "N/A");
           }
           if (Number(entradaRowToClear.precio || 0) !== 0) {
+            changed = true;
             onUpdateEventField(day.id, entradaRowToClear.id, "precio", 0);
           }
           if (Number(entradaRowToClear.cant || 0) !== 0) {
+            changed = true;
             onUpdateEventField(day.id, entradaRowToClear.id, "cant", 0);
           }
           if (Number(entradaRowToClear.subtotal || 0) !== 0) {
+            changed = true;
             onUpdateEventField(day.id, entradaRowToClear.id, "subtotal", 0);
           }
         }
       }
-
-      day.actividades.forEach((row) => {
-        if (!row?.id || row.id <= 0) return;
-        if (row.tipo === "ENTRADA" && !shouldShowEntrada) return;
-        const detalle = String(row.detalle ?? "").trim();
-        const isActive =
-          row.tipo === "ENTRADA"
-            ? detalle !== ""
-            : detalle !== "" && detalle !== "-";
-        if (!isActive) return;
-        if (Number(row.cant || 0) === paxCount) return;
-
-        const precio = Number(row.precio || 0);
-        onUpdateEventField(day.id, row.id, "cant", paxCount);
-        onUpdateEventField(
-          day.id,
-          row.id,
-          "subtotal",
-          round2(precio * paxCount),
-        );
-      });
     });
-  }, [paxCount, itinerario, onUpdateEventField]);
+
+    if (changed) {
+      isSyncingRowsRef.current = true;
+      queueMicrotask(() => {
+        isSyncingRowsRef.current = false;
+      });
+    }
+  }, [itinerario, onUpdateEventField]);
 
   useEffect(() => {
+    if (isSyncingRowsRef.current) return;
     if (!actividades.length) return;
+    let changed = false;
 
     itinerario.forEach((day) => {
       const selectedProduct = getProductByTitle(day.titulo ?? "");
@@ -256,18 +263,30 @@ const ItinerarySection = ({
 
         if (allowedActivities.has(currentDetail.toLowerCase())) return;
 
+        changed = true;
         onUpdateEventField(day.id, row.id, "detalle", "-");
         onUpdateEventField(day.id, row.id, "precio", 0);
         onUpdateEventField(day.id, row.id, "cant", 0);
         onUpdateEventField(day.id, row.id, "subtotal", 0);
       });
     });
+
+    if (changed) {
+      isSyncingRowsRef.current = true;
+      queueMicrotask(() => {
+        isSyncingRowsRef.current = false;
+      });
+    }
   }, [itinerario, productos, actividades, onUpdateEventField]);
 
   useEffect(() => {
+    if (isSyncingRowsRef.current) return;
+    let changed = false;
+
     itinerario.forEach((day) => {
       const selectedProduct = getProductByTitle(day.titulo ?? "");
-      const shouldShowEntrada = Number(selectedProduct?.id) === ENTRADA_PRODUCT_ID;
+      const shouldShowEntrada =
+        Number(selectedProduct?.id) === ENTRADA_PRODUCT_ID;
       if (!shouldShowEntrada) return;
 
       const actividadBallestas = (day.actividades ?? []).find(
@@ -289,6 +308,7 @@ const ItinerarySection = ({
         const subtotal = round2(BALLESTAS_ENTRADA_PRICE * cantBallestas);
 
         if (String(entradaRow.detalle ?? "") !== BALLESTAS_ENTRADA_DETAIL) {
+          changed = true;
           onUpdateEventField(
             day.id,
             entradaRow.id,
@@ -297,30 +317,49 @@ const ItinerarySection = ({
           );
         }
         if (Number(entradaRow.precio || 0) !== BALLESTAS_ENTRADA_PRICE) {
-          onUpdateEventField(day.id, entradaRow.id, "precio", BALLESTAS_ENTRADA_PRICE);
+          changed = true;
+          onUpdateEventField(
+            day.id,
+            entradaRow.id,
+            "precio",
+            BALLESTAS_ENTRADA_PRICE,
+          );
         }
         if (Number(entradaRow.cant || 0) !== cantBallestas) {
+          changed = true;
           onUpdateEventField(day.id, entradaRow.id, "cant", cantBallestas);
         }
         if (round2(Number(entradaRow.subtotal || 0)) !== subtotal) {
+          changed = true;
           onUpdateEventField(day.id, entradaRow.id, "subtotal", subtotal);
         }
         return;
       }
 
       if (String(entradaRow.detalle ?? "") !== "N/A") {
+        changed = true;
         onUpdateEventField(day.id, entradaRow.id, "detalle", "N/A");
       }
       if (Number(entradaRow.precio || 0) !== 0) {
+        changed = true;
         onUpdateEventField(day.id, entradaRow.id, "precio", 0);
       }
       if (Number(entradaRow.cant || 0) !== 0) {
+        changed = true;
         onUpdateEventField(day.id, entradaRow.id, "cant", 0);
       }
       if (Number(entradaRow.subtotal || 0) !== 0) {
+        changed = true;
         onUpdateEventField(day.id, entradaRow.id, "subtotal", 0);
       }
     });
+
+    if (changed) {
+      isSyncingRowsRef.current = true;
+      queueMicrotask(() => {
+        isSyncingRowsRef.current = false;
+      });
+    }
   }, [itinerario, paxCount, onUpdateEventField]);
 
   const getRowFallback = (
@@ -364,8 +403,10 @@ const ItinerarySection = ({
           );
           const availableProductNames = productNames.filter((name) => {
             const normalizedName = normalizeText(name);
-            if (normalizedName === normalizeText(NO_ACTIVITY_OPTION)) return true;
-            if (normalizeText(String(day.titulo ?? "")) === normalizedName) return true;
+            if (normalizedName === normalizeText(NO_ACTIVITY_OPTION))
+              return true;
+            if (normalizeText(String(day.titulo ?? "")) === normalizedName)
+              return true;
             return !selectedProductsInOtherDays.has(normalizedName);
           });
 
@@ -444,20 +485,34 @@ const ItinerarySection = ({
                   value={day.titulo}
                   onChange={(_, newValue) => {
                     const nextTitle = newValue || "";
-                    onUpdateDayField(day.id, "titulo", nextTitle);
+                    if (nextTitle !== String(day.titulo ?? "")) {
+                      onUpdateDayField(day.id, "titulo", nextTitle);
+                    }
                     const nextSelectedProduct = getProductByTitle(nextTitle);
                     const nextBasePrice = getProductBasePrice(
                       nextSelectedProduct?.id,
                     );
-                    onUpdateDayField(day.id, "precioUnitario", nextBasePrice);
+                    if (
+                      round2(Number(day.precioUnitario || 0)) !== nextBasePrice
+                    ) {
+                      onUpdateDayField(day.id, "precioUnitario", nextBasePrice);
+                    }
 
                     if (nextTitle === NO_ACTIVITY_OPTION) {
                       normalizedRows.forEach((row) => {
                         if (row.id <= 0) return;
-                        onUpdateEventField(day.id, row.id, "detalle", "-");
-                        onUpdateEventField(day.id, row.id, "precio", 0);
-                        onUpdateEventField(day.id, row.id, "cant", 0);
-                        onUpdateEventField(day.id, row.id, "subtotal", 0);
+                        if (String(row.detalle ?? "") !== "-") {
+                          onUpdateEventField(day.id, row.id, "detalle", "-");
+                        }
+                        if (Number(row.precio || 0) !== 0) {
+                          onUpdateEventField(day.id, row.id, "precio", 0);
+                        }
+                        if (Number(row.cant || 0) !== 0) {
+                          onUpdateEventField(day.id, row.id, "cant", 0);
+                        }
+                        if (Number(row.subtotal || 0) !== 0) {
+                          onUpdateEventField(day.id, row.id, "subtotal", 0);
+                        }
                       });
                     }
                   }}
@@ -486,7 +541,11 @@ const ItinerarySection = ({
                   }
                   type="number"
                   size="small"
-                  inputProps={{ min: 0, step: "any" }}
+                  inputProps={{
+                    min: 0,
+                    step: "any",
+                    onKeyDown: preventNumberArrowStep,
+                  }}
                   onChange={(e) => {
                     const raw = String(e.target.value ?? "").trim();
                     if (raw === "") {
@@ -506,7 +565,11 @@ const ItinerarySection = ({
 
                 <TextField
                   label="Importe Total"
-                  value={dayTotal === 0 ? "" : dayTotal.toFixed(2)}
+                  value={
+                    dayTotal === 0
+                      ? ""
+                      : `${currencySymbol} ${dayTotal.toFixed(2)}`
+                  }
                   size="small"
                   InputProps={{ readOnly: true }}
                   sx={{
@@ -743,6 +806,7 @@ const ItinerarySection = ({
                             className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
                             value={row.precio === 0 ? "" : row.precio}
                             onChange={(e) => handlePrecioChange(e.target.value)}
+                            onKeyDown={preventNumberArrowStep}
                             disabled={
                               !isRowActive ||
                               row.tipo === "ENTRADA" ||
@@ -760,6 +824,7 @@ const ItinerarySection = ({
                             className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
                             value={row.cant === 0 ? "" : row.cant}
                             onChange={(e) => handleCantChange(e.target.value)}
+                            onKeyDown={preventNumberArrowStep}
                             disabled={
                               !isRowActive ||
                               row.tipo === "ENTRADA" ||
@@ -769,7 +834,9 @@ const ItinerarySection = ({
                         </div>
 
                         <div className="border-l border-slate-200 p-2.5 text-right font-semibold text-slate-800 bg-white">
-                          {row.subtotal ? `S/ ${row.subtotal.toFixed(2)}` : ""}
+                          {row.subtotal
+                            ? `${currencySymbol} ${row.subtotal.toFixed(2)}`
+                            : ""}
                         </div>
                       </div>
                     );
@@ -786,7 +853,6 @@ const ItinerarySection = ({
                   multiline
                   rows={3}
                   size="small"
-                  disableAutoUppercase
                   onChange={(e) =>
                     onUpdateDayField(day.id, "observacion", e.target.value)
                   }

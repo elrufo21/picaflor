@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
+import { useAuthStore } from "@/store/auth/auth.store";
 import type {
   HotelServicioRow,
   ItineraryDayRow,
@@ -16,6 +17,7 @@ import {
   createEmptyItineraryDay,
   createEmptyHotelServicio,
   createDefaultItineraryRows,
+  getTravelCurrencySymbol,
 } from "../constants/travelPackage.constants";
 
 const getItineraryBaseAmount = (state: TravelPackageFormState) => {
@@ -32,7 +34,10 @@ const getItineraryBaseAmount = (state: TravelPackageFormState) => {
 
 const isActiveItineraryRow = (row: ItineraryActivityRow) => {
   const detail = String(row?.detalle ?? "").trim();
-  if (row?.tipo === "ENTRADA") return detail !== "";
+  if (row?.tipo === "ENTRADA") {
+    const normalized = detail.toUpperCase();
+    return normalized !== "" && normalized !== "N/A";
+  }
   return detail !== "" && detail !== "-";
 };
 
@@ -130,7 +135,7 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
   const saldo = roundCurrency(totalConExtra - Number(next.acuenta || 0));
   next.saldo = saldo;
 
-  const symbol = next.moneda === "DOLARES" ? "USD$" : "S/";
+  const symbol = getTravelCurrencySymbol(next.moneda);
   next.mensajePasajero =
     next.condicionPago === "CANCELADO"
       ? "EL PASAJERO NO TIENE DEUDA."
@@ -143,8 +148,22 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
 
 export const useTravelPackageForm = () => {
   const [form, setForm] = useState<TravelPackageFormState>(INITIAL_FORM_STATE);
+  const userDisplayName = useAuthStore((state) => state.user?.displayName ?? "");
 
-  const updateField = <K extends keyof TravelPackageFormState>(
+  useEffect(() => {
+    const normalizedDisplayName = String(userDisplayName ?? "").trim();
+    if (!normalizedDisplayName) return;
+
+    setForm((prev) => {
+      if (String(prev.counter ?? "").trim()) return prev;
+      return {
+        ...prev,
+        counter: normalizedDisplayName,
+      };
+    });
+  }, [userDisplayName]);
+
+  const updateField = useCallback(<K extends keyof TravelPackageFormState>(
     key: K,
     value: TravelPackageFormState[K],
   ) => {
@@ -198,13 +217,13 @@ export const useTravelPackageForm = () => {
       }
       return applyDerivedRules(newState);
     });
-  };
+  }, []);
 
   // ─── Agencia ─────────────────────────────────────────────────────────────────
 
-  const updateAgencia = (option: SelectOption | null) => {
+  const updateAgencia = useCallback((option: SelectOption | null) => {
     updateField("agencia", option);
-  };
+  }, [updateField]);
 
   // ─── Pasajeros ───────────────────────────────────────────────────────────────
 
@@ -227,7 +246,7 @@ export const useTravelPackageForm = () => {
     );
   };
 
-  const updatePassengerField = (
+  const updatePassengerField = useCallback((
     id: number,
     field: keyof Omit<PassengerRow, "id">,
     value: string,
@@ -240,7 +259,7 @@ export const useTravelPackageForm = () => {
         ),
       }),
     );
-  };
+  }, []);
 
   // ─── Servicios contratados (Hoteles) ───────────────────────────────────────
 
@@ -348,7 +367,7 @@ export const useTravelPackageForm = () => {
     );
   };
 
-  const updateDayEventField = (
+  const updateDayEventField = useCallback((
     dayId: number,
     eventId: number,
     field: keyof Omit<ItineraryActivityRow, "id">,
@@ -369,7 +388,7 @@ export const useTravelPackageForm = () => {
         ),
       }),
     );
-  };
+  }, []);
 
   // ─── Handlers bundle ─────────────────────────────────────────────────────────
 

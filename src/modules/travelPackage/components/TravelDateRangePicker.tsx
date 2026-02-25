@@ -14,6 +14,7 @@ type Props = {
     to: string;
     onChangeFrom: (value: string) => void;
     onChangeTo: (value: string) => void;
+    focusNextSelector?: string;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -120,6 +121,7 @@ export const TravelDateRangePicker = ({
     to,
     onChangeFrom,
     onChangeTo,
+    focusNextSelector,
 }: Props) => {
     const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
 
@@ -168,6 +170,14 @@ export const TravelDateRangePicker = ({
         onChangeFrom(toIso(localFrom));
         onChangeTo(toIso(localTo));
         handleClose();
+        if (focusNextSelector) {
+            setTimeout(() => {
+                const next = document.querySelector<HTMLInputElement>(
+                    focusNextSelector,
+                );
+                next?.focus();
+            }, 0);
+        }
     };
 
     const handleClear = () => {

@@ -38,14 +38,19 @@ const buildProgramaFromForm = (
   const destinoText = Array.from(
     new Set(
       (destinos ?? [])
-        .map((destino) => String(destino ?? "").trim().toUpperCase())
+        .map((destino) =>
+          String(destino ?? "")
+            .trim()
+            .toUpperCase(),
+        )
         .filter(Boolean),
     ),
   ).join("-");
 
   const start = dayjs(fechaInicioViaje);
   const end = dayjs(fechaFinViaje);
-  const hasValidRange = start.isValid() && end.isValid() && !end.isBefore(start);
+  const hasValidRange =
+    start.isValid() && end.isValid() && !end.isBefore(start);
 
   const durationText = hasValidRange
     ? (() => {
@@ -191,6 +196,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             to={form.fechaFinViaje}
             onChangeFrom={(value) => onUpdateField("fechaInicioViaje", value)}
             onChangeTo={(value) => onUpdateField("fechaFinViaje", value)}
+            focusNextSelector='input[name^="nh-programa-"]'
           />
         </div>
 
@@ -220,6 +226,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             label="Programa"
             size="small"
             onChange={(event) => onUpdateField("programa", event.target.value)}
+            inputProps={{ "data-focus-next": 'input[name^="nh-cantpax-"]' }}
           />
         </div>
 
@@ -230,6 +237,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             fullWidth
             size="small"
             type="number"
+            displayZeroAsEmpty
             label="Cantidad"
             onChange={(event) => onUpdateField("cantPax", event.target.value)}
             inputProps={{ style: { textAlign: "center" } }}

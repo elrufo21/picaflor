@@ -1,5 +1,5 @@
 import TextField, { type TextFieldProps } from "@mui/material/TextField";
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   Controller,
   type FieldValues,
@@ -65,6 +65,8 @@ function TextControlled<T extends FieldValues>({
     ...restProps
   } = rest;
   const [historyUnlocked, setHistoryUnlocked] = useState(false);
+  const rawInputId = useId();
+  const safeInputId = rawInputId.replace(/[^a-zA-Z0-9_-]/g, "");
   return (
     <Controller
       name={name}
@@ -81,15 +83,15 @@ function TextControlled<T extends FieldValues>({
             ? restProps.type.toLowerCase()
             : "text";
         const historyAutoCompleteValue = shouldDisableHistory
-          ? `no-history-${fieldKey}`
+          ? "new-password"
           : restProps.autoComplete;
         const inputAutoCompleteValue = shouldDisableHistory
           ? "new-password"
           : inputType === "password"
             ? "new-password"
             : restInputProps?.autoComplete ?? "on";
-        const lockPasswordHistory =
-          shouldDisableHistory && inputType === "password" && !historyUnlocked;
+        const lockHistoryInput = shouldDisableHistory && !historyUnlocked;
+        const historySafeFieldName = `nh-${fieldKey}-${safeInputId}`;
         const shouldUppercase = inputType === "text" && !disableAutoUppercase;
 
         const shouldHideZero =
@@ -103,7 +105,35 @@ function TextControlled<T extends FieldValues>({
 
         const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
           const target = e.currentTarget;
+          const nextSelector = (
+            restInputProps as { "data-focus-next"?: string } | undefined
+          )?.["data-focus-next"];
           const form = target.closest("form");
+
+          if (inputType === "number" && e.key === "ArrowUp") {
+            e.preventDefault();
+            if (form) {
+              focusNextElement(target, form, { reverse: true });
+            }
+            rest.inputProps?.onKeyDown?.(e);
+            return;
+          }
+
+          if (inputType === "number" && e.key === "ArrowDown") {
+            e.preventDefault();
+            if (form) {
+              focusNextElement(target, form);
+            }
+            rest.inputProps?.onKeyDown?.(e);
+            return;
+          }
+
+          if (e.key === "Enter" && nextSelector) {
+            e.preventDefault();
+            document.querySelector<HTMLElement>(nextSelector)?.focus();
+            rest.inputProps?.onKeyDown?.(e);
+            return;
+          }
           if (!form) return;
 
           if (e.key === "Enter") {
@@ -134,15 +164,17 @@ function TextControlled<T extends FieldValues>({
           <TextField
             {...restProps}
             {...fieldProps}
+            name={shouldDisableHistory ? historySafeFieldName : fieldProps.name}
+            id={
+              shouldDisableHistory
+                ? `${historySafeFieldName}-input`
+                : restProps.id
+            }
             value={displayValue}
             inputRef={ref}
             autoComplete={historyAutoCompleteValue}
             onFocus={(event) => {
-              if (
-                shouldDisableHistory &&
-                inputType === "password" &&
-                !historyUnlocked
-              ) {
+              if (shouldDisableHistory && !historyUnlocked) {
                 setHistoryUnlocked(true);
               }
               restOnFocus?.(event);
@@ -169,9 +201,10 @@ function TextControlled<T extends FieldValues>({
             inputProps={{
               ...restInputProps,
               onKeyDown: handleKeyDown,
-              readOnly: lockPasswordHistory || restInputProps?.readOnly,
+              readOnly: lockHistoryInput || restInputProps?.readOnly,
 
               ...(shouldDisableHistory && {
+                name: historySafeFieldName,
                 autoComplete: inputAutoCompleteValue,
                 autoCorrect: "off",
                 spellCheck: false,
