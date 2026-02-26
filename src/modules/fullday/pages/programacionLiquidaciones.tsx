@@ -923,6 +923,23 @@ const LiquidacionesPage = () => {
     setSearchCanal(null);
     setSearchCanalInput("");
   }, []);
+  const globalSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const numberSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const canalSearchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const focusSearchInput = useCallback((mode: SearchMode) => {
+    window.setTimeout(() => {
+      if (mode === "numero") {
+        numberSearchInputRef.current?.focus();
+        return;
+      }
+      if (mode === "canal") {
+        canalSearchInputRef.current?.focus();
+        return;
+      }
+      globalSearchInputRef.current?.focus();
+    }, 0);
+  }, []);
 
   const handleToggleSearchByNumero = (checked: boolean) => {
     if (checked) {
@@ -930,10 +947,12 @@ const LiquidacionesPage = () => {
       stopCanalSearch();
       setSearchByFechaViaje(false);
       reload(pendingStartDateRef.current, pendingEndDateRef.current, false);
+      focusSearchInput("numero");
       return;
     }
     setSearchMode("none");
     stopNumberSearch();
+    focusSearchInput("none");
   };
 
   const handleToggleSearchByCanal = (checked: boolean) => {
@@ -941,14 +960,17 @@ const LiquidacionesPage = () => {
       setSearchMode("canal");
       stopNumberSearch();
       void ensureCanalOptionsLoaded();
+      focusSearchInput("canal");
       return;
     }
     setSearchMode("none");
     stopCanalSearch();
+    focusSearchInput("none");
   };
   const handleToggleSearchByFechaViaje = (checked: boolean) => {
     setSearchByFechaViaje(checked);
     reload(pendingStartDateRef.current, pendingEndDateRef.current, checked);
+    focusSearchInput(searchMode);
   };
 
   useEffect(() => {
@@ -1780,6 +1802,7 @@ const LiquidacionesPage = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
           <input
+            ref={globalSearchInputRef}
             type="text"
             value={globalFilter ?? ""}
             onChange={(e) => setGlobalFilter(e.target.value)}
@@ -1801,6 +1824,7 @@ const LiquidacionesPage = () => {
       {searchMode === "numero" && (
         <div className="space-y-1">
           <input
+            ref={numberSearchInputRef}
             type="text"
             value={searchNumber}
             onChange={(e) => setSearchNumber(e.target.value)}
@@ -1831,6 +1855,7 @@ const LiquidacionesPage = () => {
                 {...params}
                 fullWidth
                 placeholder="Selecciona canal de venta"
+                inputRef={canalSearchInputRef}
               />
             )}
           />
