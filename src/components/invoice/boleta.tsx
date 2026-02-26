@@ -352,6 +352,10 @@ export const InvoiceDocument = ({ data }: { data: any }) => {
               <Text style={[styles.bold, { width: 70 }]}>Canal de venta:</Text>
               <Text>{data.auxiliar}</Text>
             </View>
+            <View style={styles.row}>
+              <Text style={[styles.bold, { width: 70 }]}>Tipo de moneda:</Text>
+              <Text>{data.moneda}</Text>
+            </View>
           </View>
 
           <View
