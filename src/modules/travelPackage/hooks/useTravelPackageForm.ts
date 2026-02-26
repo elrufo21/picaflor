@@ -46,8 +46,8 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
 
   next.paquetesViaje = (next.paquetesViaje ?? []).map((item) => ({
     ...item,
-    cantPax: Math.max(1, Math.floor(Number(item.cantPax || 0) || 0)),
-    cantidad: Math.max(1, Math.floor(Number(item.cantidad || 0) || 0)),
+    cantPax: Math.max(0, Math.floor(Number(item.cantPax || 0) || 0)),
+    cantidad: Math.max(0, Math.floor(Number(item.cantidad || 0) || 0)),
   }));
 
   const paxFromPackages = next.paquetesViaje.reduce((acc, item) => {

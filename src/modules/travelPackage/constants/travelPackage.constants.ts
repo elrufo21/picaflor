@@ -199,6 +199,8 @@ export const createHotelServicioRow = (id: number): HotelServicioRow => ({
   entrada: "",
   salida: "",
   incluyeAlimentacion: false,
+  alimentacionTipo: "",
+  alimentacionPrecio: 0,
 });
 
 // ─── Helper aliases for Hook ──────────────────────────────────────────────────

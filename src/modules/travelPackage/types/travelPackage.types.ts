@@ -46,6 +46,8 @@ export type HotelServicioRow = {
   entrada: string;
   salida: string;
   incluyeAlimentacion: boolean;
+  alimentacionTipo: string;
+  alimentacionPrecio: number;
 };
 
 export type TravelPackageSelectionRow = {

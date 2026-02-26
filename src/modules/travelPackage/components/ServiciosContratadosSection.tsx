@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, BusFront } from "lucide-react";
 import { useForm } from "react-hook-form";
 import {
-  ALIMENTACION_BOOL_OPTIONS,
+  ALIMENTACION_OPTIONS,
   HABITACION_OPTIONS,
   HOTEL_INCLUSION_OPTIONS,
   MOVILIDAD_OPTIONS,
@@ -18,6 +18,7 @@ import {
   AutocompleteTable,
   RoomQuantitySelector,
   SelectControlled,
+  TextControlled,
   TableTimePicker,
   type RoomQuantityValue,
 } from "@/components/ui/inputs";
@@ -64,7 +65,9 @@ const mapFromSelectorValue = (
 type ServiciosContratadosFormValues = Record<string, string>;
 const normalizeRegionName = (value: string) => value.trim().toLowerCase();
 const inferRoomTypeFromPackage = (paquete: string): string | null => {
-  const normalized = String(paquete ?? "").trim().toLowerCase();
+  const normalized = String(paquete ?? "")
+    .trim()
+    .toLowerCase();
   if (!normalized || normalized.includes("sin hotel")) return null;
   if (normalized.includes("matrimonial")) return "Matrimonial";
   if (normalized.includes("simple")) return "Simple";
@@ -81,22 +84,32 @@ const ServiciosContratadosSection = ({
   onRemoveHotelServicio,
   onUpdateHotelServicioField,
 }: Props) => {
-  const { control, setValue } = useForm<ServiciosContratadosFormValues>({
+  const { control, setValue, watch } = useForm<ServiciosContratadosFormValues>({
     defaultValues: {
       movilidadTipo: form.movilidadTipo ?? "",
       movilidadEmpresa: form.movilidadEmpresa ?? "",
       incluyeHotel: form.incluyeHotel ? "SI" : "",
       incluyeAlimentacionGlobal: "",
+      precioAlimentacionGlobal: "",
     },
   });
   const [regiones, setRegiones] = useState<Ubigeo[]>([]);
   const [hotelesCatalogo, setHotelesCatalogo] = useState<Hotel[]>([]);
   const [empresasMovilidad, setEmpresasMovilidad] = useState<string[]>([]);
   const currencySymbol = getTravelCurrencySymbol(form.moneda);
+  const selectedAlimentacionGlobal = String(
+    watch("incluyeAlimentacionGlobal") ?? "",
+  );
+  const showAlimentacionPrice = Boolean(
+    selectedAlimentacionGlobal && selectedAlimentacionGlobal !== "NO INCLUYE",
+  );
   const hasHotelPackage = useMemo(
     () =>
       (form.paquetesViaje ?? []).some(
-        (item) => !String(item.paquete ?? "").toLowerCase().includes("sin hotel"),
+        (item) =>
+          !String(item.paquete ?? "")
+            .toLowerCase()
+            .includes("sin hotel"),
       ),
     [form.paquetesViaje],
   );
@@ -197,7 +210,7 @@ const ServiciosContratadosSection = ({
     hotelesContratados.forEach((row) => {
       setValue(
         `incluyeAlimentacion_${row.id}`,
-        row.incluyeAlimentacion ? "SI" : "NO",
+        row.alimentacionTipo || (row.incluyeAlimentacion ? "Desayuno" : ""),
         {
           shouldDirty: false,
           shouldTouch: false,
@@ -240,6 +253,8 @@ const ServiciosContratadosSection = ({
         entrada: "",
         salida: "",
         incluyeAlimentacion: false,
+        alimentacionTipo: "",
+        alimentacionPrecio: 0,
       } as HotelServicioRow;
     });
 
@@ -269,7 +284,10 @@ const ServiciosContratadosSection = ({
     (form.paquetesViaje ?? []).forEach((item) => {
       const roomType = inferRoomTypeFromPackage(item.paquete);
       if (!roomType) return;
-      const nextCount = Math.max(1, Math.floor(Number(item.cantidad || 0) || 1));
+      const nextCount = Math.max(
+        1,
+        Math.floor(Number(item.cantidad || 0) || 1),
+      );
       roomCountByType.set(roomType, nextCount);
     });
 
@@ -278,7 +296,9 @@ const ServiciosContratadosSection = ({
     const nextRows = hotelesContratados.map((row) => {
       const currentPriceByType = new Map(
         (row.habitaciones ?? []).map((item) => [
-          String(item.tipo ?? "").trim().toLowerCase(),
+          String(item.tipo ?? "")
+            .trim()
+            .toLowerCase(),
           Number(item.precio ?? 0),
         ]),
       );
@@ -316,7 +336,12 @@ const ServiciosContratadosSection = ({
     if (hasChanged) {
       onUpdateField("hotelesContratados", nextRows);
     }
-  }, [form.incluyeHotel, form.paquetesViaje, hotelesContratados, onUpdateField]);
+  }, [
+    form.incluyeHotel,
+    form.paquetesViaje,
+    hotelesContratados,
+    onUpdateField,
+  ]);
 
   return (
     <SectionCard
@@ -325,7 +350,7 @@ const ServiciosContratadosSection = ({
       description="Movilidad y hoteles incluidos en el paquete."
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3">
           <div className="lg:col-span-2">
             <label className="mb-1 block text-xs font-medium text-slate-600">
               Movilidad
@@ -375,7 +400,10 @@ const ServiciosContratadosSection = ({
             <SelectControlled<ServiciosContratadosFormValues>
               name="incluyeHotel"
               control={control}
-              options={[{ value: "", label: "SELECCIONE" }, ...HOTEL_INCLUSION_OPTIONS]}
+              options={[
+                { value: "", label: "SELECCIONE" },
+                ...HOTEL_INCLUSION_OPTIONS,
+              ]}
               size="small"
               disabled={hasHotelPackage}
               onChange={(e) =>
@@ -393,23 +421,57 @@ const ServiciosContratadosSection = ({
               control={control}
               options={[
                 { value: "", label: "SELECCIONE" },
-                ...ALIMENTACION_BOOL_OPTIONS,
+                { value: "NO INCLUYE", label: "No incluye" },
+                ...ALIMENTACION_OPTIONS.map((option) => ({
+                  value: option,
+                  label: option,
+                })),
               ]}
               size="small"
               onChange={(e) => {
                 const selectedValue = String(e.target.value);
                 if (!selectedValue) return;
-                const include = selectedValue === "SI";
+                const include = selectedValue !== "NO INCLUYE";
                 hotelesContratados.forEach((row) => {
                   onUpdateHotelServicioField(
                     row.id,
                     "incluyeAlimentacion",
                     include,
                   );
+                  onUpdateHotelServicioField(
+                    row.id,
+                    "alimentacionTipo",
+                    include ? selectedValue : "",
+                  );
                 });
               }}
             />
           </div>
+          {showAlimentacionPrice && (
+            <div className="lg:col-span-1">
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Precio alimentacion
+              </label>
+              <TextControlled<ServiciosContratadosFormValues>
+                name="precioAlimentacionGlobal"
+                control={control}
+                size="small"
+                type="number"
+                displayZeroAsEmpty
+                label="Precio"
+                onChange={(e) => {
+                  const price = Math.max(0, Number(e.target.value || 0));
+                  hotelesContratados.forEach((row) => {
+                    onUpdateHotelServicioField(
+                      row.id,
+                      "alimentacionPrecio",
+                      price,
+                    );
+                  });
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {form.incluyeHotel && (

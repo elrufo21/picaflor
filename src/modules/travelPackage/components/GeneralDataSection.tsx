@@ -187,7 +187,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
   };
 
   const updateSelectedPackageCantidad = (id: number, value: string) => {
-    const nextCantidad = Math.max(1, Math.floor(Number(value || 0) || 1));
+    const nextCantidad = Math.max(0, Math.floor(Number(value || 0) || 0));
     onUpdateField(
       "paquetesViaje",
       (form.paquetesViaje ?? []).map((item) =>
@@ -197,7 +197,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
   };
 
   const updateSelectedPackageCantPax = (id: number, value: string) => {
-    const nextCantPax = Math.max(1, Math.floor(Number(value || 0) || 1));
+    const nextCantPax = Math.max(0, Math.floor(Number(value || 0) || 0));
     onUpdateField(
       "paquetesViaje",
       (form.paquetesViaje ?? []).map((item) =>
@@ -254,7 +254,15 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
                       ? `Pax ${item.paquete}`
                       : `Cantidad ${item.paquete}`
                   }
-                  value={item.id === 3 ? item.cantPax : item.cantidad}
+                  value={
+                    item.id === 3
+                      ? item.cantPax === 0
+                        ? ""
+                        : item.cantPax
+                      : item.cantidad === 0
+                        ? ""
+                        : item.cantidad
+                  }
                   onChange={(event) => {
                     if (item.id === 3) {
                       updateSelectedPackageCantPax(item.id, event.target.value);
@@ -262,7 +270,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
                     }
                     updateSelectedPackageCantidad(item.id, event.target.value);
                   }}
-                  inputProps={{ min: 1 }}
+                  inputProps={{ min: 0 }}
                 />
               ))}
             </div>

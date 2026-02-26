@@ -97,17 +97,35 @@ const LiquidationSection = ({ form }: Props) => {
   );
   const showActivitiesRow = activitiesTotal > 0 && paxCount > 0;
 
+  const foodUnit = useMemo(
+    () =>
+      roundCurrency(
+        (form.hotelesContratados ?? []).reduce((acc, hotelRow) => {
+          if (!hotelRow.incluyeAlimentacion) return acc;
+          return acc + Number(hotelRow.alimentacionPrecio || 0);
+        }, 0),
+      ),
+    [form.hotelesContratados],
+  );
+  const foodTotal = useMemo(
+    () => roundCurrency(foodUnit * paxCount),
+    [foodUnit, paxCount],
+  );
+  const showFoodRow = form.incluyeHotel && foodUnit > 0 && paxCount > 0;
+
   const grandTotal = useMemo(
     () =>
       roundCurrency(
         liquidationRows.reduce((acc, row) => {
           const unit = roundCurrency(row.roomPrice);
           return acc + roundCurrency(unit * row.quantity);
-        }, 0) + (showActivitiesRow ? activitiesTotal : 0),
+        }, 0) +
+          (showActivitiesRow ? activitiesTotal : 0) +
+          (showFoodRow ? foodTotal : 0),
       ),
-    [liquidationRows, showActivitiesRow, activitiesTotal],
+    [liquidationRows, showActivitiesRow, activitiesTotal, showFoodRow, foodTotal],
   );
-  const hasRows = liquidationRows.length > 0 || showActivitiesRow;
+  const hasRows = liquidationRows.length > 0 || showActivitiesRow || showFoodRow;
 
   return (
     <SectionCard
@@ -178,6 +196,22 @@ const LiquidationSection = ({ form }: Props) => {
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-slate-800">
                       {`${currencySymbol} ${formatCurrency(activitiesTotal)}`}
+                    </td>
+                  </tr>
+                )}
+                {showFoodRow && (
+                  <tr className="border-t border-slate-200">
+                    <td className="px-3 py-2 text-slate-700">
+                      {`Paquete ${destinosLabel} / Alimentacion`}
+                    </td>
+                    <td className="px-3 py-2 text-right font-medium text-slate-700">
+                      {`${currencySymbol} ${formatCurrency(foodUnit)}`}
+                    </td>
+                    <td className="px-3 py-2 text-center text-slate-700">
+                      {paxCount}
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">
+                      {`${currencySymbol} ${formatCurrency(foodTotal)}`}
                     </td>
                   </tr>
                 )}
