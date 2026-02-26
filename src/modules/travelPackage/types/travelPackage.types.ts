@@ -48,8 +48,16 @@ export type HotelServicioRow = {
   incluyeAlimentacion: boolean;
 };
 
+export type TravelPackageSelectionRow = {
+  id: number;
+  paquete: string;
+  cantPax: number;
+  cantidad: number;
+};
+
 export type TravelPackageFormState = {
   fechaEmision: string;
+  paquetesViaje: TravelPackageSelectionRow[];
   destinos: string[];
   programa: string;
   fechaInicioViaje: string;
@@ -89,5 +97,5 @@ export type TravelPackageFormState = {
   noIncluye: string;
   impuestosAdicionales: string;
   observaciones: string;
-  cantPax:string;
+  cantPax: string;
 };
