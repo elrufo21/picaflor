@@ -65,6 +65,11 @@ const buildCityTourDescription = (data: any) => {
   return labels.length > 0 ? labels.join(" + ").toUpperCase() : "";
 };
 
+const isCityTourFromUrl = () => {
+  if (typeof window === "undefined") return false;
+  return window.location.pathname.toLowerCase().includes("/citytour/");
+};
+
 const styles = StyleSheet.create({
   page: {
     fontSize: 8.5,
@@ -272,9 +277,10 @@ const styles = StyleSheet.create({
 
 const buildItems = (data: any) => {
   const destino = normalizeText(data?.destino);
-  const isCityTour = destino.toUpperCase().includes("CITY TOUR");
-  const cityTourDescription = isCityTour ? buildCityTourDescription(data) : "";
-  const producto = cityTourDescription || destino || "-";
+  const cityTourDescription = buildCityTourDescription(data);
+  const isCityTour = isCityTourFromUrl();
+  const producto =
+    isCityTour && cityTourDescription ? cityTourDescription : destino || "-";
   const cantidad = Number(data?.cantPax ?? 0);
   const importe = Number(data?.precioTotal ?? data?.totalGeneral ?? 0);
 
