@@ -1,9 +1,12 @@
-import { Chip } from "@mui/material";
+import { Autocomplete, Chip, TextField } from "@mui/material";
 import { ClipboardList } from "lucide-react";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { CONDICION_PAGO_OPTIONS } from "../constants/travelPackage.constants";
+import {
+  CONDICION_PAGO_OPTIONS,
+  TRAVEL_PACKAGE_SELECTOR_OPTIONS,
+} from "../constants/travelPackage.constants";
 import type { TravelPackageFormState } from "../types/travelPackage.types";
 import SectionCard from "./SectionCard";
 import TravelDateRangePicker from "./TravelDateRangePicker";
@@ -159,6 +162,50 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
   }, [regiones]);
 
+  const selectedPackageOptions = useMemo(() => {
+    const selectedIds = new Set((form.paquetesViaje ?? []).map((item) => item.id));
+    return TRAVEL_PACKAGE_SELECTOR_OPTIONS.filter((option) => selectedIds.has(option.id));
+  }, [form.paquetesViaje]);
+
+  const handlePackageSelectionChange = (
+    nextOptions: typeof TRAVEL_PACKAGE_SELECTOR_OPTIONS,
+  ) => {
+    const currentById = new Map((form.paquetesViaje ?? []).map((item) => [item.id, item]));
+    const next = nextOptions.map((option) => {
+      const current = currentById.get(option.id);
+      if (current) return current;
+      return {
+        ...option,
+        cantPax:
+          option.id === 3
+            ? Math.max(1, Math.floor(Number(form.cantPax || 0) || 1))
+            : option.cantPax,
+        cantidad: 1,
+      };
+    });
+    onUpdateField("paquetesViaje", next);
+  };
+
+  const updateSelectedPackageCantidad = (id: number, value: string) => {
+    const nextCantidad = Math.max(1, Math.floor(Number(value || 0) || 1));
+    onUpdateField(
+      "paquetesViaje",
+      (form.paquetesViaje ?? []).map((item) =>
+        item.id === id ? { ...item, cantidad: nextCantidad } : item,
+      ),
+    );
+  };
+
+  const updateSelectedPackageCantPax = (id: number, value: string) => {
+    const nextCantPax = Math.max(1, Math.floor(Number(value || 0) || 1));
+    onUpdateField(
+      "paquetesViaje",
+      (form.paquetesViaje ?? []).map((item) =>
+        item.id === id ? { ...item, cantPax: nextCantPax } : item,
+      ),
+    );
+  };
+
   return (
     <SectionCard
       icon={ClipboardList}
@@ -166,6 +213,62 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
       description="Informacion base del paquete turístico."
     >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-3">
+          <Autocomplete
+            multiple
+            disableCloseOnSelect
+            size="small"
+            options={TRAVEL_PACKAGE_SELECTOR_OPTIONS}
+            value={selectedPackageOptions}
+            onChange={(_, value) =>
+              handlePackageSelectionChange(value as typeof TRAVEL_PACKAGE_SELECTOR_OPTIONS)
+            }
+            getOptionLabel={(option) => option.paquete}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={option.id}
+                  size="small"
+                  label={
+                    option.id === 3
+                      ? `${option.paquete} (${option.cantPax} pax)`
+                      : `${option.paquete} x${option.cantidad}`
+                  }
+                />
+              ))
+            }
+            renderInput={(params) => (
+              <TextField {...params} label="Paquete de viaje" />
+            )}
+          />
+          {(form.paquetesViaje ?? []).length > 0 && (
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(form.paquetesViaje ?? []).map((item) => (
+                <TextField
+                  key={item.id}
+                  size="small"
+                  type="number"
+                  label={
+                    item.id === 3
+                      ? `Pax ${item.paquete}`
+                      : `Cantidad ${item.paquete}`
+                  }
+                  value={item.id === 3 ? item.cantPax : item.cantidad}
+                  onChange={(event) => {
+                    if (item.id === 3) {
+                      updateSelectedPackageCantPax(item.id, event.target.value);
+                      return;
+                    }
+                    updateSelectedPackageCantidad(item.id, event.target.value);
+                  }}
+                  inputProps={{ min: 1 }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
         <div>
           <AutocompleteControlled<GeneralDataFormValues, string, true>
             multiple

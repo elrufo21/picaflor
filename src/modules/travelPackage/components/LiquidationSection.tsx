@@ -63,17 +63,6 @@ const LiquidationSection = ({ form }: Props) => {
         .sort((a, b) => a.roomType.localeCompare(b.roomType));
     }
 
-    if (!form.incluyeHotel && paxCount > 0) {
-      return [
-        {
-          key: "SIN_HOTEL",
-          roomType: "Sin hotel",
-          roomPrice: 0,
-          quantity: paxCount,
-        },
-      ];
-    }
-
     return [];
   }, [form.hotelesContratados, form.incluyeHotel, paxCount]);
 
