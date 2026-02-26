@@ -39,6 +39,32 @@ const formatCurrency = (value: number | string) => {
   return Number.isFinite(numericValue) ? numericValue.toFixed(2) : "0.00";
 };
 
+const normalizeText = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const buildCityTourDescription = (data: any) => {
+  const candidates = [
+    data?.detalle?.act1?.servicio?.label,
+    data?.detalle?.act2?.servicio?.label,
+    data?.detalle?.act3?.servicio?.label,
+    data?.detallexd?.act1?.servicio?.label,
+    data?.detallexd?.act2?.servicio?.label,
+    data?.detallexd?.act3?.servicio?.label,
+  ];
+
+  const labels = Array.from(
+    new Set(
+      candidates
+        .map((item) => normalizeText(item))
+        .filter((item) => item && item !== "-" && item !== "0"),
+    ),
+  );
+
+  return labels.length > 0 ? labels.join(" + ").toUpperCase() : "";
+};
+
 const styles = StyleSheet.create({
   page: {
     fontSize: 8.5,
@@ -245,7 +271,10 @@ const styles = StyleSheet.create({
 });
 
 const buildItems = (data: any) => {
-  const producto = String(data?.destino ?? "").trim() || "-";
+  const destino = normalizeText(data?.destino);
+  const isCityTour = destino.toUpperCase().includes("CITY TOUR");
+  const cityTourDescription = isCityTour ? buildCityTourDescription(data) : "";
+  const producto = cityTourDescription || destino || "-";
   const cantidad = Number(data?.cantPax ?? 0);
   const importe = Number(data?.precioTotal ?? data?.totalGeneral ?? 0);
 
@@ -261,7 +290,7 @@ const buildItems = (data: any) => {
 export const InvoiceDocument = ({ data }: { data: any }) => {
   const items = buildItems(data);
 
-  const moneda = data.moneda === "SOLES" ? "S/" : "$";
+  const moneda = data.moneda === "SOLES" ? "S/" : "USD $";
 
   return (
     <Document>
@@ -483,7 +512,7 @@ export const InvoiceDocument = ({ data }: { data: any }) => {
                   textAlign: "right",
                 }}
               >
-                Total: S/
+                Total: {moneda}
               </Text>
 
               <Text
@@ -517,7 +546,7 @@ export const InvoiceDocument = ({ data }: { data: any }) => {
                   textAlign: "right",
                 }}
               >
-                A cuenta: S/
+                A cuenta: {moneda}
               </Text>
 
               <Text
@@ -547,7 +576,7 @@ export const InvoiceDocument = ({ data }: { data: any }) => {
                   textAlign: "right",
                 }}
               >
-                Saldo: S/
+                Saldo: {moneda}
               </Text>
 
               <Text

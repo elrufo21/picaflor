@@ -1083,7 +1083,9 @@ const ViajeForm = () => {
     setValue(
       "fechaViaje",
       normalizeDateInputValue(
-        watch("fechaViaje") !== "" ? watch("fechaViaje") : selectedPackage.fecha,
+        watch("fechaViaje") !== ""
+          ? watch("fechaViaje")
+          : selectedPackage.fecha,
       ),
       {
         shouldDirty: true,
@@ -1372,7 +1374,7 @@ const ViajeForm = () => {
       });
       return;
     }
-
+    console.log("getValues()", getValues());
     navigate(`/citytour/${idProduct}/passengers/boleta`, {
       state: {
         boletaData: getValues(),
@@ -1646,7 +1648,7 @@ const ViajeForm = () => {
                       }
                     `}
                   >
-                   {isUpdatingVerificado ? (
+                    {isUpdatingVerificado ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : isVerificado ? (
                       <RefreshCw size={16} />
