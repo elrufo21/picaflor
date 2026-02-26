@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   Box,
+  Button,
   Checkbox,
   IconButton,
   InputAdornment,
@@ -42,15 +43,17 @@ const toSummary = (
   options: RoomOption[],
   currencySymbol: string,
 ) => {
-  const byValue = new Map(options.map((option) => [option.value, option.label]));
+  const byValue = new Map(
+    options.map((option) => [option.value, option.label]),
+  );
   const selected = value.filter((item) => item.quantity > 0);
   if (!selected.length) return "";
-  return selected
-    .map(
-      (item) =>
-        `${item.quantity} ${byValue.get(item.value) ?? item.value} ${currencySymbol}-${formatPrice(item.price)}`,
-    )
-    .join(", ");
+  const totalRooms = selected.reduce((acc, item) => acc + item.quantity, 0);
+  const totalAmount = selected.reduce(
+    (acc, item) => acc + item.quantity * Number(item.price || 0),
+    0,
+  );
+  return `${selected.length} tipos | ${totalRooms} hab | ${currencySymbol} ${formatPrice(totalAmount)}`;
 };
 
 const sortByOptions = (value: RoomQuantityValue[], options: RoomOption[]) => {
@@ -75,6 +78,26 @@ const RoomQuantitySelector = ({
     [value, options, currencySymbol],
   );
   const open = Boolean(anchorEl);
+  const selected = value.filter((item) => item.quantity > 0);
+  const totals = useMemo(
+    () => ({
+      rooms: selected.reduce((acc, item) => acc + item.quantity, 0),
+      amount: selected.reduce(
+        (acc, item) => acc + item.quantity * Number(item.price || 0),
+        0,
+      ),
+    }),
+    [selected],
+  );
+  const displayOptions = useMemo(() => {
+    const selectedSet = new Set(selected.map((item) => item.value));
+    return [...options].sort((a, b) => {
+      const aSel = selectedSet.has(a.value) ? 0 : 1;
+      const bSel = selectedSet.has(b.value) ? 0 : 1;
+      if (aSel !== bSel) return aSel - bSel;
+      return a.label.localeCompare(b.label);
+    });
+  }, [options, selected]);
 
   const getCurrentQuantity = (optionValue: string) =>
     value.find((item) => item.value === optionValue)?.quantity ?? 0;
@@ -112,6 +135,8 @@ const RoomQuantitySelector = ({
     setRoomValue(optionValue, { quantity: 0 });
   };
 
+  const clearAll = () => onChange([]);
+
   return (
     <>
       <TextField
@@ -140,18 +165,35 @@ const RoomQuantitySelector = ({
         anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
         transformOrigin={{ vertical: "top", horizontal: "left" }}
       >
-        <Box className="w-[320px] p-3 space-y-2">
-          <Typography variant="subtitle2" className="font-semibold">
-            Tipos de habitación
+        <Box className="w-[530px] max-h-[70vh] overflow-y-auto p-3 space-y-2">
+          <Box className="flex items-center justify-between">
+            <Typography variant="subtitle2" className="font-semibold">
+              Tipos de habitacion
+            </Typography>
+            <Button
+              size="small"
+              variant="text"
+              onClick={clearAll}
+              disabled={!selected.length}
+            >
+              Limpiar
+            </Button>
+          </Box>
+          <Typography variant="caption" className="text-slate-600">
+            {`${totals.rooms} habitaciones seleccionadas | ${currencySymbol} ${formatPrice(
+              totals.amount,
+            )}`}
           </Typography>
 
-          {options.map((option) => {
+          {displayOptions.map((option) => {
             const quantity = getCurrentQuantity(option.value);
             const checked = quantity > 0;
+            const price = getCurrentPrice(option.value);
+            const subtotal = quantity * price;
             return (
               <Box
                 key={option.value}
-                className="grid grid-cols-[1fr_auto] items-center gap-2"
+                className="rounded-md border border-slate-200 bg-white p-2 grid grid-cols-[1fr_auto_auto_auto] items-center gap-2"
               >
                 <label className="inline-flex items-center gap-2 text-sm">
                   <Checkbox
@@ -177,14 +219,14 @@ const RoomQuantitySelector = ({
                   <TextField
                     size="small"
                     type="number"
-                    value={checked ? quantity : 0}
+                    value={checked ? quantity : ""}
                     onChange={(event) =>
                       setRoomValue(option.value, {
                         quantity: Number(event.target.value),
                       })
                     }
                     disabled={!checked}
-                    sx={{ width: 70 }}
+                    sx={{ width: 60 }}
                     inputProps={{ min: 0 }}
                   />
                   <IconButton
@@ -198,34 +240,35 @@ const RoomQuantitySelector = ({
                   </IconButton>
                 </Box>
 
-                <Box className="col-span-2 grid grid-cols-[1fr_auto] items-center gap-2 pl-9">
-                  <Typography variant="caption" className="text-slate-500">
-                    Precio
-                  </Typography>
-                  <TextField
-                    size="small"
-                    type="number"
-                    value={checked ? getCurrentPrice(option.value) : 0}
-                    onChange={(event) =>
-                      setRoomValue(option.value, {
-                        price: Number(event.target.value),
-                      })
-                    }
-                    disabled={!checked}
-                    sx={{ width: 120 }}
-                    inputProps={{
-                      min: 0,
-                      step: "0.01",
-                    }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          {currencySymbol}
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
+                <TextField
+                  size="small"
+                  type="number"
+                  value={checked && price > 0 ? price : ""}
+                  onChange={(event) =>
+                    setRoomValue(option.value, {
+                      price: Number(event.target.value),
+                    })
+                  }
+                  disabled={!checked}
+                  sx={{ width: 130 }}
+                  inputProps={{
+                    min: 0,
+                    step: "0.01",
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        {currencySymbol}
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  className="text-right text-slate-700 font-medium min-w-[84px]"
+                >
+                  {`${currencySymbol} ${formatPrice(subtotal)}`}
+                </Typography>
               </Box>
             );
           })}
