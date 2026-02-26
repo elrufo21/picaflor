@@ -63,6 +63,16 @@ const mapFromSelectorValue = (
 
 type ServiciosContratadosFormValues = Record<string, string>;
 const normalizeRegionName = (value: string) => value.trim().toLowerCase();
+const inferRoomTypeFromPackage = (paquete: string): string | null => {
+  const normalized = String(paquete ?? "").trim().toLowerCase();
+  if (!normalized || normalized.includes("sin hotel")) return null;
+  if (normalized.includes("matrimonial")) return "Matrimonial";
+  if (normalized.includes("simple")) return "Simple";
+  if (normalized.includes("doble")) return "Doble";
+  if (normalized.includes("triple")) return "Triple";
+  if (normalized.includes("familiar")) return "Familiar";
+  return null;
+};
 
 const ServiciosContratadosSection = ({
   form,
@@ -243,6 +253,63 @@ const ServiciosContratadosSection = ({
       onUpdateField("hotelesContratados", nextRows);
     }
   }, [form.incluyeHotel, form.destinos, hotelesContratados, onUpdateField]);
+
+  useEffect(() => {
+    if (!form.incluyeHotel) return;
+    if (!hotelesContratados.length) return;
+
+    const roomCountByType = new Map<string, number>();
+    (form.paquetesViaje ?? []).forEach((item) => {
+      const roomType = inferRoomTypeFromPackage(item.paquete);
+      if (!roomType) return;
+      const nextCount = Math.max(1, Math.floor(Number(item.cantidad || 0) || 1));
+      roomCountByType.set(roomType, nextCount);
+    });
+
+    if (!roomCountByType.size) return;
+
+    const nextRows = hotelesContratados.map((row) => {
+      const currentPriceByType = new Map(
+        (row.habitaciones ?? []).map((item) => [
+          String(item.tipo ?? "").trim().toLowerCase(),
+          Number(item.precio ?? 0),
+        ]),
+      );
+
+      const nextHabitaciones = Array.from(roomCountByType.entries()).map(
+        ([tipo, cantidad]) => ({
+          tipo,
+          cantidad,
+          precio: currentPriceByType.get(tipo.toLowerCase()) ?? 0,
+        }),
+      );
+
+      return {
+        ...row,
+        habitaciones: nextHabitaciones,
+      };
+    });
+
+    const hasChanged = nextRows.some((row, index) => {
+      const current = hotelesContratados[index];
+      if (!current) return true;
+      const left = JSON.stringify(
+        [...(current.habitaciones ?? [])].sort((a, b) =>
+          String(a.tipo).localeCompare(String(b.tipo)),
+        ),
+      );
+      const right = JSON.stringify(
+        [...(row.habitaciones ?? [])].sort((a, b) =>
+          String(a.tipo).localeCompare(String(b.tipo)),
+        ),
+      );
+      return left !== right;
+    });
+
+    if (hasChanged) {
+      onUpdateField("hotelesContratados", nextRows);
+    }
+  }, [form.incluyeHotel, form.paquetesViaje, hotelesContratados, onUpdateField]);
 
   return (
     <SectionCard

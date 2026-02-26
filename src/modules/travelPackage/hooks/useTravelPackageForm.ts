@@ -44,6 +44,24 @@ const isActiveItineraryRow = (row: ItineraryActivityRow) => {
 const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormState => {
   const next = { ...state };
 
+  next.paquetesViaje = (next.paquetesViaje ?? []).map((item) => ({
+    ...item,
+    cantPax: Math.max(1, Math.floor(Number(item.cantPax || 0) || 0)),
+    cantidad: Math.max(1, Math.floor(Number(item.cantidad || 0) || 0)),
+  }));
+
+  const paxFromPackages = next.paquetesViaje.reduce((acc, item) => {
+    const isSinHotel = String(item.paquete ?? "").toLowerCase().includes("sin hotel");
+    if (isSinHotel) {
+      return acc + Number(item.cantPax || 0);
+    }
+    return acc + Number(item.cantPax || 0) * Number(item.cantidad || 0);
+  }, 0);
+
+  if (paxFromPackages > 0) {
+    next.cantPax = String(paxFromPackages);
+  }
+
   const pax = Math.max(0, Math.floor(Number(String(next.cantPax ?? "").trim()) || 0));
   next.cantPax = String(pax);
 

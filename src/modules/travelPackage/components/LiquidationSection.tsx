@@ -20,55 +20,62 @@ const LiquidationSection = ({ form }: Props) => {
   const currencySymbol = getTravelCurrencySymbol(form.moneda);
   const paxCount = Math.max(0, Number(form.cantPax || 0));
 
-  const packageUnitAmount = useMemo(() => {
-    const unitByDay = (form.itinerario ?? []).reduce(
-      (acc, day) => acc + Number(day.precioUnitario || 0),
-      0,
-    );
-    const activitySubtotal = (form.itinerario ?? []).reduce(
-      (acc, day) =>
-        acc +
-        (day.actividades ?? []).reduce(
-          (sum, activity) => sum + Number(activity.subtotal || 0),
-          0,
-        ),
-      0,
-    );
-    const activityUnit = paxCount > 0 ? activitySubtotal / paxCount : 0;
-    return roundCurrency(unitByDay + activityUnit);
-  }, [form.itinerario, paxCount]);
-
   const liquidationRows = useMemo<LiquidationRow[]>(() => {
-    const grouped = new Map<string, LiquidationRow>();
+    if (form.incluyeHotel) {
+      const groupedByType = new Map<
+        string,
+        { roomType: string; unitPriceSum: number; quantity: number }
+      >();
 
-    (form.hotelesContratados ?? []).forEach((hotelRow) => {
-      (hotelRow.habitaciones ?? []).forEach((room) => {
-        const quantity = Math.max(0, Number(room.cantidad || 0));
-        if (quantity <= 0) return;
-        const roomType = String(room.tipo ?? "").trim();
-        if (!roomType) return;
-        const roomPrice = roundCurrency(Number(room.precio || 0));
-        const key = `${roomType.toUpperCase()}|${roomPrice.toFixed(2)}`;
-        const current = grouped.get(key);
+      (form.hotelesContratados ?? []).forEach((hotelRow) => {
+        (hotelRow.habitaciones ?? []).forEach((room) => {
+          const roomType = String(room.tipo ?? "").trim();
+          if (!roomType) return;
+          const quantity = Math.max(0, Number(room.cantidad || 0));
+          if (quantity <= 0) return;
+          const roomPrice = roundCurrency(Number(room.precio || 0));
+          const key = roomType.toUpperCase();
+          const current = groupedByType.get(key);
 
-        if (current) {
-          current.quantity += quantity;
-          return;
-        }
+          if (current) {
+            // Unitario unificado: suma de precios del mismo tipo entre hoteles.
+            current.unitPriceSum = roundCurrency(current.unitPriceSum + roomPrice);
+            // Cantidad unificada: la cantidad del paquete (no suma por hotel).
+            current.quantity = Math.max(current.quantity, quantity);
+            return;
+          }
 
-        grouped.set(key, {
-          key,
-          roomType,
-          roomPrice,
-          quantity,
+          groupedByType.set(key, {
+            roomType,
+            unitPriceSum: roomPrice,
+            quantity,
+          });
         });
       });
-    });
 
-    return Array.from(grouped.values()).sort((a, b) =>
-      a.roomType.localeCompare(b.roomType),
-    );
-  }, [form.hotelesContratados]);
+      return Array.from(groupedByType.entries())
+        .map(([key, value]) => ({
+          key,
+          roomType: value.roomType,
+          roomPrice: value.unitPriceSum,
+          quantity: value.quantity,
+        }))
+        .sort((a, b) => a.roomType.localeCompare(b.roomType));
+    }
+
+    if (!form.incluyeHotel && paxCount > 0) {
+      return [
+        {
+          key: "SIN_HOTEL",
+          roomType: "Sin hotel",
+          roomPrice: 0,
+          quantity: paxCount,
+        },
+      ];
+    }
+
+    return [];
+  }, [form.hotelesContratados, form.incluyeHotel, paxCount]);
 
   const destinosLabel = useMemo(() => {
     const values = (form.destinos ?? [])
@@ -77,22 +84,47 @@ const LiquidationSection = ({ form }: Props) => {
     return values.length ? values.join(" - ") : "SIN DESTINOS";
   }, [form.destinos]);
 
+  const activitiesTotal = useMemo(
+    () =>
+      roundCurrency(
+        (form.itinerario ?? []).reduce(
+          (acc, day) => {
+            const dayActivitiesSubtotal = (day.actividades ?? []).reduce(
+              (sum, activity) => sum + Number(activity.subtotal || 0),
+              0,
+            );
+            const dayImporteTotal =
+              Number(day.precioUnitario || 0) * paxCount + dayActivitiesSubtotal;
+            return acc + dayImporteTotal;
+          },
+          0,
+        ),
+      ),
+    [form.itinerario, paxCount],
+  );
+  const activitiesUnit = useMemo(
+    () => (paxCount > 0 ? roundCurrency(activitiesTotal / paxCount) : 0),
+    [activitiesTotal, paxCount],
+  );
+  const showActivitiesRow = activitiesTotal > 0 && paxCount > 0;
+
   const grandTotal = useMemo(
     () =>
       roundCurrency(
         liquidationRows.reduce((acc, row) => {
-          const unit = roundCurrency(packageUnitAmount + row.roomPrice);
+          const unit = roundCurrency(row.roomPrice);
           return acc + roundCurrency(unit * row.quantity);
-        }, 0),
+        }, 0) + (showActivitiesRow ? activitiesTotal : 0),
       ),
-    [liquidationRows, packageUnitAmount],
+    [liquidationRows, showActivitiesRow, activitiesTotal],
   );
+  const hasRows = liquidationRows.length > 0 || showActivitiesRow;
 
   return (
     <SectionCard
       icon={Calculator}
       title="6. Liquidacion"
-      description="Resumen por tipo de habitacion (paquete + hotel)."
+      description="Resumen unificado por paquete y tipo de habitacion."
     >
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="min-w-[920px] w-full table-fixed text-xs sm:text-sm">
@@ -113,7 +145,7 @@ const LiquidationSection = ({ form }: Props) => {
             </tr>
           </thead>
           <tbody>
-            {liquidationRows.length === 0 ? (
+            {!hasRows ? (
               <tr className="border-t border-slate-200">
                 <td
                   className="px-3 py-3 text-slate-500"
@@ -123,29 +155,47 @@ const LiquidationSection = ({ form }: Props) => {
                 </td>
               </tr>
             ) : (
-              liquidationRows.map((row) => {
-                const unitAmount = roundCurrency(packageUnitAmount + row.roomPrice);
-                const total = roundCurrency(unitAmount * row.quantity);
-                return (
-                  <tr key={row.key} className="border-t border-slate-200">
+              <>
+                {liquidationRows.map((row) => {
+                  const unitAmount = roundCurrency(row.roomPrice);
+                  const total = roundCurrency(unitAmount * row.quantity);
+                  return (
+                    <tr key={row.key} className="border-t border-slate-200">
+                      <td className="px-3 py-2 text-slate-700">
+                        {`Paquete ${destinosLabel} / Hab ${row.roomType}`}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-slate-700">
+                        {`${currencySymbol} ${formatCurrency(unitAmount)}`}
+                      </td>
+                      <td className="px-3 py-2 text-center text-slate-700">
+                        {row.quantity}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-slate-800">
+                        {`${currencySymbol} ${formatCurrency(total)}`}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {showActivitiesRow && (
+                  <tr className="border-t border-slate-200">
                     <td className="px-3 py-2 text-slate-700">
-                      {`Paquete ${destinosLabel} / Hab ${row.roomType}`}
+                      {`Paquete ${destinosLabel} / Actividades`}
                     </td>
                     <td className="px-3 py-2 text-right font-medium text-slate-700">
-                      {`${currencySymbol} ${formatCurrency(unitAmount)}`}
+                      {`${currencySymbol} ${formatCurrency(activitiesUnit)}`}
                     </td>
                     <td className="px-3 py-2 text-center text-slate-700">
-                      {row.quantity}
+                      {paxCount}
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-slate-800">
-                      {`${currencySymbol} ${formatCurrency(total)}`}
+                      {`${currencySymbol} ${formatCurrency(activitiesTotal)}`}
                     </td>
                   </tr>
-                );
-              })
+                )}
+              </>
             )}
           </tbody>
-          {liquidationRows.length > 0 && (
+          {hasRows && (
             <tfoot>
               <tr className="border-t border-slate-300 bg-slate-50">
                 <td className="px-3 py-2 text-right font-semibold text-slate-800" colSpan={3}>

@@ -4,6 +4,7 @@ import type {
   ItineraryActivityRow,
   PassengerRow,
   SelectOption,
+  TravelPackageSelectionRow,
   TravelPackageFormState,
 } from "../types/travelPackage.types";
 
@@ -28,6 +29,18 @@ export const AGENCIA_OPTIONS: SelectOption[] = [
 ];
 
 export const MOVILIDAD_OPTIONS = ["BUS", "AEREO", "CRUCERO"];
+export const TRAVEL_PACKAGE_SELECTOR_OPTIONS: TravelPackageSelectionRow[] = [
+  { id: 1, paquete: "Paquete matrimonial", cantPax: 2, cantidad: 1 },
+  { id: 2, paquete: "Paquete simple", cantPax: 1, cantidad: 1 },
+  { id: 3, paquete: "Paquete sin hotel", cantPax: 1, cantidad: 1 },
+  { id: 4, paquete: "Paquete doble", cantPax: 2, cantidad: 1 },
+  { id: 5, paquete: "Paquete triple", cantPax: 3, cantidad: 1 },
+  { id: 6, paquete: "Paquete cuadruple", cantPax: 4, cantidad: 1 },
+  { id: 7, paquete: "Paquete quintuple", cantPax: 5, cantidad: 1 },
+  { id: 8, paquete: "Paquete familiar", cantPax: 4, cantidad: 1 },
+  { id: 9, paquete: "Paquete suite", cantPax: 2, cantidad: 1 },
+  { id: 10, paquete: "Paquete junior suite", cantPax: 2, cantidad: 1 },
+];
 export const HOTEL_INCLUSION_OPTIONS = [
   { value: "SI", label: "Incluye hotel" },
   { value: "NO", label: "No incluye hotel" },
@@ -48,7 +61,11 @@ export const HABITACION_OPTIONS = [
   "Doble",
   "Matrimonial",
   "Triple",
+  "Cuadruple",
+  "Quintuple",
   "Familiar",
+  "Suite",
+  "Junior Suite",
 ];
 
 export const ALIMENTACION_OPTIONS = [
@@ -197,6 +214,7 @@ export const createEmptyHotelServicio = () =>
 
 export const INITIAL_FORM_STATE: TravelPackageFormState = {
   fechaEmision: getTodayIso(),
+  paquetesViaje: [],
   destinos: [],
   programa: "",
   fechaInicioViaje: "",
