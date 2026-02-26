@@ -57,8 +57,8 @@ const PRODUCT_ACTIVITY_HEADER_MAP: Record<
   Partial<Record<"tubu" | "islas" | "reseN", string>>
 > = {
   "FULL DAY LUNAHUANA": {
-    tubu: "CUATRI",
-    islas: "CANOT",
+    tubu: "CANOT",
+    islas: "CUATRI",
     reseN: "CANOP",
   },
   "FULL DAY AUCALLAMA CHANCAY": {
