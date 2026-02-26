@@ -6,6 +6,7 @@ import {
   HABITACION_OPTIONS,
   HOTEL_INCLUSION_OPTIONS,
   MOVILIDAD_OPTIONS,
+  getTravelCurrencySymbol,
 } from "../constants/travelPackage.constants";
 import type {
   HotelRoomSelection,
@@ -48,12 +49,17 @@ const mapToSelectorValue = (
   (habitaciones ?? []).map((item) => ({
     value: item.tipo,
     quantity: item.cantidad,
+    price: Number(item.precio ?? 0),
   }));
 
 const mapFromSelectorValue = (
   value: RoomQuantityValue[],
 ): HotelRoomSelection[] =>
-  value.map((item) => ({ tipo: item.value, cantidad: item.quantity }));
+  value.map((item) => ({
+    tipo: item.value,
+    cantidad: item.quantity,
+    precio: Number(item.price ?? 0),
+  }));
 
 type ServiciosContratadosFormValues = Record<string, string>;
 const normalizeRegionName = (value: string) => value.trim().toLowerCase();
@@ -76,9 +82,12 @@ const ServiciosContratadosSection = ({
   const [regiones, setRegiones] = useState<Ubigeo[]>([]);
   const [hotelesCatalogo, setHotelesCatalogo] = useState<Hotel[]>([]);
   const [empresasMovilidad, setEmpresasMovilidad] = useState<string[]>([]);
-  const hotelesContratados = Array.isArray(form.hotelesContratados)
-    ? form.hotelesContratados
-    : [];
+  const currencySymbol = getTravelCurrencySymbol(form.moneda);
+  const hotelesContratados = useMemo(
+    () =>
+      Array.isArray(form.hotelesContratados) ? form.hotelesContratados : [],
+    [form.hotelesContratados],
+  );
 
   useEffect(() => {
     let active = true;
@@ -455,6 +464,7 @@ const ServiciosContratadosSection = ({
                         <RoomQuantitySelector
                           options={roomOptions}
                           value={mapToSelectorValue(row.habitaciones)}
+                          currencySymbol={currencySymbol}
                           onChange={(value) =>
                             onUpdateHotelServicioField(
                               row.id,
