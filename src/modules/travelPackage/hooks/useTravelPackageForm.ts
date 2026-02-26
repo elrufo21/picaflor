@@ -57,6 +57,12 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
     }
     return acc + Number(item.cantPax || 0) * Number(item.cantidad || 0);
   }, 0);
+  const hasHotelPackage = next.paquetesViaje.some(
+    (item) => !String(item.paquete ?? "").toLowerCase().includes("sin hotel"),
+  );
+  if (hasHotelPackage) {
+    next.incluyeHotel = true;
+  }
 
   if (paxFromPackages > 0) {
     next.cantPax = String(paxFromPackages);

@@ -93,6 +93,13 @@ const ServiciosContratadosSection = ({
   const [hotelesCatalogo, setHotelesCatalogo] = useState<Hotel[]>([]);
   const [empresasMovilidad, setEmpresasMovilidad] = useState<string[]>([]);
   const currencySymbol = getTravelCurrencySymbol(form.moneda);
+  const hasHotelPackage = useMemo(
+    () =>
+      (form.paquetesViaje ?? []).some(
+        (item) => !String(item.paquete ?? "").toLowerCase().includes("sin hotel"),
+      ),
+    [form.paquetesViaje],
+  );
   const hotelesContratados = useMemo(
     () =>
       Array.isArray(form.hotelesContratados) ? form.hotelesContratados : [],
@@ -179,7 +186,7 @@ const ServiciosContratadosSection = ({
   }, [form.movilidadEmpresa, setValue]);
 
   useEffect(() => {
-    setValue("incluyeHotel", form.incluyeHotel ? "SI" : "", {
+    setValue("incluyeHotel", form.incluyeHotel ? "SI" : "NO", {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
@@ -370,6 +377,7 @@ const ServiciosContratadosSection = ({
               control={control}
               options={[{ value: "", label: "SELECCIONE" }, ...HOTEL_INCLUSION_OPTIONS]}
               size="small"
+              disabled={hasHotelPackage}
               onChange={(e) =>
                 onUpdateField("incluyeHotel", String(e.target.value) === "SI")
               }
