@@ -35,6 +35,7 @@ export type ItineraryDayRow = {
 export type HotelRoomSelection = {
   tipo: string;
   cantidad: number;
+  precio: number;
 };
 
 export type HotelServicioRow = {

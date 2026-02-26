@@ -13,6 +13,7 @@ import { Minus, Plus } from "lucide-react";
 export type RoomQuantityValue = {
   value: string;
   quantity: number;
+  price: number;
 };
 
 type RoomOption = {
@@ -26,14 +27,29 @@ type Props = {
   onChange: (value: RoomQuantityValue[]) => void;
   placeholder?: string;
   disabled?: boolean;
+  currencySymbol?: string;
 };
 
-const toSummary = (value: RoomQuantityValue[], options: RoomOption[]) => {
+const formatPrice = (price: number) => {
+  const normalized = Number.isFinite(price) ? Math.max(0, price) : 0;
+  return Number.isInteger(normalized)
+    ? String(normalized)
+    : normalized.toFixed(2);
+};
+
+const toSummary = (
+  value: RoomQuantityValue[],
+  options: RoomOption[],
+  currencySymbol: string,
+) => {
   const byValue = new Map(options.map((option) => [option.value, option.label]));
   const selected = value.filter((item) => item.quantity > 0);
   if (!selected.length) return "";
   return selected
-    .map((item) => `${item.quantity} ${byValue.get(item.value) ?? item.value}`)
+    .map(
+      (item) =>
+        `${item.quantity} ${byValue.get(item.value) ?? item.value} ${currencySymbol}-${formatPrice(item.price)}`,
+    )
     .join(", ");
 };
 
@@ -50,21 +66,35 @@ const RoomQuantitySelector = ({
   onChange,
   placeholder = "Selecciona habitaciones",
   disabled = false,
+  currencySymbol = "USD$",
 }: Props) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
-  const summary = useMemo(() => toSummary(value, options), [value, options]);
+  const summary = useMemo(
+    () => toSummary(value, options, currencySymbol),
+    [value, options, currencySymbol],
+  );
   const open = Boolean(anchorEl);
 
   const getCurrentQuantity = (optionValue: string) =>
     value.find((item) => item.value === optionValue)?.quantity ?? 0;
+  const getCurrentPrice = (optionValue: string) =>
+    value.find((item) => item.value === optionValue)?.price ?? 0;
 
-  const setQuantity = (optionValue: string, quantity: number) => {
-    const normalized = Math.max(0, Math.floor(quantity));
+  const setRoomValue = (
+    optionValue: string,
+    nextValues: { quantity?: number; price?: number },
+  ) => {
+    const current = value.find((item) => item.value === optionValue);
+    const quantity = Math.max(
+      0,
+      Math.floor(nextValues.quantity ?? current?.quantity ?? 0),
+    );
+    const price = Math.max(0, Number(nextValues.price ?? current?.price ?? 0));
     const others = value.filter((item) => item.value !== optionValue);
     const next =
-      normalized > 0
-        ? [...others, { value: optionValue, quantity: normalized }]
+      quantity > 0
+        ? [...others, { value: optionValue, quantity, price }]
         : others;
     onChange(sortByOptions(next, options));
   };
@@ -72,10 +102,14 @@ const RoomQuantitySelector = ({
   const toggleOption = (optionValue: string, checked: boolean) => {
     if (checked) {
       const current = getCurrentQuantity(optionValue);
-      setQuantity(optionValue, current > 0 ? current : 1);
+      const currentPrice = getCurrentPrice(optionValue);
+      setRoomValue(optionValue, {
+        quantity: current > 0 ? current : 1,
+        price: currentPrice,
+      });
       return;
     }
-    setQuantity(optionValue, 0);
+    setRoomValue(optionValue, { quantity: 0 });
   };
 
   return (
@@ -133,7 +167,9 @@ const RoomQuantitySelector = ({
                 <Box className="inline-flex items-center gap-1">
                   <IconButton
                     size="small"
-                    onClick={() => setQuantity(option.value, quantity - 1)}
+                    onClick={() =>
+                      setRoomValue(option.value, { quantity: quantity - 1 })
+                    }
                     disabled={!checked}
                   >
                     <Minus className="h-3.5 w-3.5" />
@@ -143,7 +179,9 @@ const RoomQuantitySelector = ({
                     type="number"
                     value={checked ? quantity : 0}
                     onChange={(event) =>
-                      setQuantity(option.value, Number(event.target.value))
+                      setRoomValue(option.value, {
+                        quantity: Number(event.target.value),
+                      })
                     }
                     disabled={!checked}
                     sx={{ width: 70 }}
@@ -151,11 +189,42 @@ const RoomQuantitySelector = ({
                   />
                   <IconButton
                     size="small"
-                    onClick={() => setQuantity(option.value, quantity + 1)}
+                    onClick={() =>
+                      setRoomValue(option.value, { quantity: quantity + 1 })
+                    }
                     disabled={!checked}
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </IconButton>
+                </Box>
+
+                <Box className="col-span-2 grid grid-cols-[1fr_auto] items-center gap-2 pl-9">
+                  <Typography variant="caption" className="text-slate-500">
+                    Precio
+                  </Typography>
+                  <TextField
+                    size="small"
+                    type="number"
+                    value={checked ? getCurrentPrice(option.value) : 0}
+                    onChange={(event) =>
+                      setRoomValue(option.value, {
+                        price: Number(event.target.value),
+                      })
+                    }
+                    disabled={!checked}
+                    sx={{ width: 120 }}
+                    inputProps={{
+                      min: 0,
+                      step: "0.01",
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          {currencySymbol}
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
                 </Box>
               </Box>
             );

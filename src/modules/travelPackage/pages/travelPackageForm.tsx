@@ -6,6 +6,7 @@ import ItinerarySection from "../components/ItinerarySection";
 import PassengersSection from "../components/PassengersSection";
 import ServiciosContratadosSection from "../components/ServiciosContratadosSection";
 import PaymentDetailFloating from "../components/PaymentDetailFloating";
+import LiquidationSection from "../components/LiquidationSection";
 import { ChevronLeft, ReceiptText } from "lucide-react";
 import { getFocusableElements } from "@/shared/helpers/formFocus";
 
@@ -208,6 +209,10 @@ const TravelPackageForm = () => {
               onRemoveEvent={handlers.removeDayEvent}
               onUpdateEventField={handlers.updateDayEventField}
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <LiquidationSection form={form} />
           </div>
         </div>
       </div>
