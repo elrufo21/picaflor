@@ -1495,7 +1495,7 @@ const ViajeForm = () => {
                     className="cursor-pointer"
                     onClick={() => {
                       if (liquidacionId) {
-                        navigate("/fullday/programacion/liquidaciones");
+                        navigate("/citytour/programacion/liquidaciones");
                       } else {
                         navigate("/cityTour");
                       }

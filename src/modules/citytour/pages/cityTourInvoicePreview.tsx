@@ -138,7 +138,7 @@ const CityInvoicePreview = () => {
           <ChevronLeft
             className="cursor-pointer mr-8"
             onClick={() => {
-              navigate("/fullday/programacion/liquidaciones");
+              navigate("/citytour/programacion/liquidaciones");
             }}
           />
           {backendInfo.orden ? (

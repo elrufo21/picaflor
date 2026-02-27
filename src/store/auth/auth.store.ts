@@ -17,6 +17,12 @@ export interface AuthUser {
   displayName: string;
   companyId: string;
   companyName: string;
+  allowedModules?: string[];
+  allowedSubmodules?: string[];
+  permissionsVersion?: number | null;
+  rawAllowedModules?: string;
+  rawAllowedSubmodules?: string;
+  permissionsFromLogin?: boolean;
 }
 
 export interface AuthSession {
@@ -49,6 +55,11 @@ interface LoginResponse {
   RenovacionSome?: string | null;
   vencimientoSome?: string | null;
   VencimientoSome?: string | null;
+  modulosPermitidosRaw?: string | null;
+  subModulosPermitidosRaw?: string | null;
+  modulosPermitidos?: string[] | null;
+  subModulosPermitidos?: string[] | null;
+  permisosVersion?: string | number | null;
 }
 
 interface AuthState {
@@ -95,6 +106,26 @@ const normalizeDateOnly = (value?: string | null): string | null => {
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
 
   return `${match[1]}-${match[2]}-${match[3]}`;
+};
+
+const normalizeList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
+};
+
+const parseRawList = (value?: string | null): string[] =>
+  String(value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const parsePermissionsVersion = (
+  value?: string | number | null,
+): number | null => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const isPasswordExpiredByDate = (expiryDate?: string | null): boolean => {
@@ -391,6 +422,22 @@ export const useAuthStore = create<AuthState>((set, get) => {
           displayName: parsed.usuario ?? usernameSafe,
           companyId: parsed.companiaId,
           companyName: parsed.razonSocial,
+          rawAllowedModules: String(parsed.modulosPermitidosRaw ?? "").trim(),
+          rawAllowedSubmodules: String(
+            parsed.subModulosPermitidosRaw ?? "",
+          ).trim(),
+          allowedModules: (() => {
+            const arrayPayload = normalizeList(parsed.modulosPermitidos);
+            if (arrayPayload.length > 0) return arrayPayload;
+            return parseRawList(parsed.modulosPermitidosRaw);
+          })(),
+          allowedSubmodules: (() => {
+            const arrayPayload = normalizeList(parsed.subModulosPermitidos);
+            if (arrayPayload.length > 0) return arrayPayload;
+            return parseRawList(parsed.subModulosPermitidosRaw);
+          })(),
+          permissionsVersion: parsePermissionsVersion(parsed.permisosVersion),
+          permissionsFromLogin: true,
         },
       };
 

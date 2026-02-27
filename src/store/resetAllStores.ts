@@ -5,6 +5,9 @@ import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import { useClientsStore } from "@/store/clients/clients.store";
+import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
+import { useSubmodulePermissionsStore } from "@/store/permissions/submodulePermissions.store";
+import { resolveUserModuleActionPermissions } from "@/app/auth/moduleActionPermissions";
 import { queryClient } from "@/shared/queryClient";
 import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
 
@@ -35,5 +38,15 @@ export const resetAllStores = () => {
   useUsersStore.setState({ users: [], loading: false });
   useEmployeesStore.setState({ employees: [], loading: false });
   useClientsStore.setState({ clients: [], loading: false });
+  useModulePermissionsStore.setState({
+    allowedModules: [],
+    moduleActions: resolveUserModuleActionPermissions(null, []),
+    loaded: false,
+  });
+  useSubmodulePermissionsStore.setState({
+    allowedSubmodules: [],
+    permissionsVersion: null,
+    loaded: false,
+  });
   queryClient.clear();
 };

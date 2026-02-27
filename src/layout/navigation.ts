@@ -6,7 +6,9 @@ import {
   Car,
   CalendarDays,
   Briefcase,
+  ShieldCheck,
 } from "lucide-react";
+import type { ModuleCode } from "@/app/auth/mockModulePermissions";
 
 export type NavigationItem = {
   label: string;
@@ -16,6 +18,7 @@ export type NavigationItem = {
   children?: NavigationItem[];
   end?: boolean;
   requiresAreaId?: string;
+  moduleCode?: ModuleCode;
 };
 
 export const filterNavigationItemsByArea = (
@@ -42,6 +45,15 @@ export const filterNavigationItemsByArea = (
     );
 };
 
+export const filterNavigationItemsByModuleAccess = (
+  items: NavigationItem[],
+  canAccessModule: (moduleCode: ModuleCode) => boolean,
+): NavigationItem[] => {
+  return items.filter((item) =>
+    item.moduleCode ? canAccessModule(item.moduleCode) : true,
+  );
+};
+
 export const navigationItems: NavigationItem[] = [
   {
     label: "Full Day",
@@ -50,6 +62,7 @@ export const navigationItems: NavigationItem[] = [
     description: "Experiencias de dia completo",
     end: true,
     children: [],
+    moduleCode: "fullday",
   },
   {
     label: "Programación",
@@ -57,6 +70,7 @@ export const navigationItems: NavigationItem[] = [
     icon: CalendarDays,
     description: "Listado de liquidaciones",
     end: true,
+    moduleCode: "programacion",
   },
   {
     label: "Cash Flow",
@@ -64,6 +78,7 @@ export const navigationItems: NavigationItem[] = [
     icon: LayoutDashboard,
     description: "Control y conciliación diaria",
     end: true,
+    moduleCode: "cashflow",
   },
   {
     label: "Tour de Lima",
@@ -71,6 +86,7 @@ export const navigationItems: NavigationItem[] = [
     icon: Car,
     description: "Turismo local",
     end: true,
+    moduleCode: "citytour",
   },
   {
     label: "Paquete de Viaje",
@@ -78,6 +94,7 @@ export const navigationItems: NavigationItem[] = [
     icon: Briefcase,
     description: "Formulario de itinerario",
     end: true,
+    moduleCode: "paquete_viaje",
   },
 
   {
@@ -86,5 +103,15 @@ export const navigationItems: NavigationItem[] = [
     icon: Wrench,
     description: "Catálogos y usuarios",
     requiresAreaId: "6",
+    moduleCode: "maintenance",
+  },
+  {
+    label: "Seguridad",
+    to: "/seguridad",
+    icon: ShieldCheck,
+    description: "Áreas y usuarios",
+    requiresAreaId: "6",
+    moduleCode: "security",
+  
   },
 ];

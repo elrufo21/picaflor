@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useLocation } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -10,11 +11,20 @@ import type { Area } from "@/types/maintenance";
 import { useDialogStore } from "@/app/store/dialogStore";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 import AreaForm from "../components/AreaForm";
+import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
+import type { ModuleCode } from "@/app/auth/mockModulePermissions";
 
 const AreaList = () => {
+  const location = useLocation();
   const openDialog = useDialogStore((s) => s.openDialog);
+  const canAccessAction = useModulePermissionsStore((s) => s.canAccessAction);
   const { areas, fetchAreas, addArea, updateArea, deleteArea } = useMaintenanceStore();
   const submitAreaRef = useRef<(() => Promise<boolean>) | null>(null);
+  const permissionModule: ModuleCode = location.pathname.startsWith("/seguridad")
+    ? "security"
+    : "maintenance";
+  const canCreate = canAccessAction(permissionModule, "create");
+  const canEdit = canAccessAction(permissionModule, "edit");
 
   useAreasQuery();
 
@@ -123,15 +133,18 @@ const AreaList = () => {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              disabled={!canEdit}
               onClick={() => openAreaModal("edit", row.original)}
-              className="text-blue-600 hover:text-blue-800"
+              className="text-blue-600 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-40"
               title="Editar"
             >
               <Pencil className="w-4 h-4" />
             </button>
             <button
               type="button"
+              disabled={!canEdit}
               onClick={() => {
+                if (!canEdit) return;
                 openDialog({
                   title: "Eliminar area",
                   size: "sm",
@@ -155,7 +168,7 @@ const AreaList = () => {
                   ),
                 });
               }}
-              className="text-red-600 hover:text-red-800"
+              className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
               title="Eliminar"
             >
               <Trash2 className="w-4 h-4" />
@@ -180,6 +193,7 @@ const AreaList = () => {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            disabled={!canCreate}
             onClick={() => openAreaModal("create")}
             title="Nueva area"
             aria-label="Nueva area"

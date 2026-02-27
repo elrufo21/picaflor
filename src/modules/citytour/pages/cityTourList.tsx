@@ -8,6 +8,9 @@ import { serviciosDB } from "@/app/db/serviciosDB";
 import { refreshServiciosData } from "@/app/db/serviciosSync";
 import { showToast } from "../../../components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
+import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
+import { useAuthStore } from "@/store/auth/auth.store";
+import { useSubmodulePermissionsStore } from "@/store/permissions/submodulePermissions.store";
 
 /* =========================
    HELPERS
@@ -90,6 +93,11 @@ type ProgramacionEditChange = {
 ========================= */
 
 const PackageList = () => {
+  const BTN_ADD_SUBMODULE_CODE =
+    "citytour.programacion_liquidaciones.btn_agregar";
+  const BTN_SAVE_SUBMODULE_CODE =
+    "citytour.programacion_liquidaciones.btn_guardar";
+
   /* =========================
      STATES
   ========================= */
@@ -104,6 +112,18 @@ const PackageList = () => {
   >([]);
 
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const userAreaId = useAuthStore((state) => String(state.user?.areaId ?? ""));
+  const canAccessAction = useModulePermissionsStore(
+    (state) => state.canAccessAction,
+  );
+  const { canAccessSubmodule, allowedSubmodules } = useSubmodulePermissionsStore();
+  const hasSubmodulePermissions = allowedSubmodules.length > 0;
+  const canCreateProgramacion = hasSubmodulePermissions
+    ? canAccessSubmodule(BTN_ADD_SUBMODULE_CODE)
+    : canAccessAction("citytour", "create");
+  const canEditProgramacion = hasSubmodulePermissions
+    ? canAccessSubmodule(BTN_SAVE_SUBMODULE_CODE)
+    : canAccessAction("citytour", "edit");
 
   const {
     packages,
@@ -243,6 +263,15 @@ const PackageList = () => {
   };
 
   const handleGuardarCambios = async () => {
+    if (!canEditProgramacion) {
+      showToast({
+        title: "Sin permiso",
+        description: "No tienes permiso para guardar cambios en este módulo.",
+        type: "warning",
+      });
+      return;
+    }
+
     if (cantMaxChanges.length === 0 && transportGuideChanges.length === 0) {
       showToast({
         title: "Sin cambios",
@@ -299,6 +328,15 @@ const PackageList = () => {
   };
 
   const handleAddServicio = async () => {
+    if (!canCreateProgramacion) {
+      showToast({
+        title: "Sin permiso",
+        description: "No tienes permiso para agregar en este módulo.",
+        type: "warning",
+      });
+      return;
+    }
+
     if (!productId) {
       showToast({
         title: "Atención",
@@ -523,8 +561,6 @@ const PackageList = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [confirmDeleteSelected]);
-  const sessionRaw = localStorage.getItem("picaflor.auth.session");
-  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   return (
     <div className="w-full">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
@@ -574,12 +610,14 @@ const PackageList = () => {
           {/* AGREGAR */}
           <button
             onClick={handleAddServicio}
+            disabled={!canCreateProgramacion}
             className="
               w-full md:w-auto
               px-4 py-2
               bg-emerald-600 text-white
               rounded-lg
               hover:bg-emerald-700
+              disabled:opacity-50 disabled:cursor-not-allowed
               transition
               flex justify-center
             "
@@ -596,15 +634,17 @@ const PackageList = () => {
         md:ml-auto md:w-auto
       "
           >
-            {session.user.areaId !== "9" && (
+            {userAreaId !== "9" && (
               <button
                 onClick={handleGuardarCambios}
+                disabled={!canEditProgramacion}
                 className="
           w-full sm:w-auto
                 px-5 py-2
                 rounded-lg
                 bg-blue-600 text-white
                 hover:bg-blue-700
+                disabled:opacity-50 disabled:cursor-not-allowed
                 transition
               "
               >

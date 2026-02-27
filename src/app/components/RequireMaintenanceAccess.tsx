@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router";
 import { useAuthStore } from "@/store/auth/auth.store";
+import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
 
 type Props = {
   children: React.ReactNode;
@@ -25,10 +26,17 @@ const readAreaIdFromStorage = () => {
 const RequireMaintenanceAccess = ({ children }: Props) => {
   const location = useLocation();
   const authAreaId = useAuthStore((state) => state.user?.areaId ?? null);
+  const canAccessMaintenance = useModulePermissionsStore((state) =>
+    state.canAccessModule("maintenance"),
+  );
+  const canAccessSecurity = useModulePermissionsStore((state) =>
+    state.canAccessModule("security"),
+  );
   const storageAreaId = readAreaIdFromStorage();
   const areaId = String(authAreaId ?? storageAreaId ?? "");
+  const hasModuleAccess = canAccessMaintenance || canAccessSecurity;
 
-  if (areaId !== "6") {
+  if (areaId !== "6" && !hasModuleAccess) {
     return <Navigate to="/fullday" state={{ from: location }} replace />;
   }
 
