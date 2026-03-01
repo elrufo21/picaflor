@@ -1404,7 +1404,6 @@ const ViajeForm = () => {
       });
       return;
     }
-    console.log("getValues()", getValues());
     navigate(`/citytour/${idProduct}/passengers/boleta`, {
       state: {
         boletaData: getValues(),
@@ -1437,7 +1436,7 @@ const ViajeForm = () => {
           description: "La liquidación se eliminó correctamente.",
           type: "success",
         });
-        navigate("/cityTour/programacion/liquidaciones", {
+        navigate("/fullday/programacion/liquidaciones", {
           state: { refresh: Date.now() },
         });
       } else {
@@ -1549,7 +1548,7 @@ const ViajeForm = () => {
                     className="cursor-pointer"
                     onClick={() => {
                       if (liquidacionId) {
-                        navigate("/citytour/programacion/liquidaciones");
+                        navigate("/fullday/programacion/liquidaciones");
                       } else {
                         navigate("/cityTour");
                       }
