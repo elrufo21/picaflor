@@ -234,6 +234,26 @@ const parsePermissionsVersion = (
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const hasStoredPermissions = (user?: AuthUser | null): boolean => {
+  if (!user || !user.permissionsFromLogin) return false;
+
+  const allowedModulesCount = Array.isArray(user.allowedModules)
+    ? user.allowedModules.filter((item) => String(item ?? "").trim().length > 0).length
+    : 0;
+  const allowedSubmodulesCount = Array.isArray(user.allowedSubmodules)
+    ? user.allowedSubmodules.filter((item) => String(item ?? "").trim().length > 0).length
+    : 0;
+  const rawAllowedModulesCount = parseRawList(user.rawAllowedModules).length;
+  const rawAllowedSubmodulesCount = parseRawList(user.rawAllowedSubmodules).length;
+
+  return (
+    allowedModulesCount > 0 ||
+    allowedSubmodulesCount > 0 ||
+    rawAllowedModulesCount > 0 ||
+    rawAllowedSubmodulesCount > 0
+  );
+};
+
 const isPasswordExpiredByDate = (expiryDate?: string | null): boolean => {
   const normalized = normalizeDateOnly(expiryDate);
   if (!normalized) return true;
@@ -302,7 +322,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
     ? normalizeDateOnly(storedSession?.renovacionSome ?? null)
     : null;
   const canRestoreStoredSession =
-    !!hasValidStoredSession && !!storedPasswordExpiryDate && !!storedSomeExpiryDate;
+    !!hasValidStoredSession &&
+    !!storedPasswordExpiryDate &&
+    !!storedSomeExpiryDate &&
+    hasStoredPermissions(storedSession?.user);
 
   const logout = (reason?: string) => {
     if (sessionTimeoutId) {
@@ -332,7 +355,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
       session?.fechaVencimientoClave,
     );
     const normalizedSomeDate = normalizeDateOnly(session?.renovacionSome ?? null);
-    if (session && !isExpired(session.expiresAt) && normalizedPasswordDate && normalizedSomeDate) {
+    if (
+      session &&
+      !isExpired(session.expiresAt) &&
+      normalizedPasswordDate &&
+      normalizedSomeDate &&
+      hasStoredPermissions(session.user)
+    ) {
       const someMustRenew = isPasswordExpiredByDate(normalizedSomeDate);
       set({
         user: session.user,
@@ -348,7 +377,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         logout(SESSION_EXPIRED_MESSAGE),
       );
     } else {
-      logout(session ? SESSION_EXPIRED_MESSAGE : undefined);
+      logout(session ? "Tu sesion no tiene permisos validos. Vuelve a ingresar." : undefined);
     }
   };
 
