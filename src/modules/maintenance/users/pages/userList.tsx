@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -8,17 +9,26 @@ import UserFormBase from "@/modules/maintenance/users/components/UserFormBase";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { useUsersStore, type User } from "@/store/users/users.store";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
+import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
+import type { ModuleCode } from "@/app/auth/mockModulePermissions";
 
 const resolveUserId = (user?: Partial<User>) => Number(user?.UsuarioID ?? 0);
 
 const UserList = () => {
+  const location = useLocation();
   const openDialog = useDialogStore((s) => s.openDialog);
+  const canAccessAction = useModulePermissionsStore((s) => s.canAccessAction);
   const { users, fetchUsers, addUser, updateUser, deleteUser } =
     useUsersStore();
   const submitUserRef = useRef<(() => Promise<boolean>) | null>(null);
   const [usersEstado, setUsersEstado] = useState<"ACTIVO" | "INACTIVO">(
     "ACTIVO",
   );
+  const permissionModule: ModuleCode = location.pathname.startsWith("/seguridad")
+    ? "security"
+    : "maintenance";
+  const canCreate = canAccessAction(permissionModule, "create");
+  const canEdit = canAccessAction(permissionModule, "edit");
 
   useEffect(() => {
     fetchUsers(usersEstado);
@@ -166,16 +176,18 @@ const UserList = () => {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              disabled={!canEdit}
               onClick={() => openUserModal("edit", row.original)}
-              className="text-blue-600 hover:text-blue-800"
+              className="text-blue-600 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-40"
               title="Editar"
             >
               <Pencil className="h-4 w-4" />
             </button>
             <button
               type="button"
+              disabled={!canEdit}
               onClick={() => handleDeleteUser(row.original)}
-              className="text-red-600 hover:text-red-800"
+              className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
               title="Eliminar"
             >
               <Trash2 className="h-4 w-4" />
@@ -200,6 +212,7 @@ const UserList = () => {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            disabled={!canCreate}
             onClick={() => openUserModal("create")}
             title="Nuevo usuario"
             aria-label="Nuevo usuario"

@@ -38,6 +38,7 @@ import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
 import { toISODate } from "@/shared/helpers/helpers";
 import { formatDate } from "@/shared/helpers/formatDate";
+import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
 function parseFecha(fecha: string): string {
   if (!fecha) return "";
 
@@ -891,6 +892,9 @@ export function parseDateForInput(
 
 const ViajeForm = () => {
   const { formData, setFormData, isEditing, setIsEditing } = usePackageStore();
+  const canAccessAction = useModulePermissionsStore(
+    (state) => state.canAccessAction,
+  );
   const openDialog = useDialogStore((state) => state.openDialog);
   const location = useLocation();
   const incomingFormData = (location.state as { formData?: any })?.formData;
@@ -1032,11 +1036,29 @@ const ViajeForm = () => {
   const fechaEmision = watch("fechaEmision");
   const flagVerificado = watch("flagVerificado");
   const isVerificado = normalizeFlagVerificado(flagVerificado) === "1";
+  const canCreateLiquidacion = canAccessAction("fullday", "create");
+  const canEditLiquidacion = canAccessAction("fullday", "edit");
+  const canDeleteLiquidacion = canAccessAction("fullday", "delete");
+  const canSaveCurrentLiquidacion = liquidacionId
+    ? canEditLiquidacion
+    : canCreateLiquidacion;
 
-  const fieldsetDisabled = isSubmitting || isSaving || !isEditing;
+  const fieldsetDisabled =
+    isSubmitting || isSaving || !isEditing || !canSaveCurrentLiquidacion;
   const saveButtonLabel = isSaving ? "Guardando..." : "Guardar";
 
   const onSubmit = async (data) => {
+    if (!canSaveCurrentLiquidacion) {
+      showToast({
+        title: "Sin permiso",
+        description: liquidacionId
+          ? "No tienes permiso para editar en este módulo."
+          : "No tienes permiso para crear en este módulo.",
+        type: "error",
+      });
+      return;
+    }
+
     const validationError = validateViajeValues(data);
     if (validationError) {
       showToast({
@@ -1134,6 +1156,14 @@ const ViajeForm = () => {
   };
 
   const handleNew = () => {
+    if (!canCreateLiquidacion) {
+      showToast({
+        title: "Sin permiso",
+        description: "No tienes permiso para crear en este módulo.",
+        type: "error",
+      });
+      return;
+    }
     navigate(`/fullday`);
   };
 
@@ -1265,6 +1295,14 @@ const ViajeForm = () => {
 
   const handleDelete = async () => {
     if (!liquidacionId) return;
+    if (!canDeleteLiquidacion) {
+      showToast({
+        title: "Sin permiso",
+        description: "No tienes permiso para eliminar en este módulo.",
+        type: "error",
+      });
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -1313,10 +1351,26 @@ const ViajeForm = () => {
 
   const openDeleteDialog = () => {
     if (!liquidacionId) return;
+    if (!canDeleteLiquidacion) {
+      showToast({
+        title: "Sin permiso",
+        description: "No tienes permiso para eliminar en este módulo.",
+        type: "error",
+      });
+      return;
+    }
     setDeleteDialogOpen(true);
   };
 
   const handleUnlockEditing = () => {
+    if (!canEditLiquidacion) {
+      showToast({
+        title: "Sin permiso",
+        description: "No tienes permiso para editar en este módulo.",
+        type: "error",
+      });
+      return;
+    }
     setIsEditing(true);
   };
   useEffect(() => {
@@ -1432,7 +1486,7 @@ const ViajeForm = () => {
                     <button
                       type="submit"
                       title={saveButtonLabel}
-                      disabled={fieldsetDisabled}
+                      disabled={fieldsetDisabled || !canSaveCurrentLiquidacion}
                       className="
                     inline-flex items-center gap-1
                     rounded-lg bg-emerald-600 px-3 py-2
@@ -1455,7 +1509,7 @@ const ViajeForm = () => {
                     <button
                       type="button"
                       onClick={handleNew}
-                      disabled={fieldsetDisabled}
+                      disabled={fieldsetDisabled || !canCreateLiquidacion}
                       className="
                       inline-flex items-center gap-1
                       rounded-lg bg-slate-100 px-3 py-2
@@ -1474,7 +1528,7 @@ const ViajeForm = () => {
                   <button
                     type="button"
                     onClick={openDeleteDialog}
-                    disabled={isSaving}
+                    disabled={isSaving || !canDeleteLiquidacion}
                     className="
                     inline-flex items-center gap-1
                     rounded-lg bg-red-600 px-3 py-2
@@ -1515,7 +1569,7 @@ const ViajeForm = () => {
                   <span className="text-sm hidden sm:inline">Imprimir</span>
                 </button>
 
-                {liquidacionId && !isEditing && (
+                {canToggleVerificado && !isEditing && (
                   <button
                     type="button"
                     onClick={handleConfirmToggleVerificado}
@@ -1581,11 +1635,13 @@ const ViajeForm = () => {
                     type="button"
                     onClick={handleUnlockEditing}
                     title="Desbloquear edición"
+                    disabled={!canEditLiquidacion}
                     className="
                               inline-flex items-center gap-1
                               rounded-lg bg-white px-3 py-2
                               text-slate-700 ring-1 ring-slate-200
                               hover:bg-slate-50 transition
+                              disabled:opacity-50 disabled:cursor-not-allowed
                             "
                   >
                     <Lock size={16} />

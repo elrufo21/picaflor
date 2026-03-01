@@ -6,11 +6,13 @@ import Dialog from "../components/ui/Dialog";
 import PasswordExpiryGate from "./PasswordExpiryGate";
 import {
   filterNavigationItemsByArea,
+  filterNavigationItemsByModuleAccess,
   navigationItems,
   type NavigationItem,
 } from "./navigation";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { ButtonBase, ListItemIcon, Menu, MenuItem } from "@mui/material";
+import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
 
 const NAVIGATION_FILTER_STORAGE_RULES = [
   {
@@ -42,6 +44,7 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const { canAccessModule, canAccessAction } = useModulePermissionsStore();
   const isTravelPackageRoute = location.pathname.includes("/paquete-viaje");
 
   useEffect(() => {
@@ -92,9 +95,10 @@ const MainLayout = () => {
     }
   };
 
-  const filteredNavigationItems = filterNavigationItemsByArea(
-    navigationItems,
-    userAreaId,
+  const filteredNavigationItems = filterNavigationItemsByModuleAccess(
+    filterNavigationItemsByArea(navigationItems, userAreaId),
+    (moduleCode) =>
+      canAccessModule(moduleCode) && canAccessAction(moduleCode, "read"),
   )
     .map((item): NavigationItem | null => {
       if (!normalizedNavFilter) return item;

@@ -3,6 +3,17 @@ import type { AxiosError } from "axios";
 
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import {
+  MODULE_CODES,
+  saveUserModuleActionModes,
+  type PermissionMode,
+  type UserModuleActionModes,
+} from "@/app/auth/moduleActionPermissions";
+import {
+  saveUserSubmoduleActionModes,
+  type UserSubmoduleActionModes,
+} from "@/app/auth/submodulePermissionOverrides";
+import { SUBMODULE_OPTIONS } from "@/app/auth/submoduleCatalog";
 import { resetAllStores } from "@/store/resetAllStores";
 
 const STORAGE_KEY = "picaflor.auth.session";
@@ -17,6 +28,14 @@ export interface AuthUser {
   displayName: string;
   companyId: string;
   companyName: string;
+  allowedModules?: string[];
+  allowedSubmodules?: string[];
+  permissionsVersion?: number | null;
+  rawAllowedModules?: string;
+  rawAllowedSubmodules?: string;
+  rawModuleActions?: string;
+  rawSubmoduleActions?: string;
+  permissionsFromLogin?: boolean;
 }
 
 export interface AuthSession {
@@ -49,6 +68,17 @@ interface LoginResponse {
   RenovacionSome?: string | null;
   vencimientoSome?: string | null;
   VencimientoSome?: string | null;
+  modulosPermitidosRaw?: string | null;
+  subModulosPermitidosRaw?: string | null;
+  moduleActionsRaw?: string | null;
+  ModuleActionsRaw?: string | null;
+  subModuleActionsRaw?: string | null;
+  SubModuleActionsRaw?: string | null;
+  modulosPermitidos?: string[] | null;
+  subModulosPermitidos?: string[] | null;
+  moduleActions?: string[] | null;
+  subModuleActions?: string[] | null;
+  permisosVersion?: string | number | null;
 }
 
 interface AuthState {
@@ -95,6 +125,113 @@ const normalizeDateOnly = (value?: string | null): string | null => {
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
 
   return `${match[1]}-${match[2]}-${match[3]}`;
+};
+
+const normalizeList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
+};
+
+const parseRawList = (value?: string | null): string[] =>
+  String(value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const parseRawActionList = (value?: string | null): string[] =>
+  String(value ?? "")
+    .split(";")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const toPermissionMode = (value: string): PermissionMode =>
+  value === "allow" || value === "deny" ? value : "inherit";
+
+const defaultModuleActionModes = (): UserModuleActionModes =>
+  MODULE_CODES.reduce(
+    (acc, moduleCode) => {
+      acc[moduleCode] = {
+        read: "inherit",
+        edit: "inherit",
+        create: "inherit",
+        delete: "inherit",
+      };
+      return acc;
+    },
+    {} as UserModuleActionModes,
+  );
+
+const parseModuleActionModes = (entries: string[]): UserModuleActionModes => {
+  const modes = defaultModuleActionModes();
+  const moduleCodeSet = new Set(MODULE_CODES);
+
+  entries.forEach((entry) => {
+    const [rawModuleCode, rawActions] = String(entry ?? "").split(":");
+    const moduleCode = String(rawModuleCode ?? "").trim().toLowerCase();
+    if (!moduleCodeSet.has(moduleCode as (typeof MODULE_CODES)[number])) return;
+
+    const values = String(rawActions ?? "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase());
+    const target = modes[moduleCode as (typeof MODULE_CODES)[number]];
+    target.read = toPermissionMode(values[0] ?? "inherit");
+    target.edit = toPermissionMode(values[1] ?? "inherit");
+    target.create = toPermissionMode(values[2] ?? "inherit");
+    target.delete = toPermissionMode(values[3] ?? "inherit");
+  });
+
+  return modes;
+};
+
+const defaultSubmoduleActionModes = (): UserSubmoduleActionModes =>
+  SUBMODULE_OPTIONS.reduce(
+    (acc, item) => {
+      acc[item.code] = {
+        read: "inherit",
+        edit: "inherit",
+        create: "inherit",
+        delete: "inherit",
+      };
+      return acc;
+    },
+    {} as UserSubmoduleActionModes,
+  );
+
+const parseSubmoduleActionModes = (
+  entries: string[],
+): UserSubmoduleActionModes => {
+  const modes = defaultSubmoduleActionModes();
+  const submoduleCodeSet = new Set(
+    SUBMODULE_OPTIONS.map((item) => String(item.code).trim().toLowerCase()),
+  );
+
+  entries.forEach((entry) => {
+    const [rawSubmoduleCode, rawActions] = String(entry ?? "").split(":");
+    const submoduleCode = String(rawSubmoduleCode ?? "").trim().toLowerCase();
+    if (!submoduleCodeSet.has(submoduleCode)) return;
+
+    const values = String(rawActions ?? "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase());
+    const target = modes[submoduleCode];
+    if (!target) return;
+
+    target.read = toPermissionMode(values[0] ?? "inherit");
+    target.edit = toPermissionMode(values[1] ?? "inherit");
+    target.create = toPermissionMode(values[2] ?? "inherit");
+    target.delete = toPermissionMode(values[3] ?? "inherit");
+  });
+
+  return modes;
+};
+
+const parsePermissionsVersion = (
+  value?: string | number | null,
+): number | null => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const isPasswordExpiredByDate = (expiryDate?: string | null): boolean => {
@@ -391,8 +528,52 @@ export const useAuthStore = create<AuthState>((set, get) => {
           displayName: parsed.usuario ?? usernameSafe,
           companyId: parsed.companiaId,
           companyName: parsed.razonSocial,
+          rawAllowedModules: String(parsed.modulosPermitidosRaw ?? "").trim(),
+          rawAllowedSubmodules: String(
+            parsed.subModulosPermitidosRaw ?? "",
+          ).trim(),
+          rawModuleActions: String(
+            parsed.moduleActionsRaw ?? parsed.ModuleActionsRaw ?? "",
+          ).trim(),
+          rawSubmoduleActions: String(
+            parsed.subModuleActionsRaw ?? parsed.SubModuleActionsRaw ?? "",
+          ).trim(),
+          allowedModules: (() => {
+            const arrayPayload = normalizeList(parsed.modulosPermitidos);
+            if (arrayPayload.length > 0) return arrayPayload;
+            return parseRawList(parsed.modulosPermitidosRaw);
+          })(),
+          allowedSubmodules: (() => {
+            const arrayPayload = normalizeList(parsed.subModulosPermitidos);
+            if (arrayPayload.length > 0) return arrayPayload;
+            return parseRawList(parsed.subModulosPermitidosRaw);
+          })(),
+          permissionsVersion: parsePermissionsVersion(parsed.permisosVersion),
+          permissionsFromLogin: true,
         },
       };
+
+      const moduleActionEntries = (() => {
+        const arrayPayload = normalizeList(parsed.moduleActions);
+        if (arrayPayload.length > 0) return arrayPayload;
+        return parseRawActionList(parsed.moduleActionsRaw ?? parsed.ModuleActionsRaw);
+      })();
+      const submoduleActionEntries = (() => {
+        const arrayPayload = normalizeList(parsed.subModuleActions);
+        if (arrayPayload.length > 0) return arrayPayload;
+        return parseRawActionList(
+          parsed.subModuleActionsRaw ?? parsed.SubModuleActionsRaw,
+        );
+      })();
+
+      saveUserModuleActionModes(
+        session.user.id,
+        parseModuleActionModes(moduleActionEntries),
+      );
+      saveUserSubmoduleActionModes(
+        session.user.id,
+        parseSubmoduleActionModes(submoduleActionEntries),
+      );
 
       persistSession(session);
 
