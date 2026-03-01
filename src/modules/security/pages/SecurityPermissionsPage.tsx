@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import MaintenancePageFrame from "@/modules/maintenance/components/MaintenancePageFrame";
+import { API_BASE_URL } from "@/config";
 import { useUsersStore } from "@/store/users/users.store";
 import type { ModuleCode } from "@/app/auth/mockModulePermissions";
 import {
@@ -18,7 +19,10 @@ import { useModulePermissionsStore } from "@/store/permissions/modulePermissions
 import { SUBMODULE_OPTIONS } from "@/app/auth/submoduleCatalog";
 import {
   readUserSubmodulePermissionOverride,
+  readUserSubmoduleActionModes,
+  saveUserSubmoduleActionModes,
   saveUserSubmodulePermissionOverride,
+  type UserSubmoduleActionModes,
 } from "@/app/auth/submodulePermissionOverrides";
 import { useSubmodulePermissionsStore } from "@/store/permissions/submodulePermissions.store";
 
@@ -41,7 +45,23 @@ type ModuleCheckRow = {
 };
 
 type ModuleChecks = Record<ModuleCode, ModuleCheckRow>;
-type SubmoduleChecks = Record<string, boolean>;
+type SubmoduleCheckRow = {
+  submodule: boolean;
+  read: boolean;
+  edit: boolean;
+  create: boolean;
+  delete: boolean;
+};
+type SubmoduleChecks = Record<string, SubmoduleCheckRow>;
+type PermissionAction = "read" | "edit" | "create" | "delete";
+
+const USER_PERMISSIONS_ENDPOINT = `${API_BASE_URL}/Seguridad/permisos-usuario`;
+const USER_PERMISSIONS_SAVE_ENDPOINT = `${API_BASE_URL}/Seguridad/permisos-usuario/guardar`;
+const MODULE_CODE_SET = new Set<ModuleCode>(MODULE_OPTIONS.map((item) => item.code));
+const SUBMODULE_CODE_SET = new Set<string>(
+  SUBMODULE_OPTIONS.map((item) => String(item.code).trim().toLowerCase()),
+);
+const ACTION_KEYS: PermissionAction[] = ["read", "edit", "create", "delete"];
 
 const toPermissionModes = (override: {
   allow?: ModuleCode[];
@@ -97,7 +117,13 @@ const emptyChecks = (): ModuleChecks =>
 
 const emptySubmoduleChecks = (): SubmoduleChecks =>
   SUBMODULE_OPTIONS.reduce((acc, submodule) => {
-    acc[submodule.code] = false;
+    acc[submodule.code] = {
+      submodule: false,
+      read: false,
+      edit: false,
+      create: false,
+      delete: false,
+    };
     return acc;
   }, {} as SubmoduleChecks);
 
@@ -167,9 +193,16 @@ const toSubmoduleModes = (override: { allow?: string[]; deny?: string[] }) => {
 
 const submoduleModesToChecks = (
   modes: Record<string, PermissionMode>,
+  actionModes: UserSubmoduleActionModes,
 ): SubmoduleChecks =>
   SUBMODULE_OPTIONS.reduce((acc, item) => {
-    acc[item.code] = modes[item.code] === "allow";
+    acc[item.code] = {
+      submodule: modes[item.code] === "allow",
+      read: actionModes[item.code]?.read === "allow",
+      edit: actionModes[item.code]?.edit === "allow",
+      create: actionModes[item.code]?.create === "allow",
+      delete: actionModes[item.code]?.delete === "allow",
+    };
     return acc;
   }, {} as SubmoduleChecks);
 
@@ -177,9 +210,40 @@ const submoduleChecksToModes = (
   checks: SubmoduleChecks,
 ): Record<string, PermissionMode> =>
   SUBMODULE_OPTIONS.reduce((acc, item) => {
-    acc[item.code] = checks[item.code] ? "allow" : "deny";
+    acc[item.code] = checks[item.code]?.submodule ? "allow" : "deny";
     return acc;
   }, {} as Record<string, PermissionMode>);
+
+const emptySubmoduleActionModes = (): UserSubmoduleActionModes =>
+  SUBMODULE_OPTIONS.reduce(
+    (acc, item) => {
+      acc[item.code] = {
+        read: "inherit",
+        edit: "inherit",
+        create: "inherit",
+        delete: "inherit",
+      };
+      return acc;
+    },
+    {} as UserSubmoduleActionModes,
+  );
+
+const submoduleChecksToActionModes = (
+  checks: SubmoduleChecks,
+): UserSubmoduleActionModes =>
+  SUBMODULE_OPTIONS.reduce(
+    (acc, item) => {
+      const row = checks[item.code];
+      acc[item.code] = {
+        read: row?.read ? "allow" : "deny",
+        edit: row?.edit ? "allow" : "deny",
+        create: row?.create ? "allow" : "deny",
+        delete: row?.delete ? "allow" : "deny",
+      };
+      return acc;
+    },
+    {} as UserSubmoduleActionModes,
+  );
 
 const toSubmoduleOverride = (modes: Record<string, PermissionMode>) => {
   const allow: string[] = [];
@@ -192,6 +256,147 @@ const toSubmoduleOverride = (modes: Record<string, PermissionMode>) => {
   });
 
   return { allow, deny };
+};
+
+const toMode = (value: boolean): "allow" | "deny" => (value ? "allow" : "deny");
+
+const buildUserSavePayload = (
+  userId: string,
+  moduleChecks: ModuleChecks,
+  subChecks: SubmoduleChecks,
+) => {
+  const moduleRows = MODULE_OPTIONS.map(({ code }) => {
+    const row = moduleChecks[code];
+    return [
+      "M",
+      code,
+      toMode(Boolean(row?.module)),
+      toMode(Boolean(row?.read)),
+      toMode(Boolean(row?.edit)),
+      toMode(Boolean(row?.create)),
+      toMode(Boolean(row?.delete)),
+    ].join("|");
+  });
+
+  const submoduleRows = SUBMODULE_OPTIONS.map(({ code }) => {
+    const row = subChecks[code];
+    return [
+      "S",
+      code,
+      toMode(Boolean(row?.submodule)),
+      toMode(Boolean(row?.read)),
+      toMode(Boolean(row?.edit)),
+      toMode(Boolean(row?.create)),
+      toMode(Boolean(row?.delete)),
+    ].join("|");
+  });
+
+  return [String(userId), ...moduleRows, ...submoduleRows].join("¬");
+};
+
+const isPermissionMode = (value: string): value is PermissionMode =>
+  value === "allow" || value === "deny" || value === "inherit";
+
+const parseUserPermissionsPayload = (rawPayload: string) => {
+  const payload = String(rawPayload ?? "").replace(/Â¬/g, "¬").trim();
+  if (!payload || payload === "~") return null;
+
+  const moduleAllow = new Set<ModuleCode>();
+  const moduleDeny = new Set<ModuleCode>();
+  const submoduleAllow = new Set<string>();
+  const submoduleDeny = new Set<string>();
+  const actionModes = checksToActionModes(emptyChecks());
+  const submoduleActionModes = emptySubmoduleActionModes();
+
+  const rows = payload
+    .split("¬")
+    .map((row) => row.trim())
+    .filter(Boolean);
+
+  rows.forEach((row) => {
+    const parts = row.split("|");
+    const recordType = String(parts[0] ?? "").trim().toUpperCase();
+
+    if (recordType === "M") {
+      if (parts.length < 9) return;
+      const rawModuleCode = String(parts[3] ?? "").trim().toLowerCase();
+      if (!MODULE_CODE_SET.has(rawModuleCode as ModuleCode)) return;
+      const moduleCode = rawModuleCode as ModuleCode;
+
+      const moduleMode = String(parts[4] ?? "inherit").trim().toLowerCase();
+      if (moduleMode === "allow") moduleAllow.add(moduleCode);
+      if (moduleMode === "deny") moduleDeny.add(moduleCode);
+
+      ACTION_KEYS.forEach((action, index) => {
+        const rawActionMode = String(parts[5 + index] ?? "inherit")
+          .trim()
+          .toLowerCase();
+        actionModes[moduleCode][action] = isPermissionMode(rawActionMode)
+          ? rawActionMode
+          : "inherit";
+      });
+      return;
+    }
+
+    if (recordType === "S") {
+      if (parts.length < 9) return;
+      const submoduleCode = String(parts[3] ?? "").trim().toLowerCase();
+      if (!SUBMODULE_CODE_SET.has(submoduleCode)) return;
+
+      const mode = String(parts[4] ?? "inherit").trim().toLowerCase();
+      if (mode === "allow") submoduleAllow.add(submoduleCode);
+      if (mode === "deny") submoduleDeny.add(submoduleCode);
+
+      ACTION_KEYS.forEach((action, index) => {
+        const rawActionMode = String(parts[5 + index] ?? "inherit")
+          .trim()
+          .toLowerCase();
+        submoduleActionModes[submoduleCode][action] = isPermissionMode(
+          rawActionMode,
+        )
+          ? rawActionMode
+          : "inherit";
+      });
+    }
+  });
+
+  return {
+    moduleOverride: {
+      allow: Array.from(moduleAllow),
+      deny: Array.from(moduleDeny),
+    },
+    actionModes,
+    submoduleOverride: {
+      allow: Array.from(submoduleAllow),
+      deny: Array.from(submoduleDeny),
+    },
+    submoduleActionModes,
+  };
+};
+
+const getRawPermissionsPayload = (responseText: string): string | null => {
+  const trimmed = String(responseText ?? "").trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (typeof parsed === "string") return parsed;
+    if (parsed && typeof parsed === "object") {
+      const objectPayload = parsed as Record<string, unknown>;
+      const candidate =
+        objectPayload.data ??
+        objectPayload.Data ??
+        objectPayload.resultado ??
+        objectPayload.Resultado ??
+        objectPayload.result ??
+        objectPayload.Result;
+      if (typeof candidate === "string") return candidate;
+    }
+  } catch {
+    return trimmed;
+  }
+
+  return trimmed;
 };
 
 const SecurityPermissionsPage = () => {
@@ -227,29 +432,111 @@ const SecurityPermissionsPage = () => {
       setSubmoduleChecks(emptySubmoduleChecks());
       return;
     }
-    const override = readUserModulePermissionOverride(String(selectedUserId));
-    const moduleModes = toPermissionModes(override);
-    const actionModes = readUserModuleActionModes(String(selectedUserId));
-    const submoduleOverride = readUserSubmodulePermissionOverride(
-      String(selectedUserId),
-    );
-    const submoduleModes = toSubmoduleModes(submoduleOverride);
-    setChecks(toChecks(moduleModes, actionModes));
-    setSubmoduleChecks(submoduleModesToChecks(submoduleModes));
+    const controller = new AbortController();
+
+    const loadUserPermissions = async () => {
+      try {
+        const response = await fetch(USER_PERMISSIONS_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            accept: "text/plain, application/json",
+          },
+          body: JSON.stringify({ data: String(selectedUserId) }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const responseText = await response.text();
+        const rawPayload = getRawPermissionsPayload(responseText);
+        const parsed = parseUserPermissionsPayload(rawPayload ?? "");
+        if (!parsed) throw new Error("Payload de permisos de usuario invalido.");
+
+        saveUserModulePermissionOverride(selectedUserId, parsed.moduleOverride);
+        saveUserModuleActionModes(selectedUserId, parsed.actionModes);
+        saveUserSubmodulePermissionOverride(selectedUserId, parsed.submoduleOverride);
+        saveUserSubmoduleActionModes(selectedUserId, parsed.submoduleActionModes);
+
+        const moduleModes = toPermissionModes(parsed.moduleOverride);
+        const submoduleModes = toSubmoduleModes(parsed.submoduleOverride);
+        setChecks(toChecks(moduleModes, parsed.actionModes));
+        setSubmoduleChecks(
+          submoduleModesToChecks(submoduleModes, parsed.submoduleActionModes),
+        );
+      } catch (error) {
+        if ((error as { name?: string }).name === "AbortError") return;
+
+        console.error("No se pudo cargar permisos por usuario desde backend", error);
+        const override = readUserModulePermissionOverride(String(selectedUserId));
+        const moduleModes = toPermissionModes(override);
+        const actionModes = readUserModuleActionModes(String(selectedUserId));
+        const submoduleOverride = readUserSubmodulePermissionOverride(
+          String(selectedUserId),
+        );
+        const submoduleActionModes = readUserSubmoduleActionModes(
+          String(selectedUserId),
+        );
+        const submoduleModes = toSubmoduleModes(submoduleOverride);
+        setChecks(toChecks(moduleModes, actionModes));
+        setSubmoduleChecks(
+          submoduleModesToChecks(submoduleModes, submoduleActionModes),
+        );
+      }
+    };
+
+    void loadUserPermissions();
+
+    return () => controller.abort();
   }, [selectedUserId]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedUserId) {
       toast.error("Selecciona un usuario.");
+      return;
+    }
+
+    const payloadPlano = buildUserSavePayload(
+      String(selectedUserId),
+      checks,
+      submoduleChecks,
+    );
+    console.log("PermisosUsuario payload plano:", payloadPlano);
+
+    try {
+      const response = await fetch(USER_PERMISSIONS_SAVE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          accept: "text/plain, application/json",
+        },
+        body: JSON.stringify({ data: payloadPlano }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const rawText = (await response.text()).trim();
+      const resultText = getRawPermissionsPayload(rawText) ?? rawText;
+      const normalizedResult = String(resultText ?? "").trim();
+      if (normalizedResult && normalizedResult.startsWith("~")) {
+        throw new Error(normalizedResult);
+      }
+    } catch (error) {
+      console.error("No se pudo guardar permisos por usuario en backend", error);
+      toast.error("No se pudo guardar en la base de datos.");
       return;
     }
 
     const moduleModes = checksToModuleModes(checks);
     const actionModes = checksToActionModes(checks);
     const subModes = submoduleChecksToModes(submoduleChecks);
+    const subActionModes = submoduleChecksToActionModes(submoduleChecks);
     saveUserModulePermissionOverride(selectedUserId, toOverride(moduleModes));
     saveUserModuleActionModes(selectedUserId, actionModes);
     saveUserSubmodulePermissionOverride(selectedUserId, toSubmoduleOverride(subModes));
+    saveUserSubmoduleActionModes(selectedUserId, subActionModes);
     if (String(authUser?.id ?? "") === String(selectedUserId)) {
       loadForUser(authUser);
       loadSubmodulesForUser(authUser);
@@ -284,6 +571,7 @@ const SecurityPermissionsPage = () => {
     saveUserModulePermissionOverride(selectedUserId, toOverride(inheritModuleModes));
     saveUserModuleActionModes(selectedUserId, inheritActionModes);
     saveUserSubmodulePermissionOverride(selectedUserId, { allow: [], deny: [] });
+    saveUserSubmoduleActionModes(selectedUserId, emptySubmoduleActionModes());
     setChecks(emptyChecks());
     setSubmoduleChecks(emptySubmoduleChecks());
 
@@ -308,10 +596,17 @@ const SecurityPermissionsPage = () => {
     }));
   };
 
-  const toggleSubmoduleCheck = (submoduleCode: string, value: boolean) => {
+  const toggleSubmoduleCheck = (
+    submoduleCode: string,
+    key: keyof SubmoduleCheckRow,
+    value: boolean,
+  ) => {
     setSubmoduleChecks((prev) => ({
       ...prev,
-      [submoduleCode]: value,
+      [submoduleCode]: {
+        ...prev[submoduleCode],
+        [key]: value,
+      },
     }));
   };
 
@@ -440,6 +735,18 @@ const SecurityPermissionsPage = () => {
                 <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
                   permitido
                 </th>
+                <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
+                  lectura
+                </th>
+                <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
+                  edicion
+                </th>
+                <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
+                  creacion
+                </th>
+                <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
+                  eliminacion
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -457,9 +764,61 @@ const SecurityPermissionsPage = () => {
                   <td className="border border-slate-200 px-3 py-2 text-center">
                     <input
                       type="checkbox"
-                      checked={submoduleChecks[submodule.code] ?? false}
+                      checked={submoduleChecks[submodule.code]?.submodule ?? false}
                       onChange={(e) =>
-                        toggleSubmoduleCheck(submodule.code, e.target.checked)
+                        toggleSubmoduleCheck(
+                          submodule.code,
+                          "submodule",
+                          e.target.checked,
+                        )
+                      }
+                      className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
+                    />
+                  </td>
+                  <td className="border border-slate-200 px-3 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={submoduleChecks[submodule.code]?.read ?? false}
+                      onChange={(e) =>
+                        toggleSubmoduleCheck(submodule.code, "read", e.target.checked)
+                      }
+                      className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
+                    />
+                  </td>
+                  <td className="border border-slate-200 px-3 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={submoduleChecks[submodule.code]?.edit ?? false}
+                      onChange={(e) =>
+                        toggleSubmoduleCheck(submodule.code, "edit", e.target.checked)
+                      }
+                      className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
+                    />
+                  </td>
+                  <td className="border border-slate-200 px-3 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={submoduleChecks[submodule.code]?.create ?? false}
+                      onChange={(e) =>
+                        toggleSubmoduleCheck(
+                          submodule.code,
+                          "create",
+                          e.target.checked,
+                        )
+                      }
+                      className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
+                    />
+                  </td>
+                  <td className="border border-slate-200 px-3 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={submoduleChecks[submodule.code]?.delete ?? false}
+                      onChange={(e) =>
+                        toggleSubmoduleCheck(
+                          submodule.code,
+                          "delete",
+                          e.target.checked,
+                        )
                       }
                       className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
                     />

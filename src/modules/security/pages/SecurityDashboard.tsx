@@ -6,16 +6,16 @@ export default function SecurityDashboard() {
 
   const items = [
     {
-      title: "Permisos",
-      desc: "Otorga o revoca acceso a módulos por usuario.",
-      icon: KeyRound,
-      route: "/seguridad/permisos",
-    },
-    {
       title: "Permisos por área",
       desc: "Define la base heredada para cada área.",
       icon: Building2,
       route: "/seguridad/permisos-areas",
+    },
+    {
+      title: "Permisos por usuario",
+      desc: "Otorga o revoca acceso a módulos por usuario.",
+      icon: KeyRound,
+      route: "/seguridad/permisos",
     },
   ];
 

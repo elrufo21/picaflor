@@ -113,17 +113,25 @@ const PackageList = () => {
 
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const userAreaId = useAuthStore((state) => String(state.user?.areaId ?? ""));
+  const authUser = useAuthStore((state) => state.user);
   const canAccessAction = useModulePermissionsStore(
     (state) => state.canAccessAction,
   );
-  const { canAccessSubmodule, allowedSubmodules } = useSubmodulePermissionsStore();
+  const { canAccessSubmodule, canAccessSubmoduleAction, allowedSubmodules } =
+    useSubmodulePermissionsStore();
+  const hasSubmoduleActionRules =
+    String(authUser?.rawSubmoduleActions ?? "").trim().length > 0;
   const hasSubmodulePermissions = allowedSubmodules.length > 0;
-  const canCreateProgramacion = hasSubmodulePermissions
-    ? canAccessSubmodule(BTN_ADD_SUBMODULE_CODE)
-    : canAccessAction("citytour", "create");
-  const canEditProgramacion = hasSubmodulePermissions
-    ? canAccessSubmodule(BTN_SAVE_SUBMODULE_CODE)
-    : canAccessAction("citytour", "edit");
+  const canCreateProgramacion = hasSubmoduleActionRules
+    ? canAccessSubmoduleAction(BTN_ADD_SUBMODULE_CODE, "create")
+    : hasSubmodulePermissions
+      ? canAccessSubmodule(BTN_ADD_SUBMODULE_CODE)
+      : canAccessAction("citytour", "create");
+  const canEditProgramacion = hasSubmoduleActionRules
+    ? canAccessSubmoduleAction(BTN_SAVE_SUBMODULE_CODE, "edit")
+    : hasSubmodulePermissions
+      ? canAccessSubmodule(BTN_SAVE_SUBMODULE_CODE)
+      : canAccessAction("citytour", "edit");
 
   const {
     packages,
@@ -608,22 +616,22 @@ const PackageList = () => {
           </div>
 
           {/* AGREGAR */}
-          <button
-            onClick={handleAddServicio}
-            disabled={!canCreateProgramacion}
-            className="
+          {canCreateProgramacion && (
+            <button
+              onClick={handleAddServicio}
+              className="
               w-full md:w-auto
               px-4 py-2
               bg-emerald-600 text-white
               rounded-lg
               hover:bg-emerald-700
-              disabled:opacity-50 disabled:cursor-not-allowed
               transition
               flex justify-center
             "
-          >
-            <Plus size={18} />
-          </button>
+            >
+              <Plus size={18} />
+            </button>
+          )}
 
           {/* BOTONES DERECHA */}
           <div
@@ -634,17 +642,15 @@ const PackageList = () => {
         md:ml-auto md:w-auto
       "
           >
-            {userAreaId !== "9" && (
+            {canEditProgramacion && (
               <button
                 onClick={handleGuardarCambios}
-                disabled={!canEditProgramacion}
                 className="
           w-full sm:w-auto
                 px-5 py-2
                 rounded-lg
                 bg-blue-600 text-white
                 hover:bg-blue-700
-                disabled:opacity-50 disabled:cursor-not-allowed
                 transition
               "
               >
