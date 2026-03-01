@@ -13,18 +13,28 @@ import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 import AreaForm from "../components/AreaForm";
 import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
 import type { ModuleCode } from "@/app/auth/mockModulePermissions";
+import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
 const AreaList = () => {
   const location = useLocation();
   const openDialog = useDialogStore((s) => s.openDialog);
   const canAccessAction = useModulePermissionsStore((s) => s.canAccessAction);
+  const resolveAccess = useMaintenanceAccessResolver();
   const { areas, fetchAreas, addArea, updateArea, deleteArea } = useMaintenanceStore();
   const submitAreaRef = useRef<(() => Promise<boolean>) | null>(null);
   const permissionModule: ModuleCode = location.pathname.startsWith("/seguridad")
     ? "security"
     : "maintenance";
-  const canCreate = canAccessAction(permissionModule, "create");
-  const canEdit = canAccessAction(permissionModule, "edit");
+  const maintenanceAccess = resolveAccess("maintenance.areas");
+  const canCreate = location.pathname.startsWith("/seguridad")
+    ? canAccessAction(permissionModule, "create")
+    : maintenanceAccess.create;
+  const canEdit = location.pathname.startsWith("/seguridad")
+    ? canAccessAction(permissionModule, "edit")
+    : maintenanceAccess.edit;
+  const canDelete = location.pathname.startsWith("/seguridad")
+    ? canAccessAction(permissionModule, "delete")
+    : maintenanceAccess.delete;
 
   useAreasQuery();
 
@@ -42,14 +52,14 @@ const AreaList = () => {
             : "Actualiza la informacion del area seleccionada.",
         size: "xl",
         confirmLabel: mode === "create" ? "Crear" : "Guardar",
-        dangerLabel: mode === "edit" ? "Eliminar" : undefined,
+        dangerLabel: mode === "edit" && canDelete ? "Eliminar" : undefined,
         onConfirm: async () => {
           const submitForm = submitAreaRef.current;
           if (typeof submitForm !== "function") return false;
           return submitForm();
         },
         onDanger:
-          mode === "edit" && area?.id
+          mode === "edit" && area?.id && canDelete
             ? async () => {
                 openDialog({
                   title: "Eliminar area",
@@ -116,7 +126,7 @@ const AreaList = () => {
         ),
       });
     },
-    [openDialog, addArea, updateArea, deleteArea, fetchAreas],
+    [canDelete, openDialog, addArea, updateArea, deleteArea, fetchAreas],
   );
 
   const columnHelper = createColumnHelper<Area>();
@@ -142,9 +152,9 @@ const AreaList = () => {
             </button>
             <button
               type="button"
-              disabled={!canEdit}
+              disabled={!canDelete}
               onClick={() => {
-                if (!canEdit) return;
+                if (!canDelete) return;
                 openDialog({
                   title: "Eliminar area",
                   size: "sm",
@@ -177,7 +187,7 @@ const AreaList = () => {
         ),
       }),
     ],
-    [columnHelper, openDialog, openAreaModal, deleteArea, fetchAreas],
+    [canDelete, canEdit, columnHelper, openDialog, openAreaModal, deleteArea, fetchAreas],
   );
 
   return (

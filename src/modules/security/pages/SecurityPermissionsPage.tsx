@@ -589,10 +589,37 @@ const SecurityPermissionsPage = () => {
   ) => {
     setChecks((prev) => ({
       ...prev,
-      [moduleCode]: {
-        ...prev[moduleCode],
-        [key]: value,
-      },
+      [moduleCode]: (() => {
+        const row = prev[moduleCode];
+        if (key === "module") {
+          return {
+            module: value,
+            read: value,
+            edit: value,
+            create: value,
+            delete: value,
+          };
+        }
+
+        const nextRow: ModuleCheckRow = {
+          ...row,
+          [key]: value,
+        };
+
+        if (key !== "module" && value) {
+          nextRow.module = true;
+        }
+
+        if (key !== "module" && value) {
+          nextRow.read = true;
+        }
+
+        if (nextRow.module) {
+          nextRow.read = true;
+        }
+
+        return nextRow;
+      })(),
     }));
   };
 
@@ -603,10 +630,37 @@ const SecurityPermissionsPage = () => {
   ) => {
     setSubmoduleChecks((prev) => ({
       ...prev,
-      [submoduleCode]: {
-        ...prev[submoduleCode],
-        [key]: value,
-      },
+      [submoduleCode]: (() => {
+        const row = prev[submoduleCode];
+        if (key === "submodule") {
+          return {
+            submodule: value,
+            read: value,
+            edit: value,
+            create: value,
+            delete: value,
+          };
+        }
+
+        const nextRow: SubmoduleCheckRow = {
+          ...row,
+          [key]: value,
+        };
+
+        if (key !== "submodule" && value) {
+          nextRow.submodule = true;
+        }
+
+        if (key !== "submodule" && value) {
+          nextRow.read = true;
+        }
+
+        if (nextRow.submodule) {
+          nextRow.read = true;
+        }
+
+        return nextRow;
+      })(),
     }));
   };
 

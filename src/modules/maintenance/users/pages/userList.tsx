@@ -11,6 +11,7 @@ import { useUsersStore, type User } from "@/store/users/users.store";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
 import type { ModuleCode } from "@/app/auth/mockModulePermissions";
+import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
 const resolveUserId = (user?: Partial<User>) => Number(user?.UsuarioID ?? 0);
 
@@ -18,6 +19,7 @@ const UserList = () => {
   const location = useLocation();
   const openDialog = useDialogStore((s) => s.openDialog);
   const canAccessAction = useModulePermissionsStore((s) => s.canAccessAction);
+  const resolveAccess = useMaintenanceAccessResolver();
   const { users, fetchUsers, addUser, updateUser, deleteUser } =
     useUsersStore();
   const submitUserRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -27,8 +29,16 @@ const UserList = () => {
   const permissionModule: ModuleCode = location.pathname.startsWith("/seguridad")
     ? "security"
     : "maintenance";
-  const canCreate = canAccessAction(permissionModule, "create");
-  const canEdit = canAccessAction(permissionModule, "edit");
+  const maintenanceAccess = resolveAccess("maintenance.users");
+  const canCreate = location.pathname.startsWith("/seguridad")
+    ? canAccessAction(permissionModule, "create")
+    : maintenanceAccess.create;
+  const canEdit = location.pathname.startsWith("/seguridad")
+    ? canAccessAction(permissionModule, "edit")
+    : maintenanceAccess.edit;
+  const canDelete = location.pathname.startsWith("/seguridad")
+    ? canAccessAction(permissionModule, "delete")
+    : maintenanceAccess.delete;
 
   useEffect(() => {
     fetchUsers(usersEstado);
@@ -45,14 +55,14 @@ const UserList = () => {
         size: "xxl",
         confirmLabel: mode === "create" ? "Crear" : "Guardar",
         cancelLabel: "Cancelar",
-        dangerLabel: mode === "edit" ? "Eliminar" : undefined,
+        dangerLabel: mode === "edit" && canDelete ? "Eliminar" : undefined,
         onConfirm: async () => {
           const submitForm = submitUserRef.current;
           if (typeof submitForm !== "function") return false;
           return submitForm();
         },
         onDanger:
-          mode === "edit"
+          mode === "edit" && canDelete
             ? async () => {
                 const id = resolveUserId(user);
                 if (!id) return false;
@@ -119,11 +129,12 @@ const UserList = () => {
         ),
       });
     },
-    [openDialog, addUser, updateUser, deleteUser, fetchUsers, usersEstado],
+    [canDelete, openDialog, addUser, updateUser, deleteUser, fetchUsers, usersEstado],
   );
 
   const handleDeleteUser = useCallback(
     (user: User) => {
+      if (!canDelete) return;
       const id = resolveUserId(user);
       if (!id) return;
 
@@ -151,7 +162,7 @@ const UserList = () => {
         ),
       });
     },
-    [openDialog, deleteUser, fetchUsers, usersEstado],
+    [canDelete, openDialog, deleteUser, fetchUsers, usersEstado],
   );
 
   const columnHelper = createColumnHelper<User>();
@@ -185,7 +196,7 @@ const UserList = () => {
             </button>
             <button
               type="button"
-              disabled={!canEdit}
+              disabled={!canDelete}
               onClick={() => handleDeleteUser(row.original)}
               className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
               title="Eliminar"
@@ -196,7 +207,7 @@ const UserList = () => {
         ),
       }),
     ],
-    [columnHelper, openUserModal, handleDeleteUser],
+    [canDelete, canEdit, columnHelper, openUserModal, handleDeleteUser],
   );
 
   return (

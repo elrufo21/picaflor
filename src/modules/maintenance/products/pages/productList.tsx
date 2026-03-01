@@ -19,6 +19,7 @@ import { useAuthStore } from "@/store/auth/auth.store";
 import type { UseFormReturn } from "react-hook-form";
 import type { Product } from "@/types/maintenance";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
+import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
 type RequiredProductField = {
   key: keyof ProductFormValues;
@@ -52,6 +53,8 @@ const ProductList = () => {
   const { user } = useAuthStore();
   const { data: sublineas = [] } = useProductSublineas();
   const openDialog = useDialogStore((state) => state.openDialog);
+  const resolveAccess = useMaintenanceAccessResolver();
+  const access = resolveAccess("maintenance.products");
   const formRef = useRef<UseFormReturn<ProductFormValues> | null>(null);
 
   useEffect(() => {
@@ -63,6 +66,8 @@ const ProductList = () => {
 
   const openProductModal = useCallback(
     (mode: "create" | "edit", product?: Product) => {
+      if (mode === "create" && !access.create) return;
+      if (mode === "edit" && !access.edit) return;
       if (formRef.current) {
         formRef.current.reset();
       }
@@ -149,11 +154,12 @@ const ProductList = () => {
         },
       });
     },
-    [openDialog, username, fetchProducts, sublineas],
+    [access.create, access.edit, openDialog, username, fetchProducts, sublineas],
   );
 
   const handleDeleteProduct = useCallback(
     (product: Product) => {
+      if (!access.delete) return;
       if (!product?.id) return;
       openDialog({
         title: "Eliminar producto",
@@ -179,7 +185,7 @@ const ProductList = () => {
         ),
       });
     },
-    [deleteProduct, openDialog],
+    [access.delete, deleteProduct, openDialog],
   );
 
   const columnHelper = createColumnHelper<Product>();
@@ -230,8 +236,9 @@ const ProductList = () => {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              disabled={!access.edit}
               onClick={() => openProductModal("edit", row.original)}
-              className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
+              className="text-blue-600 hover:text-blue-900 flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-40"
               title="Editar"
             >
               <Pencil className="w-4 h-4" />
@@ -239,8 +246,9 @@ const ProductList = () => {
             </button>
             <button
               type="button"
+              disabled={!access.delete}
               onClick={() => handleDeleteProduct(row.original)}
-              className="text-red-600 hover:text-red-800 flex items-center gap-1"
+              className="text-red-600 hover:text-red-800 flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-40"
               title="Eliminar"
             >
               <Trash2 className="w-4 h-4" />
@@ -250,7 +258,7 @@ const ProductList = () => {
         ),
       }),
     ],
-    [columnHelper, openProductModal, handleDeleteProduct],
+    [access.delete, access.edit, columnHelper, openProductModal, handleDeleteProduct],
   );
 
   return (
@@ -263,6 +271,7 @@ const ProductList = () => {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            disabled={!access.create}
             onClick={() => openProductModal("create")}
             title="Nuevo producto"
             aria-label="Nuevo producto"

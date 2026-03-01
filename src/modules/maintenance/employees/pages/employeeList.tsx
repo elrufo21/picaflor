@@ -9,9 +9,12 @@ import type { Personal } from "@/types/employees";
 import { useDialogStore } from "@/app/store/dialogStore";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 import EmployeeForm from "../components/EmployeeForm";
+import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
 const EmployeeList = () => {
   const openDialog = useDialogStore((s) => s.openDialog);
+  const resolveAccess = useMaintenanceAccessResolver();
+  const access = resolveAccess("maintenance.employees");
   const {
     employees,
     fetchEmployees,
@@ -27,6 +30,8 @@ const EmployeeList = () => {
 
   const openEmployeeModal = useCallback(
     (mode: "create" | "edit", employee?: Personal) => {
+      if (mode === "create" && !access.create) return;
+      if (mode === "edit" && !access.edit) return;
       openDialog({
         title: mode === "create" ? "Registrar personal" : "Editar personal",
         description:
@@ -35,14 +40,14 @@ const EmployeeList = () => {
             : "Actualiza los datos del empleado seleccionado.",
         size: "xxl",
         confirmLabel: mode === "create" ? "Crear" : "Guardar",
-        dangerLabel: mode === "edit" ? "Eliminar" : undefined,
+        dangerLabel: mode === "edit" && access.delete ? "Eliminar" : undefined,
         onConfirm: async () => {
           const submitForm = submitEmployeeRef.current;
           if (typeof submitForm !== "function") return false;
           return submitForm();
         },
         onDanger:
-          mode === "edit"
+          mode === "edit" && access.delete
             ? async () => {
                 const id = Number(employee?.personalId ?? 0);
                 if (!id) return false;
@@ -110,7 +115,16 @@ const EmployeeList = () => {
         ),
       });
     },
-    [openDialog, addEmployee, updateEmployee, deleteEmployee, fetchEmployees],
+    [
+      access.create,
+      access.delete,
+      access.edit,
+      openDialog,
+      addEmployee,
+      updateEmployee,
+      deleteEmployee,
+      fetchEmployees,
+    ],
   );
 
   const columnHelper = createColumnHelper<Personal>();
@@ -139,8 +153,9 @@ const EmployeeList = () => {
           <div className="flex items-center gap-3 ">
             <button
               type="button"
+              disabled={!access.edit}
               onClick={() => openEmployeeModal("edit", row.original)}
-              className="text-blue-600 hover:text-blue-800"
+              className="text-blue-600 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-40"
               title="Editar"
             >
               <Pencil className="w-4 h-4" />
@@ -149,6 +164,7 @@ const EmployeeList = () => {
             <button
               type="button"
               onClick={() => {
+                if (!access.delete) return;
                 openDialog({
                   title: "Eliminar empleado",
                   size: "sm",
@@ -175,7 +191,8 @@ const EmployeeList = () => {
                   ),
                 });
               }}
-              className="text-red-600 hover:text-red-800"
+              disabled={!access.delete}
+              className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
               title="Eliminar"
             >
               <Trash2 className="w-4 h-4" />
@@ -190,6 +207,8 @@ const EmployeeList = () => {
       openEmployeeModal,
       deleteEmployee,
       fetchEmployees,
+      access.delete,
+      access.edit,
     ],
   );
 
@@ -206,6 +225,7 @@ const EmployeeList = () => {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            disabled={!access.create}
             onClick={() => openEmployeeModal("create")}
             title="Nuevo empleado"
             aria-label="Nuevo empleado"
