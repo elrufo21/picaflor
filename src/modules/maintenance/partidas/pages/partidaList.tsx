@@ -12,6 +12,7 @@ import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { usePartidasQuery } from "../usePartidasQuery";
 import type { DeparturePoint } from "@/types/maintenance";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
+import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
 const PartidaList = () => {
   const {
@@ -22,6 +23,8 @@ const PartidaList = () => {
     deletePartida,
   } = useMaintenanceStore();
   const openDialog = useDialogStore((s) => s.openDialog);
+  const resolveAccess = useMaintenanceAccessResolver();
+  const access = resolveAccess("maintenance.partidas");
   const formRef = useRef<UseFormReturn<PartidaFormValues> | null>(null);
   usePartidasQuery();
 
@@ -31,6 +34,8 @@ const PartidaList = () => {
 
   const openPartidaModal = useCallback(
     (mode: "create" | "edit", partida?: DeparturePoint) => {
+      if (mode === "create" && !access.create) return;
+      if (mode === "edit" && !access.edit) return;
       openDialog({
         title:
           mode === "create"
@@ -57,7 +62,7 @@ const PartidaList = () => {
         },
       });
     },
-    [openDialog, addPartida, updatePartida],
+    [access.create, access.edit, openDialog, addPartida, updatePartida],
   );
 
   const columns = useMemo(() => {
@@ -85,8 +90,9 @@ const PartidaList = () => {
           <div className="flex items-center justify-center gap-2">
             <button
               type="button"
+              disabled={!access.edit}
               onClick={() => openPartidaModal("edit", row.original)}
-              className="text-blue-600 hover:text-blue-900"
+              className="text-blue-600 hover:text-blue-900 disabled:cursor-not-allowed disabled:opacity-40"
               title="Editar"
             >
               <Pencil className="w-4 h-4" />
@@ -94,6 +100,7 @@ const PartidaList = () => {
             <button
               type="button"
               onClick={() => {
+                if (!access.delete) return;
                 openDialog({
                   title: "Eliminar punto de partida",
                   description:
@@ -111,7 +118,8 @@ const PartidaList = () => {
                   ),
                 });
               }}
-              className="text-red-600 hover:text-red-800"
+              disabled={!access.delete}
+              className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
               title="Eliminar"
             >
               <Trash2 className="w-4 h-4" />
@@ -120,7 +128,7 @@ const PartidaList = () => {
         ),
       }),
     ];
-  }, [openDialog, deletePartida, openPartidaModal]);
+  }, [access.delete, access.edit, openDialog, deletePartida, openPartidaModal]);
 
   return (
     <MaintenancePageFrame
@@ -135,6 +143,7 @@ const PartidaList = () => {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            disabled={!access.create}
             onClick={() => openPartidaModal("create")}
             title="Crear punto de partida"
             aria-label="Crear punto de partida"

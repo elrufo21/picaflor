@@ -14,10 +14,12 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useMaintenanceAccessResolver } from "../permissions/useMaintenanceAccessResolver";
 
 export default function MaintenanceDashboard() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const resolveAccess = useMaintenanceAccessResolver();
 
   const items = [
     {
@@ -26,6 +28,7 @@ export default function MaintenanceDashboard() {
       icon: Grid3X3,
       iconClass: "text-blue-600",
       route: "/maintenance/categories",
+      submoduleCode: "maintenance.categories",
     },
     {
       title: "Productos",
@@ -33,6 +36,7 @@ export default function MaintenanceDashboard() {
       icon: Package,
       iconClass: "text-emerald-600",
       route: "/maintenance/products",
+      submoduleCode: "maintenance.products",
     },
     {
       title: "Actividades adicionales",
@@ -40,6 +44,7 @@ export default function MaintenanceDashboard() {
       icon: Sparkles,
       iconClass: "text-sky-600",
       route: "/maintenance/actividades",
+      submoduleCode: "maintenance.actividades",
     },
     {
       title: "Areas",
@@ -47,6 +52,7 @@ export default function MaintenanceDashboard() {
       icon: Layers,
       iconClass: "text-green-600",
       route: "/maintenance/areas",
+      submoduleCode: "maintenance.areas",
     },
     {
       title: "Hoteles",
@@ -54,6 +60,7 @@ export default function MaintenanceDashboard() {
       icon: Bed,
       iconClass: "text-amber-600",
       route: "/maintenance/hotels",
+      submoduleCode: "maintenance.hotels",
     },
     {
       title: "Puntos de partida",
@@ -61,6 +68,7 @@ export default function MaintenanceDashboard() {
       icon: MapPin,
       iconClass: "text-rose-600",
       route: "/maintenance/partidas",
+      submoduleCode: "maintenance.partidas",
     },
     {
       title: "Canal de venta",
@@ -68,6 +76,7 @@ export default function MaintenanceDashboard() {
       icon: Handshake,
       iconClass: "text-cyan-700",
       route: "/maintenance/salesChannel",
+      submoduleCode: "maintenance.sales_channel",
     },
     {
       title: "Empleados",
@@ -75,6 +84,7 @@ export default function MaintenanceDashboard() {
       icon: Users2,
       iconClass: "text-slate-700",
       route: "/maintenance/employees",
+      submoduleCode: "maintenance.employees",
     },
     {
       title: "Usuarios",
@@ -82,13 +92,15 @@ export default function MaintenanceDashboard() {
       icon: UserCheck2Icon,
       iconClass: "text-violet-600",
       route: "/maintenance/users",
+      submoduleCode: "maintenance.users",
     },
   ];
 
   const normalizedQuery = query.trim().toLowerCase();
+  const readableItems = items.filter((item) => resolveAccess(item.submoduleCode).read);
   const filteredItems = !normalizedQuery
-    ? items
-    : items.filter((item) => {
+    ? readableItems
+    : readableItems.filter((item) => {
         const title = item.title.toLowerCase();
         const desc = item.desc.toLowerCase();
         return (

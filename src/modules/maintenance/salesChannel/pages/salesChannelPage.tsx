@@ -14,6 +14,7 @@ import {
   type SaveSalesChannelPayload,
   useSalesChannels,
 } from "../hooks/useSalesChannels";
+import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.com$/i;
 
@@ -133,9 +134,12 @@ const SalesChannelPage = () => {
   const { channels, isLoading, error, refresh, saveChannel, deleteChannel } =
     useSalesChannels();
   const openDialog = useDialogStore((state) => state.openDialog);
+  const resolveAccess = useMaintenanceAccessResolver();
+  const access = resolveAccess("maintenance.sales_channel");
 
   const openDeleteSalesChannelDialog = useCallback(
     (channel?: SalesChannelDetail) => {
+      if (!access.delete) return;
       const id = resolveSalesChannelId(channel);
       if (!id) {
         showToast({
@@ -186,11 +190,13 @@ const SalesChannelPage = () => {
         },
       });
     },
-    [deleteChannel, openDialog, refresh],
+    [access.delete, deleteChannel, openDialog, refresh],
   );
 
   const openSalesChannelModal = useCallback(
     (mode: "create" | "edit", channel?: SalesChannelDetail) => {
+      if (mode === "create" && !access.create) return;
+      if (mode === "edit" && !access.edit) return;
       const editingValue =
         mode === "edit" ? String(channel?.idCanal ?? "") : "";
 
@@ -212,7 +218,7 @@ const SalesChannelPage = () => {
         },
         confirmLabel: "Guardar canal",
         cancelLabel: "Cancelar",
-        dangerLabel: mode === "edit" ? "Eliminar canal" : undefined,
+        dangerLabel: mode === "edit" && access.delete ? "Eliminar canal" : undefined,
         content: ({ payload, setPayload }) => (
           <CanalVentaDialogForm
             payload={payload as CanalVentaDialogPayload}
@@ -220,7 +226,7 @@ const SalesChannelPage = () => {
           />
         ),
         onDanger:
-          mode === "edit"
+          mode === "edit" && access.delete
             ? async () => {
                 openDeleteSalesChannelDialog(channel);
                 return false;
@@ -303,7 +309,15 @@ const SalesChannelPage = () => {
         },
       });
     },
-    [openDeleteSalesChannelDialog, openDialog, refresh, saveChannel],
+    [
+      access.create,
+      access.delete,
+      access.edit,
+      openDeleteSalesChannelDialog,
+      openDialog,
+      refresh,
+      saveChannel,
+    ],
   );
 
   const columns = useMemo(() => {
@@ -334,22 +348,24 @@ const SalesChannelPage = () => {
           <div className="flex items-center justify-center gap-2">
             <button
               type="button"
+              disabled={!access.edit}
               onClick={(event) => {
                 event.stopPropagation();
                 openSalesChannelModal("edit", row.original);
               }}
-              className="text-blue-600 hover:text-blue-900"
+              className="text-blue-600 hover:text-blue-900 disabled:cursor-not-allowed disabled:opacity-40"
               title="Editar"
             >
               <Pencil className="w-4 h-4" />
             </button>
             <button
               type="button"
+              disabled={!access.delete}
               onClick={(event) => {
                 event.stopPropagation();
                 openDeleteSalesChannelDialog(row.original);
               }}
-              className="text-red-600 hover:text-red-900"
+              className="text-red-600 hover:text-red-900 disabled:cursor-not-allowed disabled:opacity-40"
               title="Eliminar"
             >
               <Trash2 className="w-4 h-4" />
@@ -358,7 +374,7 @@ const SalesChannelPage = () => {
         ),
       }),
     ];
-  }, [openDeleteSalesChannelDialog, openSalesChannelModal]);
+  }, [access.delete, access.edit, openDeleteSalesChannelDialog, openSalesChannelModal]);
 
   return (
     <MaintenancePageFrame
@@ -382,6 +398,7 @@ const SalesChannelPage = () => {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            disabled={!access.create}
             onClick={() => openSalesChannelModal("create")}
             title="Crear canal de venta"
             aria-label="Crear canal de venta"

@@ -13,6 +13,7 @@ import ActividadFormDialog, {
 import type { ActividadAdi } from "@/types/maintenance";
 import type { UseFormReturn } from "react-hook-form";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
+import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
 const columnHelper = createColumnHelper<ActividadAdi>();
 
@@ -31,6 +32,8 @@ const ActividadAdiList = () => {
   const products = useMaintenanceStore((state) => state.products);
   const fetchProducts = useMaintenanceStore((state) => state.fetchProducts);
   const openDialog = useDialogStore((state) => state.openDialog);
+  const resolveAccess = useMaintenanceAccessResolver();
+  const access = resolveAccess("maintenance.actividades");
   const formRef = useRef<UseFormReturn<ActividadFormValues> | null>(null);
 
   useEffect(() => {
@@ -45,6 +48,8 @@ const ActividadAdiList = () => {
 
   const openActividadModal = useCallback(
     (mode: "create" | "edit", actividad?: ActividadAdi) => {
+      if (mode === "create" && !access.create) return;
+      if (mode === "edit" && !access.edit) return;
       if (formRef.current) {
         formRef.current.reset();
       }
@@ -134,11 +139,12 @@ const ActividadAdiList = () => {
         },
       });
     },
-    [openDialog, products, addActividadAdi, updateActividadAdi],
+    [access.create, access.edit, openDialog, products, addActividadAdi, updateActividadAdi],
   );
 
   const handleDeleteActividad = useCallback(
     (actividad: ActividadAdi) => {
+      if (!access.delete) return;
       if (!actividad?.id) return;
       openDialog({
         title: "Eliminar actividad adicional",
@@ -163,7 +169,7 @@ const ActividadAdiList = () => {
         ),
       });
     },
-    [deleteActividadAdi, openDialog],
+    [access.delete, deleteActividadAdi, openDialog],
   );
 
   const columns = useMemo(
@@ -201,7 +207,8 @@ const ActividadAdiList = () => {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
+              disabled={!access.edit}
+              className="text-blue-600 hover:text-blue-900 flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => openActividadModal("edit", row.original)}
             >
               <Pencil className="w-4 h-4" />
@@ -209,7 +216,8 @@ const ActividadAdiList = () => {
             </button>
             <button
               type="button"
-              className="text-red-600 hover:text-red-800 flex items-center gap-1"
+              disabled={!access.delete}
+              className="text-red-600 hover:text-red-800 flex items-center gap-1 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => handleDeleteActividad(row.original)}
             >
               <Trash2 className="w-4 h-4" />
@@ -219,7 +227,7 @@ const ActividadAdiList = () => {
         ),
       }),
     ],
-    [openActividadModal, handleDeleteActividad],
+    [access.delete, access.edit, openActividadModal, handleDeleteActividad],
   );
 
   return (
@@ -235,6 +243,7 @@ const ActividadAdiList = () => {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            disabled={!access.create}
             onClick={() => openActividadModal("create")}
             title="Nueva actividad"
             aria-label="Nueva actividad"

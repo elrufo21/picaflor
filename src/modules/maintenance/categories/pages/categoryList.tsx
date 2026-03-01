@@ -10,12 +10,15 @@ import type { Category } from "@/types/maintenance";
 import { useDialogStore } from "@/app/store/dialogStore";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 import CategoryForm from "../components/CategoryForm";
+import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
 const resolveCategoryId = (item?: Partial<Category>) =>
   Number(item?.id ?? item?.idSubLinea ?? 0);
 
 const CategoryList = () => {
   const openDialog = useDialogStore((s) => s.openDialog);
+  const resolveAccess = useMaintenanceAccessResolver();
+  const access = resolveAccess("maintenance.categories");
   const { categories, fetchCategories, addCategory, updateCategory, deleteCategory } =
     useMaintenanceStore();
   const submitCategoryRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -28,6 +31,8 @@ const CategoryList = () => {
 
   const openCategoryModal = useCallback(
     (mode: "create" | "edit", category?: Category) => {
+      if (mode === "create" && !access.create) return;
+      if (mode === "edit" && !access.edit) return;
       openDialog({
         title: mode === "create" ? "Crear categoria" : "Editar categoria",
         description:
@@ -36,14 +41,14 @@ const CategoryList = () => {
             : "Actualiza la categoria seleccionada.",
         size: "xl",
         confirmLabel: mode === "create" ? "Crear" : "Guardar",
-        dangerLabel: mode === "edit" ? "Eliminar" : undefined,
+        dangerLabel: mode === "edit" && access.delete ? "Eliminar" : undefined,
         onConfirm: async () => {
           const submitForm = submitCategoryRef.current;
           if (typeof submitForm !== "function") return false;
           return submitForm();
         },
         onDanger:
-          mode === "edit"
+          mode === "edit" && access.delete
             ? async () => {
                 const id = resolveCategoryId(category);
                 if (!id) return false;
@@ -122,6 +127,9 @@ const CategoryList = () => {
       });
     },
     [
+      access.create,
+      access.delete,
+      access.edit,
       openDialog,
       addCategory,
       updateCategory,
@@ -150,8 +158,9 @@ const CategoryList = () => {
             <div className="flex items-center gap-3">
               <button
                 type="button"
+                disabled={!access.edit}
                 onClick={() => openCategoryModal("edit", row.original)}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-600 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-40"
                 title="Editar"
               >
                 <Pencil className="w-4 h-4" />
@@ -160,6 +169,7 @@ const CategoryList = () => {
               <button
                 type="button"
                 onClick={() => {
+                  if (!access.delete) return;
                   if (!id) return;
                   openDialog({
                     title: "Eliminar categoria",
@@ -185,7 +195,8 @@ const CategoryList = () => {
                     ),
                   });
                 }}
-                className="text-red-600 hover:text-red-800"
+                disabled={!access.delete}
+                className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
                 title="Eliminar"
               >
                 <Trash2 className="w-4 h-4" />
@@ -195,7 +206,15 @@ const CategoryList = () => {
         },
       }),
     ],
-    [columnHelper, openDialog, openCategoryModal, deleteCategory, fetchCategories],
+    [
+      access.delete,
+      access.edit,
+      columnHelper,
+      openDialog,
+      openCategoryModal,
+      deleteCategory,
+      fetchCategories,
+    ],
   );
 
   return (
@@ -211,6 +230,7 @@ const CategoryList = () => {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm transition-colors hover:bg-[#d55320]"
+            disabled={!access.create}
             onClick={() => openCategoryModal("create")}
             title="Nueva categoria"
             aria-label="Nueva categoria"

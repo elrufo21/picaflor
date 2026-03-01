@@ -102,7 +102,6 @@ export const navigationItems: NavigationItem[] = [
     to: "/maintenance",
     icon: Wrench,
     description: "Catálogos y usuarios",
-    requiresAreaId: "6",
     moduleCode: "maintenance",
   },
   {
@@ -110,7 +109,6 @@ export const navigationItems: NavigationItem[] = [
     to: "/seguridad",
     icon: ShieldCheck,
     description: "Áreas y usuarios",
-    requiresAreaId: "6",
     moduleCode: "security",
   
   },
