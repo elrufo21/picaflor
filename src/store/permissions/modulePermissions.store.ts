@@ -60,6 +60,15 @@ export const useModulePermissionsStore = create<ModulePermissionsState>(
     loaded: false,
 
     loadForUser: (user) => {
+      if (user && !user.permissionsFromLogin) {
+        set({
+          allowedModules: [],
+          moduleActions: resolveUserModuleActionPermissions(null, []),
+          loaded: true,
+        });
+        return;
+      }
+
       const modulesFromLogin = resolveAllowedModulesFromLogin(user);
       const resolvedBaseModules =
         user?.permissionsFromLogin
