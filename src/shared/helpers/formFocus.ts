@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 export const getFocusableElements = (scope: ParentNode) =>
   Array.from(
     scope.querySelectorAll<HTMLElement>(
-      'input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex="-1"])'
+      'input:not([type="hidden"]):not(:disabled):not([tabindex="-1"]), select:not(:disabled):not([tabindex="-1"]), textarea:not(:disabled):not([tabindex="-1"]), button:not(:disabled):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])'
     )
   ).filter((el) => el.offsetParent !== null);
 

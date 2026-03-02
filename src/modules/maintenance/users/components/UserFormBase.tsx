@@ -445,6 +445,7 @@ export default function UserFormBase({
                                 ? "Ocultar contraseña"
                                 : "Mostrar contraseña"
                             }
+                            tabIndex={-1}
                             onClick={() => setShowPass((prev) => !prev)}
                             onMouseDown={(e) => e.preventDefault()}
                             edge="end"
@@ -491,6 +492,7 @@ export default function UserFormBase({
                                 ? "Ocultar contraseña"
                                 : "Mostrar contraseña"
                             }
+                            tabIndex={-1}
                             onClick={() => setShowPassConfirm((prev) => !prev)}
                             onMouseDown={(e) => e.preventDefault()}
                             edge="end"
