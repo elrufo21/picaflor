@@ -112,6 +112,29 @@ const LiquidationSection = ({ form }: Props) => {
     [foodUnit, paxCount],
   );
   const showFoodRow = form.incluyeHotel && foodUnit > 0 && paxCount > 0;
+  const movilidadUnit = useMemo(
+    () => roundCurrency(Number(form.movilidadPrecio || 0)),
+    [form.movilidadPrecio],
+  );
+  const movilidadQuantity = useMemo(
+    () => Math.max(0, paxCount),
+    [paxCount],
+  );
+  const movilidadTotal = useMemo(
+    () => roundCurrency(movilidadUnit * movilidadQuantity),
+    [movilidadUnit, movilidadQuantity],
+  );
+  const showMovilidadRow = Boolean(
+    String(form.movilidadTipo ?? "").trim() &&
+      String(form.movilidadTipo ?? "").toUpperCase() !== "NO INCLUYE" &&
+      movilidadUnit > 0 &&
+      movilidadQuantity > 0,
+  );
+  const movilidadLabel = useMemo(() => {
+    const tipo = String(form.movilidadTipo ?? "").trim().toUpperCase();
+    if (tipo === "AEREO") return "Vuelo";
+    return "Movilidad";
+  }, [form.movilidadTipo]);
 
   const grandTotal = useMemo(
     () =>
@@ -120,12 +143,25 @@ const LiquidationSection = ({ form }: Props) => {
           const unit = roundCurrency(row.roomPrice);
           return acc + roundCurrency(unit * row.quantity);
         }, 0) +
+          (showMovilidadRow ? movilidadTotal : 0) +
           (showActivitiesRow ? activitiesTotal : 0) +
           (showFoodRow ? foodTotal : 0),
       ),
-    [liquidationRows, showActivitiesRow, activitiesTotal, showFoodRow, foodTotal],
+    [
+      liquidationRows,
+      showMovilidadRow,
+      movilidadTotal,
+      showActivitiesRow,
+      activitiesTotal,
+      showFoodRow,
+      foodTotal,
+    ],
   );
-  const hasRows = liquidationRows.length > 0 || showActivitiesRow || showFoodRow;
+  const hasRows =
+    liquidationRows.length > 0 ||
+    showMovilidadRow ||
+    showActivitiesRow ||
+    showFoodRow;
 
   return (
     <SectionCard
@@ -183,6 +219,22 @@ const LiquidationSection = ({ form }: Props) => {
                     </tr>
                   );
                 })}
+                {showMovilidadRow && (
+                  <tr className="border-t border-slate-200">
+                    <td className="px-3 py-2 text-slate-700">
+                      {`Paquete ${destinosLabel} / ${movilidadLabel}`}
+                    </td>
+                    <td className="px-3 py-2 text-right font-medium text-slate-700">
+                      {`${currencySymbol} ${formatCurrency(movilidadUnit)}`}
+                    </td>
+                    <td className="px-3 py-2 text-center text-slate-700">
+                      {movilidadQuantity}
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">
+                      {`${currencySymbol} ${formatCurrency(movilidadTotal)}`}
+                    </td>
+                  </tr>
+                )}
                 {showActivitiesRow && (
                   <tr className="border-t border-slate-200">
                     <td className="px-3 py-2 text-slate-700">
