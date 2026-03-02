@@ -1015,7 +1015,9 @@ const ViajeForm = () => {
     setValue(
       "fechaViaje",
       normalizeDateInputValue(
-        watch("fechaViaje") !== "" ? watch("fechaViaje") : selectedPackage.fecha,
+        watch("fechaViaje") !== ""
+          ? watch("fechaViaje")
+          : selectedPackage.fecha,
       ),
       {
         shouldDirty: true,
@@ -1034,6 +1036,8 @@ const ViajeForm = () => {
   const destino = watch("destino");
   const fechaViaje = watch("fechaViaje");
   const fechaEmision = watch("fechaEmision");
+  const notaId = watch("notaId");
+  const isLiquidacionAnulada = watch("estado") === "ANULADO";
   const flagVerificado = watch("flagVerificado");
   const isVerificado = normalizeFlagVerificado(flagVerificado) === "1";
   const canCreateLiquidacion = canAccessAction("fullday", "create");
@@ -1235,6 +1239,15 @@ const ViajeForm = () => {
   };
   const handleConfirmToggleVerificado = () => {
     if (!liquidacionId) return;
+    if (isLiquidacionAnulada) {
+      showToast({
+        title: "Verificación",
+        description:
+          "Esta liquidación está anulada, no se puede confirmar ni revertir.",
+        type: "error",
+      });
+      return;
+    }
 
     const nextEstado = !isVerificado;
     openDialog({
@@ -1389,6 +1402,7 @@ const ViajeForm = () => {
       }
     }
   };
+  console.log("watch", watch());
   return (
     <>
       <Backdrop
@@ -1450,9 +1464,11 @@ const ViajeForm = () => {
 
                 {/* FECHA VIAJE */}
                 <div className="flex items-center gap-1 whitespace-nowrap">
-                  <span className="text-slate-500 text-xs">Viaje:</span>
+                  <span className="text-slate-500 text-xs">
+                    {notaId ? "Nro Serie:" : "Viaje:"}
+                  </span>
                   <span className="text-sm font-medium text-slate-700">
-                    {fechaViaje || "-"}
+                    {notaId ? String(notaId) : fechaViaje || "-"}
                   </span>
                 </div>
 
@@ -1573,7 +1589,9 @@ const ViajeForm = () => {
                   <button
                     type="button"
                     onClick={handleConfirmToggleVerificado}
-                    disabled={isSaving || isUpdatingVerificado}
+                    disabled={
+                      isSaving || isUpdatingVerificado || isLiquidacionAnulada
+                    }
                     className={`
                       inline-flex items-center gap-1
                       rounded-lg px-3 py-2
