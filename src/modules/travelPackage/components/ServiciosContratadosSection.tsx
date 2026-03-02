@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, BusFront } from "lucide-react";
 import { useForm } from "react-hook-form";
 import {
+  ALIMENTACION_BOOL_OPTIONS,
   ALIMENTACION_OPTIONS,
   HABITACION_OPTIONS,
   HOTEL_INCLUSION_OPTIONS,
@@ -76,6 +77,23 @@ const inferRoomTypeFromPackage = (paquete: string): string | null => {
   if (normalized.includes("familiar")) return "Familiar";
   return null;
 };
+const MOVILIDAD_EMPRESAS_PERU = {
+  BUS: [
+    "Cruz del Sur",
+    "Oltursa",
+    "CIVA",
+    "Movil Bus",
+    "Excluciva",
+    "Transportes Flores",
+  ],
+  AEREO: [
+    "LATAM Airlines Peru",
+    "Sky Airline Peru",
+    "JetSMART Peru",
+    "Star Peru",
+    "ATSA Airlines",
+  ],
+} as const;
 
 const ServiciosContratadosSection = ({
   form,
@@ -84,12 +102,22 @@ const ServiciosContratadosSection = ({
   onRemoveHotelServicio,
   onUpdateHotelServicioField,
 }: Props) => {
+  const initialAlimentacionTipo = String(
+    (form.hotelesContratados ?? []).find((row) => row.alimentacionTipo)
+      ?.alimentacionTipo ?? "",
+  );
+  const initialIncluyeAlimentacion =
+    initialAlimentacionTipo.length > 0 ||
+    (form.hotelesContratados ?? []).some((row) => row.incluyeAlimentacion);
+
   const { control, setValue, watch } = useForm<ServiciosContratadosFormValues>({
     defaultValues: {
       movilidadTipo: form.movilidadTipo ?? "",
       movilidadEmpresa: form.movilidadEmpresa ?? "",
+      movilidadPrecio: String(form.movilidadPrecio ?? ""),
       incluyeHotel: form.incluyeHotel ? "SI" : "",
-      incluyeAlimentacionGlobal: "",
+      incluyeAlimentacionEstado: initialIncluyeAlimentacion ? "SI" : "NO",
+      incluyeAlimentacionGlobal: initialAlimentacionTipo,
       precioAlimentacionGlobal: "",
     },
   });
@@ -97,11 +125,22 @@ const ServiciosContratadosSection = ({
   const [hotelesCatalogo, setHotelesCatalogo] = useState<Hotel[]>([]);
   const [empresasMovilidad, setEmpresasMovilidad] = useState<string[]>([]);
   const currencySymbol = getTravelCurrencySymbol(form.moneda);
+  const selectedMovilidadTipo = String(watch("movilidadTipo") ?? "");
+  const selectedMovilidadEmpresa = String(watch("movilidadEmpresa") ?? "");
+  const showMovilidadPrice = Boolean(
+    selectedMovilidadTipo &&
+    selectedMovilidadTipo !== "NO INCLUYE" &&
+    selectedMovilidadEmpresa &&
+    selectedMovilidadEmpresa !== "-",
+  );
+  const selectedAlimentacionEstado = String(
+    watch("incluyeAlimentacionEstado") ?? "",
+  );
   const selectedAlimentacionGlobal = String(
     watch("incluyeAlimentacionGlobal") ?? "",
   );
   const showAlimentacionPrice = Boolean(
-    selectedAlimentacionGlobal && selectedAlimentacionGlobal !== "NO INCLUYE",
+    selectedAlimentacionEstado === "SI" && selectedAlimentacionGlobal,
   );
   const hasHotelPackage = useMemo(
     () =>
@@ -113,6 +152,13 @@ const ServiciosContratadosSection = ({
       ),
     [form.paquetesViaje],
   );
+  const onlySinHotelPackageSelected = useMemo(() => {
+    const paquetes = form.paquetesViaje ?? [];
+    if (!paquetes.length) return false;
+    return paquetes.every((item) =>
+      String(item.paquete ?? "").toLowerCase().includes("sin hotel"),
+    );
+  }, [form.paquetesViaje]);
   const hotelesContratados = useMemo(
     () =>
       Array.isArray(form.hotelesContratados) ? form.hotelesContratados : [],
@@ -165,9 +211,22 @@ const ServiciosContratadosSection = ({
   }, [regiones]);
 
   const movilidadEmpresaOptions = useMemo(() => {
-    const options = empresasMovilidad.map((value) => ({ value, label: value }));
+    const tipo = selectedMovilidadTipo.toUpperCase();
+    const baseValues =
+      tipo === "BUS" || tipo === "AEREO"
+        ? [...MOVILIDAD_EMPRESAS_PERU[tipo]]
+        : empresasMovilidad;
+
+    const options = Array.from(
+      new Set(baseValues.map((value) => String(value).trim()).filter(Boolean)),
+    )
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value }));
+
     const currentValue = String(form.movilidadEmpresa ?? "").trim();
+    const preserveCurrentValue = tipo !== "BUS" && tipo !== "AEREO";
     if (
+      preserveCurrentValue &&
       currentValue &&
       !options.some(
         (option) => option.value.toLowerCase() === currentValue.toLowerCase(),
@@ -180,7 +239,33 @@ const ServiciosContratadosSection = ({
       { value: "-", label: "-" },
       ...options,
     ];
-  }, [empresasMovilidad, form.movilidadEmpresa]);
+  }, [empresasMovilidad, form.movilidadEmpresa, selectedMovilidadTipo]);
+
+  useEffect(() => {
+    const tipo = selectedMovilidadTipo.toUpperCase();
+    if (tipo !== "BUS" && tipo !== "AEREO") return;
+
+    const currentEmpresa = String(form.movilidadEmpresa ?? "").trim();
+    if (!currentEmpresa) return;
+
+    const allowed = MOVILIDAD_EMPRESAS_PERU[tipo].map((value) =>
+      value.toLowerCase(),
+    );
+    if (allowed.includes(currentEmpresa.toLowerCase())) return;
+
+    onUpdateField("movilidadEmpresa", "");
+    onUpdateField("movilidadPrecio", 0);
+    setValue("movilidadEmpresa", "", {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+    setValue("movilidadPrecio", "0", {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+  }, [selectedMovilidadTipo, form.movilidadEmpresa, onUpdateField, setValue]);
 
   useEffect(() => {
     setValue("movilidadTipo", form.movilidadTipo ?? "", {
@@ -197,6 +282,14 @@ const ServiciosContratadosSection = ({
       shouldValidate: false,
     });
   }, [form.movilidadEmpresa, setValue]);
+
+  useEffect(() => {
+    setValue("movilidadPrecio", String(form.movilidadPrecio ?? ""), {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+  }, [form.movilidadPrecio, setValue]);
 
   useEffect(() => {
     setValue("incluyeHotel", form.incluyeHotel ? "SI" : "NO", {
@@ -350,107 +443,176 @@ const ServiciosContratadosSection = ({
       description="Movilidad y hoteles incluidos en el paquete."
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3">
-          <div className="lg:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-slate-600">
-              Movilidad
-            </label>
-            <SelectControlled<ServiciosContratadosFormValues>
-              name="movilidadTipo"
-              control={control}
-              options={[
-                { value: "", label: "SELECCIONE" },
-                { value: "NO INCLUYE", label: "NO INCLUYE" },
-                ...MOVILIDAD_OPTIONS.map((option) => ({
-                  value: option,
-                  label: option,
-                })),
-              ]}
-              size="small"
-              onChange={(e) => {
-                const nextValue = String(e.target.value);
-                onUpdateField("movilidadTipo", nextValue);
-                if (nextValue === "NO INCLUYE") {
-                  onUpdateField("movilidadEmpresa", "-");
-                }
-              }}
-            />
-          </div>
-
-          <div className="lg:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-slate-600">
-              Empresa de movilidad
-            </label>
-            <SelectControlled<ServiciosContratadosFormValues>
-              name="movilidadEmpresa"
-              control={control}
-              options={movilidadEmpresaOptions}
-              size="small"
-              disabled={String(form.movilidadTipo ?? "") === "NO INCLUYE"}
-              onChange={(e) =>
-                onUpdateField("movilidadEmpresa", String(e.target.value))
-              }
-            />
-          </div>
-
-          <div className="lg:col-span-1">
-            <label className="mb-1 block text-xs font-medium text-slate-600">
-              Hoteles
-            </label>
-            <SelectControlled<ServiciosContratadosFormValues>
-              name="incluyeHotel"
-              control={control}
-              options={[
-                { value: "", label: "SELECCIONE" },
-                ...HOTEL_INCLUSION_OPTIONS,
-              ]}
-              size="small"
-              disabled={hasHotelPackage}
-              onChange={(e) =>
-                onUpdateField("incluyeHotel", String(e.target.value) === "SI")
-              }
-            />
-          </div>
-
-          <div className="lg:col-span-1">
-            <label className="mb-1 block text-xs font-medium text-slate-600">
-              Alimentacion
-            </label>
-            <SelectControlled<ServiciosContratadosFormValues>
-              name="incluyeAlimentacionGlobal"
-              control={control}
-              options={[
-                { value: "", label: "SELECCIONE" },
-                { value: "NO INCLUYE", label: "No incluye" },
-                ...ALIMENTACION_OPTIONS.map((option) => ({
-                  value: option,
-                  label: option,
-                })),
-              ]}
-              size="small"
-              onChange={(e) => {
-                const selectedValue = String(e.target.value);
-                if (!selectedValue) return;
-                const include = selectedValue !== "NO INCLUYE";
-                hotelesContratados.forEach((row) => {
-                  onUpdateHotelServicioField(
-                    row.id,
-                    "incluyeAlimentacion",
-                    include,
-                  );
-                  onUpdateHotelServicioField(
-                    row.id,
-                    "alimentacionTipo",
-                    include ? selectedValue : "",
-                  );
-                });
-              }}
-            />
-          </div>
-          {showAlimentacionPrice && (
-            <div className="lg:col-span-1">
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
-                Precio alimentacion
+                Movilidad
+              </label>
+              <SelectControlled<ServiciosContratadosFormValues>
+                name="movilidadTipo"
+                control={control}
+                options={[
+                  { value: "", label: "SELECCIONE" },
+                  { value: "NO INCLUYE", label: "NO INCLUYE" },
+                  ...MOVILIDAD_OPTIONS.map((option) => ({
+                    value: option,
+                    label: option,
+                  })),
+                ]}
+                size="small"
+                onChange={(e) => {
+                  const nextValue = String(e.target.value);
+                  onUpdateField("movilidadTipo", nextValue);
+                  if (nextValue === "NO INCLUYE") {
+                    onUpdateField("movilidadEmpresa", "-");
+                    onUpdateField("movilidadPrecio", 0);
+                    setValue("movilidadPrecio", "0");
+                    return;
+                  }
+                  if (!nextValue) {
+                    onUpdateField("movilidadEmpresa", "");
+                    onUpdateField("movilidadPrecio", 0);
+                    setValue("movilidadPrecio", "0");
+                    return;
+                  }
+                  if (selectedMovilidadEmpresa === "-") {
+                    onUpdateField("movilidadEmpresa", "");
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Empresa movilidad
+              </label>
+              <SelectControlled<ServiciosContratadosFormValues>
+                name="movilidadEmpresa"
+                control={control}
+                options={movilidadEmpresaOptions}
+                size="small"
+                disabled={String(form.movilidadTipo ?? "") === "NO INCLUYE"}
+                onChange={(e) => {
+                  const nextEmpresa = String(e.target.value);
+                  onUpdateField("movilidadEmpresa", nextEmpresa);
+                  if (!nextEmpresa || nextEmpresa === "-") {
+                    onUpdateField("movilidadPrecio", 0);
+                    setValue("movilidadPrecio", "0");
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Precio
+              </label>
+              <TextControlled<ServiciosContratadosFormValues>
+                name="movilidadPrecio"
+                control={control}
+                size="small"
+                type="number"
+                displayZeroAsEmpty
+                disabled={!showMovilidadPrice}
+                onChange={(e) =>
+                  onUpdateField(
+                    "movilidadPrecio",
+                    Math.max(0, Number(e.target.value || 0)),
+                  )
+                }
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Alimentacion
+              </label>
+              <SelectControlled<ServiciosContratadosFormValues>
+                name="incluyeAlimentacionEstado"
+                control={control}
+                options={[
+                  { value: "", label: "SELECCIONE" },
+                  ...ALIMENTACION_BOOL_OPTIONS,
+                ]}
+                size="small"
+                onChange={(e) => {
+                  const nextEstado = String(e.target.value);
+                  const include = nextEstado === "SI";
+                  const selectedTipo = selectedAlimentacionGlobal.trim();
+                  const nextTipo = include ? selectedTipo : "";
+                  hotelesContratados.forEach((row) => {
+                    onUpdateHotelServicioField(
+                      row.id,
+                      "incluyeAlimentacion",
+                      include,
+                    );
+                    onUpdateHotelServicioField(
+                      row.id,
+                      "alimentacionTipo",
+                      nextTipo,
+                    );
+                    if (!include) {
+                      onUpdateHotelServicioField(
+                        row.id,
+                        "alimentacionPrecio",
+                        0,
+                      );
+                    }
+                  });
+                  if (!include) {
+                    setValue("incluyeAlimentacionGlobal", "", {
+                      shouldDirty: false,
+                      shouldTouch: false,
+                      shouldValidate: false,
+                    });
+                    setValue("precioAlimentacionGlobal", "", {
+                      shouldDirty: false,
+                      shouldTouch: false,
+                      shouldValidate: false,
+                    });
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Tipo de alimentacion
+              </label>
+              <SelectControlled<ServiciosContratadosFormValues>
+                name="incluyeAlimentacionGlobal"
+                control={control}
+                options={[
+                  { value: "", label: "SELECCIONE" },
+                  ...ALIMENTACION_OPTIONS.map((option) => ({
+                    value: option,
+                    label: option,
+                  })),
+                ]}
+                size="small"
+                disabled={selectedAlimentacionEstado !== "SI"}
+                onChange={(e) => {
+                  const selectedValue = String(e.target.value).trim();
+                  const include = selectedAlimentacionEstado === "SI";
+                  if (!include) return;
+                  hotelesContratados.forEach((row) => {
+                    onUpdateHotelServicioField(
+                      row.id,
+                      "incluyeAlimentacion",
+                      true,
+                    );
+                    onUpdateHotelServicioField(
+                      row.id,
+                      "alimentacionTipo",
+                      selectedValue,
+                    );
+                  });
+                }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Precio
               </label>
               <TextControlled<ServiciosContratadosFormValues>
                 name="precioAlimentacionGlobal"
@@ -458,7 +620,7 @@ const ServiciosContratadosSection = ({
                 size="small"
                 type="number"
                 displayZeroAsEmpty
-                label="Precio"
+                disabled={!showAlimentacionPrice}
                 onChange={(e) => {
                   const price = Math.max(0, Number(e.target.value || 0));
                   hotelesContratados.forEach((row) => {
@@ -471,7 +633,30 @@ const ServiciosContratadosSection = ({
                 }}
               />
             </div>
-          )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Hotel
+              </label>
+              <SelectControlled<ServiciosContratadosFormValues>
+                name="incluyeHotel"
+                control={control}
+                options={[
+                  { value: "", label: "SELECCIONE" },
+                  ...HOTEL_INCLUSION_OPTIONS,
+                ]}
+                size="small"
+                disabled={hasHotelPackage || onlySinHotelPackageSelected}
+                onChange={(e) =>
+                  onUpdateField("incluyeHotel", String(e.target.value) === "SI")
+                }
+              />
+            </div>
+            <div className="hidden md:block" />
+            <div className="hidden md:block" />
+          </div>
         </div>
 
         {form.incluyeHotel && (

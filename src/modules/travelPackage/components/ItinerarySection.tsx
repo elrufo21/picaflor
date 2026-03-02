@@ -536,9 +536,24 @@ const ItinerarySection = ({
                       {...params}
                       label="Producto / Actividad Principal"
                       placeholder="Ej: City Tour Arequipa"
+                      autoComplete="off"
                       size="small"
                       fullWidth
                       variant="outlined"
+                      inputProps={{
+                        ...params.inputProps,
+                        autoComplete: "new-password",
+                        name: `nh-itinerary-producto-${String(day.id)}`,
+                        autoCorrect: "off",
+                        spellCheck: false,
+                        autoCapitalize: "none",
+                        "aria-autocomplete": "none",
+                        "data-lpignore": "true",
+                        "data-1p-ignore": "true",
+                        "data-bwignore": "true",
+                        "data-form-type": "other",
+                        "data-autocomplete": "off",
+                      }}
                       sx={{
                         backgroundColor: "white",
                         "& .MuiOutlinedInput-root": { borderRadius: "10px" },

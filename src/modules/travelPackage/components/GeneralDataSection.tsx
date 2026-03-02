@@ -163,14 +163,20 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
   }, [regiones]);
 
   const selectedPackageOptions = useMemo(() => {
-    const selectedIds = new Set((form.paquetesViaje ?? []).map((item) => item.id));
-    return TRAVEL_PACKAGE_SELECTOR_OPTIONS.filter((option) => selectedIds.has(option.id));
+    const selectedIds = new Set(
+      (form.paquetesViaje ?? []).map((item) => item.id),
+    );
+    return TRAVEL_PACKAGE_SELECTOR_OPTIONS.filter((option) =>
+      selectedIds.has(option.id),
+    );
   }, [form.paquetesViaje]);
 
   const handlePackageSelectionChange = (
     nextOptions: typeof TRAVEL_PACKAGE_SELECTOR_OPTIONS,
   ) => {
-    const currentById = new Map((form.paquetesViaje ?? []).map((item) => [item.id, item]));
+    const currentById = new Map(
+      (form.paquetesViaje ?? []).map((item) => [item.id, item]),
+    );
     const next = nextOptions.map((option) => {
       const current = currentById.get(option.id);
       if (current) return current;
@@ -221,7 +227,9 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             options={TRAVEL_PACKAGE_SELECTOR_OPTIONS}
             value={selectedPackageOptions}
             onChange={(_, value) =>
-              handlePackageSelectionChange(value as typeof TRAVEL_PACKAGE_SELECTOR_OPTIONS)
+              handlePackageSelectionChange(
+                value as typeof TRAVEL_PACKAGE_SELECTOR_OPTIONS,
+              )
             }
             getOptionLabel={(option) => option.paquete}
             renderTags={(value, getTagProps) =>
@@ -239,39 +247,87 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
               ))
             }
             renderInput={(params) => (
-              <TextField {...params} label="Paquete de viaje" />
+              <TextField
+                {...params}
+                label="Paquete de viaje"
+                autoComplete="off"
+                inputProps={{
+                  ...params.inputProps,
+                  autoComplete: "new-password",
+                  name: "nh-paquete-viaje-autocomplete",
+                  autoCorrect: "off",
+                  spellCheck: false,
+                  autoCapitalize: "none",
+                  "aria-autocomplete": "none",
+                  "data-lpignore": "true",
+                  "data-1p-ignore": "true",
+                  "data-bwignore": "true",
+                  "data-form-type": "other",
+                  "data-autocomplete": "off",
+                }}
+              />
             )}
           />
           {(form.paquetesViaje ?? []).length > 0 && (
-            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
               {(form.paquetesViaje ?? []).map((item) => (
-                <TextField
+                <div
                   key={item.id}
-                  size="small"
-                  type="number"
-                  label={
-                    item.id === 3
-                      ? `Pax ${item.paquete}`
-                      : `Cantidad ${item.paquete}`
-                  }
-                  value={
-                    item.id === 3
-                      ? item.cantPax === 0
-                        ? ""
-                        : item.cantPax
-                      : item.cantidad === 0
-                        ? ""
-                        : item.cantidad
-                  }
-                  onChange={(event) => {
-                    if (item.id === 3) {
-                      updateSelectedPackageCantPax(item.id, event.target.value);
-                      return;
-                    }
-                    updateSelectedPackageCantidad(item.id, event.target.value);
-                  }}
-                  inputProps={{ min: 0 }}
-                />
+                  className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+                >
+                  <table className="w-full text-xs sm:text-sm">
+                    <thead className="bg-slate-50 text-slate-600">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Paquete
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium w-[140px]">
+                          Valor
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-t border-slate-200">
+                        <td className="px-3 py-2 font-medium text-slate-700">
+                          {item.paquete}
+                        </td>
+                        <td className="px-3 py-2">
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={
+                              item.id === 3
+                                ? item.cantPax === 0
+                                  ? ""
+                                  : item.cantPax
+                                : item.cantidad === 0
+                                  ? ""
+                                  : item.cantidad
+                            }
+                            onChange={(event) => {
+                              if (item.id === 3) {
+                                updateSelectedPackageCantPax(
+                                  item.id,
+                                  event.target.value,
+                                );
+                                return;
+                              }
+                              updateSelectedPackageCantidad(
+                                item.id,
+                                event.target.value,
+                              );
+                            }}
+                            inputProps={{
+                              min: 0,
+                              style: { textAlign: "center" },
+                            }}
+                            sx={{ width: "120px" }}
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               ))}
             </div>
           )}

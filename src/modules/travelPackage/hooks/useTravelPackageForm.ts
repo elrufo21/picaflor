@@ -60,8 +60,17 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
   const hasHotelPackage = next.paquetesViaje.some(
     (item) => !String(item.paquete ?? "").toLowerCase().includes("sin hotel"),
   );
+  const onlySinHotelPackageSelected =
+    next.paquetesViaje.length > 0 &&
+    next.paquetesViaje.every((item) =>
+      String(item.paquete ?? "").toLowerCase().includes("sin hotel"),
+    );
   if (hasHotelPackage) {
     next.incluyeHotel = true;
+  }
+  if (onlySinHotelPackageSelected) {
+    next.incluyeHotel = false;
+    next.hotelesContratados = [];
   }
 
   if (paxFromPackages > 0) {
