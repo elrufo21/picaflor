@@ -1465,7 +1465,7 @@ const ViajeForm = () => {
                 {/* FECHA VIAJE */}
                 <div className="flex items-center gap-1 whitespace-nowrap">
                   <span className="text-slate-500 text-xs">
-                    {notaId ? "Nro Serie:" : "Viaje:"}
+                    {notaId ? "Nro LQD:" : "Viaje:"}
                   </span>
                   <span className="text-sm font-medium text-slate-700">
                     {notaId ? String(notaId) : fechaViaje || "-"}
@@ -1474,7 +1474,7 @@ const ViajeForm = () => {
 
                 {/* FECHA EMISIÓN */}
                 <div className="flex items-center gap-1 whitespace-nowrap">
-                  <span className="text-slate-500 text-xs">Emisión:</span>
+                  <span className="text-slate-500 text-xs">Fec.Registro:</span>
                   <span className="text-sm font-medium text-slate-700">
                     {fechaEmision || "-"}
                   </span>
