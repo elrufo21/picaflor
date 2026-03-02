@@ -55,6 +55,7 @@ type SubmoduleCheckRow = {
 };
 type SubmoduleChecks = Record<string, SubmoduleCheckRow>;
 type PermissionAction = "read" | "edit" | "create" | "delete";
+type SubmoduleView = "submodules" | "buttons";
 
 const AREA_PERMISSIONS_ENDPOINT = `${API_BASE_URL}/Seguridad/permisos-area`;
 const AREA_PERMISSIONS_SAVE_ENDPOINT = `${API_BASE_URL}/Seguridad/permisos-area/guardar`;
@@ -63,6 +64,13 @@ const SUBMODULE_CODE_SET = new Set<string>(
   SUBMODULE_OPTIONS.map((item) => String(item.code).trim().toLowerCase()),
 );
 const ACTION_KEYS: PermissionAction[] = ["read", "edit", "create", "delete"];
+const isButtonSubmodule = (code: string) =>
+  String(code).trim().toLowerCase().includes(".btn_");
+const normalizeSearchText = (value: string) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
 const emptyChecks = (): ModuleChecks =>
   MODULE_OPTIONS.reduce(
@@ -489,6 +497,9 @@ const SecurityAreaPermissionsPage = () => {
   const [checks, setChecks] = useState<ModuleChecks>(emptyChecks());
   const [submoduleChecks, setSubmoduleChecks] =
     useState<SubmoduleChecks>(emptySubmoduleChecks());
+  const [submoduleView, setSubmoduleView] =
+    useState<SubmoduleView>("submodules");
+  const [formSearch, setFormSearch] = useState("");
 
   useEffect(() => {
     if (!selectedAreaId && areas.length) {
@@ -500,6 +511,30 @@ const SecurityAreaPermissionsPage = () => {
     () => areas.find((area) => String(area.id) === String(selectedAreaId)),
     [areas, selectedAreaId],
   );
+  const filteredModuleOptions = useMemo(() => {
+    const search = normalizeSearchText(formSearch.trim());
+    return MODULE_OPTIONS.filter((item) => {
+      if (!search) return true;
+      const haystack = normalizeSearchText(`${item.label} ${item.code}`);
+      return haystack.includes(search);
+    });
+  }, [formSearch]);
+  const filteredSubmoduleOptions = useMemo(() => {
+    const search = normalizeSearchText(formSearch.trim());
+
+    return SUBMODULE_OPTIONS.filter((item) => {
+      const isButton = isButtonSubmodule(item.code);
+      const matchesView = submoduleView === "buttons" ? isButton : !isButton;
+      if (!matchesView) return false;
+      if (!search) return true;
+
+      const haystack = normalizeSearchText(
+        `${item.label} ${item.detail ?? ""} ${item.code}`,
+      );
+      return haystack.includes(search);
+    });
+  }, [formSearch, submoduleView]);
+  const isButtonsView = submoduleView === "buttons";
 
   useEffect(() => {
     if (!selectedAreaId) {
@@ -766,6 +801,17 @@ const SecurityAreaPermissionsPage = () => {
           Área seleccionada: <strong>{selectedArea?.area ?? "Ninguna"}</strong>
         </div>
 
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-slate-600">Buscar en formulario</span>
+          <input
+            type="search"
+            value={formSearch}
+            onChange={(e) => setFormSearch(e.target.value)}
+            placeholder="Buscar en modulos, submodulos o botones"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2"
+          />
+        </label>
+
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-[620px] border-collapse">
             <thead className="bg-slate-100">
@@ -788,7 +834,17 @@ const SecurityAreaPermissionsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {MODULE_OPTIONS.map((module) => (
+              {!filteredModuleOptions.length && (
+                <tr className="bg-white">
+                  <td
+                    colSpan={5}
+                    className="border border-slate-200 px-3 py-6 text-center text-sm text-slate-500"
+                  >
+                    No se encontraron modulos para la busqueda actual.
+                  </td>
+                </tr>
+              )}
+              {filteredModuleOptions.map((module) => (
                 <tr key={module.code} className="bg-white">
                   <td className="border border-slate-200 px-3 py-2 text-sm text-slate-700">
                     {module.label}
@@ -839,29 +895,59 @@ const SecurityAreaPermissionsPage = () => {
           </table>
         </div>
 
+        <div className="grid grid-cols-1 gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-600">Vista</span>
+            <select
+              value={submoduleView}
+              onChange={(e) =>
+                setSubmoduleView(e.target.value as SubmoduleView)
+              }
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2"
+            >
+              <option value="submodules">Submodulos</option>
+              <option value="buttons">Botones</option>
+            </select>
+          </label>
+        </div>
+
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-[620px] border-collapse">
             <thead className="bg-slate-100">
               <tr>
                 <th className="border border-slate-200 px-3 py-2 text-left text-sm font-semibold text-slate-700">
-                  submodulo / boton
+                  {isButtonsView ? "boton" : "submodulo"}
                 </th>
                 <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
                   permitido
                 </th>
-                <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
-                  edicion
-                </th>
-                <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
-                  creacion
-                </th>
-                <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
-                  eliminacion
-                </th>
+                {!isButtonsView && (
+                  <>
+                    <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
+                      edicion
+                    </th>
+                    <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
+                      creacion
+                    </th>
+                    <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
+                      eliminacion
+                    </th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
-              {SUBMODULE_OPTIONS.map((submodule) => (
+              {!filteredSubmoduleOptions.length && (
+                <tr className="bg-white">
+                  <td
+                    colSpan={isButtonsView ? 2 : 5}
+                    className="border border-slate-200 px-3 py-6 text-center text-sm text-slate-500"
+                  >
+                    No se encontraron resultados para la busqueda actual.
+                  </td>
+                </tr>
+              )}
+              {filteredSubmoduleOptions.map((submodule) => (
                 <tr key={submodule.code} className="bg-white">
                   <td className="border border-slate-200 px-3 py-2 text-sm text-slate-700">
                     <div className="font-medium">{submodule.label}</div>
@@ -886,44 +972,52 @@ const SecurityAreaPermissionsPage = () => {
                       className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
                     />
                   </td>
-                  <td className="border border-slate-200 px-3 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={submoduleChecks[submodule.code]?.edit ?? false}
-                      onChange={(e) =>
-                        toggleSubmoduleCheck(submodule.code, "edit", e.target.checked)
-                      }
-                      className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
-                    />
-                  </td>
-                  <td className="border border-slate-200 px-3 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={submoduleChecks[submodule.code]?.create ?? false}
-                      onChange={(e) =>
-                        toggleSubmoduleCheck(
-                          submodule.code,
-                          "create",
-                          e.target.checked,
-                        )
-                      }
-                      className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
-                    />
-                  </td>
-                  <td className="border border-slate-200 px-3 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={submoduleChecks[submodule.code]?.delete ?? false}
-                      onChange={(e) =>
-                        toggleSubmoduleCheck(
-                          submodule.code,
-                          "delete",
-                          e.target.checked,
-                        )
-                      }
-                      className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
-                    />
-                  </td>
+                  {!isButtonsView && (
+                    <>
+                      <td className="border border-slate-200 px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={submoduleChecks[submodule.code]?.edit ?? false}
+                          onChange={(e) =>
+                            toggleSubmoduleCheck(
+                              submodule.code,
+                              "edit",
+                              e.target.checked,
+                            )
+                          }
+                          className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
+                        />
+                      </td>
+                      <td className="border border-slate-200 px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={submoduleChecks[submodule.code]?.create ?? false}
+                          onChange={(e) =>
+                            toggleSubmoduleCheck(
+                              submodule.code,
+                              "create",
+                              e.target.checked,
+                            )
+                          }
+                          className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
+                        />
+                      </td>
+                      <td className="border border-slate-200 px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={submoduleChecks[submodule.code]?.delete ?? false}
+                          onChange={(e) =>
+                            toggleSubmoduleCheck(
+                              submodule.code,
+                              "delete",
+                              e.target.checked,
+                            )
+                          }
+                          className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
+                        />
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
