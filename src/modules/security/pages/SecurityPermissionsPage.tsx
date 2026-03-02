@@ -704,9 +704,6 @@ const SecurityPermissionsPage = () => {
                   permitido
                 </th>
                 <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
-                  lectura
-                </th>
-                <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
                   edicion
                 </th>
                 <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
@@ -729,16 +726,6 @@ const SecurityPermissionsPage = () => {
                       checked={checks[module.code]?.module ?? false}
                       onChange={(e) =>
                         toggleCheck(module.code, "module", e.target.checked)
-                      }
-                      className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
-                    />
-                  </td>
-                  <td className="border border-slate-200 px-3 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={checks[module.code]?.read ?? false}
-                      onChange={(e) =>
-                        toggleCheck(module.code, "read", e.target.checked)
                       }
                       className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
                     />
@@ -790,9 +777,6 @@ const SecurityPermissionsPage = () => {
                   permitido
                 </th>
                 <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
-                  lectura
-                </th>
-                <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
                   edicion
                 </th>
                 <th className="border border-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
@@ -825,16 +809,6 @@ const SecurityPermissionsPage = () => {
                           "submodule",
                           e.target.checked,
                         )
-                      }
-                      className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
-                    />
-                  </td>
-                  <td className="border border-slate-200 px-3 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={submoduleChecks[submodule.code]?.read ?? false}
-                      onChange={(e) =>
-                        toggleSubmoduleCheck(submodule.code, "read", e.target.checked)
                       }
                       className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30"
                     />
