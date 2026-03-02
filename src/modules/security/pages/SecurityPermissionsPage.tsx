@@ -463,6 +463,32 @@ const SecurityPermissionsPage = () => {
     });
   }, [formSearch, submoduleView]);
   const isButtonsView = submoduleView === "buttons";
+  const areAllFilteredModulesChecked = useMemo(
+    () =>
+      filteredModuleOptions.length > 0 &&
+      filteredModuleOptions.every(({ code }) => {
+        const row = checks[code];
+        return Boolean(
+          row?.module && row?.read && row?.edit && row?.create && row?.delete,
+        );
+      }),
+    [checks, filteredModuleOptions],
+  );
+  const areAllFilteredSubmodulesChecked = useMemo(
+    () =>
+      filteredSubmoduleOptions.length > 0 &&
+      filteredSubmoduleOptions.every(({ code }) => {
+        const row = submoduleChecks[code];
+        return Boolean(
+          row?.submodule &&
+            row?.read &&
+            row?.edit &&
+            row?.create &&
+            row?.delete,
+        );
+      }),
+    [filteredSubmoduleOptions, submoduleChecks],
+  );
 
   useEffect(() => {
     if (!selectedUserId) {
@@ -723,6 +749,38 @@ const SecurityPermissionsPage = () => {
     }));
   };
 
+  const toggleAllFilteredModules = (value: boolean) => {
+    setChecks((prev) => {
+      const next = { ...prev };
+      filteredModuleOptions.forEach(({ code }) => {
+        next[code] = {
+          module: value,
+          read: value,
+          edit: value,
+          create: value,
+          delete: value,
+        };
+      });
+      return next;
+    });
+  };
+
+  const toggleAllFilteredSubmodules = (value: boolean) => {
+    setSubmoduleChecks((prev) => {
+      const next = { ...prev };
+      filteredSubmoduleOptions.forEach(({ code }) => {
+        next[code] = {
+          submodule: value,
+          read: value,
+          edit: value,
+          create: value,
+          delete: value,
+        };
+      });
+      return next;
+    });
+  };
+
   return (
     <MaintenancePageFrame
       title="Permisos de módulos"
@@ -752,16 +810,41 @@ const SecurityPermissionsPage = () => {
           <strong>{selectedUser?.UsuarioAlias ?? "Ninguno"}</strong>
         </div>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-600">Buscar en formulario</span>
-          <input
-            type="search"
-            value={formSearch}
-            onChange={(e) => setFormSearch(e.target.value)}
-            placeholder="Buscar en modulos, submodulos o botones"
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2"
-          />
-        </label>
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <label className="flex flex-col gap-1 text-sm lg:flex-1">
+            <span className="text-slate-600">Buscar en formulario</span>
+            <input
+              type="search"
+              value={formSearch}
+              onChange={(e) => setFormSearch(e.target.value)}
+              placeholder="Buscar en modulos, submodulos o botones"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2"
+            />
+          </label>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="inline-flex items-center gap-2 whitespace-nowrap text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={areAllFilteredModulesChecked}
+                disabled={!filteredModuleOptions.length}
+                onChange={(e) => toggleAllFilteredModules(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30 disabled:cursor-not-allowed"
+              />
+              Seleccionar todo (modulos)
+            </label>
+            <label className="inline-flex items-center gap-2 whitespace-nowrap text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={areAllFilteredSubmodulesChecked}
+                disabled={!filteredSubmoduleOptions.length}
+                onChange={(e) => toggleAllFilteredSubmodules(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-[#E8612A] focus:ring-[#E8612A]/30 disabled:cursor-not-allowed"
+              />
+              Seleccionar todo ({isButtonsView ? "botones" : "submodulos"})
+            </label>
+          </div>
+        </div>
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-[620px] border-collapse">
