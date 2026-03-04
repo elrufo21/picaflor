@@ -1,18 +1,80 @@
-import { useCallback, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
+import { useNavigate, useParams } from "react-router";
 import { useTravelPackageForm } from "../hooks/useTravelPackageForm";
 import AgencySection from "../components/AgencySection";
 import GeneralDataSection from "../components/GeneralDataSection";
 import ItinerarySection from "../components/ItinerarySection";
 import PassengersSection from "../components/PassengersSection";
 import ServiciosContratadosSection from "../components/ServiciosContratadosSection";
-import PaymentDetailFloating from "../components/PaymentDetailFloating";
 import LiquidationSection from "../components/LiquidationSection";
-import { ChevronLeft, ReceiptText } from "lucide-react";
+import { ChevronLeft, ReceiptText, Save } from "lucide-react";
 import { getFocusableElements } from "@/shared/helpers/formFocus";
+import { buildTravelPackageLegacyPayload } from "../utils/legacyPayloadBuilder";
+import {
+  agregarPaqueteViaje,
+  actualizarPaqueteViaje,
+  obtenerPaqueteViaje,
+} from "../api/travelPackageApi";
+import { parseTravelPackageLegacyPayload } from "../utils/legacyPayloadParser";
+import { showToast } from "@/components/ui/AppToast";
 
 const TravelPackageForm = () => {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
   const { form, handlers } = useTravelPackageForm();
+  const { replaceForm } = handlers;
   const [isPaymentOpen, setIsPaymentOpen] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const fechaEmisionLabel = form.fechaEmision
+    ? form.fechaEmision.split("-").reverse().join("/")
+    : "-";
+
+  useEffect(() => {
+    if (!isEditMode || !id) return;
+
+    let isCancelled = false;
+
+    const loadDetail = async () => {
+      setIsLoadingDetail(true);
+      try {
+        const response = await obtenerPaqueteViaje(String(id));
+        const parsedForm = parseTravelPackageLegacyPayload(response);
+        if (!parsedForm) {
+          throw new Error("No se encontro informacion para el paquete solicitado.");
+        }
+
+        if (isCancelled) return;
+        replaceForm(parsedForm);
+      } catch (error) {
+        if (isCancelled) return;
+        showToast({
+          title: "Error",
+          description:
+            error instanceof Error
+              ? error.message
+              : "No se pudo obtener el detalle del paquete de viaje.",
+          type: "error",
+        });
+        navigate("/paquete-viaje");
+      } finally {
+        if (!isCancelled) setIsLoadingDetail(false);
+      }
+    };
+
+    void loadDetail();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [id, isEditMode, navigate, replaceForm]);
 
   const focusSibling = useCallback(
     (target: HTMLElement, options?: { reverse?: boolean }) => {
@@ -31,14 +93,21 @@ const TravelPackageForm = () => {
     (event: KeyboardEvent<HTMLElement>) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) {
+      if (
+        !(
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement
+        )
+      ) {
         return;
       }
       const disableFormArrowNavigation =
         target.getAttribute("data-disable-form-arrow-nav") === "true";
 
       const owner = target.closest('[role="combobox"]') as HTMLElement | null;
-      const isAutocompleteOpen = owner?.getAttribute("aria-expanded") === "true";
+      const isAutocompleteOpen =
+        owner?.getAttribute("aria-expanded") === "true";
       if (isAutocompleteOpen) {
         // Let MUI Autocomplete handle keyboard interaction (including Enter selection)
         return;
@@ -67,7 +136,8 @@ const TravelPackageForm = () => {
 
       if (
         event.key === "ArrowRight" &&
-        (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+        (target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement)
       ) {
         if (disableFormArrowNavigation) return;
         const pos = target.selectionStart ?? 0;
@@ -80,7 +150,8 @@ const TravelPackageForm = () => {
 
       if (
         event.key === "ArrowLeft" &&
-        (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+        (target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement)
       ) {
         if (disableFormArrowNavigation) return;
         const pos = target.selectionStart ?? 0;
@@ -104,10 +175,82 @@ const TravelPackageForm = () => {
     [focusSibling],
   );
 
+  const saveTravelPackage = useCallback(async () => {
+    if (isSaving || isLoadingDetail) return;
+
+    if (isEditMode && !id) {
+      showToast({
+        title: "Error",
+        description: "No se pudo resolver el Id del paquete para actualizar.",
+        type: "error",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const payload = buildTravelPackageLegacyPayload(form);
+      const valores = isEditMode ? `${String(id)}|${payload}` : payload;
+      const response = isEditMode
+        ? await actualizarPaqueteViaje(valores)
+        : await agregarPaqueteViaje(valores);
+      const normalized = String(response ?? "").trim().toUpperCase();
+
+      if (
+        normalized === "FALSE" ||
+        normalized === "ERROR" ||
+        normalized === "OPERACION" ||
+        normalized === "FORMATO_INVALIDO" ||
+        normalized === "~"
+      ) {
+        showToast({
+          title: "Error",
+          description:
+            String(response ?? "").trim() ||
+            (isEditMode
+              ? "No se pudo actualizar el paquete de viaje."
+              : "No se pudo guardar el paquete de viaje."),
+          type: "error",
+        });
+        return;
+      }
+
+      showToast({
+        title: isEditMode ? "Actualizado" : "Guardado",
+        description: isEditMode
+          ? "El paquete de viaje se actualizo correctamente."
+          : "El paquete de viaje se registró correctamente.",
+        type: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : isEditMode
+              ? "No se pudo actualizar el paquete de viaje."
+              : "No se pudo guardar el paquete de viaje.",
+        type: "error",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [form, id, isEditMode, isLoadingDetail, isSaving]);
+
+  const handleFormSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      void saveTravelPackage();
+    },
+    [saveTravelPackage],
+  );
+
   return (
     <form
       className="w-full space-y-6 pb-12"
-      onSubmit={(event) => event.preventDefault()}
+      onSubmit={handleFormSubmit}
       onKeyDownCapture={handleFormKeyDownCapture}
       onChangeCapture={handleFormChangeCapture}
     >
@@ -130,14 +273,17 @@ const TravelPackageForm = () => {
                 "
           >
             <div className="flex flex-wrap items-end justify-between gap-4 w-[40px]">
-              <ChevronLeft className="cursor-pointer" onClick={() => {}} />
+              <ChevronLeft
+                className="cursor-pointer"
+                onClick={() => navigate("/paquete-viaje")}
+              />
             </div>
 
             {/* FECHA VIAJE */}
             <div className="flex items-center gap-1 whitespace-nowrap">
               <span className="text-slate-500 text-xs">Fecha emision:</span>
               <span className="text-sm font-medium text-slate-700">
-                19/02/2026
+                {fechaEmisionLabel}
               </span>
             </div>
           </div>
@@ -157,6 +303,21 @@ const TravelPackageForm = () => {
             >
               <ReceiptText className="h-4 w-4" />
               {isPaymentOpen ? "Ocultar detalle pago" : "Mostrar detalle pago"}
+            </button>
+
+            <button
+              type="submit"
+              disabled={isSaving || isLoadingDetail}
+              className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 text-white text-sm font-semibold shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Save className="h-4 w-4" />
+              {isLoadingDetail
+                ? "Cargando..."
+                : isSaving
+                ? "Guardando..."
+                : isEditMode
+                  ? "Actualizar paquete"
+                  : "Guardar paquete"}
             </button>
           </div>
         </div>
@@ -217,12 +378,14 @@ const TravelPackageForm = () => {
           </div>
         </div>
       </div>
-      <PaymentDetailFloating
+      {/**
+       * Quitar el componente para no ocupar espacio!!!
+       * <PaymentDetailFloating
         form={form}
         open={isPaymentOpen}
         onClose={() => setIsPaymentOpen(false)}
         onUpdateField={handlers.updateField}
-      />
+      /> */}
     </form>
   );
 };

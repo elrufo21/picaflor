@@ -219,7 +219,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
       description="Informacion base del paquete turístico."
     >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-3">
+        {/**   <div className="md:col-span-3">
           <Autocomplete
             multiple
             disableCloseOnSelect
@@ -332,7 +332,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             </div>
           )}
         </div>
-
+ */}
         <div>
           <AutocompleteControlled<GeneralDataFormValues, string, true>
             multiple

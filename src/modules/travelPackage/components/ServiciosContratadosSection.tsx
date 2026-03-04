@@ -65,18 +65,6 @@ const mapFromSelectorValue = (
 
 type ServiciosContratadosFormValues = Record<string, string>;
 const normalizeRegionName = (value: string) => value.trim().toLowerCase();
-const inferRoomTypeFromPackage = (paquete: string): string | null => {
-  const normalized = String(paquete ?? "")
-    .trim()
-    .toLowerCase();
-  if (!normalized || normalized.includes("sin hotel")) return null;
-  if (normalized.includes("matrimonial")) return "Matrimonial";
-  if (normalized.includes("simple")) return "Simple";
-  if (normalized.includes("doble")) return "Doble";
-  if (normalized.includes("triple")) return "Triple";
-  if (normalized.includes("familiar")) return "Familiar";
-  return null;
-};
 const MOVILIDAD_EMPRESAS_PERU = {
   BUS: [
     "Cruz del Sur",
@@ -372,21 +360,32 @@ const ServiciosContratadosSection = ({
   useEffect(() => {
     if (!form.incluyeHotel) return;
     if (!hotelesContratados.length) return;
+    if (hotelesContratados.length === 1) return;
 
-    const roomCountByType = new Map<string, number>();
-    (form.paquetesViaje ?? []).forEach((item) => {
-      const roomType = inferRoomTypeFromPackage(item.paquete);
-      if (!roomType) return;
-      const nextCount = Math.max(
-        1,
-        Math.floor(Number(item.cantidad || 0) || 1),
+    const [firstHotelRow] = hotelesContratados;
+    if (!firstHotelRow) return;
+    const roomOrder = new Map(
+      roomOptions.map((option, index) => [
+        String(option.value).trim().toLowerCase(),
+        index,
+      ]),
+    );
+    const templateRooms = [...(firstHotelRow.habitaciones ?? [])]
+      .map((room) => ({
+        tipo: String(room.tipo ?? "").trim(),
+        cantidad: Math.max(0, Math.floor(Number(room.cantidad || 0) || 0)),
+        precio: Number(room.precio ?? 0),
+      }))
+      .filter((room) => room.tipo)
+      .sort(
+        (a, b) =>
+          (roomOrder.get(a.tipo.toLowerCase()) ?? 9999) -
+          (roomOrder.get(b.tipo.toLowerCase()) ?? 9999),
       );
-      roomCountByType.set(roomType, nextCount);
-    });
-
-    if (!roomCountByType.size) return;
 
     const nextRows = hotelesContratados.map((row) => {
+      if (row.id === firstHotelRow.id) return row;
+
       const currentPriceByType = new Map(
         (row.habitaciones ?? []).map((item) => [
           String(item.tipo ?? "")
@@ -396,13 +395,13 @@ const ServiciosContratadosSection = ({
         ]),
       );
 
-      const nextHabitaciones = Array.from(roomCountByType.entries()).map(
-        ([tipo, cantidad]) => ({
-          tipo,
-          cantidad,
-          precio: currentPriceByType.get(tipo.toLowerCase()) ?? 0,
-        }),
-      );
+      const nextHabitaciones = templateRooms.map((item) => ({
+        tipo: item.tipo,
+        cantidad: item.cantidad,
+        precio:
+          currentPriceByType.get(item.tipo.toLowerCase()) ??
+          Number(item.precio ?? 0),
+      }));
 
       return {
         ...row,
@@ -431,7 +430,6 @@ const ServiciosContratadosSection = ({
     }
   }, [
     form.incluyeHotel,
-    form.paquetesViaje,
     hotelesContratados,
     onUpdateField,
   ]);
