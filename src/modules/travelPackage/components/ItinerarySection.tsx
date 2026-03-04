@@ -105,8 +105,6 @@ const ItinerarySection = ({
 }: Props) => {
   void onAddDay;
   void onRemoveDay;
-  void onAddEvent;
-  void onRemoveEvent;
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [actividades, setActividades] = useState<Actividad[]>([]);
@@ -456,8 +454,30 @@ const ItinerarySection = ({
 
             return getRowFallback(rowType, -1 * (dayIndex + 1) * 10 - index);
           });
+          const normalizedRowIds = new Set(
+            normalizedRows.map((row) => Number(row.id)),
+          );
+          const extraActivityRows = (day.actividades ?? [])
+            .filter(
+              (row) =>
+                (row.tipo === "ACT1" ||
+                  row.tipo === "ACT2" ||
+                  row.tipo === "ACT3") &&
+                !normalizedRowIds.has(Number(row.id)),
+            )
+            .map((row) => ({
+              ...row,
+              detalle: typeof row.detalle === "string" ? row.detalle : "-",
+              precio: Number(row.precio || 0),
+              cant: Number(row.cant || 0),
+              subtotal: Number(row.subtotal || 0),
+            }));
+          const renderedRows = [...normalizedRows, ...extraActivityRows];
+          const extraActivityLabelIndexById = new Map(
+            extraActivityRows.map((row, index) => [Number(row.id), index + 4]),
+          );
 
-          const selectedActivityDetails = normalizedRows
+          const selectedActivityDetails = renderedRows
             .filter(
               (row) =>
                 (row.tipo === "ACT1" ||
@@ -469,7 +489,7 @@ const ItinerarySection = ({
             .map((row) => row.detalle);
           const dayUnitPrice = round2(Number(day.precioUnitario || 0));
           const dayRowsTotal = round2(
-            normalizedRows.reduce(
+            renderedRows.reduce(
               (acc, row) => acc + Number(row.subtotal || 0),
               0,
             ),
@@ -513,7 +533,7 @@ const ItinerarySection = ({
                     }
 
                     if (nextTitle === NO_ACTIVITY_OPTION) {
-                      normalizedRows.forEach((row) => {
+                      renderedRows.forEach((row) => {
                         if (row.id <= 0) return;
                         if (String(row.detalle ?? "") !== "-") {
                           onUpdateEventField(day.id, row.id, "detalle", "-");
@@ -610,7 +630,17 @@ const ItinerarySection = ({
               </div>
 
               {!isNoActivitySelected && (
-                <div className="border border-slate-300 rounded-xl text-sm overflow-x-auto bg-white shadow-sm">
+                <>
+                  <div className="mb-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => onAddEvent(day.id)}
+                      className="inline-flex items-center rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      Agregar actividad
+                    </button>
+                  </div>
+                  <div className="border border-slate-300 rounded-xl text-sm overflow-x-auto bg-white shadow-sm">
                   <div className="grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-300 font-bold bg-slate-100 text-slate-800">
                     <div />
                     <div className="border-l border-slate-300 p-2.5">
@@ -627,15 +657,18 @@ const ItinerarySection = ({
                     </div>
                   </div>
 
-                  {normalizedRows.map((row, rowIndex) => {
+                  {renderedRows.map((row, rowIndex) => {
                     const canPersist = row.id > 0;
+                    const isExtraActivityRow = extraActivityLabelIndexById.has(
+                      Number(row.id),
+                    );
                     const detalle = String(row.detalle ?? "").trim();
                     const isBallestasRowSelected =
                       (row.tipo === "ACT1" ||
                         row.tipo === "ACT2" ||
                         row.tipo === "ACT3") &&
                       isBallestasText(detalle);
-                    const isBallestasSelectedInDay = normalizedRows.some(
+                    const isBallestasSelectedInDay = renderedRows.some(
                       (activityRow) =>
                         (activityRow.tipo === "ACT1" ||
                           activityRow.tipo === "ACT2" ||
@@ -756,15 +789,26 @@ const ItinerarySection = ({
 
                     return (
                       <div
-                        key={`${day.id}-${row.tipo}`}
+                        key={`${day.id}-${row.id}-${row.tipo}`}
                         className={`grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-200 last:border-b-0 ${
                           rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/50"
                         }`}
                       >
-                        <div className="flex items-center px-2 py-1.5">
+                        <div className="flex items-center justify-between gap-2 px-2 py-1.5">
                           <span className="inline-flex items-center rounded-md bg-orange-500 text-white text-xs px-2.5 py-1 font-semibold tracking-wide">
-                            {ROW_LABELS[row.tipo]}
+                            {isExtraActivityRow
+                              ? `Actividad ${extraActivityLabelIndexById.get(Number(row.id))}`
+                              : ROW_LABELS[row.tipo]}
                           </span>
+                          {isExtraActivityRow && canPersist && (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveEvent(day.id, row.id)}
+                              className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 hover:border-red-200 hover:text-red-600"
+                            >
+                              Quitar
+                            </button>
+                          )}
                         </div>
 
                         <div className="border-l border-slate-200 p-1.5">
@@ -872,6 +916,7 @@ const ItinerarySection = ({
                     );
                   })}
                 </div>
+                </>
               )}
 
               <div className="mt-3">

@@ -201,7 +201,7 @@ export const useTravelPackageForm = () => {
     value: TravelPackageFormState[K],
   ) => {
     setForm((prev) => {
-      let newState = { ...prev, [key]: value };
+      const newState = { ...prev, [key]: value };
 
       // Synchronization logic: Date Range -> Itinerary
       if (key === "fechaInicioViaje" || key === "fechaFinViaje") {
@@ -423,9 +423,14 @@ export const useTravelPackageForm = () => {
     );
   }, []);
 
+  const replaceForm = useCallback((nextState: TravelPackageFormState) => {
+    setForm(nextState);
+  }, []);
+
   // ─── Handlers bundle ─────────────────────────────────────────────────────────
 
   const handlers = {
+    replaceForm,
     updateField,
     updateAgencia,
     addPassenger,

@@ -92,7 +92,7 @@ export const navigationItems: NavigationItem[] = [
     label: "Paquete de Viaje",
     to: "/paquete-viaje",
     icon: Briefcase,
-    description: "Formulario de itinerario",
+    description: "Listado y creacion de paquetes",
     end: true,
     moduleCode: "paquete_viaje",
   },
