@@ -20,7 +20,6 @@ import {
   RoomQuantitySelector,
   SelectControlled,
   TextControlled,
-  TableTimePicker,
   type RoomQuantityValue,
 } from "@/components/ui/inputs";
 import { serviciosDB, type Hotel, type Ubigeo } from "@/app/db/serviciosDB";
@@ -62,6 +61,21 @@ const mapFromSelectorValue = (
     cantidad: item.quantity,
     precio: Number(item.price ?? 0),
   }));
+
+const calculateHabitacionesImporteTotal = (
+  habitaciones?: HotelRoomSelection[],
+) =>
+  Number(
+    (habitaciones ?? [])
+      .reduce(
+        (sum, item) =>
+          sum +
+          Math.max(0, Number(item.cantidad || 0)) *
+            Math.max(0, Number(item.precio || 0)),
+        0,
+      )
+      .toFixed(2),
+  );
 
 type ServiciosContratadosFormValues = Record<string, string>;
 const normalizeRegionName = (value: string) => value.trim().toLowerCase();
@@ -302,6 +316,25 @@ const ServiciosContratadosSection = ({
   }, [hotelesContratados, setValue]);
 
   useEffect(() => {
+    if (!hotelesContratados.length) return;
+
+    const nextRows = hotelesContratados.map((row) => ({
+      ...row,
+      importeTotal: calculateHabitacionesImporteTotal(row.habitaciones),
+    }));
+
+    const hasChanges = nextRows.some(
+      (row, index) =>
+        Number(hotelesContratados[index]?.importeTotal || 0) !==
+        Number(row.importeTotal || 0),
+    );
+
+    if (hasChanges) {
+      onUpdateField("hotelesContratados", nextRows);
+    }
+  }, [hotelesContratados, onUpdateField]);
+
+  useEffect(() => {
     if (!form.incluyeHotel) return;
 
     const destinos = Array.from(
@@ -331,11 +364,11 @@ const ServiciosContratadosSection = ({
         region: destino,
         hotel: "",
         habitaciones: [],
-        entrada: "",
-        salida: "",
+        entradaSalida: "",
         incluyeAlimentacion: false,
         alimentacionTipo: "",
         alimentacionPrecio: 0,
+        importeTotal: 0,
       } as HotelServicioRow;
     });
 
@@ -406,6 +439,7 @@ const ServiciosContratadosSection = ({
       return {
         ...row,
         habitaciones: nextHabitaciones,
+        importeTotal: calculateHabitacionesImporteTotal(nextHabitaciones),
       };
     });
 
@@ -450,6 +484,7 @@ const ServiciosContratadosSection = ({
               <SelectControlled<ServiciosContratadosFormValues>
                 name="movilidadTipo"
                 control={control}
+                autoAdvance
                 options={[
                   { value: "", label: "SELECCIONE" },
                   { value: "NO INCLUYE", label: "NO INCLUYE" },
@@ -487,6 +522,8 @@ const ServiciosContratadosSection = ({
               <SelectControlled<ServiciosContratadosFormValues>
                 name="movilidadEmpresa"
                 control={control}
+                autoAdvance
+                data-focus-next='input[data-focus-target="movilidad-precio"]'
                 options={movilidadEmpresaOptions}
                 size="small"
                 disabled={String(form.movilidadTipo ?? "") === "NO INCLUYE"}
@@ -511,6 +548,7 @@ const ServiciosContratadosSection = ({
                 type="number"
                 displayZeroAsEmpty
                 disabled={!showMovilidadPrice}
+                inputProps={{ "data-focus-target": "movilidad-precio" }}
                 onChange={(e) =>
                   onUpdateField(
                     "movilidadPrecio",
@@ -580,6 +618,8 @@ const ServiciosContratadosSection = ({
               <SelectControlled<ServiciosContratadosFormValues>
                 name="incluyeAlimentacionGlobal"
                 control={control}
+                autoAdvance
+                data-focus-next='input[data-focus-target="alimentacion-precio"]'
                 options={[
                   { value: "", label: "SELECCIONE" },
                   ...ALIMENTACION_OPTIONS.map((option) => ({
@@ -619,6 +659,7 @@ const ServiciosContratadosSection = ({
                 type="number"
                 displayZeroAsEmpty
                 disabled={!showAlimentacionPrice}
+                inputProps={{ "data-focus-target": "alimentacion-precio" }}
                 onChange={(e) => {
                   const price = Math.max(0, Number(e.target.value || 0));
                   hotelesContratados.forEach((row) => {
@@ -660,7 +701,7 @@ const ServiciosContratadosSection = ({
         {form.incluyeHotel && (
           <div className="space-y-3">
             <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="min-w-[1220px] w-full table-fixed text-xs sm:text-sm">
+              <table className="min-w-[1280px] w-full table-fixed text-xs sm:text-sm">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
                     <th className="px-2 py-2 text-left font-medium w-[250px]">
@@ -672,11 +713,11 @@ const ServiciosContratadosSection = ({
                     <th className="px-2 py-2 text-left font-medium w-[260px]">
                       Habitaciones
                     </th>
-                    <th className="px-2 py-2 text-left font-medium w-[120px]">
-                      Entrada
+                    <th className="px-2 py-2 text-left font-medium w-[220px]">
+                      Entrada / salida
                     </th>
-                    <th className="px-2 py-2 text-left font-medium w-[120px]">
-                      Salida
+                    <th className="px-2 py-2 text-left font-medium w-[160px]">
+                      Importe total
                     </th>
 
                     <th className="px-2 py-2 text-center font-medium w-12"></th>
@@ -785,34 +826,50 @@ const ServiciosContratadosSection = ({
                           options={roomOptions}
                           value={mapToSelectorValue(row.habitaciones)}
                           currencySymbol={currencySymbol}
-                          onChange={(value) =>
+                          onChange={(value) => {
+                            const nextHabitaciones = mapFromSelectorValue(value);
                             onUpdateHotelServicioField(
                               row.id,
                               "habitaciones",
-                              mapFromSelectorValue(value),
+                              nextHabitaciones,
+                            );
+                            onUpdateHotelServicioField(
+                              row.id,
+                              "importeTotal",
+                              calculateHabitacionesImporteTotal(nextHabitaciones),
+                            );
+                          }}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="text"
+                          value={String(row.entradaSalida ?? "")}
+                          onChange={(event) =>
+                            onUpdateHotelServicioField(
+                              row.id,
+                              "entradaSalida",
+                              event.target.value,
                             )
                           }
+                          placeholder="Ej: Ingreso 12:00PM / Salida 10:00AM"
+                          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs sm:text-sm"
                         />
                       </td>
                       <td className="px-2 py-1.5">
-                        <TableTimePicker
-                          value={row.entrada}
-                          onChange={(value) =>
-                            onUpdateHotelServicioField(row.id, "entrada", value)
-                          }
-                          placeholder="Hora entrada"
-                          compact
-                        />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <TableTimePicker
-                          value={row.salida}
-                          onChange={(value) =>
-                            onUpdateHotelServicioField(row.id, "salida", value)
-                          }
-                          placeholder="Hora salida"
-                          compact
-                        />
+                        <div className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1">
+                          <span className="text-slate-500">{currencySymbol}</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={calculateHabitacionesImporteTotal(row.habitaciones)}
+                            placeholder="0.00"
+                            readOnly
+                            disabled
+                            className="w-full border-0 bg-transparent p-0 text-xs text-slate-700 sm:text-sm focus:outline-none disabled:opacity-100"
+                          />
+                        </div>
                       </td>
 
                       <td className="px-2 py-1.5 text-center">

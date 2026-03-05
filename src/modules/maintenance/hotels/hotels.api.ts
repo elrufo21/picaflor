@@ -2,21 +2,29 @@ import { API_BASE_URL } from "@/config";
 import type { Hotel } from "@/types/maintenance";
 
 const HOTEL_SAMPLE_CSV = [
-  "IdHotel|Region|Hotel|HoraIN|HoraSal|Direccion",
-  "100|100|100|100|100|500",
-  "String|String|String|String|String|String",
-  "1|Lima|Hotel Costa Dorada|07:00|22:00|Av. Principal 123",
-  "2|Cusco|Hotel Los Pinos|12:00|23:30|Jr. Pinos 456",
-  "3|Arequipa|Hotel Mirador del Colca|14:00|21:00|Calle Colca 789",
+  "IdHotel|Region|Hotel|HoraIngreso|HoraSalida|Direccion|Telefono|Celular|Email|Clasificacion|Categoria|TiposHabitaciones|Contacto01|Contacto02|Nota",
+  "100|80|250|40|40|500|50|50|150|100|100|300|150|150|500",
+  "Int|String|String|String|String|String|String|String|String|String|String|String|String|String|String",
+  "1|Lima|Hotel Costa Dorada|07:00AM|10:00PM|Av. Principal 123|012345678|999111222|costa@example.com|4*|Premium|Simple,Doble|Carlos Rojas|Ana Rios|Recepcion 24 horas",
+  "2|Cusco|Hotel Los Pinos|12:00PM|11:30PM|Jr. Pinos 456|014444444|988777666|pinos@example.com|3*|Standard|Simple,Matrimonial|Luis Quispe|Mariela Choque|Incluye desayuno",
 ].join("¬");
 
 const FIELD_ALIASES: Record<keyof Hotel, string[]> = {
   id: ["id", "idhotel", "hotelid"],
   hotel: ["hotel", "nombre"],
   region: ["region", "departamento"],
-  horaIngreso: ["horain", "horaingreso", "horallegada"],
-  horaSalida: ["horasal", "horasalida", "horapartida"],
+  horaIngreso: ["horain", "horaingreso", "horallegada", "horaentrada"],
+  horaSalida: ["horasal", "horasalida", "horapartida", "horacheckout"],
   direccion: ["direccion", "domicilio"],
+  telefono: ["telefono", "telefonofijo", "tel"],
+  celular: ["celular", "movil", "mobile"],
+  email: ["email", "correo", "correoelectronico"],
+  clasificacion: ["clasificacion", "clasif"],
+  categoria: ["categoria"],
+  tiposHabitaciones: ["tiposhabitaciones", "tipohabitaciones", "habitaciones"],
+  contacto01: ["contacto01", "contacto1", "contactoprincipal"],
+  contacto02: ["contacto02", "contacto2", "contactosecundario"],
+  nota: ["nota", "observacion", "observaciones"],
 };
 
 const normalizeColumnName = (value: string) =>
@@ -76,6 +84,15 @@ export const parseHotelCsv = (payload?: string | null): Hotel[] => {
       horaIngreso: getValue("horaIngreso"),
       horaSalida: getValue("horaSalida"),
       direccion: getValue("direccion"),
+      telefono: getValue("telefono"),
+      celular: getValue("celular"),
+      email: getValue("email"),
+      clasificacion: getValue("clasificacion"),
+      categoria: getValue("categoria"),
+      tiposHabitaciones: getValue("tiposHabitaciones"),
+      contacto01: getValue("contacto01"),
+      contacto02: getValue("contacto02"),
+      nota: getValue("nota"),
     });
   });
 
@@ -87,23 +104,39 @@ export const hotelsQueryKey = ["hotels"] as const;
 export const fetchHotelsApi = async (): Promise<Hotel[]> => {
   const HOTEL_LIST_ENDPOINT = `${API_BASE_URL}/Hotel/list`;
 
-const mapHotelResponse = (item: any): Hotel => ({
-  id: Number(item?.idHotel ?? item?.id ?? 0) || 0,
-  hotel: String(item?.hotel ?? ""),
-  horaIngreso: String(item?.horaIngreso ?? ""),
-  horaSalida: String(item?.horaSalida ?? ""),
-  region: String(item?.region ?? ""),
-  direccion: String(item?.direccion ?? ""),
-});
+  const normalizeText = (value: unknown) => {
+    const parsed = String(value ?? "").trim();
+    if (!parsed) return "";
+    return parsed.toLowerCase() === "null" ? "" : parsed;
+  };
 
-const isValidHotelRow = (item: any) => {
-  if (!item) return false;
-  const id = Number(item?.idHotel ?? item?.id ?? -1);
-  const name = String(item?.hotel ?? "").trim().toLowerCase();
-  if (!Number.isFinite(id) || id <= 0) return false;
-  if (!name || name === "string") return false;
-  return true;
-};
+  const mapHotelResponse = (item: Record<string, unknown>): Hotel => ({
+    id: Number(item.idHotel ?? item.id ?? 0) || 0,
+    hotel: normalizeText(item.hotel),
+    horaIngreso: normalizeText(item.horaIngreso),
+    horaSalida: normalizeText(item.horaSalida),
+    region: normalizeText(item.region),
+    direccion: normalizeText(item.direccion),
+    telefono: normalizeText(item.telefono),
+    celular: normalizeText(item.celular),
+    email: normalizeText(item.email),
+    clasificacion: normalizeText(item.clasificacion),
+    categoria: normalizeText(item.categoria),
+    tiposHabitaciones: normalizeText(item.tiposHabitaciones),
+    contacto01: normalizeText(item.contacto01),
+    contacto02: normalizeText(item.contacto02),
+    nota: normalizeText(item.nota),
+  });
+
+  const isValidHotelRow = (item: unknown) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+    const row = item as Record<string, unknown>;
+    const id = Number(row.idHotel ?? row.id ?? -1);
+    const name = String(row.hotel ?? "").trim().toLowerCase();
+    if (!Number.isFinite(id) || id <= 0) return false;
+    if (!name || name === "string") return false;
+    return true;
+  };
 
   try {
     const response = await fetch(HOTEL_LIST_ENDPOINT, {

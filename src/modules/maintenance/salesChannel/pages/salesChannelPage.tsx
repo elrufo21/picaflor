@@ -19,10 +19,23 @@ import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAc
 const emailRegex = /^[^\s@]+@[^\s@]+\.com$/i;
 
 type CanalVentaDialogValues = {
+  ruc: string;
+  razonSocial: string;
   label: string;
+  direccion: string;
+  region: string;
   contacto: string;
+  contacto02: string;
   telefono: string;
+  celular: string;
   email: string;
+  webSite: string;
+  clasificacion: string;
+  categoria: string;
+  fechaAniversario: string;
+  representanteLegal: string;
+  fechaNacimiento: string;
+  nota: string;
 };
 
 type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
@@ -40,10 +53,23 @@ const CanalVentaDialogForm = ({
 }) => {
   const { control } = useForm<CanalVentaDialogValues>({
     defaultValues: {
+      ruc: String(payload.ruc ?? ""),
+      razonSocial: String(payload.razonSocial ?? ""),
       label: String(payload.label ?? ""),
+      direccion: String(payload.direccion ?? ""),
+      region: String(payload.region ?? ""),
       contacto: String(payload.contacto ?? ""),
+      contacto02: String(payload.contacto02 ?? ""),
       telefono: String(payload.telefono ?? ""),
+      celular: String(payload.celular ?? ""),
       email: String(payload.email ?? ""),
+      webSite: String(payload.webSite ?? ""),
+      clasificacion: String(payload.clasificacion ?? ""),
+      categoria: String(payload.categoria ?? ""),
+      fechaAniversario: String(payload.fechaAniversario ?? ""),
+      representanteLegal: String(payload.representanteLegal ?? ""),
+      fechaNacimiento: String(payload.fechaNacimiento ?? ""),
+      nota: String(payload.nota ?? ""),
     },
   });
 
@@ -55,6 +81,26 @@ const CanalVentaDialogForm = ({
       }}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <TextControlled<CanalVentaDialogValues>
+          name="ruc"
+          control={control}
+          label="RUC"
+          placeholder="Ej: 20123456789"
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, ruc: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="razonSocial"
+          control={control}
+          label="Razón social"
+          placeholder="Ej: AEROMAR TRAVEL SAC"
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, razonSocial: e.target.value });
+          }}
+        />
         <div className="md:col-span-2">
           <TextControlled<CanalVentaDialogValues>
             name="label"
@@ -68,6 +114,28 @@ const CanalVentaDialogForm = ({
             }}
           />
         </div>
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="direccion"
+            control={control}
+            label="Dirección"
+            placeholder="Ej: AV. PRINCIPAL 123 - LIMA"
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, direccion: e.target.value });
+            }}
+          />
+        </div>
+        <TextControlled<CanalVentaDialogValues>
+          name="region"
+          control={control}
+          label="Región"
+          placeholder="Ej: LIMA"
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, region: e.target.value });
+          }}
+        />
         <TextControlled<CanalVentaDialogValues>
           name="contacto"
           control={control}
@@ -80,6 +148,16 @@ const CanalVentaDialogForm = ({
           }}
         />
         <TextControlled<CanalVentaDialogValues>
+          name="contacto02"
+          control={control}
+          label="Contacto 02"
+          placeholder="Ej: MARIA"
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, contacto02: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
           name="telefono"
           control={control}
           label="Telefono"
@@ -88,6 +166,16 @@ const CanalVentaDialogForm = ({
           size="small"
           onChange={(e) => {
             setPayload({ ...payload, telefono: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="celular"
+          control={control}
+          label="Celular"
+          placeholder="Ej: 984821760"
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, celular: e.target.value });
           }}
         />
         <div className="md:col-span-2">
@@ -104,6 +192,87 @@ const CanalVentaDialogForm = ({
             }}
           />
         </div>
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="webSite"
+            control={control}
+            label="Web site"
+            disableAutoUppercase
+            placeholder="Ej: https://canal.com"
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, webSite: e.target.value });
+            }}
+          />
+        </div>
+        <TextControlled<CanalVentaDialogValues>
+          name="clasificacion"
+          control={control}
+          label="Clasificación"
+          placeholder="Ej: A"
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, clasificacion: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="categoria"
+          control={control}
+          label="Categoría"
+          placeholder="Ej: PREMIUM"
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, categoria: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="fechaAniversario"
+          control={control}
+          label="Fecha aniversario"
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          onChange={(e) => {
+            setPayload({ ...payload, fechaAniversario: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="fechaNacimiento"
+          control={control}
+          label="Fecha nacimiento"
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          onChange={(e) => {
+            setPayload({ ...payload, fechaNacimiento: e.target.value });
+          }}
+        />
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="representanteLegal"
+            control={control}
+            label="Representante legal"
+            placeholder="Ej: JUAN PEREZ"
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, representanteLegal: e.target.value });
+            }}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="nota"
+            control={control}
+            label="Nota"
+            placeholder="Comentarios adicionales"
+            multiline
+            rows={3}
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, nota: e.target.value });
+            }}
+          />
+        </div>
       </div>
     </form>
   );
@@ -115,7 +284,9 @@ const parseCanalId = (value?: string) => {
 };
 
 const resolveSalesChannelId = (channel?: Partial<SalesChannelDetail>) => {
-  const parsed = Number(channel?.idCanal ?? channel?.id ?? 0);
+  const parsed = Number(
+    channel?.idAuxiliar ?? channel?.idCanal ?? channel?.id ?? 0,
+  );
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
@@ -125,9 +296,22 @@ const buildPayload = (
 ): SaveSalesChannelPayload => ({
   idAuxiliar,
   auxiliar: String(values.label ?? "").trim(),
+  ruc: String(values.ruc ?? "").trim(),
+  razonSocial: String(values.razonSocial ?? "").trim(),
+  direccion: String(values.direccion ?? "").trim(),
+  region: String(values.region ?? "").trim(),
   telefono: String(values.telefono ?? "").trim(),
+  celular: String(values.celular ?? "").trim(),
   contacto: String(values.contacto ?? "").trim(),
+  contacto02: String(values.contacto02 ?? "").trim(),
   email: String(values.email ?? "").trim(),
+  webSite: String(values.webSite ?? "").trim(),
+  clasificacion: String(values.clasificacion ?? "").trim(),
+  categoria: String(values.categoria ?? "").trim(),
+  fechaAniversario: String(values.fechaAniversario ?? "").trim(),
+  representanteLegal: String(values.representanteLegal ?? "").trim(),
+  fechaNacimiento: String(values.fechaNacimiento ?? "").trim(),
+  nota: String(values.nota ?? "").trim(),
 });
 
 const SalesChannelPage = () => {
@@ -198,7 +382,9 @@ const SalesChannelPage = () => {
       if (mode === "create" && !access.create) return;
       if (mode === "edit" && !access.edit) return;
       const editingValue =
-        mode === "edit" ? String(channel?.idCanal ?? "") : "";
+        mode === "edit"
+          ? String(channel?.idAuxiliar ?? channel?.idCanal ?? "")
+          : "";
 
       openDialog({
         title: mode === "create" ? "Crear canal de venta" : "Editar canal de venta",
@@ -208,11 +394,24 @@ const SalesChannelPage = () => {
             : "Actualiza los datos del canal de venta.",
         size: "md",
         initialPayload: {
+          ruc: channel?.ruc ?? "",
+          razonSocial: channel?.razonSocial ?? "",
           label: channel?.canalNombre ?? "",
+          direccion: channel?.direccion ?? "",
+          region: channel?.region ?? "",
           value: editingValue,
           contacto: channel?.contacto ?? "",
+          contacto02: channel?.contacto02 ?? "",
           telefono: channel?.telefono ?? "",
+          celular: channel?.celular ?? "",
           email: channel?.email ?? "",
+          webSite: channel?.webSite ?? "",
+          clasificacion: channel?.clasificacion ?? "",
+          categoria: channel?.categoria ?? "",
+          fechaAniversario: channel?.fechaAniversario ?? "",
+          representanteLegal: channel?.representanteLegal ?? "",
+          fechaNacimiento: channel?.fechaNacimiento ?? "",
+          nota: channel?.nota ?? "",
           search: "",
           editingValue,
         },
@@ -233,10 +432,25 @@ const SalesChannelPage = () => {
               }
             : undefined,
         onConfirm: async (data) => {
+          const ruc = String(data.ruc ?? "").trim();
+          const razonSocial = String(data.razonSocial ?? "").trim();
           const label = String(data.label ?? "").trim();
+          const direccion = String(data.direccion ?? "").trim();
+          const region = String(data.region ?? "").trim();
           const contacto = String(data.contacto ?? "").trim();
+          const contacto02 = String(data.contacto02 ?? "").trim();
           const telefono = String(data.telefono ?? "").trim();
+          const celular = String(data.celular ?? "").trim();
           const email = String(data.email ?? "").trim();
+          const webSite = String(data.webSite ?? "").trim();
+          const clasificacion = String(data.clasificacion ?? "").trim();
+          const categoria = String(data.categoria ?? "").trim();
+          const fechaAniversario = String(data.fechaAniversario ?? "").trim();
+          const representanteLegal = String(
+            data.representanteLegal ?? "",
+          ).trim();
+          const fechaNacimiento = String(data.fechaNacimiento ?? "").trim();
+          const nota = String(data.nota ?? "").trim();
           const idAuxiliar = parseCanalId(
             String(data.editingValue ?? editingValue),
           );
@@ -280,7 +494,25 @@ const SalesChannelPage = () => {
 
           try {
             const payload = buildPayload(
-              { label, contacto, telefono, email },
+              {
+                ruc,
+                razonSocial,
+                label,
+                direccion,
+                region,
+                contacto,
+                contacto02,
+                telefono,
+                celular,
+                email,
+                webSite,
+                clasificacion,
+                categoria,
+                fechaAniversario,
+                representanteLegal,
+                fechaNacimiento,
+                nota,
+              },
               idAuxiliar,
             );
             const savedId = await saveChannel(payload);
@@ -328,12 +560,28 @@ const SalesChannelPage = () => {
         header: "Canal",
         cell: (info) => info.getValue(),
       }),
+      columnHelper.accessor("ruc", {
+        header: "RUC",
+        cell: (info) => info.getValue() ?? "-",
+      }),
+      columnHelper.accessor("region", {
+        header: "Región",
+        cell: (info) => info.getValue() ?? "-",
+      }),
       columnHelper.accessor("contacto", {
         header: "Contacto",
         cell: (info) => info.getValue() ?? "-",
       }),
+      columnHelper.accessor("contacto02", {
+        header: "Contacto 2",
+        cell: (info) => info.getValue() ?? "-",
+      }),
       columnHelper.accessor("telefono", {
         header: "Telefono",
+        cell: (info) => info.getValue() ?? "-",
+      }),
+      columnHelper.accessor("celular", {
+        header: "Celular",
         cell: (info) => info.getValue() ?? "-",
       }),
       columnHelper.accessor("email", {

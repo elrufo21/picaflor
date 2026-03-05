@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   Box,
   Button,
@@ -43,9 +43,6 @@ const toSummary = (
   options: RoomOption[],
   currencySymbol: string,
 ) => {
-  const byValue = new Map(
-    options.map((option) => [option.value, option.label]),
-  );
   const selected = value.filter((item) => item.quantity > 0);
   if (!selected.length) return "";
   const totalRooms = selected.reduce((acc, item) => acc + item.quantity, 0);
@@ -72,6 +69,8 @@ const RoomQuantitySelector = ({
   currencySymbol = "USD$",
 }: Props) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const priceInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const summary = useMemo(
     () => toSummary(value, options, currencySymbol),
@@ -136,6 +135,43 @@ const RoomQuantitySelector = ({
   };
 
   const clearAll = () => onChange([]);
+
+  const focusColumnInput = (
+    optionValue: string,
+    column: "quantity" | "price",
+    direction: "up" | "down",
+  ) => {
+    const enabledValues = displayOptions
+      .map((option) => option.value)
+      .filter((value) => getCurrentQuantity(value) > 0);
+    const currentIndex = enabledValues.indexOf(optionValue);
+    if (currentIndex < 0) return;
+
+    const nextIndex =
+      direction === "down" ? currentIndex + 1 : currentIndex - 1;
+    if (nextIndex < 0 || nextIndex >= enabledValues.length) return;
+
+    const nextOptionValue = enabledValues[nextIndex];
+    const nextInput =
+      column === "quantity"
+        ? quantityInputRefs.current[nextOptionValue]
+        : priceInputRefs.current[nextOptionValue];
+    nextInput?.focus();
+    nextInput?.select();
+  };
+
+  const handleColumnNavigation = (
+    event: KeyboardEvent<HTMLInputElement>,
+    optionValue: string,
+    column: "quantity" | "price",
+  ) => {
+    if (event.key !== "Enter" && event.key !== "ArrowUp" && event.key !== "ArrowDown") {
+      return;
+    }
+    event.preventDefault();
+    const direction = event.key === "ArrowUp" ? "up" : "down";
+    focusColumnInput(optionValue, column, direction);
+  };
 
   return (
     <>
@@ -227,6 +263,12 @@ const RoomQuantitySelector = ({
                     }
                     disabled={!checked}
                     sx={{ width: 60 }}
+                    onKeyDown={(event) =>
+                      handleColumnNavigation(event, option.value, "quantity")
+                    }
+                    inputRef={(element: HTMLInputElement | null) => {
+                      quantityInputRefs.current[option.value] = element;
+                    }}
                     inputProps={{ min: 0 }}
                   />
                   <IconButton
@@ -251,16 +293,15 @@ const RoomQuantitySelector = ({
                   }
                   disabled={!checked}
                   sx={{ width: 130 }}
+                  onKeyDown={(event) =>
+                    handleColumnNavigation(event, option.value, "price")
+                  }
+                  inputRef={(element: HTMLInputElement | null) => {
+                    priceInputRefs.current[option.value] = element;
+                  }}
                   inputProps={{
                     min: 0,
                     step: "0.01",
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        {currencySymbol}
-                      </InputAdornment>
-                    ),
                   }}
                 />
                 <Typography

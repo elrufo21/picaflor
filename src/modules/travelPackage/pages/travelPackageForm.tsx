@@ -6,6 +6,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useNavigate, useParams } from "react-router";
+import { useDialogStore } from "@/app/store/dialogStore";
+import { useAuthStore } from "@/store/auth/auth.store";
 import { useTravelPackageForm } from "../hooks/useTravelPackageForm";
 import AgencySection from "../components/AgencySection";
 import GeneralDataSection from "../components/GeneralDataSection";
@@ -13,26 +15,39 @@ import ItinerarySection from "../components/ItinerarySection";
 import PassengersSection from "../components/PassengersSection";
 import ServiciosContratadosSection from "../components/ServiciosContratadosSection";
 import LiquidationSection from "../components/LiquidationSection";
-import { ChevronLeft, ReceiptText, Save } from "lucide-react";
+import {
+  CheckCircle,
+  ChevronLeft,
+  Loader2,
+  RefreshCw,
+  Save,
+} from "lucide-react";
 import { getFocusableElements } from "@/shared/helpers/formFocus";
 import { buildTravelPackageLegacyPayload } from "../utils/legacyPayloadBuilder";
 import {
   agregarPaqueteViaje,
   actualizarPaqueteViaje,
+  actualizarVerificadoPaqueteViaje,
   obtenerPaqueteViaje,
 } from "../api/travelPackageApi";
 import { parseTravelPackageLegacyPayload } from "../utils/legacyPayloadParser";
 import { showToast } from "@/components/ui/AppToast";
+import { DOCUMENTO_COBRANZA_OPTIONS } from "../constants/travelPackage.constants";
 
 const TravelPackageForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
+  const openDialog = useDialogStore((state) => state.openDialog);
+  const authUser = useAuthStore((state) => state.user);
   const { form, handlers } = useTravelPackageForm();
   const { replaceForm } = handlers;
-  const [isPaymentOpen, setIsPaymentOpen] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isUpdatingVerificado, setIsUpdatingVerificado] = useState(false);
+  const isVerificado = form.flagVerificado === "1";
+  const canToggleVerificado =
+    String(authUser?.areaId ?? authUser?.area ?? "") === "6";
   const fechaEmisionLabel = form.fechaEmision
     ? form.fechaEmision.split("-").reverse().join("/")
     : "-";
@@ -48,7 +63,9 @@ const TravelPackageForm = () => {
         const response = await obtenerPaqueteViaje(String(id));
         const parsedForm = parseTravelPackageLegacyPayload(response);
         if (!parsedForm) {
-          throw new Error("No se encontro informacion para el paquete solicitado.");
+          throw new Error(
+            "No se encontro informacion para el paquete solicitado.",
+          );
         }
 
         if (isCancelled) return;
@@ -195,7 +212,9 @@ const TravelPackageForm = () => {
       const response = isEditMode
         ? await actualizarPaqueteViaje(valores)
         : await agregarPaqueteViaje(valores);
-      const normalized = String(response ?? "").trim().toUpperCase();
+      const normalized = String(response ?? "")
+        .trim()
+        .toUpperCase();
 
       if (
         normalized === "FALSE" ||
@@ -247,6 +266,91 @@ const TravelPackageForm = () => {
     [saveTravelPackage],
   );
 
+  const handleToggleVerificado = useCallback(async () => {
+    if (!canToggleVerificado || !isEditMode || !id) return;
+
+    const idPaqueteViaje = Number(id);
+    if (!Number.isFinite(idPaqueteViaje) || idPaqueteViaje <= 0) {
+      showToast({
+        title: "Verificación",
+        description: "No se pudo resolver el identificador del paquete.",
+        type: "error",
+      });
+      return;
+    }
+
+    const nextEstado = !isVerificado;
+
+    try {
+      setIsUpdatingVerificado(true);
+      const response = await actualizarVerificadoPaqueteViaje({
+        idPaqueteViaje,
+        estado: nextEstado,
+      });
+      const backendRejected =
+        response === false ||
+        response === "false" ||
+        response === "FALSE";
+      if (backendRejected) {
+        showToast({
+          title: "Verificación",
+          description: "No se pudo actualizar el estado de verificación.",
+          type: "error",
+        });
+        return;
+      }
+
+      handlers.updateField("flagVerificado", nextEstado ? "1" : "0");
+      showToast({
+        title: nextEstado ? "Confirmado" : "Revertido",
+        description: nextEstado
+          ? "El paquete fue marcado como verificado."
+          : "El paquete fue marcado como no verificado.",
+        type: "success",
+      });
+    } catch (error) {
+      showToast({
+        title: "Verificación",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Ocurrió un error al actualizar el estado.",
+        type: "error",
+      });
+    } finally {
+      setIsUpdatingVerificado(false);
+    }
+  }, [canToggleVerificado, handlers, id, isEditMode, isVerificado]);
+
+  const handleConfirmToggleVerificado = useCallback(() => {
+    if (!canToggleVerificado || !isEditMode || !id) return;
+
+    const nextEstado = !isVerificado;
+    openDialog({
+      title: nextEstado ? "Confirmar verificación" : "Revertir verificación",
+      size: "sm",
+      confirmLabel: nextEstado ? "Confirmar" : "Revertir",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        await handleToggleVerificado();
+      },
+      content: () => (
+        <p className="text-sm text-slate-700">
+          {nextEstado
+            ? "¿Deseas marcar este paquete como verificado?"
+            : "¿Deseas marcar este paquete como no verificado?"}
+        </p>
+      ),
+    });
+  }, [
+    canToggleVerificado,
+    handleToggleVerificado,
+    id,
+    isEditMode,
+    isVerificado,
+    openDialog,
+  ]);
+
   return (
     <form
       className="w-full space-y-6 pb-12"
@@ -266,13 +370,8 @@ const TravelPackageForm = () => {
                 "
         >
           {/* ================= INFO ================= */}
-          <div
-            className="
-                  flex flex-wrap gap-x-4 gap-y-2
-                  min-w-0
-                "
-          >
-            <div className="flex flex-wrap items-end justify-between gap-4 w-[40px]">
+          <div className="flex flex-wrap items-end gap-3 min-w-0">
+            <div className="flex items-end justify-between w-[40px]">
               <ChevronLeft
                 className="cursor-pointer"
                 onClick={() => navigate("/paquete-viaje")}
@@ -291,33 +390,98 @@ const TravelPackageForm = () => {
           {/* ================= ACCIONES ================= */}
           <div
             className="
-                flex flex-wrap gap-2
+                flex flex-wrap items-end gap-2 lg:gap-3
                 justify-end
                 shrink-0
               "
           >
-            <button
-              type="button"
-              onClick={() => setIsPaymentOpen((prev) => !prev)}
-              className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 text-white text-sm font-semibold shadow-sm hover:bg-emerald-700"
-            >
-              <ReceiptText className="h-4 w-4" />
-              {isPaymentOpen ? "Ocultar detalle pago" : "Mostrar detalle pago"}
-            </button>
+            <div className="w-[220px] max-w-full">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                Documento cobranza
+              </label>
+              <select
+                value={form.documentoCobranza}
+                onChange={(event) =>
+                  handlers.updateField("documentoCobranza", event.target.value)
+                }
+                className="h-[36px] w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700"
+              >
+                {DOCUMENTO_COBRANZA_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-[90px] max-w-full">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                Serie
+              </label>
+              <input
+                value={form.nserie}
+                maxLength={4}
+                disabled={form.documentoCobranza === "DOCUMENTO COBRANZA"}
+                onChange={(event) =>
+                  handlers.updateField("nserie", event.target.value.toUpperCase())
+                }
+                className="h-[36px] w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+              />
+            </div>
+
+            <div className="w-[170px] max-w-full">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                Nro documento
+              </label>
+              <input
+                value={form.ndocumento}
+                disabled={form.documentoCobranza === "DOCUMENTO COBRANZA"}
+                onChange={(event) =>
+                  handlers.updateField("ndocumento", event.target.value)
+                }
+                className="h-[36px] w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+              />
+            </div>
+
+            {canToggleVerificado && isEditMode && (
+              <button
+                type="button"
+                disabled={isLoadingDetail || isUpdatingVerificado}
+                onClick={handleConfirmToggleVerificado}
+                className={`h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg px-4 text-sm font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isVerificado
+                    ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100"
+                    : "bg-emerald-600 text-white ring-1 ring-emerald-600/30 hover:bg-emerald-700"
+                }`}
+              >
+                {isUpdatingVerificado ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isVerificado ? (
+                  <RefreshCw className="h-4 w-4" />
+                ) : (
+                  <CheckCircle className="h-4 w-4" />
+                )}
+                {isUpdatingVerificado
+                  ? "Procesando..."
+                  : isVerificado
+                    ? "Revertir"
+                    : "Confirmar"}
+              </button>
+            )}
 
             <button
               type="submit"
-              disabled={isSaving || isLoadingDetail}
+              disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
               className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 text-white text-sm font-semibold shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Save className="h-4 w-4" />
               {isLoadingDetail
                 ? "Cargando..."
                 : isSaving
-                ? "Guardando..."
-                : isEditMode
-                  ? "Actualizar paquete"
-                  : "Guardar paquete"}
+                  ? "Guardando..."
+                  : isEditMode
+                    ? "Actualizar paquete"
+                    : "Guardar paquete"}
             </button>
           </div>
         </div>
@@ -374,18 +538,13 @@ const TravelPackageForm = () => {
           </div>
 
           <div className="md:col-span-2">
-            <LiquidationSection form={form} />
+            <LiquidationSection
+              form={form}
+              onUpdateField={handlers.updateField}
+            />
           </div>
         </div>
       </div>
-      {/**
-       * Quitar el componente para no ocupar espacio!!!
-       * <PaymentDetailFloating
-        form={form}
-        open={isPaymentOpen}
-        onClose={() => setIsPaymentOpen(false)}
-        onUpdateField={handlers.updateField}
-      /> */}
     </form>
   );
 };

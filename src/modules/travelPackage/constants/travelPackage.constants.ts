@@ -56,6 +56,29 @@ export const CONDICION_PAGO_OPTIONS = [
   { value: "CREDITO", label: "Credito" },
 ];
 
+export const MEDIO_PAGO_OPTIONS = [
+  { value: "", label: "(SELECCIONE)" },
+  { value: "-", label: "-" },
+  { value: "EFECTIVO", label: "Efectivo" },
+  { value: "DEPOSITO", label: "Deposito" },
+  { value: "YAPE", label: "Yape" },
+  { value: "TARJETA", label: "Tarjeta" },
+];
+
+export const ENTIDAD_BANCARIA_OPTIONS = [
+  { value: "", label: "(SELECCIONE)" },
+  { value: "-", label: "-" },
+  { value: "BCP", label: "BCP" },
+  { value: "BBVA", label: "BBVA" },
+  { value: "INTERBANK", label: "Interbank" },
+];
+
+export const DOCUMENTO_COBRANZA_OPTIONS = [
+  { value: "DOCUMENTO COBRANZA", label: "Documento de Cobranza" },
+  { value: "BOLETA", label: "Boleta" },
+  { value: "FACTURA", label: "Factura" },
+];
+
 export const HABITACION_OPTIONS = [
   "Simple",
   "Doble",
@@ -196,11 +219,11 @@ export const createHotelServicioRow = (id: number): HotelServicioRow => ({
   region: "",
   hotel: "",
   habitaciones: [],
-  entrada: "",
-  salida: "",
+  entradaSalida: "",
   incluyeAlimentacion: false,
   alimentacionTipo: "",
   alimentacionPrecio: 0,
+  importeTotal: 0,
 });
 
 // ─── Helper aliases for Hook ──────────────────────────────────────────────────
@@ -257,4 +280,5 @@ export const INITIAL_FORM_STATE: TravelPackageFormState = {
   impuestosAdicionales: "",
   observaciones: "",
   cantPax: "",
+  flagVerificado: "0",
 };

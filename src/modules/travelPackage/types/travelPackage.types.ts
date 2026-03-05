@@ -43,11 +43,11 @@ export type HotelServicioRow = {
   region: string;
   hotel: string;
   habitaciones: HotelRoomSelection[];
-  entrada: string;
-  salida: string;
+  entradaSalida: string;
   incluyeAlimentacion: boolean;
   alimentacionTipo: string;
   alimentacionPrecio: number;
+  importeTotal: number;
 };
 
 export type TravelPackageSelectionRow = {
@@ -100,4 +100,5 @@ export type TravelPackageFormState = {
   impuestosAdicionales: string;
   observaciones: string;
   cantPax: string;
+  flagVerificado: "0" | "1";
 };

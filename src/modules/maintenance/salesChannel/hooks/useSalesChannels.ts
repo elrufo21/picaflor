@@ -4,18 +4,45 @@ import { API_BASE_URL } from "@/config";
 export type SalesChannelDetail = {
   id: number;
   idCanal: number;
+  idAuxiliar?: number;
+  ruc?: string;
+  razonSocial?: string;
   canalNombre: string;
+  direccion?: string;
+  region?: string;
+  celular?: string;
   contacto?: string;
+  contacto02?: string;
   telefono?: string;
   email?: string;
+  webSite?: string;
+  clasificacion?: string;
+  categoria?: string;
+  fechaAniversario?: string;
+  representanteLegal?: string;
+  fechaNacimiento?: string;
+  nota?: string;
 };
 
 export type SaveSalesChannelPayload = {
   idAuxiliar: number;
   auxiliar: string;
+  ruc: string;
+  razonSocial: string;
+  direccion: string;
+  region: string;
   telefono: string;
+  celular: string;
   contacto: string;
+  contacto02: string;
   email: string;
+  webSite: string;
+  clasificacion: string;
+  categoria: string;
+  fechaAniversario: string;
+  representanteLegal: string;
+  fechaNacimiento: string;
+  nota: string;
 };
 
 const SALES_CHANNEL_LIST_ENDPOINT = `${API_BASE_URL}/Canal/list`;
@@ -33,7 +60,11 @@ const parseRawPayload = (rawText: string): unknown => {
   }
 };
 
-const normalizeText = (value: unknown) => String(value ?? "").trim();
+const normalizeText = (value: unknown) => {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return "";
+  return normalized.toLowerCase() === "null" ? "" : normalized;
+};
 
 const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] => {
   if (!payload) return [];
@@ -60,10 +91,34 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
         return {
           id: idCanal > 0 ? idCanal : index + 1,
           idCanal,
+          idAuxiliar: idCanal || undefined,
+          ruc: normalizeText(row.ruc ?? row.RUC) || undefined,
+          razonSocial:
+            normalizeText(row.razonSocial ?? row.RazonSocial) || undefined,
           canalNombre,
+          direccion: normalizeText(row.direccion ?? row.Direccion) || undefined,
+          region: normalizeText(row.region ?? row.Region) || undefined,
           contacto: normalizeText(row.contacto ?? row.Contacto) || undefined,
+          contacto02:
+            normalizeText(row.contacto02 ?? row.Contacto02) || undefined,
           telefono: normalizeText(row.telefono ?? row.Telefono) || undefined,
+          celular: normalizeText(row.celular ?? row.Celular) || undefined,
           email: normalizeText(row.email ?? row.Email) || undefined,
+          webSite: normalizeText(row.webSite ?? row.WebSite) || undefined,
+          clasificacion:
+            normalizeText(row.clasificacion ?? row.Clasificacion) || undefined,
+          categoria: normalizeText(row.categoria ?? row.Categoria) || undefined,
+          fechaAniversario:
+            normalizeText(row.fechaAniversario ?? row.FechaAniversario) ||
+            undefined,
+          representanteLegal:
+            normalizeText(
+              row.representanteLegal ?? row.RepresentanteLegal,
+            ) || undefined,
+          fechaNacimiento:
+            normalizeText(row.fechaNacimiento ?? row.FechaNacimiento) ||
+            undefined,
+          nota: normalizeText(row.nota ?? row.Nota) || undefined,
         } as SalesChannelDetail;
       })
       .filter((item): item is SalesChannelDetail => Boolean(item));
@@ -92,28 +147,68 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
       const parts = row.split("|");
       const parsedId = Number(normalizeText(parts[0]));
       const idCanal = Number.isFinite(parsedId) ? parsedId : 0;
-      const canalNombre = normalizeText(parts[1]);
+      const isLegacyFormat = parts.length <= 5;
+      const ruc = isLegacyFormat ? "" : normalizeText(parts[1]);
+      const razonSocial = isLegacyFormat ? "" : normalizeText(parts[2]);
+      const canalNombre = isLegacyFormat
+        ? normalizeText(parts[1])
+        : normalizeText(parts[3]);
 
       if (!canalNombre) return null;
 
-      const contacto = normalizeText(parts[2]);
-      const telefono = normalizeText(parts[3]);
-      const email = normalizeText(parts[4]);
+      const direccion = isLegacyFormat ? "" : normalizeText(parts[4]);
+      const region = isLegacyFormat ? "" : normalizeText(parts[5]);
+      const telefono = isLegacyFormat
+        ? normalizeText(parts[3])
+        : normalizeText(parts[6]);
+      const celular = isLegacyFormat ? "" : normalizeText(parts[7]);
+      const email = isLegacyFormat
+        ? normalizeText(parts[4])
+        : normalizeText(parts[8]);
+      const webSite = isLegacyFormat ? "" : normalizeText(parts[9]);
+      const clasificacion = isLegacyFormat ? "" : normalizeText(parts[10]);
+      const categoria = isLegacyFormat ? "" : normalizeText(parts[11]);
+      const fechaAniversario = isLegacyFormat ? "" : normalizeText(parts[12]);
+      const representanteLegal = isLegacyFormat ? "" : normalizeText(parts[13]);
+      const fechaNacimiento = isLegacyFormat ? "" : normalizeText(parts[14]);
+      const contacto = isLegacyFormat
+        ? normalizeText(parts[2])
+        : normalizeText(parts[15]);
+      const contacto02 = isLegacyFormat ? "" : normalizeText(parts[16]);
+      const nota = isLegacyFormat ? "" : normalizeText(parts[17]);
 
       return {
         id: idCanal > 0 ? idCanal : index + 1,
         idCanal,
+        idAuxiliar: idCanal || undefined,
+        ruc: ruc || undefined,
+        razonSocial: razonSocial || undefined,
         canalNombre,
+        direccion: direccion || undefined,
+        region: region || undefined,
         contacto: contacto || undefined,
+        contacto02: contacto02 || undefined,
         telefono: telefono || undefined,
+        celular: celular || undefined,
         email: email || undefined,
+        webSite: webSite || undefined,
+        clasificacion: clasificacion || undefined,
+        categoria: categoria || undefined,
+        fechaAniversario: fechaAniversario || undefined,
+        representanteLegal: representanteLegal || undefined,
+        fechaNacimiento: fechaNacimiento || undefined,
+        nota: nota || undefined,
       } as SalesChannelDetail;
     })
     .filter((item): item is SalesChannelDetail => Boolean(item));
 };
 
-const parseSavedCanalId = (rawResponse: string): number => {
+const parseSavedCanalId = (rawResponse: string, fallbackId = 0): number => {
   const trimmed = String(rawResponse ?? "").trim();
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "true" || normalized === "ok") {
+    return Number.isFinite(fallbackId) ? Math.max(0, fallbackId) : 0;
+  }
   const directNumber = Number(trimmed);
 
   if (Number.isFinite(directNumber)) {
@@ -243,7 +338,7 @@ export const useSalesChannels = () => {
     }
 
     const responseText = await response.text();
-    return parseSavedCanalId(responseText);
+    return parseSavedCanalId(responseText, Number(payload.idAuxiliar || 0));
   }, []);
 
   const deleteChannel = useCallback(async (idAuxiliar: number) => {

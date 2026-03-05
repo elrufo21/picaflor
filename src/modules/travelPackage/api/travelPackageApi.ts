@@ -103,3 +103,33 @@ export async function actualizarPaqueteViaje(valores: string) {
     return raw;
   }
 }
+
+export async function actualizarVerificadoPaqueteViaje(params: {
+  idPaqueteViaje: number;
+  estado: boolean;
+}) {
+  const response = await fetch(
+    `${PROGRAMACION_API_URL}/actualizar-verificado-paquete-viaje`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify(params),
+    },
+  );
+
+  const raw = (await response.text()).trim();
+  if (!response.ok) {
+    throw new Error(raw || "Error al actualizar verificado del paquete de viaje");
+  }
+
+  if (!raw) return true;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}

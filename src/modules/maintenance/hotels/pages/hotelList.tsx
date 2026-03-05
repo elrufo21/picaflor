@@ -35,7 +35,7 @@ const HotelList = () => {
         title: mode === "create" ? "Crear hotel" : "Editar hotel",
         description:
           mode === "create"
-            ? "Agrega los datos básicos del hotel."
+            ? "Agrega los datos completos del hotel."
             : "Actualiza los campos del hotel seleccionado.",
         size: "md",
         confirmLabel: mode === "create" ? "Crear hotel" : "Guardar cambios",
@@ -84,6 +84,30 @@ const HotelList = () => {
             {info.getValue()}
           </span>
         ),
+      }),
+      helper.accessor("telefono", {
+        header: "Teléfono",
+        cell: (info) => info.getValue() || "-",
+      }),
+      helper.accessor("celular", {
+        header: "Celular",
+        cell: (info) => info.getValue() || "-",
+      }),
+      helper.accessor("email", {
+        header: "Email",
+        cell: (info) => (
+          <span className="block max-w-[14rem] truncate">
+            {info.getValue() || "-"}
+          </span>
+        ),
+      }),
+      helper.accessor("clasificacion", {
+        header: "Clasificación",
+        cell: (info) => info.getValue() || "-",
+      }),
+      helper.accessor("categoria", {
+        header: "Categoría",
+        cell: (info) => info.getValue() || "-",
       }),
       helper.display({
         id: "acciones",
