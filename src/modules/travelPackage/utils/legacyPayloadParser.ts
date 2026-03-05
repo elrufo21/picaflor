@@ -15,11 +15,11 @@ type ParsedHotel = {
   orden: number;
   region: string;
   hotel: string;
-  entrada: string;
-  salida: string;
+  entradaSalida: string;
   incluyeAlimentacion: boolean;
   alimentacionTipo: string;
   alimentacionPrecio: number;
+  importeTotal: number;
   habitaciones: Array<{
     orden: number;
     tipo: string;
@@ -62,6 +62,27 @@ const parsePositiveInt = (value: unknown, fallback = 0) =>
 const parseBool = (value: unknown) => {
   const normalized = normalizeCell(value).toUpperCase();
   return normalized === "1" || normalized === "SI" || normalized === "TRUE";
+};
+
+const parseFlagVerificado = (value: unknown): "0" | "1" => {
+  const normalized = normalizeCell(value).toUpperCase();
+  if (["1", "SI", "TRUE", "YES", "Y"].includes(normalized)) return "1";
+  return "0";
+};
+
+const isBoolToken = (value: unknown) => {
+  const normalized = normalizeCell(value).toUpperCase();
+  return [
+    "1",
+    "0",
+    "SI",
+    "NO",
+    "TRUE",
+    "FALSE",
+    "YES",
+    "Y",
+    "N",
+  ].includes(normalized);
 };
 
 const toIsoDate = (value: unknown) => {
@@ -208,16 +229,31 @@ export const parseTravelPackageLegacyPayload = (
 
     if (type === "HOT") {
       const hotelKey = parsePositiveInt(cols[1], hotelesMap.size + 1);
+      const usesLegacyLayout = isBoolToken(cols[7]) && !isBoolToken(cols[6]);
+      const legacyEntrada = normalizeCell(cols[5]);
+      const legacySalida = normalizeCell(cols[6]);
+      const entradaSalida = usesLegacyLayout
+        ? [legacyEntrada, legacySalida].filter(Boolean).join(" / ")
+        : (cols[5] ?? "");
+      const incluyeAlimentacion = usesLegacyLayout
+        ? parseBool(cols[7])
+        : parseBool(cols[6]);
+      const alimentacionTipo = usesLegacyLayout ? (cols[8] ?? "") : (cols[7] ?? "");
+      const alimentacionPrecio = usesLegacyLayout
+        ? parseNumeric(cols[9])
+        : parseNumeric(cols[8]);
+      const importeTotal = usesLegacyLayout ? 0 : parseNumeric(cols[9]);
+
       hotelesMap.set(hotelKey, {
         hotelKey,
         orden: parsePositiveInt(cols[2], hotelKey),
         region: cols[3] ?? "",
         hotel: cols[4] ?? "",
-        entrada: toIsoDate(cols[5]),
-        salida: toIsoDate(cols[6]),
-        incluyeAlimentacion: parseBool(cols[7]),
-        alimentacionTipo: cols[8] ?? "",
-        alimentacionPrecio: parseNumeric(cols[9]),
+        entradaSalida,
+        incluyeAlimentacion,
+        alimentacionTipo,
+        alimentacionPrecio,
+        importeTotal,
         habitaciones: [],
       });
       continue;
@@ -234,11 +270,11 @@ export const parseTravelPackageLegacyPayload = (
           orden: hotelKey,
           region: "",
           hotel: "",
-          entrada: "",
-          salida: "",
+          entradaSalida: "",
           incluyeAlimentacion: false,
           alimentacionTipo: "",
           alimentacionPrecio: 0,
+          importeTotal: 0,
           habitaciones: [],
         });
       }
@@ -342,11 +378,11 @@ export const parseTravelPackageLegacyPayload = (
         region: hotel.region,
         hotel: hotel.hotel,
         habitaciones,
-        entrada: hotel.entrada,
-        salida: hotel.salida,
+        entradaSalida: hotel.entradaSalida,
         incluyeAlimentacion: hotel.incluyeAlimentacion,
         alimentacionTipo: hotel.alimentacionTipo,
         alimentacionPrecio: hotel.alimentacionPrecio,
+        importeTotal: hotel.importeTotal,
       };
     });
 
@@ -454,6 +490,7 @@ export const parseTravelPackageLegacyPayload = (
     noIncluye: header[35] ?? "",
     impuestosAdicionales: header[36] ?? "",
     observaciones: header[37] ?? "",
+    flagVerificado: parseFlagVerificado(header[39]),
     destinos: destinosState,
     paquetesViaje: paquetesState,
     pasajeros: pasajerosState,
@@ -463,4 +500,3 @@ export const parseTravelPackageLegacyPayload = (
 
   return nextState;
 };
-

@@ -2,6 +2,10 @@ import dayjs from "dayjs";
 import { useState, useCallback, useEffect } from "react";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { useAuthStore } from "@/store/auth/auth.store";
+import {
+  calculateTravelPackageCharges,
+  calculateTravelPackageLiquidationBase,
+} from "../utils/liquidationCalculator";
 import type {
   HotelServicioRow,
   ItineraryDayRow,
@@ -19,18 +23,6 @@ import {
   createDefaultItineraryRows,
   getTravelCurrencySymbol,
 } from "../constants/travelPackage.constants";
-
-const getItineraryBaseAmount = (state: TravelPackageFormState) => {
-  const total = (state.itinerario ?? []).reduce((acc, day) => {
-    const rowsTotal = (day.actividades ?? []).reduce(
-      (sum, row) => sum + Number(row.subtotal || 0),
-      0,
-    );
-    return acc + rowsTotal;
-  }, 0);
-  const movilidad = Number(state.movilidadPrecio || 0);
-  return roundCurrency(total + movilidad);
-};
 
 const isActiveItineraryRow = (row: ItineraryActivityRow) => {
   const detail = String(row?.detalle ?? "").trim();
@@ -117,14 +109,19 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
   if (next.moneda === "SOLES") next.precioExtraDolares = 0;
   if (next.moneda === "DOLARES") next.precioExtraSoles = 0;
 
-  const base = getItineraryBaseAmount(next);
-  const igv = ["BOLETA", "FACTURA"].includes(next.documentoCobranza)
-    ? roundCurrency(base * 0.18)
-    : 0;
-  const cargosExtra = next.medioPago === "TARJETA"
-    ? roundCurrency((base + igv) * 0.05)
-    : 0;
-  const totalGeneral = roundCurrency(base + igv + cargosExtra);
+  if (next.condicionPago === "CREDITO") {
+    next.acuenta = 0;
+    next.deposito = 0;
+    next.efectivo = 0;
+    next.medioPago = "-";
+  }
+
+  const base = calculateTravelPackageLiquidationBase(next);
+  const { igv, cargosExtra, totalGeneral } = calculateTravelPackageCharges({
+    baseAmount: base,
+    documentoCobranza: next.documentoCobranza,
+    medioPago: next.medioPago,
+  });
 
   next.igv = igv;
   next.cargosExtra = cargosExtra;
@@ -140,15 +137,10 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
     next.acuenta = totalGeneral;
   }
 
-  if (next.condicionPago === "CREDITO") {
-    next.acuenta = 0;
-    next.deposito = 0;
-    next.efectivo = 0;
-    next.medioPago = "-";
-  }
-
   if (next.condicionPago === "ACUENTA") {
     next.acuenta = Math.min(Number(next.acuenta || 0), totalGeneral);
+    next.deposito = 0;
+    next.efectivo = 0;
   }
 
   if (next.medioPago === "EFECTIVO") {

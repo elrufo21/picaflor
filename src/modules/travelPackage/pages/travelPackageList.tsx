@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import {
+  createColumnHelper,
+  type ColumnDef,
+} from "@tanstack/react-table";
 import { useNavigate } from "react-router";
-import { Plus, Search } from "lucide-react";
+import { Check, Plus, Search, X } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { showToast } from "@/components/ui/AppToast";
@@ -35,6 +38,7 @@ type TravelPackageListadoRow = {
   nacionalidadPrimerPasajero: string;
   telefonoPrimerPasajero: string;
   fechaNacimientoPrimerPasajero: string;
+  flagVerificado: "0" | "1";
 };
 
 const getTodayIso = () => {
@@ -52,6 +56,7 @@ const parseMoneyLike = (value: string) => {
 };
 
 const normalizeCell = (value: unknown) => normalizeLegacyXmlPayload(String(value ?? "")).trim();
+const normalizeStringValue = (value: unknown) => String(value ?? "").trim();
 
 const parseRow = (
   rawRow: string,
@@ -93,6 +98,7 @@ const parseRow = (
     nacionalidadPrimerPasajero: cols[21] ?? "",
     telefonoPrimerPasajero: cols[22] ?? "",
     fechaNacimientoPrimerPasajero: cols[23] ?? "",
+    flagVerificado: String(cols[24] ?? "0").trim() === "1" ? "1" : "0",
   };
 };
 
@@ -159,6 +165,12 @@ const TravelPackageList = () => {
   const [fechaFin, setFechaFin] = useState(getTodayIso());
   const [isLoading, setIsLoading] = useState(false);
   const [rows, setRows] = useState<TravelPackageListadoRow[]>([]);
+  const columnHelper = createColumnHelper<TravelPackageListadoRow>();
+  const isPagoVerificado = useCallback((row: TravelPackageListadoRow) => {
+    return normalizeStringValue(row.flagVerificado) === "1";
+  }, []);
+  const sessionRaw = localStorage.getItem("picaflor.auth.session");
+  const sessionStore = sessionRaw ? JSON.parse(sessionRaw) : null;
 
   const loadListado = useCallback(async () => {
     const areaId = Number(authUser?.areaId ?? authUser?.area ?? 0);
@@ -215,46 +227,64 @@ const TravelPackageList = () => {
   }, [loadListado]);
 
   const columns = useMemo<ColumnDef<TravelPackageListadoRow>[]>(
-    () => [
-      {
-        accessorKey: "idPaqueteViaje",
-        header: "Id",
-        meta: { align: "center" },
-      },
-      {
-        accessorKey: "fechaEmision",
-        header: "Fecha emision",
-      },
-      {
-        accessorKey: "programa",
-        header: "Programa",
-      },
-      {
-        accessorKey: "agenciaNombre",
-        header: "Agencia",
-      },
-      {
-        accessorKey: "primerPasajero",
-        header: "Primer pasajero",
-      },
-      {
-        accessorKey: "totalGeneral",
-        header: "Total",
-        meta: { align: "right" },
-        cell: ({ row }) => row.original.totalGeneral.toFixed(2),
-      },
-      {
-        accessorKey: "saldo",
-        header: "Saldo",
-        meta: { align: "right" },
-        cell: ({ row }) => row.original.saldo.toFixed(2),
-      },
-      {
-        accessorKey: "estado",
-        header: "Estado",
-        meta: { align: "center" },
-      },
-      {
+    () => {
+      const cols: ColumnDef<TravelPackageListadoRow>[] = [];
+
+      if (sessionStore?.user?.areaId === "6") {
+        cols.push(columnHelper.display({
+          id: "pVerificado",
+          size: 110,
+          header: "Verificado",
+          meta: { align: "center" },
+          cell: ({ row }) =>
+            isPagoVerificado(row.original) ? (
+              <Check
+                className="mx-auto h-4 w-4 text-emerald-600"
+                aria-label="Verificado"
+              />
+            ) : (
+              <X
+                className="mx-auto h-4 w-4 text-slate-400"
+                aria-label="No verificado"
+              />
+            ),
+        }));
+      }
+
+      cols.push(
+        columnHelper.accessor("idPaqueteViaje", {
+          header: "Id",
+          meta: { align: "center" },
+        }),
+        columnHelper.accessor("fechaEmision", {
+          header: "Fecha emision",
+        }),
+        columnHelper.accessor("programa", {
+          header: "Programa",
+        }),
+        columnHelper.accessor("agenciaNombre", {
+          header: "Agencia",
+        }),
+        columnHelper.accessor("primerPasajero", {
+          header: "Primer pasajero",
+        }),
+        columnHelper.accessor("totalGeneral", {
+          header: "Total",
+          meta: { align: "right" },
+          cell: ({ row }) => row.original.totalGeneral.toFixed(2),
+        }),
+        columnHelper.accessor("saldo", {
+          header: "Saldo",
+          meta: { align: "right" },
+          cell: ({ row }) => row.original.saldo.toFixed(2),
+        }),
+        columnHelper.accessor("estado", {
+          header: "Estado",
+          meta: { align: "center" },
+        }),
+      );
+
+      cols.push(columnHelper.display({
         id: "acciones",
         header: "Acciones",
         meta: { align: "center" },
@@ -272,9 +302,11 @@ const TravelPackageList = () => {
             Editar
           </button>
         ),
-      },
-    ],
-    [navigate],
+      }));
+
+      return cols;
+    },
+    [columnHelper, isPagoVerificado, navigate, sessionStore?.user?.areaId],
   );
 
   return (
@@ -343,4 +375,3 @@ const TravelPackageList = () => {
 };
 
 export default TravelPackageList;
-

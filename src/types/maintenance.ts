@@ -18,6 +18,15 @@ export interface Hotel {
   horaIngreso: string;
   horaSalida: string;
   direccion: string;
+  telefono: string;
+  celular: string;
+  email: string;
+  clasificacion: string;
+  categoria: string;
+  tiposHabitaciones: string;
+  contacto01: string;
+  contacto02: string;
+  nota: string;
 }
 
 export interface DeparturePoint {

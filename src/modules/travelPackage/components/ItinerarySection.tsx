@@ -199,6 +199,15 @@ const ItinerarySection = ({
       observationField?.focus();
     }, 0);
   };
+  const focusUnitPriceField = (dayId: number) => {
+    setTimeout(() => {
+      const unitPriceField = document.querySelector<HTMLInputElement>(
+        `input[data-unit-price-day="${dayId}"]`,
+      );
+      unitPriceField?.focus();
+      unitPriceField?.select();
+    }, 0);
+  };
 
   useEffect(() => {
     itinerario.forEach((day) => {
@@ -549,7 +558,9 @@ const ItinerarySection = ({
                         }
                       });
                       focusObservationField(day.id);
+                      return;
                     }
+                    if (nextTitle) focusUnitPriceField(day.id);
                   }}
                   renderInput={(params) => (
                     <TextField
@@ -594,6 +605,7 @@ const ItinerarySection = ({
                   inputProps={{
                     min: 0,
                     step: "any",
+                    "data-unit-price-day": String(day.id),
                     onKeyDown: preventNumberArrowStep,
                   }}
                   onChange={(e) => {
@@ -615,11 +627,7 @@ const ItinerarySection = ({
 
                 <TextField
                   label="Importe Total"
-                  value={
-                    dayTotal === 0
-                      ? ""
-                      : `${currencySymbol} ${dayTotal.toFixed(2)}`
-                  }
+                  value={dayTotal === 0 ? "" : ` ${dayTotal.toFixed(2)}`}
                   size="small"
                   InputProps={{ readOnly: true }}
                   sx={{
@@ -641,195 +649,218 @@ const ItinerarySection = ({
                     </button>
                   </div>
                   <div className="border border-slate-300 rounded-xl text-sm overflow-x-auto bg-white shadow-sm">
-                  <div className="grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-300 font-bold bg-slate-100 text-slate-800">
-                    <div />
-                    <div className="border-l border-slate-300 p-2.5">
-                      Detalle
+                    <div className="grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-300 font-bold bg-slate-100 text-slate-800">
+                      <div />
+                      <div className="border-l border-slate-300 p-2.5">
+                        Detalle
+                      </div>
+                      <div className="border-l border-slate-300 p-2.5 text-center">
+                        Precio
+                      </div>
+                      <div className="border-l border-slate-300 p-2.5 text-center">
+                        Cant
+                      </div>
+                      <div className="border-l border-slate-300 p-2.5 text-center">
+                        SubTotal
+                      </div>
                     </div>
-                    <div className="border-l border-slate-300 p-2.5 text-center">
-                      Precio
-                    </div>
-                    <div className="border-l border-slate-300 p-2.5 text-center">
-                      Cant
-                    </div>
-                    <div className="border-l border-slate-300 p-2.5 text-center">
-                      SubTotal
-                    </div>
-                  </div>
 
-                  {renderedRows.map((row, rowIndex) => {
-                    const canPersist = row.id > 0;
-                    const isExtraActivityRow = extraActivityLabelIndexById.has(
-                      Number(row.id),
-                    );
-                    const detalle = String(row.detalle ?? "").trim();
-                    const isBallestasRowSelected =
-                      (row.tipo === "ACT1" ||
-                        row.tipo === "ACT2" ||
-                        row.tipo === "ACT3") &&
-                      isBallestasText(detalle);
-                    const isBallestasSelectedInDay = renderedRows.some(
-                      (activityRow) =>
-                        (activityRow.tipo === "ACT1" ||
-                          activityRow.tipo === "ACT2" ||
-                          activityRow.tipo === "ACT3") &&
-                        isBallestasText(String(activityRow.detalle ?? "")),
-                    );
-                    const isRowActive =
-                      row.tipo === "ENTRADA"
-                        ? detalle !== ""
-                        : detalle !== "" && detalle !== "-";
+                    {renderedRows.map((row, rowIndex) => {
+                      const canPersist = row.id > 0;
+                      const isExtraActivityRow =
+                        extraActivityLabelIndexById.has(Number(row.id));
+                      const detalle = String(row.detalle ?? "").trim();
+                      const isBallestasRowSelected =
+                        (row.tipo === "ACT1" ||
+                          row.tipo === "ACT2" ||
+                          row.tipo === "ACT3") &&
+                        isBallestasText(detalle);
+                      const isBallestasSelectedInDay = renderedRows.some(
+                        (activityRow) =>
+                          (activityRow.tipo === "ACT1" ||
+                            activityRow.tipo === "ACT2" ||
+                            activityRow.tipo === "ACT3") &&
+                          isBallestasText(String(activityRow.detalle ?? "")),
+                      );
+                      const isRowActive =
+                        row.tipo === "ENTRADA"
+                          ? detalle !== ""
+                          : detalle !== "" && detalle !== "-";
 
-                    const updateRow = (
-                      field: keyof Omit<ItineraryActivityRow, "id">,
-                      value: string | number,
-                    ) => {
-                      if (!canPersist) return;
-                      onUpdateEventField(day.id, row.id, field, value);
-                    };
+                      const updateRow = (
+                        field: keyof Omit<ItineraryActivityRow, "id">,
+                        value: string | number,
+                      ) => {
+                        if (!canPersist) return;
+                        onUpdateEventField(day.id, row.id, field, value);
+                      };
 
-                    const handlePrecioChange = (precioRaw: string) => {
-                      const precio = round2(Number(precioRaw || 0));
-                      const cant = Number(row.cant || 0);
-                      updateRow("precio", precio);
-                      updateRow("subtotal", round2(precio * cant));
-                    };
+                      const handlePrecioChange = (precioRaw: string) => {
+                        const precio = round2(Number(precioRaw || 0));
+                        const cant = Number(row.cant || 0);
+                        updateRow("precio", precio);
+                        updateRow("subtotal", round2(precio * cant));
+                      };
 
-                    const handleCantChange = (cantRaw: string) => {
-                      let cant = Math.max(0, Math.floor(Number(cantRaw || 0)));
-                      if (paxCount > 0) cant = Math.min(cant, paxCount);
-                      const precio = Number(row.precio || 0);
-                      updateRow("cant", cant);
-                      updateRow("subtotal", round2(precio * cant));
-                    };
-
-                    const handleDetalleChange = (nextDetalle: string) => {
-                      updateRow("detalle", nextDetalle);
-
-                      if (nextDetalle === "-" || nextDetalle === "") {
-                        updateRow("precio", 0);
-                        updateRow("cant", 0);
-                        updateRow("subtotal", 0);
-                        return;
-                      }
-
-                      if (
-                        row.tipo === "ACT1" ||
-                        row.tipo === "ACT2" ||
-                        row.tipo === "ACT3"
-                      ) {
-                        const actividadSeleccionada = actividades.find(
-                          (item) =>
-                            item.actividad.toLowerCase() ===
-                              nextDetalle.toLowerCase() &&
-                            (selectedProduct
-                              ? item.idProducto === selectedProduct.id
-                              : true),
+                      const handleCantChange = (cantRaw: string) => {
+                        let cant = Math.max(
+                          0,
+                          Math.floor(Number(cantRaw || 0)),
                         );
+                        if (paxCount > 0) cant = Math.min(cant, paxCount);
+                        const precio = Number(row.precio || 0);
+                        updateRow("cant", cant);
+                        updateRow("subtotal", round2(precio * cant));
+                      };
 
-                        const precioActividad = actividadSeleccionada
-                          ? isBallestasText(nextDetalle)
-                            ? 0
-                            : Number(
-                                preciosActividades.find(
+                      const handleDetalleChange = (nextDetalle: string) => {
+                        updateRow("detalle", nextDetalle);
+
+                        if (nextDetalle === "-" || nextDetalle === "") {
+                          updateRow("precio", 0);
+                          updateRow("cant", 0);
+                          updateRow("subtotal", 0);
+                          return;
+                        }
+
+                        if (
+                          row.tipo === "ACT1" ||
+                          row.tipo === "ACT2" ||
+                          row.tipo === "ACT3"
+                        ) {
+                          const actividadSeleccionada = actividades.find(
+                            (item) =>
+                              item.actividad.toLowerCase() ===
+                                nextDetalle.toLowerCase() &&
+                              (selectedProduct
+                                ? item.idProducto === selectedProduct.id
+                                : true),
+                          );
+
+                          const precioActividad = actividadSeleccionada
+                            ? isBallestasText(nextDetalle)
+                              ? 0
+                              : Number(
+                                  preciosActividades.find(
+                                    (price) =>
+                                      String(price.idActi) ===
+                                      String(actividadSeleccionada.id),
+                                  )?.precioSol || 0,
+                                )
+                            : 0;
+
+                          updateRow("precio", round2(precioActividad));
+                          updateRow("cant", paxCount);
+                          updateRow(
+                            "subtotal",
+                            round2(precioActividad * paxCount),
+                          );
+                          return;
+                        }
+
+                        if (row.tipo === "TRASLADO") {
+                          const trasladoSeleccionado = traslados.find(
+                            (item) =>
+                              item.nombre.toLowerCase() ===
+                              nextDetalle.toLowerCase(),
+                          );
+
+                          const precioTrasladoItem = trasladoSeleccionado
+                            ? Number(
+                                preciosTraslado.find(
                                   (price) =>
-                                    String(price.idActi) ===
-                                    String(actividadSeleccionada.id),
+                                    String(price.id) ===
+                                    String(trasladoSeleccionado.id),
                                 )?.precioSol || 0,
                               )
-                          : 0;
+                            : 0;
 
-                        updateRow("precio", round2(precioActividad));
-                        updateRow("cant", paxCount);
-                        updateRow(
-                          "subtotal",
-                          round2(precioActividad * paxCount),
-                        );
-                        return;
-                      }
+                          updateRow("precio", round2(precioTrasladoItem));
+                          updateRow("cant", paxCount);
+                          updateRow(
+                            "subtotal",
+                            round2(precioTrasladoItem * paxCount),
+                          );
+                          return;
+                        }
 
-                      if (row.tipo === "TRASLADO") {
-                        const trasladoSeleccionado = traslados.find(
-                          (item) =>
-                            item.nombre.toLowerCase() ===
-                            nextDetalle.toLowerCase(),
-                        );
+                        if (
+                          row.tipo === "ENTRADA" &&
+                          paxCount > 0 &&
+                          Number(row.cant || 0) === 0
+                        ) {
+                          updateRow("cant", paxCount);
+                          updateRow(
+                            "subtotal",
+                            round2(Number(row.precio || 0) * paxCount),
+                          );
+                        }
+                      };
 
-                        const precioTrasladoItem = trasladoSeleccionado
-                          ? Number(
-                              preciosTraslado.find(
-                                (price) =>
-                                  String(price.id) ===
-                                  String(trasladoSeleccionado.id),
-                              )?.precioSol || 0,
-                            )
-                          : 0;
+                      return (
+                        <div
+                          key={`${day.id}-${row.id}-${row.tipo}`}
+                          className={`grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-200 last:border-b-0 ${
+                            rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                            <span className="inline-flex items-center rounded-md bg-orange-500 text-white text-xs px-2.5 py-1 font-semibold tracking-wide">
+                              {isExtraActivityRow
+                                ? `Actividad ${extraActivityLabelIndexById.get(Number(row.id))}`
+                                : ROW_LABELS[row.tipo]}
+                            </span>
+                            {isExtraActivityRow && canPersist && (
+                              <button
+                                type="button"
+                                onClick={() => onRemoveEvent(day.id, row.id)}
+                                className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 hover:border-red-200 hover:text-red-600"
+                              >
+                                Quitar
+                              </button>
+                            )}
+                          </div>
 
-                        updateRow("precio", round2(precioTrasladoItem));
-                        updateRow("cant", paxCount);
-                        updateRow(
-                          "subtotal",
-                          round2(precioTrasladoItem * paxCount),
-                        );
-                        return;
-                      }
+                          <div className="border-l border-slate-200 p-1.5">
+                            {(row.tipo === "ACT1" ||
+                              row.tipo === "ACT2" ||
+                              row.tipo === "ACT3") && (
+                              <select
+                                className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                                value={row.detalle}
+                                onChange={(e) =>
+                                  handleDetalleChange(e.target.value)
+                                }
+                              >
+                                <option value="-">-</option>
+                                {activityOptions
+                                  .filter(
+                                    (option) =>
+                                      !selectedActivityDetails.includes(
+                                        option,
+                                      ) || row.detalle === option,
+                                  )
+                                  .map((option) => (
+                                    <option
+                                      key={`${row.tipo}-${option}`}
+                                      value={option}
+                                    >
+                                      {option}
+                                    </option>
+                                  ))}
+                              </select>
+                            )}
 
-                      if (
-                        row.tipo === "ENTRADA" &&
-                        paxCount > 0 &&
-                        Number(row.cant || 0) === 0
-                      ) {
-                        updateRow("cant", paxCount);
-                        updateRow(
-                          "subtotal",
-                          round2(Number(row.precio || 0) * paxCount),
-                        );
-                      }
-                    };
-
-                    return (
-                      <div
-                        key={`${day.id}-${row.id}-${row.tipo}`}
-                        className={`grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-200 last:border-b-0 ${
-                          rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                          <span className="inline-flex items-center rounded-md bg-orange-500 text-white text-xs px-2.5 py-1 font-semibold tracking-wide">
-                            {isExtraActivityRow
-                              ? `Actividad ${extraActivityLabelIndexById.get(Number(row.id))}`
-                              : ROW_LABELS[row.tipo]}
-                          </span>
-                          {isExtraActivityRow && canPersist && (
-                            <button
-                              type="button"
-                              onClick={() => onRemoveEvent(day.id, row.id)}
-                              className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 hover:border-red-200 hover:text-red-600"
-                            >
-                              Quitar
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="border-l border-slate-200 p-1.5">
-                          {(row.tipo === "ACT1" ||
-                            row.tipo === "ACT2" ||
-                            row.tipo === "ACT3") && (
-                            <select
-                              className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                              value={row.detalle}
-                              onChange={(e) =>
-                                handleDetalleChange(e.target.value)
-                              }
-                            >
-                              <option value="-">-</option>
-                              {activityOptions
-                                .filter(
-                                  (option) =>
-                                    !selectedActivityDetails.includes(option) ||
-                                    row.detalle === option,
-                                )
-                                .map((option) => (
+                            {row.tipo === "TRASLADO" && (
+                              <select
+                                className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                                value={row.detalle}
+                                onChange={(e) =>
+                                  handleDetalleChange(e.target.value)
+                                }
+                              >
+                                <option value="-">-</option>
+                                {trasladoNames.map((option) => (
                                   <option
                                     key={`${row.tipo}-${option}`}
                                     value={option}
@@ -837,85 +868,67 @@ const ItinerarySection = ({
                                     {option}
                                   </option>
                                 ))}
-                            </select>
-                          )}
+                              </select>
+                            )}
 
-                          {row.tipo === "TRASLADO" && (
-                            <select
-                              className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                              value={row.detalle}
-                              onChange={(e) =>
-                                handleDetalleChange(e.target.value)
-                              }
-                            >
-                              <option value="-">-</option>
-                              {trasladoNames.map((option) => (
-                                <option
-                                  key={`${row.tipo}-${option}`}
-                                  value={option}
-                                >
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          )}
+                            {row.tipo === "ENTRADA" && (
+                              <input
+                                className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                                value={row.detalle}
+                                onChange={(e) =>
+                                  handleDetalleChange(e.target.value)
+                                }
+                                disabled={isBallestasSelectedInDay}
+                              />
+                            )}
+                          </div>
 
-                          {row.tipo === "ENTRADA" && (
+                          <div className="border-l border-slate-200 p-1.5">
                             <input
-                              className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                              value={row.detalle}
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
+                              value={row.precio === 0 ? "" : row.precio}
                               onChange={(e) =>
-                                handleDetalleChange(e.target.value)
+                                handlePrecioChange(e.target.value)
                               }
-                              disabled={isBallestasSelectedInDay}
+                              onKeyDown={preventNumberArrowStep}
+                              disabled={
+                                !isRowActive ||
+                                row.tipo === "ENTRADA" ||
+                                isBallestasRowSelected
+                              }
                             />
-                          )}
-                        </div>
+                          </div>
 
-                        <div className="border-l border-slate-200 p-1.5">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
-                            value={row.precio === 0 ? "" : row.precio}
-                            onChange={(e) => handlePrecioChange(e.target.value)}
-                            onKeyDown={preventNumberArrowStep}
-                            disabled={
-                              !isRowActive ||
-                              row.tipo === "ENTRADA" ||
-                              isBallestasRowSelected
-                            }
-                          />
-                        </div>
+                          <div className="border-l border-slate-200 p-1.5">
+                            <input
+                              type="number"
+                              step="1"
+                              min={0}
+                              max={paxCount || undefined}
+                              className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
+                              value={row.cant === 0 ? "" : row.cant}
+                              onChange={(e) => handleCantChange(e.target.value)}
+                              onKeyDown={preventNumberArrowStep}
+                              disabled={
+                                !isRowActive ||
+                                row.tipo === "ENTRADA" ||
+                                isBallestasSelectedInDay
+                              }
+                            />
+                          </div>
 
-                        <div className="border-l border-slate-200 p-1.5">
-                          <input
-                            type="number"
-                            step="1"
-                            min={0}
-                            max={paxCount || undefined}
-                            className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
-                            value={row.cant === 0 ? "" : row.cant}
-                            onChange={(e) => handleCantChange(e.target.value)}
-                            onKeyDown={preventNumberArrowStep}
-                            disabled={
-                              !isRowActive ||
-                              row.tipo === "ENTRADA" ||
-                              isBallestasSelectedInDay
-                            }
-                          />
+                          <div className="border-l border-slate-200 p-2.5 text-right font-semibold text-slate-800 bg-white">
+                            {row.subtotal
+                              ? `${currencySymbol} ${row.subtotal.toFixed(2)}`
+                              : ""}
+                          </div>
                         </div>
-
-                        <div className="border-l border-slate-200 p-2.5 text-right font-semibold text-slate-800 bg-white">
-                          {row.subtotal
-                            ? `${currencySymbol} ${row.subtotal.toFixed(2)}`
-                            : ""}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
                 </>
               )}
 

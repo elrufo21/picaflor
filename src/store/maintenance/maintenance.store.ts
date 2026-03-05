@@ -102,23 +102,88 @@ const mapProviderAccount = (
 });
 const HOTEL_ENDPOINT = `${API_BASE_URL}/Hotel`;
 
+const normalizeHotelText = (value: unknown) => {
+  const parsed = String(value ?? "").trim();
+  if (!parsed) return "";
+  return parsed.toLowerCase() === "null" ? "" : parsed;
+};
+
 const mapApiHotel = (item: any): Hotel => ({
   id: Number(item?.idHotel ?? item?.id ?? 0) || 0,
-  hotel: String(item?.hotel ?? ""),
-  region: String(item?.region ?? ""),
-  horaIngreso: String(item?.horaIngreso ?? ""),
-  horaSalida: String(item?.horaSalida ?? ""),
-  direccion: String(item?.direccion ?? ""),
+  hotel: normalizeHotelText(item?.hotel),
+  region: normalizeHotelText(item?.region),
+  horaIngreso: normalizeHotelText(item?.horaIngreso),
+  horaSalida: normalizeHotelText(item?.horaSalida),
+  direccion: normalizeHotelText(item?.direccion),
+  telefono: normalizeHotelText(item?.telefono),
+  celular: normalizeHotelText(item?.celular),
+  email: normalizeHotelText(item?.email),
+  clasificacion: normalizeHotelText(item?.clasificacion),
+  categoria: normalizeHotelText(item?.categoria),
+  tiposHabitaciones: normalizeHotelText(item?.tiposHabitaciones),
+  contacto01: normalizeHotelText(item?.contacto01),
+  contacto02: normalizeHotelText(item?.contacto02),
+  nota: normalizeHotelText(item?.nota),
 });
 
-const buildHotelPayload = (data: Partial<Hotel>, overrideId?: number) => ({
-  idHotel: overrideId ?? data.id ?? 0,
-  hotel: data.hotel ?? "",
-  region: data.region ?? "",
-  horaIngreso: data.horaIngreso ?? "",
-  horaSalida: data.horaSalida ?? "",
-  direccion: data.direccion ?? "",
-});
+const sanitizeHotelDataPart = (value: unknown) =>
+  normalizeHotelText(value).replace(/\|/g, "/");
+
+const buildHotelPayload = (data: Partial<Hotel>, overrideId?: number) => {
+  const idHotel = overrideId ?? data.id ?? 0;
+  const region = sanitizeHotelDataPart(data.region);
+  const hotel = sanitizeHotelDataPart(data.hotel);
+  const horaIngreso = sanitizeHotelDataPart(data.horaIngreso);
+  const horaSalida = sanitizeHotelDataPart(data.horaSalida);
+  const direccion = sanitizeHotelDataPart(data.direccion);
+  const telefono = sanitizeHotelDataPart(data.telefono);
+  const celular = sanitizeHotelDataPart(data.celular);
+  const email = sanitizeHotelDataPart(data.email);
+  const clasificacion = sanitizeHotelDataPart(data.clasificacion);
+  const categoria = sanitizeHotelDataPart(data.categoria);
+  const tiposHabitaciones = sanitizeHotelDataPart(data.tiposHabitaciones);
+  const contacto01 = sanitizeHotelDataPart(data.contacto01);
+  const contacto02 = sanitizeHotelDataPart(data.contacto02);
+  const nota = sanitizeHotelDataPart(data.nota);
+
+  const dataString = [
+    Number(idHotel) || 0,
+    region,
+    hotel,
+    horaIngreso,
+    horaSalida,
+    direccion,
+    telefono,
+    celular,
+    email,
+    clasificacion,
+    categoria,
+    tiposHabitaciones,
+    contacto01,
+    contacto02,
+    nota,
+  ].join("|");
+
+  return {
+    // Compatibilidad con endpoint actual y nuevo SP (@Data).
+    Data: dataString,
+    idHotel: Number(idHotel) || 0,
+    region,
+    hotel,
+    horaIngreso,
+    horaSalida,
+    direccion,
+    telefono,
+    celular,
+    email,
+    clasificacion,
+    categoria,
+    tiposHabitaciones,
+    contacto01,
+    contacto02,
+    nota,
+  };
+};
 
 const resolveHotelRecord = (value: unknown, fallback: Hotel): Hotel => {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -128,6 +193,22 @@ const resolveHotelRecord = (value: unknown, fallback: Hotel): Hotel => {
     }
   }
   return fallback;
+};
+
+const isDuplicateHotelResponse = (value: unknown) =>
+  typeof value === "string" && value.toLowerCase().includes("existe");
+
+const isSuccessfulHotelResponse = (value: unknown) => {
+  if (value === true) return true;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "ok";
+  }
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const id = Number((value as any)?.idHotel ?? (value as any)?.id ?? 0);
+    return Number.isFinite(id) && id > 0;
+  }
+  return false;
 };
 const PARTIDA_ENDPOINT = `${API_BASE_URL}/Partida`;
 
@@ -490,6 +571,15 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         data: payload,
         fallback: fallbackHotel,
       });
+      if (isDuplicateHotelResponse(created)) {
+        showToast({
+          title: "Hotel duplicado",
+          description: "Ya existe un hotel con la misma región y nombre.",
+          type: "error",
+        });
+        return;
+      }
+
       const hotelRecord = resolveHotelRecord(created, fallbackHotel);
       set((state) => ({
         hotels: [
@@ -498,10 +588,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         ],
       }));
       await queryClient.invalidateQueries({ queryKey: hotelsQueryKey });
-      const success =
-        created === true ||
-        created === "true" ||
-        (typeof created === "object" && Boolean((created as any)?.idHotel));
+      const success = isSuccessfulHotelResponse(created);
       if (success || hotelRecord.id) {
         showToast({
           title: "Hotel guardado",
@@ -520,6 +607,15 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         data: payload,
         fallback: fallbackHotel,
       });
+      if (isDuplicateHotelResponse(updated)) {
+        showToast({
+          title: "Hotel duplicado",
+          description: "Ya existe un hotel con la misma región y nombre.",
+          type: "error",
+        });
+        return;
+      }
+
       const hotelRecord = resolveHotelRecord(updated, fallbackHotel);
       set((state) => ({
         hotels: state.hotels.map((hotel) =>
@@ -527,10 +623,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         ),
       }));
       await queryClient.invalidateQueries({ queryKey: hotelsQueryKey });
-      const success =
-        updated === true ||
-        updated === "true" ||
-        (typeof updated === "object" && Boolean((updated as any)?.idHotel));
+      const success = isSuccessfulHotelResponse(updated);
       if (success || hotelRecord.id) {
         showToast({
           title: "Hotel actualizado",

@@ -22,6 +22,21 @@ const toBoolFlag = (value: unknown): string => (value ? "1" : "0");
 const isSinHotelPackage = (paquete: unknown) =>
   cleanText(paquete).toLowerCase().includes("sin hotel");
 
+const calculateHotelRoomImporteTotal = (
+  habitaciones?: Array<{ cantidad: number; precio: number }>,
+) =>
+  Number(
+    (habitaciones ?? [])
+      .reduce(
+        (sum, item) =>
+          sum +
+          Math.max(0, Number(item.cantidad || 0)) *
+            Math.max(0, Number(item.precio || 0)),
+        0,
+      )
+      .toFixed(2),
+  );
+
 const shouldPersistActivity = (row: ItineraryActivityRow) => {
   const detail = cleanText(row.detalle);
   const price = Number(row.precio || 0);
@@ -117,8 +132,9 @@ export const buildTravelPackageLegacyPayload = (
     if (!hotelName) return;
 
     const hotelKey = index + 1;
+    const importeTotal = calculateHotelRoomImporteTotal(row.habitaciones);
     detailRows.push(
-      `HOT|${hotelKey}|${index + 1}|${cleanText(row.region)}|${hotelName}|${cleanText(row.entrada)}|${cleanText(row.salida)}|${toBoolFlag(row.incluyeAlimentacion)}|${cleanText(row.alimentacionTipo)}|${toDecimal(row.alimentacionPrecio)}`,
+      `HOT|${hotelKey}|${index + 1}|${cleanText(row.region)}|${hotelName}|${cleanText(row.entradaSalida)}|${toBoolFlag(row.incluyeAlimentacion)}|${cleanText(row.alimentacionTipo)}|${toDecimal(row.alimentacionPrecio)}|${toDecimal(importeTotal)}`,
     );
 
     row.habitaciones.forEach((room, roomIndex) => {
