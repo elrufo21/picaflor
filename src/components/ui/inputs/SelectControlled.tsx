@@ -40,6 +40,12 @@ function SelectControlled<T extends FieldValues>({
           select
           fullWidth
           value={field.value ?? ""}
+          InputLabelProps={{
+            ...(rest.InputLabelProps ?? {}),
+            // Con `displayEmpty`, forzamos shrink para evitar superposición
+            // entre la etiqueta y el texto mostrado del select.
+            shrink: rest.InputLabelProps?.shrink ?? true,
+          }}
           SelectProps={{
             displayEmpty: true,
             ...(rest.SelectProps ?? {}),
