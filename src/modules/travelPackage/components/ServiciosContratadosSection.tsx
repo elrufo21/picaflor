@@ -159,6 +159,7 @@ const ServiciosContratadosSection = ({
   const selectedAlimentacionGlobal = String(
     watch("incluyeAlimentacionGlobal") ?? "",
   );
+  const selectedIncluyeHotel = String(watch("incluyeHotel") ?? "");
   const showAlimentacionPrice = Boolean(
     selectedAlimentacionEstado === "SI" &&
       selectedAlimentacionGlobal &&
@@ -314,12 +315,18 @@ const ServiciosContratadosSection = ({
   }, [form.movilidadPrecio, setValue]);
 
   useEffect(() => {
-    setValue("incluyeHotel", form.incluyeHotel ? "SI" : "", {
+    const nextValue = form.incluyeHotel
+      ? "SI"
+      : selectedIncluyeHotel === "NO"
+        ? "NO"
+        : "";
+    if (selectedIncluyeHotel === nextValue) return;
+    setValue("incluyeHotel", nextValue, {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
     });
-  }, [form.incluyeHotel, setValue]);
+  }, [form.incluyeHotel, selectedIncluyeHotel, setValue]);
 
   useEffect(() => {
     hotelesContratados.forEach((row) => {
