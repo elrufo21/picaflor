@@ -18,7 +18,10 @@ import LiquidationSection from "../components/LiquidationSection";
 import {
   CheckCircle,
   ChevronLeft,
+  FileText,
   Loader2,
+  Lock,
+  Printer,
   RefreshCw,
   Save,
 } from "lucide-react";
@@ -33,6 +36,534 @@ import {
 import { parseTravelPackageLegacyPayload } from "../utils/legacyPayloadParser";
 import { showToast } from "@/components/ui/AppToast";
 import { DOCUMENTO_COBRANZA_OPTIONS } from "../constants/travelPackage.constants";
+import type { PackageInvoiceData } from "@/components/invoice/PackageInvoice";
+import type { TravelPackageFormState } from "../types/travelPackage.types";
+
+const PACKAGE_INVOICE_STORAGE_KEY = "travel-package:invoice-preview:data:v1";
+
+const parsePositiveId = (value: unknown): number | null => {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.floor(parsed);
+};
+
+const resolveSavedPackageId = (response: unknown): number | null => {
+  if (response === null || response === undefined) return null;
+
+  if (typeof response === "number") return parsePositiveId(response);
+
+  if (typeof response === "string") {
+    const trimmed = response.trim();
+    if (!trimmed) return null;
+    const directNumber = parsePositiveId(trimmed);
+    if (directNumber) return directNumber;
+    try {
+      return resolveSavedPackageId(JSON.parse(trimmed));
+    } catch {
+      return null;
+    }
+  }
+
+  if (Array.isArray(response)) {
+    for (const item of response) {
+      const candidate = resolveSavedPackageId(item);
+      if (candidate) return candidate;
+    }
+    return null;
+  }
+
+  if (typeof response === "object") {
+    const record = response as Record<string, unknown>;
+    return (
+      parsePositiveId(record.IdPaqueteViaje) ??
+      parsePositiveId(record.idPaqueteViaje) ??
+      parsePositiveId(record.Id) ??
+      parsePositiveId(record.id)
+    );
+  }
+
+  return null;
+};
+
+type TravelPackageValidationError = {
+  message: string;
+  focusSelector?: string;
+};
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SERIE_PATTERN = /^[A-Z0-9]{4}$/;
+const CONDICION_PAGO_ALLOWED = new Set(["CANCELADO", "ACUENTA", "CREDITO"]);
+const MONEDA_ALLOWED = new Set(["SOLES", "DOLARES"]);
+const MEDIOS_PAGO_BANCARIOS = new Set(["DEPOSITO", "YAPE", "TARJETA"]);
+
+const normalizeText = (value: unknown) => String(value ?? "").trim();
+const normalizeUpperText = (value: unknown) =>
+  normalizeText(value).toUpperCase();
+const normalizeComparableText = (value: unknown) =>
+  normalizeText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+const parseSafeNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+const isValidIsoDate = (value: string) => {
+  if (!ISO_DATE_PATTERN.test(value)) return false;
+  return !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
+};
+const isActiveItineraryActivity = (
+  row: TravelPackageFormState["itinerario"][number]["actividades"][number],
+) => {
+  const detail = normalizeUpperText(row?.detalle);
+  if (row?.tipo === "ENTRADA") {
+    return detail !== "" && detail !== "N/A";
+  }
+  return detail !== "" && detail !== "-";
+};
+const getItineraryRowLabel = (
+  tipo: TravelPackageFormState["itinerario"][number]["actividades"][number]["tipo"],
+) => {
+  if (tipo === "ACT1") return "ACTIVIDAD 1";
+  if (tipo === "ACT2") return "ACTIVIDAD 2";
+  if (tipo === "ACT3") return "ACTIVIDAD 3";
+  if (tipo === "TRASLADO") return "TRASLADO";
+  return "ENTRADA";
+};
+
+const focusBySelector = (selector?: string) => {
+  if (!selector || typeof document === "undefined") return;
+  setTimeout(() => {
+    const target = document.querySelector<HTMLElement>(selector);
+    target?.focus();
+  }, 0);
+};
+
+const validateTravelPackageForm = (
+  form: TravelPackageFormState,
+): TravelPackageValidationError | null => {
+  const destinos = (form.destinos ?? []).map(normalizeText).filter(Boolean);
+  if (!destinos.length) {
+    return {
+      message: "SELECCIONE AL MENOS UN DESTINO.",
+      focusSelector: 'input[name^="nh-destinos-"]',
+    };
+  }
+
+  const fechaInicio = normalizeText(form.fechaInicioViaje);
+  const fechaFin = normalizeText(form.fechaFinViaje);
+  if (!fechaInicio || !fechaFin) {
+    return { message: "SELECCIONE FECHA DE INICIO Y FECHA DE FIN DEL VIAJE." };
+  }
+
+  if (!isValidIsoDate(fechaInicio) || !isValidIsoDate(fechaFin)) {
+    return { message: "LAS FECHAS DEL VIAJE NO TIENEN FORMATO VÁLIDO." };
+  }
+
+  if (fechaInicio > fechaFin) {
+    return {
+      message: "LA FECHA DE INICIO NO PUEDE SER MAYOR QUE LA FECHA DE FIN.",
+    };
+  }
+
+  if (!normalizeText(form.programa)) {
+    return {
+      message: "INGRESE EL PROGRAMA DEL PAQUETE.",
+      focusSelector: 'input[name^="nh-programa-"]',
+    };
+  }
+
+  const cantPax = Math.max(0, Math.floor(parseSafeNumber(form.cantPax)));
+  if (!cantPax) {
+    return {
+      message: "INGRESE LA CANTIDAD DE PASAJEROS.",
+      focusSelector: 'input[name^="nh-cantpax-"]',
+    };
+  }
+
+  const condicionPago = normalizeUpperText(form.condicionPago);
+  if (!CONDICION_PAGO_ALLOWED.has(condicionPago)) {
+    return {
+      message: "SELECCIONE UNA CONDICIÓN DE PAGO VÁLIDA.",
+      focusSelector: '[name="condicionPago"]',
+    };
+  }
+
+  const moneda = normalizeUpperText(form.moneda);
+  if (!MONEDA_ALLOWED.has(moneda)) {
+    return { message: "SELECCIONE UNA MONEDA VÁLIDA." };
+  }
+
+  const agenciaValue = normalizeText(form.agencia?.value);
+  const agenciaLabel = normalizeText(form.agencia?.label);
+  if (!agenciaValue && !agenciaLabel) {
+    return {
+      message: "SELECCIONE EL CANAL / AGENCIA.",
+      focusSelector: 'input[name^="nh-canaldeventa-"]',
+    };
+  }
+
+  if (!normalizeText(form.contacto)) {
+    return {
+      message: "INGRESE EL CONTACTO DE LA AGENCIA.",
+      focusSelector: 'input[name^="nh-contacto-"]',
+    };
+  }
+
+  if (!normalizeText(form.telefono)) {
+    return {
+      message: "INGRESE EL TELÉFONO DE CONTACTO.",
+      focusSelector: 'input[name^="nh-telefono-"]',
+    };
+  }
+
+  const email = normalizeText(form.email);
+  const shouldValidateEmail = email !== "" && email !== "-";
+  if (shouldValidateEmail && !EMAIL_PATTERN.test(email)) {
+    return {
+      message: "INGRESE UN EMAIL VÁLIDO.",
+      focusSelector: 'input[name^="nh-email-"]',
+    };
+  }
+
+  if (!normalizeText(form.counter)) {
+    return { message: "NO SE PUDO RESOLVER EL COUNTER DE LA SESIÓN." };
+  }
+
+  const documentoCobranza = normalizeUpperText(form.documentoCobranza);
+  const nserie = normalizeUpperText(form.nserie).replace(/[^A-Z0-9]/g, "");
+  const ndocumento = normalizeText(form.ndocumento).replace(/\D/g, "");
+  if (documentoCobranza !== "DOCUMENTO COBRANZA") {
+    if (!SERIE_PATTERN.test(nserie)) {
+      return {
+        message: "LA SERIE DEBE TENER 4 CARACTERES ALFANUMÉRICOS (EJ: B001).",
+        focusSelector: 'input[name="nserie"]',
+      };
+    }
+    if (!ndocumento) {
+      return {
+        message: "INGRESE EL NÚMERO DE DOCUMENTO.",
+        focusSelector: 'input[name="ndocumento"]',
+      };
+    }
+  }
+
+  const movilidadTipo = normalizeUpperText(form.movilidadTipo);
+  const movilidadEmpresa = normalizeText(form.movilidadEmpresa);
+  const movilidadPrecio = parseSafeNumber(form.movilidadPrecio);
+  if (!movilidadTipo) {
+    return {
+      message: "SELECCIONE EL TIPO DE MOVILIDAD.",
+      focusSelector: '[name="movilidadTipo"]',
+    };
+  }
+  if (movilidadTipo !== "NO INCLUYE") {
+    if (!movilidadEmpresa || movilidadEmpresa === "-") {
+      return {
+        message:
+          movilidadTipo === "BUS"
+            ? "SI SELECCIONA MOVILIDAD BUS, DEBE ELEGIR UNA EMPRESA."
+            : "DEBE SELECCIONAR LA EMPRESA DE MOVILIDAD.",
+        focusSelector: '[name="movilidadEmpresa"]',
+      };
+    }
+
+    if (movilidadPrecio <= 0) {
+      return {
+        message:
+          movilidadTipo === "BUS"
+            ? "SI SELECCIONA MOVILIDAD BUS, DEBE INGRESAR UN PRECIO MAYOR A 0."
+            : "EL PRECIO DE MOVILIDAD DEBE SER MAYOR A 0.",
+        focusSelector: 'input[name^="nh-movilidadprecio-"]',
+      };
+    }
+  }
+
+  const pasajeros = Array.isArray(form.pasajeros) ? form.pasajeros : [];
+  if (!pasajeros.length) {
+    return { message: "DEBE REGISTRAR AL MENOS UN PASAJERO." };
+  }
+
+  const missingNombreIndex = pasajeros.findIndex(
+    (passenger) => !normalizeText(passenger.nombres),
+  );
+  if (missingNombreIndex >= 0) {
+    return {
+      message: `INGRESE LOS NOMBRES DEL PASAJERO #${missingNombreIndex + 1}.`,
+      focusSelector: `input[data-nav-col="nombres"][data-nav-row="${String(missingNombreIndex)}"]`,
+    };
+  }
+
+  const missingNacionalidadIndex = pasajeros.findIndex(
+    (passenger) => !normalizeText(passenger.nacionalidad),
+  );
+  if (missingNacionalidadIndex >= 0) {
+    const passenger = pasajeros[missingNacionalidadIndex];
+    return {
+      message: `INGRESE LA NACIONALIDAD DEL PASAJERO #${missingNacionalidadIndex + 1}.`,
+      focusSelector: passenger?.id
+        ? `#nacionalidad-${String(passenger.id)}`
+        : undefined,
+    };
+  }
+
+  if (form.incluyeHotel) {
+    const hoteles = Array.isArray(form.hotelesContratados)
+      ? form.hotelesContratados
+      : [];
+    if (!hoteles.length) {
+      return { message: "DEBE REGISTRAR LOS HOTELES DEL PAQUETE." };
+    }
+
+    const missingRegionIndex = hoteles.findIndex(
+      (hotel) => !normalizeText(hotel.region),
+    );
+    if (missingRegionIndex >= 0) {
+      return {
+        message: `SELECCIONE LA REGIÓN DEL HOTEL #${missingRegionIndex + 1}.`,
+      };
+    }
+
+    const missingHotelIndex = hoteles.findIndex(
+      (hotel) => !normalizeText(hotel.hotel),
+    );
+    if (missingHotelIndex >= 0) {
+      return {
+        message: `SELECCIONE EL NOMBRE DEL HOTEL #${missingHotelIndex + 1}.`,
+      };
+    }
+
+    const missingRoomIndex = hoteles.findIndex((hotel) =>
+      (hotel.habitaciones ?? []).every(
+        (room) =>
+          !normalizeText(room.tipo) ||
+          Math.max(0, parseSafeNumber(room.cantidad)) <= 0,
+      ),
+    );
+    if (missingRoomIndex >= 0) {
+      return {
+        message: `INGRESE AL MENOS UNA HABITACIÓN CON CANTIDAD MAYOR A 0 EN EL HOTEL #${missingRoomIndex + 1}.`,
+      };
+    }
+
+    const missingAlimentacionTipoIndex = hoteles.findIndex(
+      (hotel) =>
+        hotel.incluyeAlimentacion &&
+        (!normalizeText(hotel.alimentacionTipo) ||
+          normalizeUpperText(hotel.alimentacionTipo) === "-"),
+    );
+    if (missingAlimentacionTipoIndex >= 0) {
+      return {
+        message: `SELECCIONE EL TIPO DE ALIMENTACIÓN DEL HOTEL #${missingAlimentacionTipoIndex + 1}.`,
+      };
+    }
+  }
+
+  const itinerario = Array.isArray(form.itinerario) ? form.itinerario : [];
+  if (!itinerario.length) {
+    return { message: "DEBE REGISTRAR EL ITINERARIO DEL PAQUETE." };
+  }
+
+  const missingDayDateIndex = itinerario.findIndex(
+    (day) => !normalizeText(day.fecha),
+  );
+  if (missingDayDateIndex >= 0) {
+    return {
+      message: `INGRESE LA FECHA DEL DÍA #${missingDayDateIndex + 1} EN EL ITINERARIO.`,
+    };
+  }
+
+  const invalidDayDateIndex = itinerario.findIndex(
+    (day) => !isValidIsoDate(normalizeText(day.fecha)),
+  );
+  if (invalidDayDateIndex >= 0) {
+    return {
+      message: `LA FECHA DEL DÍA #${invalidDayDateIndex + 1} DEL ITINERARIO NO ES VÁLIDA.`,
+    };
+  }
+
+  const outOfRangeDayIndex = itinerario.findIndex((day) => {
+    const dayDate = normalizeText(day.fecha);
+    return dayDate < fechaInicio || dayDate > fechaFin;
+  });
+  if (outOfRangeDayIndex >= 0) {
+    return {
+      message: `LA FECHA DEL DÍA #${outOfRangeDayIndex + 1} DEBE ESTAR ENTRE LA FECHA INICIO Y FECHA FIN DEL VIAJE.`,
+    };
+  }
+
+  const missingDayTitleIndex = itinerario.findIndex(
+    (day) => !normalizeText(day.titulo),
+  );
+  if (missingDayTitleIndex >= 0) {
+    return {
+      message: `INGRESE EL PRODUCTO / ACTIVIDAD PRINCIPAL DEL DÍA #${missingDayTitleIndex + 1}.`,
+    };
+  }
+
+  const missingObservationForSinActividadIndex = itinerario.findIndex((day) => {
+    const title = normalizeUpperText(day.titulo);
+    if (title !== "SIN ACTIVIDAD") return false;
+    return !normalizeText(day.observacion);
+  });
+  if (missingObservationForSinActividadIndex >= 0) {
+    const invalidDay = itinerario[missingObservationForSinActividadIndex];
+    return {
+      message: `SI EL DÍA #${missingObservationForSinActividadIndex + 1} ES "SIN ACTIVIDAD", LA OBSERVACIÓN ES OBLIGATORIA.`,
+      focusSelector: invalidDay?.id
+        ? `textarea[data-observation-day="${String(invalidDay.id)}"], input[data-observation-day="${String(invalidDay.id)}"]`
+        : undefined,
+    };
+  }
+
+  for (let dayIndex = 0; dayIndex < itinerario.length; dayIndex += 1) {
+    const day = itinerario[dayIndex];
+    const rows = Array.isArray(day?.actividades) ? day.actividades : [];
+
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+      const row = rows[rowIndex];
+      const isActivityRow =
+        row.tipo === "ACT1" || row.tipo === "ACT2" || row.tipo === "ACT3";
+      if (!isActivityRow) continue;
+      if (!isActiveItineraryActivity(row)) continue;
+
+      const isBallestasActivity =
+        normalizeComparableText(row.detalle) === "EXCURSION ISLAS BALLESTAS";
+      if (isBallestasActivity) continue;
+
+      if (parseSafeNumber(row.precio) <= 0) {
+        return {
+          message: `EL ${getItineraryRowLabel(row.tipo)} DEL DÍA #${dayIndex + 1} DEBE TENER PRECIO MAYOR A 0.`,
+          focusSelector:
+            day?.id && row?.id
+              ? `input[data-row-price-day="${String(day.id)}"][data-row-price-row="${String(row.id)}"]`
+              : undefined,
+        };
+      }
+    }
+  }
+
+  const invalidDayPricingIndex = itinerario.findIndex((day) => {
+    const title = normalizeUpperText(day.titulo);
+    if (!title || title === "SIN ACTIVIDAD") return false;
+    const unitPrice = parseSafeNumber(day.precioUnitario);
+    const hasActivitySubtotal = (day.actividades ?? []).some((row) =>
+      isActiveItineraryActivity(row)
+        ? parseSafeNumber(row.subtotal) > 0 ||
+          (parseSafeNumber(row.precio) > 0 && parseSafeNumber(row.cant) > 0)
+        : false,
+    );
+    return unitPrice <= 0 && !hasActivitySubtotal;
+  });
+  if (invalidDayPricingIndex >= 0) {
+    const invalidDay = itinerario[invalidDayPricingIndex];
+    return {
+      message: `EL DÍA #${invalidDayPricingIndex + 1} DEBE TENER PRECIO UNITARIO O ACTIVIDADES VALORIZADAS.`,
+      focusSelector: invalidDay?.id
+        ? `input[data-unit-price-day="${String(invalidDay.id)}"]`
+        : undefined,
+    };
+  }
+
+  const medioPago = normalizeUpperText(form.medioPago);
+  if (condicionPago !== "CREDITO") {
+    if (!medioPago || medioPago === "-") {
+      return {
+        message: "SELECCIONE EL MEDIO DE PAGO.",
+        focusSelector: '[name="medioPago"]',
+      };
+    }
+  }
+
+  if (MEDIOS_PAGO_BANCARIOS.has(medioPago)) {
+    const entidadBancaria = normalizeUpperText(form.entidadBancaria);
+    if (!entidadBancaria || entidadBancaria === "-") {
+      return {
+        message: "SELECCIONE LA ENTIDAD BANCARIA.",
+        focusSelector: '[name="entidadBancaria"]',
+      };
+    }
+
+    if (!normalizeText(form.nroOperacion)) {
+      return {
+        message:
+          "SI EL MEDIO DE PAGO ES DEPÓSITO, YAPE O TARJETA, EL NRO DE OPERACIÓN ES OBLIGATORIO.",
+        focusSelector: '[name="nroOperacion"]',
+      };
+    }
+  }
+
+  const totalGeneral = parseSafeNumber(form.totalGeneral);
+  if (totalGeneral <= 0) {
+    return {
+      message: "EL TOTAL GENERAL NO PUEDE SER CERO.",
+    };
+  }
+
+  const acuenta = parseSafeNumber(form.acuenta);
+  if (condicionPago === "ACUENTA" && acuenta <= 0) {
+    return {
+      message:
+        "SI LA CONDICIÓN ES ACUENTA, DEBE INGRESAR UN MONTO ACUENTA MAYOR A 0.",
+      focusSelector: '[name="acuenta"]',
+    };
+  }
+
+  if (acuenta > totalGeneral) {
+    return {
+      message: "EL MONTO ACUENTA NO PUEDE SER MAYOR AL TOTAL GENERAL.",
+      focusSelector: '[name="acuenta"]',
+    };
+  }
+
+  const saldo = parseSafeNumber(form.saldo);
+  if (saldo < 0) {
+    return {
+      message: "EL SALDO NO PUEDE SER NEGATIVO.",
+      focusSelector: '[name="saldo"]',
+    };
+  }
+
+  return null;
+};
+
+const buildPackageInvoiceData = (
+  form: TravelPackageFormState,
+  packageId?: number | null,
+): PackageInvoiceData => ({
+  ...form,
+  agencia: form.agencia ?? undefined,
+  liquidacionNumero: packageId ? String(packageId) : undefined,
+});
+
+const buildTravelPackageBoletaData = (
+  form: TravelPackageFormState,
+  packageId?: number | null,
+) => ({
+  programa: normalizeText(form.programa),
+  destino: normalizeText(form.destinos?.[0] ?? ""),
+  fechaViaje: normalizeText(form.fechaInicioViaje),
+  notaId: packageId ? String(packageId) : "",
+  documentoCobranza: normalizeText(form.documentoCobranza),
+  nserie: normalizeText(form.nserie),
+  ndocumento: normalizeText(form.ndocumento),
+  nombreCompleto: normalizeText(form.contacto),
+  direccion: normalizeText(form.agencia?.label ?? form.agencia?.value ?? "-"),
+  celular: normalizeText(form.telefono),
+  counter: normalizeText(form.counter),
+  auxiliar: normalizeText(form.agencia?.label ?? form.agencia?.value ?? ""),
+  moneda: normalizeText(form.moneda),
+  cantPax: Number(form.cantPax || 0),
+  precioTotal: Number(form.totalGeneral || 0),
+  totalGeneral: Number(form.totalGeneral || 0),
+  acuenta: Number(form.acuenta || 0),
+  saldo: Number(form.saldo || 0),
+  fechaEmision: normalizeText(form.fechaEmision),
+  medioPago: normalizeText(form.medioPago),
+});
 
 const TravelPackageForm = () => {
   const navigate = useNavigate();
@@ -45,12 +576,20 @@ const TravelPackageForm = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isUpdatingVerificado, setIsUpdatingVerificado] = useState(false);
+  const [isEditing, setIsEditing] = useState(!isEditMode);
   const isVerificado = form.flagVerificado === "1";
   const canToggleVerificado =
     String(authUser?.areaId ?? authUser?.area ?? "") === "6";
+  const isFormLocked = isEditMode && !isEditing;
+  const fieldsetDisabled =
+    isSaving || isLoadingDetail || isUpdatingVerificado || isFormLocked;
   const fechaEmisionLabel = form.fechaEmision
     ? form.fechaEmision.split("-").reverse().join("/")
     : "-";
+
+  useEffect(() => {
+    setIsEditing(!isEditMode);
+  }, [isEditMode, id]);
 
   useEffect(() => {
     if (!isEditMode || !id) return;
@@ -110,6 +649,25 @@ const TravelPackageForm = () => {
     (event: KeyboardEvent<HTMLElement>) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
+
+      const owner = target.closest('[role="combobox"]') as HTMLElement | null;
+      const isAutocompleteOpen =
+        owner?.getAttribute("aria-expanded") === "true";
+
+      if (event.key === "Enter") {
+        if (isAutocompleteOpen) return;
+        if (target instanceof HTMLTextAreaElement) return;
+        // Prevent implicit form submit by Enter; save is explicit via button click.
+        event.preventDefault();
+        if (
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLSelectElement
+        ) {
+          focusSibling(target);
+        }
+        return;
+      }
+
       if (
         !(
           target instanceof HTMLInputElement ||
@@ -122,18 +680,8 @@ const TravelPackageForm = () => {
       const disableFormArrowNavigation =
         target.getAttribute("data-disable-form-arrow-nav") === "true";
 
-      const owner = target.closest('[role="combobox"]') as HTMLElement | null;
-      const isAutocompleteOpen =
-        owner?.getAttribute("aria-expanded") === "true";
       if (isAutocompleteOpen) {
         // Let MUI Autocomplete handle keyboard interaction (including Enter selection)
-        return;
-      }
-
-      if (event.key === "Enter") {
-        if (target instanceof HTMLTextAreaElement) return;
-        event.preventDefault();
-        focusSibling(target);
         return;
       }
 
@@ -193,6 +741,7 @@ const TravelPackageForm = () => {
   );
 
   const saveTravelPackage = useCallback(async () => {
+    if (isFormLocked) return;
     if (isSaving || isLoadingDetail) return;
 
     if (isEditMode && !id) {
@@ -204,14 +753,42 @@ const TravelPackageForm = () => {
       return;
     }
 
+    const usuarioId = Number(authUser?.id ?? 0);
+    if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
+      showToast({
+        title: "Error",
+        description: "No se pudo resolver el usuario de la sesión.",
+        type: "error",
+      });
+      return;
+    }
+
+    const validationError = validateTravelPackageForm(form);
+    if (validationError) {
+      showToast({
+        title: "Validación",
+        description: validationError.message,
+        type: "error",
+      });
+      focusBySelector(validationError.focusSelector);
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       const payload = buildTravelPackageLegacyPayload(form);
-      const valores = isEditMode ? `${String(id)}|${payload}` : payload;
+      const splitIndex = payload.indexOf("[");
+      const payloadWithUsuario =
+        splitIndex >= 0
+          ? `${payload.slice(0, splitIndex)}|${usuarioId}${payload.slice(splitIndex)}`
+          : `${payload}|${usuarioId}`;
+      const valoresFinal = isEditMode
+        ? `${String(id)}|${payloadWithUsuario}`
+        : payloadWithUsuario;
       const response = isEditMode
-        ? await actualizarPaqueteViaje(valores)
-        : await agregarPaqueteViaje(valores);
+        ? await actualizarPaqueteViaje(valoresFinal)
+        : await agregarPaqueteViaje(valoresFinal);
       const normalized = String(response ?? "")
         .trim()
         .toUpperCase();
@@ -242,6 +819,31 @@ const TravelPackageForm = () => {
           : "El paquete de viaje se registró correctamente.",
         type: "success",
       });
+
+      const responseId = resolveSavedPackageId(response);
+      const editId = parsePositiveId(id);
+      const packageId = responseId ?? (isEditMode ? editId : null);
+      const invoiceData = buildPackageInvoiceData(form, packageId);
+
+      try {
+        localStorage.setItem(
+          PACKAGE_INVOICE_STORAGE_KEY,
+          JSON.stringify(invoiceData),
+        );
+      } catch {
+        // no bloquear navegación por errores de storage
+      }
+
+      const previewPath = packageId
+        ? `/paquete-viaje/${packageId}/preview`
+        : "/paquete-viaje/preview";
+
+      navigate(previewPath, {
+        state: {
+          invoiceData,
+          packageId: packageId ?? undefined,
+        },
+      });
     } catch (error) {
       showToast({
         title: "Error",
@@ -256,15 +858,21 @@ const TravelPackageForm = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [form, id, isEditMode, isLoadingDetail, isSaving]);
+  }, [
+    authUser?.id,
+    form,
+    id,
+    isEditMode,
+    isFormLocked,
+    isLoadingDetail,
+    isSaving,
+    navigate,
+  ]);
 
-  const handleFormSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      void saveTravelPackage();
-    },
-    [saveTravelPackage],
-  );
+  const handleFormSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+    // Guardar se ejecuta solo con click explícito en el botón Guardar.
+    event.preventDefault();
+  }, []);
 
   const handleToggleVerificado = useCallback(async () => {
     if (!canToggleVerificado || !isEditMode || !id) return;
@@ -288,9 +896,7 @@ const TravelPackageForm = () => {
         estado: nextEstado,
       });
       const backendRejected =
-        response === false ||
-        response === "false" ||
-        response === "FALSE";
+        response === false || response === "false" || response === "FALSE";
       if (backendRejected) {
         showToast({
           title: "Verificación",
@@ -351,12 +957,63 @@ const TravelPackageForm = () => {
     openDialog,
   ]);
 
+  const handleUnlockEditing = useCallback(() => {
+    if (!isEditMode) return;
+    setIsEditing(true);
+  }, [isEditMode]);
+
+  const handlePrint = useCallback(() => {
+    const editId = parsePositiveId(id);
+    const packageId = isEditMode ? editId : null;
+    const invoiceData = buildPackageInvoiceData(form, packageId);
+
+    try {
+      localStorage.setItem(
+        PACKAGE_INVOICE_STORAGE_KEY,
+        JSON.stringify(invoiceData),
+      );
+    } catch {
+      // no bloquear navegación por errores de storage
+    }
+
+    const previewPath = packageId
+      ? `/paquete-viaje/${packageId}/preview`
+      : "/paquete-viaje/preview";
+
+    navigate(previewPath, {
+      state: {
+        invoiceData,
+        packageId: packageId ?? undefined,
+      },
+    });
+  }, [form, id, isEditMode, navigate]);
+
+  const handleOpenBoleta = useCallback(() => {
+    if (!isEditMode) return;
+
+    const packageId = parsePositiveId(id);
+    if (!packageId) {
+      showToast({
+        title: "Error",
+        description: "No se pudo resolver el identificador del paquete.",
+        type: "error",
+      });
+      return;
+    }
+
+    const boletaData = buildTravelPackageBoletaData(form, packageId);
+    navigate(`/paquete-viaje/${packageId}/boleta`, {
+      state: { boletaData },
+    });
+  }, [form, id, isEditMode, navigate]);
+
   return (
     <form
       className="w-full space-y-6 pb-12"
       onSubmit={handleFormSubmit}
       onKeyDownCapture={handleFormKeyDownCapture}
       onChangeCapture={handleFormChangeCapture}
+      noValidate
     >
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-3 sm:p-4 lg:p-5">
         {/* Header */}
@@ -401,10 +1058,11 @@ const TravelPackageForm = () => {
               </label>
               <select
                 value={form.documentoCobranza}
+                disabled={fieldsetDisabled}
                 onChange={(event) =>
                   handlers.updateField("documentoCobranza", event.target.value)
                 }
-                className="h-[36px] w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700"
+                className="h-[36px] w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
               >
                 {DOCUMENTO_COBRANZA_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -419,11 +1077,18 @@ const TravelPackageForm = () => {
                 Serie
               </label>
               <input
+                name="nserie"
                 value={form.nserie}
                 maxLength={4}
-                disabled={form.documentoCobranza === "DOCUMENTO COBRANZA"}
+                disabled={
+                  fieldsetDisabled ||
+                  form.documentoCobranza === "DOCUMENTO COBRANZA"
+                }
                 onChange={(event) =>
-                  handlers.updateField("nserie", event.target.value.toUpperCase())
+                  handlers.updateField(
+                    "nserie",
+                    event.target.value.toUpperCase(),
+                  )
                 }
                 className="h-[36px] w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
               />
@@ -434,8 +1099,12 @@ const TravelPackageForm = () => {
                 Nro documento
               </label>
               <input
+                name="ndocumento"
                 value={form.ndocumento}
-                disabled={form.documentoCobranza === "DOCUMENTO COBRANZA"}
+                disabled={
+                  fieldsetDisabled ||
+                  form.documentoCobranza === "DOCUMENTO COBRANZA"
+                }
                 onChange={(event) =>
                   handlers.updateField("ndocumento", event.target.value)
                 }
@@ -443,7 +1112,27 @@ const TravelPackageForm = () => {
               />
             </div>
 
-            {canToggleVerificado && isEditMode && (
+            <button
+              type="button"
+              onClick={handlePrint}
+              disabled={isLoadingDetail || isSaving || !isEditMode}
+              className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenBoleta}
+              disabled={isLoadingDetail || isSaving || !isEditMode}
+              className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 text-white text-sm font-semibold shadow-sm ring-1 ring-rose-600/30 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FileText className="h-4 w-4" />
+              Docu
+            </button>
+
+            {canToggleVerificado && isEditMode && !isEditing && (
               <button
                 type="button"
                 disabled={isLoadingDetail || isUpdatingVerificado}
@@ -469,81 +1158,96 @@ const TravelPackageForm = () => {
               </button>
             )}
 
-            <button
-              type="submit"
-              disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
-              className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 text-white text-sm font-semibold shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Save className="h-4 w-4" />
-              {isLoadingDetail
-                ? "Cargando..."
-                : isSaving
-                  ? "Guardando..."
-                  : isEditMode
-                    ? "Actualizar paquete"
-                    : "Guardar paquete"}
-            </button>
+            {isEditing ? (
+              <button
+                type="button"
+                onClick={() => void saveTravelPackage()}
+                disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
+                className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 text-white text-sm font-semibold shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Save className="h-4 w-4" />
+                {isLoadingDetail
+                  ? "Cargando..."
+                  : isSaving
+                    ? "Guardando..."
+                    : "Guardar"}
+              </button>
+            ) : (
+              isEditMode && (
+                <button
+                  type="button"
+                  onClick={handleUnlockEditing}
+                  disabled={isLoadingDetail || isSaving || isUpdatingVerificado}
+                  title="Desbloquear edición"
+                  className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Lock className="h-4 w-4" />
+                </button>
+              )
+            )}
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 items-start">
-          {/* Row 1: General Data - Full Width */}
-          <div className="md:col-span-2">
-            <GeneralDataSection
-              form={form}
-              onUpdateField={handlers.updateField}
-            />
-          </div>
+        <fieldset disabled={fieldsetDisabled} className="contents">
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 items-start">
+            {/* Row 1: General Data - Full Width */}
+            <div className="md:col-span-2">
+              <GeneralDataSection
+                form={form}
+                onUpdateField={handlers.updateField}
+              />
+            </div>
 
-          <div className="grid grid-cols-1 gap-6 h-full md:col-span-2">
-            <AgencySection
-              form={form}
-              onUpdateField={handlers.updateField}
-              onUpdateAgencia={handlers.updateAgencia}
-            />
-          </div>
+            <div className="grid grid-cols-1 gap-6 h-full md:col-span-2">
+              <AgencySection
+                form={form}
+                onUpdateField={handlers.updateField}
+                onUpdateAgencia={handlers.updateAgencia}
+              />
+            </div>
 
-          <div className="grid grid-cols-1 gap-6 h-full md:col-span-2">
-            <PassengersSection
-              pasajeros={form.pasajeros}
-              onUpdateField={handlers.updatePassengerField}
-              onAdd={handlers.addPassenger}
-              onRemove={handlers.removePassenger}
-            />
-          </div>
+            <div className="grid grid-cols-1 gap-6 h-full md:col-span-2">
+              <PassengersSection
+                pasajeros={form.pasajeros}
+                onUpdateField={handlers.updatePassengerField}
+                onAdd={handlers.addPassenger}
+                onRemove={handlers.removePassenger}
+              />
+            </div>
 
-          <div className="md:col-span-2">
-            <ServiciosContratadosSection
-              form={form}
-              onUpdateField={handlers.updateField}
-              onAddHotelServicio={handlers.addHotelServicio}
-              onRemoveHotelServicio={handlers.removeHotelServicio}
-              onUpdateHotelServicioField={handlers.updateHotelServicioField}
-            />
-          </div>
+            <div className="md:col-span-2">
+              <ServiciosContratadosSection
+                form={form}
+                onUpdateField={handlers.updateField}
+                onAddHotelServicio={handlers.addHotelServicio}
+                onRemoveHotelServicio={handlers.removeHotelServicio}
+                onUpdateHotelServicioField={handlers.updateHotelServicioField}
+              />
+            </div>
 
-          {/* Row 4: Itinerary - Full Width */}
-          <div className="md:col-span-2">
-            <ItinerarySection
-              itinerario={form.itinerario}
-              cantPax={form.cantPax}
-              moneda={form.moneda}
-              onUpdateDayField={handlers.updateItineraryDayField}
-              onAddDay={handlers.addItineraryDay}
-              onRemoveDay={handlers.removeItineraryDay}
-              onAddEvent={handlers.addDayEvent}
-              onRemoveEvent={handlers.removeDayEvent}
-              onUpdateEventField={handlers.updateDayEventField}
-            />
-          </div>
+            {/* Row 4: Itinerary - Full Width */}
+            <div className="md:col-span-2">
+              <ItinerarySection
+                itinerario={form.itinerario}
+                cantPax={form.cantPax}
+                moneda={form.moneda}
+                onUpdateDayField={handlers.updateItineraryDayField}
+                onAddDay={handlers.addItineraryDay}
+                onRemoveDay={handlers.removeItineraryDay}
+                onAddEvent={handlers.addDayEvent}
+                onRemoveEvent={handlers.removeDayEvent}
+                onUpdateEventField={handlers.updateDayEventField}
+              />
+            </div>
 
-          <div className="md:col-span-2">
-            <LiquidationSection
-              form={form}
-              onUpdateField={handlers.updateField}
-            />
+            <div className="md:col-span-2">
+              <LiquidationSection
+                form={form}
+                onUpdateField={handlers.updateField}
+              />
+            </div>
           </div>
-        </div>
+        </fieldset>
       </div>
     </form>
   );

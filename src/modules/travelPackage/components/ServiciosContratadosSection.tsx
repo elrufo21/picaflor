@@ -105,12 +105,16 @@ const ServiciosContratadosSection = ({
   onUpdateHotelServicioField,
 }: Props) => {
   const initialAlimentacionTipo = String(
-    (form.hotelesContratados ?? []).find((row) => row.alimentacionTipo)
-      ?.alimentacionTipo ?? "",
+    (form.hotelesContratados ?? []).find(
+      (row) => row.incluyeAlimentacion && row.alimentacionTipo !== "-",
+    )?.alimentacionTipo ?? "",
   );
-  const initialIncluyeAlimentacion =
-    initialAlimentacionTipo.length > 0 ||
-    (form.hotelesContratados ?? []).some((row) => row.incluyeAlimentacion);
+  const initialIncluyeAlimentacion = (form.hotelesContratados ?? []).some(
+    (row) => row.incluyeAlimentacion,
+  );
+  const initialAlimentacionGlobal = initialIncluyeAlimentacion
+    ? initialAlimentacionTipo
+    : "-";
 
   const { control, setValue, watch } = useForm<ServiciosContratadosFormValues>({
     defaultValues: {
@@ -119,7 +123,7 @@ const ServiciosContratadosSection = ({
       movilidadPrecio: String(form.movilidadPrecio ?? ""),
       incluyeHotel: form.incluyeHotel ? "SI" : "",
       incluyeAlimentacionEstado: initialIncluyeAlimentacion ? "SI" : "NO",
-      incluyeAlimentacionGlobal: initialAlimentacionTipo,
+      incluyeAlimentacionGlobal: initialAlimentacionGlobal,
       precioAlimentacionGlobal: "",
     },
   });
@@ -142,7 +146,9 @@ const ServiciosContratadosSection = ({
     watch("incluyeAlimentacionGlobal") ?? "",
   );
   const showAlimentacionPrice = Boolean(
-    selectedAlimentacionEstado === "SI" && selectedAlimentacionGlobal,
+    selectedAlimentacionEstado === "SI" &&
+      selectedAlimentacionGlobal &&
+      selectedAlimentacionGlobal !== "-",
   );
   const hasHotelPackage = useMemo(
     () =>
@@ -576,7 +582,8 @@ const ServiciosContratadosSection = ({
                   const nextEstado = String(e.target.value);
                   const include = nextEstado === "SI";
                   const selectedTipo = selectedAlimentacionGlobal.trim();
-                  const nextTipo = include ? selectedTipo : "";
+                  const normalizedTipo = selectedTipo === "-" ? "" : selectedTipo;
+                  const nextTipo = include ? normalizedTipo : "-";
                   hotelesContratados.forEach((row) => {
                     onUpdateHotelServicioField(
                       row.id,
@@ -597,12 +604,20 @@ const ServiciosContratadosSection = ({
                     }
                   });
                   if (!include) {
-                    setValue("incluyeAlimentacionGlobal", "", {
+                    setValue("incluyeAlimentacionGlobal", "-", {
                       shouldDirty: false,
                       shouldTouch: false,
                       shouldValidate: false,
                     });
                     setValue("precioAlimentacionGlobal", "", {
+                      shouldDirty: false,
+                      shouldTouch: false,
+                      shouldValidate: false,
+                    });
+                    return;
+                  }
+                  if (!normalizedTipo) {
+                    setValue("incluyeAlimentacionGlobal", "", {
                       shouldDirty: false,
                       shouldTouch: false,
                       shouldValidate: false,
@@ -622,6 +637,9 @@ const ServiciosContratadosSection = ({
                 data-focus-next='input[data-focus-target="alimentacion-precio"]'
                 options={[
                   { value: "", label: "SELECCIONE" },
+                  ...(selectedAlimentacionEstado === "SI"
+                    ? []
+                    : [{ value: "-", label: "-" }]),
                   ...ALIMENTACION_OPTIONS.map((option) => ({
                     value: option,
                     label: option,

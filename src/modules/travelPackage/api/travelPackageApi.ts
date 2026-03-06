@@ -29,14 +29,21 @@ export async function agregarPaqueteViaje(valores: string) {
   }
 }
 
-export async function listarPaqueteViaje(valores: string) {
+export async function listarPaqueteViaje(
+  valores: string,
+  options?: { esViaje?: boolean },
+) {
+  const requestBody = options?.esViaje
+    ? { valores, esViaje: true }
+    : { valores };
+
   const response = await fetch(`${PROGRAMACION_API_URL}/lista-paquete-viaje`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       accept: "text/plain",
     },
-    body: JSON.stringify({ valores }),
+    body: JSON.stringify(requestBody),
   });
 
   const raw = (await response.text()).trim();

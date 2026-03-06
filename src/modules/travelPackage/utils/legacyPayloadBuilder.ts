@@ -22,6 +22,13 @@ const toBoolFlag = (value: unknown): string => (value ? "1" : "0");
 const isSinHotelPackage = (paquete: unknown) =>
   cleanText(paquete).toLowerCase().includes("sin hotel");
 
+const resolveEstadoBySaldo = (form: TravelPackageFormState): string => {
+  const saldo = Number(form.saldo);
+  const estadoBase = cleanText(form.condicionPago || "CANCELADO");
+  if (Number.isFinite(saldo) && saldo > 0) return "PENDIENTE";
+  return estadoBase || "CANCELADO";
+};
+
 const calculateHotelRoomImporteTotal = (
   habitaciones?: Array<{ cantidad: number; precio: number }>,
 ) =>
@@ -100,7 +107,7 @@ export const buildTravelPackageLegacyPayload = (
     cleanText(form.noIncluye),
     cleanText(form.impuestosAdicionales),
     cleanText(form.observaciones),
-    "BORRADOR",
+    resolveEstadoBySaldo(form),
   ];
 
   const detailRows: string[] = [];

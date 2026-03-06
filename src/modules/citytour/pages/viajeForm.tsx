@@ -42,6 +42,20 @@ import {
   toISODate,
 } from "@/shared/helpers/helpers";
 import { formatDate } from "@/shared/helpers/formatDate";
+
+const LIQUIDACIONES_STALE_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:stale:v1";
+
+const markLiquidacionesAsStale = () => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(LIQUIDACIONES_STALE_STORAGE_KEY, "1");
+  } catch {
+    // ignorar errores de almacenamiento para no afectar el flujo
+  }
+};
+
 function parseFecha(fecha: string): string {
   if (!fecha) return "";
 
@@ -1221,6 +1235,7 @@ const ViajeForm = () => {
 
       localStorage.setItem("invoiceData", JSON.stringify(pdfData));
       localStorage.setItem("invoiceBackend", result);
+      markLiquidacionesAsStale();
       navigate(`/cityTour/${idProduct}/passengers/preview`, {
         state: {
           invoiceData: pdfData,
@@ -1366,6 +1381,7 @@ const ViajeForm = () => {
           : "La liquidación fue marcada como no verificada.",
         type: "success",
       });
+      markLiquidacionesAsStale();
     } catch (error) {
       console.error("Error al actualizar verificado:", error);
       showToast({
@@ -1449,6 +1465,7 @@ const ViajeForm = () => {
           description: "La liquidación se eliminó correctamente.",
           type: "success",
         });
+        markLiquidacionesAsStale();
         navigate("/fullday/programacion/liquidaciones", {
           state: { refresh: Date.now() },
         });

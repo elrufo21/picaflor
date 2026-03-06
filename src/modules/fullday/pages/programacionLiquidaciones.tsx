@@ -182,6 +182,10 @@ const LIQUIDACIONES_FILTERS_STORAGE_KEY =
   "fullday:programacion-liquidaciones:filters:v1";
 const LIQUIDACIONES_PAGINATION_STORAGE_KEY =
   "fullday:programacion-liquidaciones:pagination:v1";
+const LIQUIDACIONES_DATA_CACHE_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:data-cache:v1";
+const LIQUIDACIONES_STALE_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:stale:v1";
 const LIQUIDACIONES_PAGINATION_RESET_EVENT =
   "picaflor:fullday-programacion:reset-pagination";
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -210,6 +214,15 @@ type InitialLiquidacionesFilters = {
   searchNumber: string;
   searchCanal: string | null;
   searchCanalInput: string;
+};
+
+type PersistedLiquidacionesDataCache = {
+  payload: string;
+  startDate: string;
+  endDate: string;
+  searchByFechaViaje: boolean;
+  areaId: number;
+  usuarioId: number;
 };
 
 const parseDateFilterValue = (value: unknown): string | null => {
@@ -250,6 +263,13 @@ const parseBooleanFilterValue = (value: unknown): boolean | null => {
   if (normalized === "true" || normalized === "1") return true;
   if (normalized === "false" || normalized === "0") return false;
   return null;
+};
+const parsePositiveIntegerFilterValue = (value: unknown): number | null => {
+  const normalized = normalizeStringValue(String(value ?? ""));
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.floor(parsed);
 };
 
 const readPersistedLiquidacionesFilters = (): PersistedLiquidacionesFilters => {
@@ -334,6 +354,87 @@ const writePersistedLiquidacionesPagination = (pagination: PaginationState) => {
           Number(pagination.pageSize) || LIQUIDACIONES_DEFAULT_PAGE_SIZE,
       }),
     );
+  } catch {
+    // ignorar errores de almacenamiento para no afectar la pantalla
+  }
+};
+
+const readPersistedLiquidacionesDataCache =
+  (): PersistedLiquidacionesDataCache | null => {
+    if (typeof window === "undefined") return null;
+
+    try {
+      const raw = window.sessionStorage.getItem(
+        LIQUIDACIONES_DATA_CACHE_STORAGE_KEY,
+      );
+      if (!raw) return null;
+
+      const parsed = JSON.parse(raw) as Partial<PersistedLiquidacionesDataCache>;
+
+      const payload = String(parsed?.payload ?? "").trim();
+      const startDate = parseDateFilterValue(parsed?.startDate);
+      const endDate = parseDateFilterValue(parsed?.endDate);
+      const searchByFechaViaje = parseBooleanFilterValue(
+        parsed?.searchByFechaViaje,
+      );
+      const areaId = parsePositiveIntegerFilterValue(parsed?.areaId);
+      const usuarioId = parsePositiveIntegerFilterValue(parsed?.usuarioId);
+
+      if (
+        !payload ||
+        !startDate ||
+        !endDate ||
+        searchByFechaViaje === null ||
+        !areaId ||
+        !usuarioId
+      ) {
+        return null;
+      }
+
+      return {
+        payload,
+        startDate,
+        endDate,
+        searchByFechaViaje,
+        areaId,
+        usuarioId,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+const writePersistedLiquidacionesDataCache = (
+  dataCache: PersistedLiquidacionesDataCache,
+) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(
+      LIQUIDACIONES_DATA_CACHE_STORAGE_KEY,
+      JSON.stringify(dataCache),
+    );
+  } catch {
+    // ignorar errores de almacenamiento para no afectar la pantalla
+  }
+};
+
+const hasPersistedLiquidacionesStaleFlag = (): boolean => {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const raw = window.sessionStorage.getItem(LIQUIDACIONES_STALE_STORAGE_KEY);
+    return raw === "1" || raw === "true";
+  } catch {
+    return false;
+  }
+};
+
+const clearPersistedLiquidacionesStaleFlag = () => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.removeItem(LIQUIDACIONES_STALE_STORAGE_KEY);
   } catch {
     // ignorar errores de almacenamiento para no afectar la pantalla
   }
@@ -756,6 +857,10 @@ const LiquidacionesPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const refreshKey =
+    location.state && typeof location.state === "object"
+      ? (location.state as { refresh?: unknown }).refresh
+      : undefined;
   const { loadServicios, loadServiciosFromDB, setFormData } = usePackageStore();
   const [rows, setRows] = useState<LiquidacionRow[]>([]);
   const [filteredRowsForTotals, setFilteredRowsForTotals] = useState<
@@ -787,6 +892,7 @@ const LiquidacionesPage = () => {
   const pendingStartDateRef = useRef(pendingStartDate);
   const pendingEndDateRef = useRef(pendingEndDate);
   const initialReloadRef = useRef(false);
+  const handledRefreshKeyRef = useRef<unknown>(undefined);
   const productosLoadedRef = useRef(false);
   useEffect(() => {
     pendingStartDateRef.current = pendingStartDate;
@@ -1712,8 +1818,18 @@ const LiquidacionesPage = () => {
         };
 
         const response = await fetchPedidosFecha(payload);
-        const parsedRows = parseLiquidacionesPayload(response);
+        const responsePayload = String(response ?? "");
+        const parsedRows = parseLiquidacionesPayload(responsePayload);
         setAllRows(parsedRows);
+        writePersistedLiquidacionesDataCache({
+          payload: responsePayload,
+          startDate: rangeStart,
+          endDate: rangeEnd,
+          searchByFechaViaje: useFechaViaje,
+          areaId,
+          usuarioId,
+        });
+        clearPersistedLiquidacionesStaleFlag();
       } catch (err) {
         const message =
           err instanceof Error
@@ -1742,14 +1858,57 @@ const LiquidacionesPage = () => {
   useEffect(() => {
     if (initialReloadRef.current) return;
     initialReloadRef.current = true;
-    reload();
-  }, [reload]);
-  const refreshKey = location.state?.refresh;
-  useEffect(() => {
-    if (refreshKey) {
-      reload();
+    const currentStart = pendingStartDateRef.current ?? todayValue;
+    const currentEnd = pendingEndDateRef.current ?? todayValue;
+    const hasStaleData = hasPersistedLiquidacionesStaleFlag();
+    const forceRefresh = Boolean(refreshKey) || hasStaleData;
+
+    if (forceRefresh) {
+      handledRefreshKeyRef.current = refreshKey;
+      reload(currentStart, currentEnd, searchByFechaViaje);
+      return;
     }
-  }, [refreshKey, reload]);
+
+    const areaId = Number(user?.areaId ?? user?.area ?? 0);
+    const usuarioId = Number(user?.id ?? 0);
+    const cache = readPersistedLiquidacionesDataCache();
+    const canUseCache =
+      cache &&
+      areaId > 0 &&
+      usuarioId > 0 &&
+      cache.areaId === areaId &&
+      cache.usuarioId === usuarioId &&
+      cache.startDate === currentStart &&
+      cache.endDate === currentEnd &&
+      cache.searchByFechaViaje === searchByFechaViaje;
+
+    if (canUseCache && cache) {
+      const parsedRows = parseLiquidacionesPayload(cache.payload);
+      setAllRows(parsedRows);
+      lastReloadRangeRef.current = {
+        start: cache.startDate,
+        end: cache.endDate,
+      };
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    reload(currentStart, currentEnd, searchByFechaViaje);
+  }, [reload, refreshKey, searchByFechaViaje, todayValue, user]);
+
+  useEffect(() => {
+    if (!initialReloadRef.current) return;
+    if (!refreshKey) return;
+    if (handledRefreshKeyRef.current === refreshKey) return;
+    handledRefreshKeyRef.current = refreshKey;
+
+    reload(
+      pendingStartDateRef.current,
+      pendingEndDateRef.current,
+      searchByFechaViaje,
+    );
+  }, [refreshKey, reload, searchByFechaViaje]);
   const endDateRef = useRef<HTMLInputElement | null>(null);
 
   const SearchModeFilterInput = ({
@@ -1759,9 +1918,9 @@ const LiquidacionesPage = () => {
     globalFilter: string;
     setGlobalFilter: (value: string) => void;
   }) => (
-    <div className="w-full max-w-full space-y-2 sm:max-w-lg lg:max-w-xl">
-      <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="w-full max-w-full space-y-2">
+      <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 md:flex md:flex-wrap md:items-center md:gap-4">
+        <div className="flex items-end justify-between gap-4">
           <ChevronLeft
             className="cursor-pointer"
             onClick={() => {
@@ -2155,9 +2314,9 @@ const LiquidacionesPage = () => {
 
   const DateRangeFilter = () => (
     <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6 xl:items-end">
         {/* FECHA INICIO */}
-        <div className="flex flex-col gap-1 text-xs text-slate-500">
+        <div className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
           <label className="font-medium text-slate-600">Fecha Inicio</label>
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
@@ -2171,7 +2330,7 @@ const LiquidacionesPage = () => {
                 textField: {
                   size: "small",
                   sx: {
-                    width: { xs: "100%", sm: 170 },
+                    width: "100%",
                     "& .MuiOutlinedInput-root": {
                       height: 40,
                       borderRadius: "0.5rem",
@@ -2185,7 +2344,7 @@ const LiquidacionesPage = () => {
         </div>
 
         {/* FECHA FIN */}
-        <div className="flex flex-col gap-1 text-xs text-slate-500">
+        <div className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
           <label className="font-medium text-slate-600">Fecha Fin</label>
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
@@ -2226,7 +2385,7 @@ const LiquidacionesPage = () => {
                 textField: {
                   size: "small",
                   sx: {
-                    width: { xs: "100%", sm: 170 },
+                    width: "100%",
                     "& .MuiOutlinedInput-root": {
                       height: 40,
                       borderRadius: "0.5rem",
@@ -2240,7 +2399,7 @@ const LiquidacionesPage = () => {
         </div>
 
         {/* SERVICIO */}
-        <div className="flex flex-col gap-1 text-xs text-slate-500">
+        <div className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
           <label className="font-medium text-slate-600">Servicio</label>
           <select
             value={selectedFlagServicio ?? ""}
@@ -2248,7 +2407,7 @@ const LiquidacionesPage = () => {
               const value = e.target.value;
               setSelectedFlagServicio(value ? Number(value) : null);
             }}
-            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
           >
             <option value="">Todas</option>
             {FLAG_SERVICIO_OPTIONS.map((option) => (
@@ -2260,14 +2419,14 @@ const LiquidacionesPage = () => {
         </div>
 
         {/* CONDICIÓN */}
-        <div className="flex flex-col gap-1 text-xs text-slate-500">
+        <div className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
           <label className="font-medium text-slate-600">Condición</label>
           <select
             value={selectedCondicion}
             onChange={(e) =>
               setSelectedCondicion(e.target.value as CondicionFilterValue)
             }
-            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
           >
             {CONDICION_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -2278,13 +2437,13 @@ const LiquidacionesPage = () => {
         </div>
 
         {/* BOTONES */}
-        <div className="flex gap-3 lg:ml-auto">
+        <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row xl:col-span-2 xl:justify-end">
           {/* BUSCAR */}
           <button
             type="button"
             onClick={handleRangeSearch}
             disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800 disabled:opacity-60 transition"
+            className="flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800 disabled:opacity-60 sm:min-w-[132px]"
           >
             <Search size={16} />
             Buscar
@@ -2295,7 +2454,7 @@ const LiquidacionesPage = () => {
             onClick={() => {
               handleExcelExport();
             }}
-            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 transition"
+            className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-700 sm:min-w-[132px]"
           >
             <FileSpreadsheet size={16} />
             Excel
