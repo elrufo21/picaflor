@@ -130,8 +130,10 @@ export const buildTravelPackageLegacyPayload = (
   form.pasajeros.forEach((row, index) => {
     const nombres = cleanText(row.nombres);
     if (!nombres) return;
+    const fechaNacimiento = cleanText(row.fechaNacimiento);
+    const fechaNacimientoToken = fechaNacimiento || "null";
     detailRows.push(
-      `PAX|${index + 1}|${nombres}|${cleanText(row.pasaporte)}|${cleanText(row.nacionalidad)}|${cleanText(row.telefono)}|${cleanText(row.fechaNacimiento)}`,
+      `PAX|${index + 1}|${nombres}|${cleanText(row.pasaporte)}|${cleanText(row.nacionalidad)}|${cleanText(row.telefono)}|${fechaNacimientoToken}`,
     );
   });
 

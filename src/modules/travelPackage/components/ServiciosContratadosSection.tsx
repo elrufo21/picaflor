@@ -798,17 +798,21 @@ const ServiciosContratadosSection = ({
                 }
               />
             </div>
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={handleAddHotelCatalog}
-                className="inline-flex h-9 items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Agregar hotel
-              </button>
-            </div>
-            <div className="hidden md:block" />
+            {form.incluyeHotel && (
+              <>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleAddHotelCatalog}
+                    className="inline-flex h-9 items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Agregar hotel
+                  </button>
+                </div>
+                <div className="hidden md:block" />
+              </>
+            )}
           </div>
         </div>
 

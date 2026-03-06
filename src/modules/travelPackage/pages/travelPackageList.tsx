@@ -1,3 +1,4 @@
+import * as XLSX from "xlsx-js-style";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createColumnHelper,
@@ -9,7 +10,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { esES } from "@mui/x-date-pickers/locales";
 import { useLocation, useNavigate } from "react-router";
-import { Check, ChevronLeft, Plus, Search, X } from "lucide-react";
+import { Check, ChevronLeft, FileSpreadsheet, Plus, Search, X } from "lucide-react";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 
@@ -674,6 +675,230 @@ const TravelPackageList = () => {
   const handleRangeSearch = () => {
     void loadListado(pendingStartDate, pendingEndDate);
   };
+  const handleExcelExport = () => {
+    const exportableRows = rows.filter((row) => row.idPaqueteViaje > 0);
+    if (exportableRows.length === 0) {
+      showToast({
+        title: "No hay datos",
+        description: "No hay datos para exportar.",
+        type: "error",
+      });
+      return;
+    }
+
+    type ExportColumn = {
+      key: string;
+      label: string;
+      width?: number;
+      numeric?: boolean;
+      money?: boolean;
+      align?: "center" | "right";
+      getValue: (row: TravelPackageListadoRow) => unknown;
+    };
+
+    const exportColumns: ExportColumn[] = [];
+    if (sessionStore?.user?.areaId === "6") {
+      exportColumns.push({
+        key: "pVerificado",
+        label: "Verificado",
+        width: 14,
+        align: "center",
+        getValue: (row) => (isPagoVerificado(row) ? "SI" : "NO"),
+      });
+    }
+
+    exportColumns.push(
+      {
+        key: "idPaqueteViaje",
+        label: "Id",
+        width: 10,
+        numeric: true,
+        align: "right",
+        getValue: (row) => row.idPaqueteViaje,
+      },
+      {
+        key: "fechaEmision",
+        label: "Fecha emision",
+        width: 14,
+        getValue: (row) => row.fechaEmision,
+      },
+      {
+        key: "programa",
+        label: "Programa",
+        width: 28,
+        getValue: (row) => row.programa,
+      },
+      {
+        key: "agenciaNombre",
+        label: "Agencia",
+        width: 24,
+        getValue: (row) => row.agenciaNombre,
+      },
+      {
+        key: "primerPasajero",
+        label: "Primer pasajero",
+        width: 24,
+        getValue: (row) => row.primerPasajero,
+      },
+      {
+        key: "condicionPago",
+        label: "Condicion",
+        width: 14,
+        getValue: (row) => row.condicionPago,
+      },
+      {
+        key: "moneda",
+        label: "Moneda",
+        width: 12,
+        getValue: (row) => row.moneda,
+      },
+      {
+        key: "totalGeneral",
+        label: "Total",
+        width: 12,
+        numeric: true,
+        money: true,
+        align: "right",
+        getValue: (row) => row.totalGeneral,
+      },
+      {
+        key: "acuenta",
+        label: "A cuenta",
+        width: 12,
+        numeric: true,
+        money: true,
+        align: "right",
+        getValue: (row) => row.acuenta,
+      },
+      {
+        key: "saldo",
+        label: "Saldo",
+        width: 12,
+        numeric: true,
+        money: true,
+        align: "right",
+        getValue: (row) => row.saldo,
+      },
+      {
+        key: "estado",
+        label: "Estado",
+        width: 14,
+        align: "center",
+        getValue: (row) => row.estado,
+      },
+    );
+
+    const data = exportableRows.map((row) => {
+      const rowData: Record<string, string | number> = {};
+      exportColumns.forEach((column) => {
+        const rawValue = column.getValue(row);
+        rowData[column.label] = column.numeric
+          ? Number(rawValue ?? 0) || 0
+          : normalizeStringValue(rawValue);
+      });
+      return rowData;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data, {
+      origin: "A2",
+      skipHeader: true,
+    });
+
+    exportColumns.forEach((column, index) => {
+      const ref = XLSX.utils.encode_cell({ r: 0, c: index });
+      ws[ref] = {
+        t: "s",
+        v: column.label,
+        s: {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          alignment: {
+            horizontal: "center",
+            vertical: "center",
+            wrapText: true,
+          },
+          fill: { fgColor: { rgb: "3377FF" } },
+          border: {
+            top: { style: "thin", color: { rgb: "475569" } },
+            bottom: { style: "thin", color: { rgb: "475569" } },
+            left: { style: "thin", color: { rgb: "475569" } },
+            right: { style: "thin", color: { rgb: "475569" } },
+          },
+        },
+      };
+    });
+
+    const centerAlignedCols = exportColumns
+      .map((column, index) => (column.align === "center" ? index : null))
+      .filter((index) => index !== null) as number[];
+    const rightAlignedCols = exportColumns
+      .map((column, index) => (column.align === "right" ? index : null))
+      .filter((index) => index !== null) as number[];
+    const numericCols = exportColumns
+      .map((column, index) => (column.numeric ? index : null))
+      .filter((index) => index !== null) as number[];
+    const moneyCols = exportColumns
+      .map((column, index) => (column.money ? index : null))
+      .filter((index) => index !== null) as number[];
+
+    const lastCol = XLSX.utils.encode_col(exportColumns.length - 1);
+    const lastRow = data.length + 1;
+
+    ws["!autofilter"] = {
+      ref: `A1:${lastCol}${lastRow}`,
+    };
+
+    ws["!cols"] = exportColumns.map((column) => ({
+      wch: column.width ?? 18,
+    }));
+
+    const range = XLSX.utils.decode_range(ws["!ref"] ?? `A1:${lastCol}1`);
+    for (let r = 1; r <= range.e.r; r++) {
+      const isEven = (r - 1) % 2 === 0;
+
+      for (let c = 0; c <= range.e.c; c++) {
+        const ref = XLSX.utils.encode_cell({ r, c });
+        if (!ws[ref]) continue;
+
+        if (numericCols.includes(c)) {
+          ws[ref].t = "n";
+          ws[ref].v = Number(ws[ref].v) || 0;
+          if (moneyCols.includes(c)) {
+            ws[ref].z = "0.00";
+          }
+        }
+
+        ws[ref].s = {
+          ...(ws[ref].s || {}),
+          alignment: centerAlignedCols.includes(c)
+            ? { horizontal: "center", vertical: "center" }
+            : rightAlignedCols.includes(c)
+              ? { horizontal: "right", vertical: "center" }
+              : { horizontal: "left", vertical: "center" },
+          fill: {
+            fgColor: { rgb: isEven ? "F8FAFC" : "FFFFFF" },
+          },
+          border: {
+            top: { style: "thin", color: { rgb: "E5E7EB" } },
+            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+            left: { style: "thin", color: { rgb: "E5E7EB" } },
+            right: { style: "thin", color: { rgb: "E5E7EB" } },
+          },
+        };
+      }
+    }
+
+    ws["!freeze"] = { ySplit: 1 };
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "PaqueteViaje");
+
+    const fileStart = pendingStartDateRef.current || todayValue;
+    const fileEnd = pendingEndDateRef.current || todayValue;
+    const fileDatePart =
+      fileStart === fileEnd ? fileStart : `${fileStart}_a_${fileEnd}`;
+
+    XLSX.writeFile(wb, `paquetes-viaje-${fileDatePart}.xlsx`);
+  };
 
   const columns = useMemo<ColumnDef<TravelPackageListadoRow>[]>(() => {
     const cols: ColumnDef<TravelPackageListadoRow>[] = [];
@@ -773,6 +998,16 @@ const TravelPackageList = () => {
     globalFilter: string;
     setGlobalFilter: (value: string) => void;
   }) => {
+    const AddButton = () => (
+      <button
+        type="button"
+        onClick={() => navigate("/paquete-viaje/new")}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow transition hover:bg-emerald-700"
+      >
+        <Plus size={16} />
+      </button>
+    );
+
     const handleToggleSearchByNumero = (checked: boolean) => {
       if (checked) {
         setSearchMode("numero");
@@ -849,49 +1084,58 @@ const TravelPackageList = () => {
         </div>
 
         {searchMode === "none" && (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <input
-              type="text"
-              value={globalFilter ?? ""}
-              onChange={(event) => setGlobalFilter(event.target.value)}
-              placeholder="Buscar en toda la tabla..."
-              className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-10 text-sm text-slate-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            {globalFilter && (
-              <button
-                type="button"
-                onClick={() => setGlobalFilter("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <input
+                type="text"
+                value={globalFilter ?? ""}
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                placeholder="Buscar en toda la tabla..."
+                className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-10 text-sm text-slate-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              {globalFilter && (
+                <button
+                  type="button"
+                  onClick={() => setGlobalFilter("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <AddButton />
           </div>
         )}
 
         {searchMode === "numero" && (
           <div className="space-y-1">
-            <input
-              type="text"
-              value={searchNumber}
-              onChange={(event) => setSearchNumber(event.target.value)}
-              placeholder="Buscar por numero de paquete"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={searchNumber}
+                onChange={(event) => setSearchNumber(event.target.value)}
+                placeholder="Buscar por numero de paquete"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+              <AddButton />
+            </div>
           </div>
         )}
 
         {searchMode === "agencia" && (
           <div className="space-y-1">
-            <input
-              list="travel-package-agency-options"
-              type="text"
-              value={searchAgency}
-              onChange={(event) => setSearchAgency(event.target.value)}
-              placeholder="Buscar por agencia"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                list="travel-package-agency-options"
+                type="text"
+                value={searchAgency}
+                onChange={(event) => setSearchAgency(event.target.value)}
+                placeholder="Buscar por agencia"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+              <AddButton />
+            </div>
             <datalist id="travel-package-agency-options">
               {Array.from(
                 new Set(
@@ -1053,10 +1297,12 @@ const TravelPackageList = () => {
 
           <button
             type="button"
-            onClick={() => navigate("/paquete-viaje/new")}
+            onClick={() => {
+              handleExcelExport();
+            }}
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shadow transition hover:bg-emerald-700"
           >
-            <Plus size={16} />
+            <FileSpreadsheet size={16} />
           </button>
         </div>
       </div>
