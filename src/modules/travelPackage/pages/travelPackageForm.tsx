@@ -21,6 +21,7 @@ import {
   FileText,
   Loader2,
   Lock,
+  Plus,
   Printer,
   RefreshCw,
   Save,
@@ -35,7 +36,12 @@ import {
 } from "../api/travelPackageApi";
 import { parseTravelPackageLegacyPayload } from "../utils/legacyPayloadParser";
 import { showToast } from "@/components/ui/AppToast";
-import { DOCUMENTO_COBRANZA_OPTIONS } from "../constants/travelPackage.constants";
+import {
+  createEmptyPassenger,
+  DOCUMENTO_COBRANZA_OPTIONS,
+  getTodayIso,
+  INITIAL_FORM_STATE,
+} from "../constants/travelPackage.constants";
 import type { PackageInvoiceData } from "@/components/invoice/PackageInvoice";
 import type { TravelPackageFormState } from "../types/travelPackage.types";
 
@@ -961,7 +967,7 @@ const TravelPackageForm = () => {
     if (!isEditMode) return;
     setIsEditing(true);
   }, [isEditMode]);
-
+  console.log("form", form);
   const handlePrint = useCallback(() => {
     const editId = parsePositiveId(id);
     const packageId = isEditMode ? editId : null;
@@ -1006,6 +1012,29 @@ const TravelPackageForm = () => {
       state: { boletaData },
     });
   }, [form, id, isEditMode, navigate]);
+
+  const handleNew = useCallback(() => {
+    if (isSaving || isLoadingDetail || isUpdatingVerificado) return;
+
+    const displayName = String(authUser?.displayName ?? "").trim();
+    replaceForm({
+      ...INITIAL_FORM_STATE,
+      fechaEmision: getTodayIso(),
+      counter: displayName || INITIAL_FORM_STATE.counter,
+      agencia: null,
+      paquetesViaje: [],
+      destinos: [],
+      hotelesContratados: [],
+      itinerario: [],
+      pasajeros: [createEmptyPassenger()],
+    });
+  }, [
+    authUser?.displayName,
+    isLoadingDetail,
+    isSaving,
+    isUpdatingVerificado,
+    replaceForm,
+  ]);
 
   return (
     <form
@@ -1090,11 +1119,11 @@ const TravelPackageForm = () => {
                     event.target.value.toUpperCase(),
                   )
                 }
-                className="h-[36px] w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+                className="h-[36px] w-[80px] rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
               />
             </div>
 
-            <div className="w-[170px] max-w-full">
+            <div className="w-[100px] max-w-full">
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                 Nro documento
               </label>
@@ -1112,25 +1141,27 @@ const TravelPackageForm = () => {
               />
             </div>
 
-            <button
-              type="button"
-              onClick={handlePrint}
-              disabled={isLoadingDetail || isSaving || !isEditMode}
-              className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Printer className="h-4 w-4" />
-              Imprimir
-            </button>
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={handlePrint}
+                disabled={isLoadingDetail || isSaving}
+                className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Printer className="h-4 w-4" />
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={handleOpenBoleta}
-              disabled={isLoadingDetail || isSaving || !isEditMode}
-              className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 text-white text-sm font-semibold shadow-sm ring-1 ring-rose-600/30 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <FileText className="h-4 w-4" />
-              Docu
-            </button>
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={handleOpenBoleta}
+                disabled={isLoadingDetail || isSaving}
+                className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 text-white text-sm font-semibold shadow-sm ring-1 ring-rose-600/30 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FileText className="h-4 w-4" />
+              </button>
+            )}
 
             {canToggleVerificado && isEditMode && !isEditing && (
               <button
@@ -1159,19 +1190,35 @@ const TravelPackageForm = () => {
             )}
 
             {isEditing ? (
-              <button
-                type="button"
-                onClick={() => void saveTravelPackage()}
-                disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
-                className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 text-white text-sm font-semibold shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Save className="h-4 w-4" />
-                {isLoadingDetail
-                  ? "Cargando..."
-                  : isSaving
-                    ? "Guardando..."
-                    : "Guardar"}
-              </button>
+              <>
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    onClick={handleNew}
+                    disabled={
+                      isSaving || isLoadingDetail || isUpdatingVerificado
+                    }
+                    className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Nuevo
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => void saveTravelPackage()}
+                  disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
+                  className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 text-white text-sm font-semibold shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {isLoadingDetail
+                    ? "Cargando..."
+                    : isSaving
+                      ? "Guardando..."
+                      : "Guardar"}
+                </button>
+              </>
             ) : (
               isEditMode && (
                 <button

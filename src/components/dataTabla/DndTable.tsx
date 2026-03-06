@@ -382,7 +382,9 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
   }, [enableCellNavigation, location.pathname]);
 
   return (
-    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${className}`}>
+    <div
+      className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${className}`}
+    >
       {/* Header con búsqueda y acciones */}
       {(enableFiltering || enableSearching || headerAction) && (
         <TableHeader
@@ -427,7 +429,9 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
         <TablePagination table={table} pageSizeOptions={pageSizeOptions} />
       )}
       {paginationBottomContent ? (
-        <div className="border-t border-slate-100">{paginationBottomContent}</div>
+        <div className="border-t border-slate-100">
+          {paginationBottomContent}
+        </div>
       ) : null}
     </div>
   );
@@ -474,12 +478,12 @@ const TableHeader = ({
 
   return (
     <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/60">
-      <div className="flex flex-col gap-4 items-start justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         {/* Buscador + accion primaria */}
-        <div className="flex w-full items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:min-w-0">
           <div className={searchContainerClassName}>
-            {enableSearching && (
-              searchInputComponent ? (
+            {enableSearching &&
+              (searchInputComponent ? (
                 searchInputComponent({ globalFilter, setGlobalFilter })
               ) : (
                 <>
@@ -500,14 +504,15 @@ const TableHeader = ({
                     </button>
                   )}
                 </>
-              )
-            )}
+              ))}
           </div>
-          {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
+          {headerAction ? (
+            <div className="shrink-0 self-start sm:self-auto">{headerAction}</div>
+          ) : null}
         </div>
 
         {/* Acciones */}
-        <div className="flex w-full flex-wrap items-start sm:items-center gap-2">
+        <div className="flex w-full flex-wrap items-start gap-2 sm:items-center xl:justify-end">
           {dateFilterComponent
             ? dateFilterComponent()
             : enableDateFilter && (

@@ -330,7 +330,7 @@ const S = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   dayHeader: {
-    backgroundColor: "#F59E0B",
+    backgroundColor: "#ED8A3A",
     color: "#FFFFFF",
     padding: 5,
     fontSize: 9,

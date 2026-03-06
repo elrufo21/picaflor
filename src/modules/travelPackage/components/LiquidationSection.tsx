@@ -277,7 +277,7 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                     {showActivitiesRow && (
                       <tr className="border-t border-slate-200">
                         <td className="px-3 py-2 text-slate-700">
-                          {`Paquete ${destinosLabel} / Actividades`}
+                          {`Paquete ${destinosLabel} / Paquete`}
                         </td>
                         <td className="px-3 py-2 text-right font-medium text-slate-700">
                           {`${currencySymbol} ${formatCurrency(activitiesUnit)}`}
@@ -384,9 +384,10 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                   name="entidadBancaria"
                   value={form.entidadBancaria}
                   disabled={!canEditBank}
-                  onChange={(event) =>
-                    onUpdateField("entidadBancaria", event.target.value)
-                  }
+                  onChange={(event) => {
+                    onUpdateField("entidadBancaria", event.target.value);
+                    onUpdateField("nroOperacion", "");
+                  }}
                   className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100"
                 >
                   {ENTIDAD_BANCARIA_OPTIONS.map((option) => (

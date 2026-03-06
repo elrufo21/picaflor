@@ -249,7 +249,7 @@ export const INITIAL_FORM_STATE: TravelPackageFormState = {
   contacto: "",
   telefono: "",
   email: "",
-  condicionPago: "CANCELADO",
+  condicionPago: "",
   moneda: "DOLARES",
   documentoCobranza: "DOCUMENTO COBRANZA",
   nserie: "",
