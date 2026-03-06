@@ -158,6 +158,7 @@ export default function ProductFormDialog({
           name="categoria"
           control={control}
           label="Categoría"
+          InputLabelProps={{ shrink: true }}
           size="small"
           required
           options={categoryOptions}
@@ -170,6 +171,7 @@ export default function ProductFormDialog({
           name="region"
           control={control}
           label="Región"
+          InputLabelProps={{ shrink: true }}
           size="small"
           required
           options={regionOptions}
