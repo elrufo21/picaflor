@@ -92,13 +92,13 @@ const CanalVentaDialogForm = ({
           }}
         />
         <TextControlled<CanalVentaDialogValues>
-          name="razonSocial"
+          name="region"
           control={control}
-          label="Razón social"
-          placeholder="Ej: AEROMAR TRAVEL SAC"
+          label="Región"
+          placeholder="Ej: LIMA"
           size="small"
           onChange={(e) => {
-            setPayload({ ...payload, razonSocial: e.target.value });
+            setPayload({ ...payload, region: e.target.value });
           }}
         />
         <div className="md:col-span-2">
@@ -126,16 +126,20 @@ const CanalVentaDialogForm = ({
             }}
           />
         </div>
-        <TextControlled<CanalVentaDialogValues>
-          name="region"
-          control={control}
-          label="Región"
-          placeholder="Ej: LIMA"
-          size="small"
-          onChange={(e) => {
-            setPayload({ ...payload, region: e.target.value });
-          }}
-        />
+        <div className="md:col-span-2">
+          {" "}
+          <TextControlled<CanalVentaDialogValues>
+            name="razonSocial"
+            control={control}
+            label="Razón social"
+            placeholder="Ej: AEROMAR TRAVEL SAC"
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, razonSocial: e.target.value });
+            }}
+          />
+        </div>
+
         <TextControlled<CanalVentaDialogValues>
           name="contacto"
           control={control}
@@ -344,7 +348,8 @@ const SalesChannelPage = () => {
         content: () => (
           <p className="text-sm text-slate-700">
             ¿Deseas eliminar el canal{" "}
-            <span className="font-semibold">{channel?.canalNombre ?? "-"}</span>?
+            <span className="font-semibold">{channel?.canalNombre ?? "-"}</span>
+            ?
           </p>
         ),
         onConfirm: async () => {
@@ -387,7 +392,8 @@ const SalesChannelPage = () => {
           : "";
 
       openDialog({
-        title: mode === "create" ? "Crear canal de venta" : "Editar canal de venta",
+        title:
+          mode === "create" ? "Crear canal de venta" : "Editar canal de venta",
         description:
           mode === "create"
             ? "Crea un canal de venta sin salir del formulario."
@@ -417,7 +423,8 @@ const SalesChannelPage = () => {
         },
         confirmLabel: "Guardar canal",
         cancelLabel: "Cancelar",
-        dangerLabel: mode === "edit" && access.delete ? "Eliminar canal" : undefined,
+        dangerLabel:
+          mode === "edit" && access.delete ? "Eliminar canal" : undefined,
         content: ({ payload, setPayload }) => (
           <CanalVentaDialogForm
             payload={payload as CanalVentaDialogPayload}
@@ -622,7 +629,12 @@ const SalesChannelPage = () => {
         ),
       }),
     ];
-  }, [access.delete, access.edit, openDeleteSalesChannelDialog, openSalesChannelModal]);
+  }, [
+    access.delete,
+    access.edit,
+    openDeleteSalesChannelDialog,
+    openSalesChannelModal,
+  ]);
 
   return (
     <MaintenancePageFrame

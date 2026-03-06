@@ -566,8 +566,8 @@ const TravelPackageList = () => {
 
     return (
       <div className="w-full max-w-full space-y-2 sm:max-w-lg lg:max-w-xl">
-        <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
-          <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600 sm:gap-4">
+          <div className="flex shrink-0 items-end justify-between gap-4">
             <ChevronLeft
               className="cursor-pointer"
               onClick={() => {
@@ -575,38 +575,38 @@ const TravelPackageList = () => {
               }}
             />
           </div>
-          <label className="inline-flex items-center gap-2">
+          <label className="inline-flex min-w-0 flex-1 items-center gap-2">
             <input
               type="checkbox"
               checked={searchMode === "agencia"}
               onChange={(event) =>
                 handleToggleSearchByAgencia(event.target.checked)
               }
-              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
             />
-            Agencia
+            <span className="truncate">Agencia</span>
           </label>
-          <label className="inline-flex items-center gap-2">
+          <label className="inline-flex min-w-0 flex-1 items-center gap-2">
             <input
               type="checkbox"
               checked={searchMode === "numero"}
               onChange={(event) =>
                 handleToggleSearchByNumero(event.target.checked)
               }
-              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
             />
-            Numero de paquete
+            <span className="truncate">Numero de paquete</span>
           </label>
-          <label className="inline-flex items-center gap-2">
+          <label className="inline-flex min-w-0 flex-1 items-center gap-2">
             <input
               type="checkbox"
               checked={searchByFechaViaje}
               onChange={(event) =>
                 handleToggleSearchByFechaViaje(event.target.checked)
               }
-              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
             />
-            Fecha viaje
+            <span className="truncate">Fecha viaje</span>
           </label>
         </div>
 
@@ -672,80 +672,80 @@ const TravelPackageList = () => {
   };
 
   const DateRangeFilter = () => (
-    <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
-        <div className="flex flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Fecha Inicio</label>
-          <input
-            type="date"
-            value={pendingStartDate}
-            onChange={(event) => setPendingStartDate(event.target.value)}
-            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          />
+    <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex min-w-[660px] items-end gap-3">
+        <div className="grid min-w-0 flex-1 grid-cols-4 gap-3">
+          <div className="flex min-w-[130px] flex-col gap-1 text-xs text-slate-500">
+            <label className="font-medium text-slate-600">Fecha Inicio</label>
+            <input
+              type="date"
+              value={pendingStartDate}
+              onChange={(event) => setPendingStartDate(event.target.value)}
+              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex min-w-[130px] flex-col gap-1 text-xs text-slate-500">
+            <label className="font-medium text-slate-600">Fecha Fin</label>
+            <input
+              type="date"
+              value={pendingEndDate}
+              onChange={(event) => setPendingEndDate(event.target.value)}
+              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex min-w-[110px] flex-col gap-1 text-xs text-slate-500">
+            <label className="font-medium text-slate-600">Condición</label>
+            <select
+              value={selectedCondicion}
+              onChange={(event) =>
+                setSelectedCondicion(event.target.value as CondicionFilterValue)
+              }
+              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            >
+              {CONDICION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex min-w-[110px] flex-col gap-1 text-xs text-slate-500">
+            <label className="font-medium text-slate-600">Estado</label>
+            <select
+              value={selectedEstado}
+              onChange={(event) =>
+                setSelectedEstado(event.target.value as EstadoFilterValue)
+              }
+              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            >
+              {ESTADO_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Fecha Fin</label>
-          <input
-            type="date"
-            value={pendingEndDate}
-            onChange={(event) => setPendingEndDate(event.target.value)}
-            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Condición</label>
-          <select
-            value={selectedCondicion}
-            onChange={(event) =>
-              setSelectedCondicion(event.target.value as CondicionFilterValue)
-            }
-            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          >
-            {CONDICION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Estado</label>
-          <select
-            value={selectedEstado}
-            onChange={(event) =>
-              setSelectedEstado(event.target.value as EstadoFilterValue)
-            }
-            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          >
-            {ESTADO_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex gap-3 lg:ml-auto">
+        <div className="flex shrink-0 flex-row gap-3">
           <button
             type="button"
             onClick={handleRangeSearch}
             disabled={isLoading}
-            className="flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800 disabled:opacity-60 transition"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700 text-white shadow transition hover:bg-slate-800 disabled:opacity-60"
           >
             <Search size={16} />
-            Buscar
           </button>
 
           <button
             type="button"
             onClick={() => navigate("/paquete-viaje/new")}
-            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 transition"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shadow transition hover:bg-emerald-700"
           >
             <Plus size={16} />
-            Nuevo paquete
           </button>
         </div>
       </div>

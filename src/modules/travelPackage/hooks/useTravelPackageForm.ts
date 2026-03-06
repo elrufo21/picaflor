@@ -101,11 +101,6 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
     }),
   }));
 
-  if (next.documentoCobranza === "DOCUMENTO COBRANZA") {
-    next.nserie = "";
-    next.ndocumento = "";
-  }
-
   if (next.moneda === "SOLES") next.precioExtraDolares = 0;
   if (next.moneda === "DOLARES") next.precioExtraSoles = 0;
 
@@ -114,6 +109,8 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
     next.deposito = 0;
     next.efectivo = 0;
     next.medioPago = "-";
+    next.entidadBancaria = "-";
+    next.nroOperacion = "";
   }
 
   const base = calculateTravelPackageLiquidationBase(next);

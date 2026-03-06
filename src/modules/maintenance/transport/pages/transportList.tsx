@@ -37,6 +37,8 @@ const TransporteDialogForm = ({
   payload: TransporteDialogPayload;
   setPayload: (next: Record<string, unknown>) => void;
 }) => {
+  const isCreateMode = !String(payload.editingValue ?? "").trim();
+
   const { control } = useForm<TransporteDialogValues>({
     defaultValues: {
       clasificacion: String(payload.clasificacion ?? ""),
@@ -114,14 +116,16 @@ const TransporteDialogForm = ({
         <div className="md:col-span-2 space-y-1">
           <label className="text-xs font-medium text-slate-700">Activo</label>
           <select
-            value={payload.activo === "0" ? "0" : "1"}
+            value={isCreateMode ? "1" : payload.activo === "0" ? "0" : "1"}
+            disabled={isCreateMode}
             onChange={(e) => {
+              if (isCreateMode) return;
               setPayload({
                 ...payload,
                 activo: e.target.value === "0" ? "0" : "1",
               });
             }}
-            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700"
+            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
           >
             <option value="1">Activo</option>
             <option value="0">Inactivo</option>
@@ -198,10 +202,15 @@ const TransportList = () => {
           const telefono = String(data.telefono ?? "").trim();
           const contacto = String(data.contacto ?? "").trim();
           const categoria = String(data.categoria ?? "").trim();
-          const activo = String(data.activo ?? "1").trim() === "0" ? "0" : "1";
           const idTransporte = parseTransporteId(
             String(data.editingValue ?? editingValue),
           );
+          const activo =
+            idTransporte <= 0
+              ? "1"
+              : String(data.activo ?? "1").trim() === "0"
+                ? "0"
+                : "1";
 
           if (!clasificacion) {
             showToast({

@@ -415,9 +415,13 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
           <SelectControlled<GeneralDataFormValues>
             name="condicionPago"
             control={control}
-            options={CONDICION_PAGO_OPTIONS}
+            options={[
+              { value: "", label: "SELECCIONE" },
+              ...CONDICION_PAGO_OPTIONS,
+            ]}
             size="small"
             label="Condición"
+            InputLabelProps={{ shrink: true }}
             onChange={(event) =>
               onUpdateField("condicionPago", event.target.value)
             }

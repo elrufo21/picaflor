@@ -114,7 +114,7 @@ const ServiciosContratadosSection = ({
   );
   const initialAlimentacionGlobal = initialIncluyeAlimentacion
     ? initialAlimentacionTipo
-    : "-";
+    : "";
 
   const { control, setValue, watch } = useForm<ServiciosContratadosFormValues>({
     defaultValues: {
@@ -122,7 +122,7 @@ const ServiciosContratadosSection = ({
       movilidadEmpresa: form.movilidadEmpresa ?? "",
       movilidadPrecio: String(form.movilidadPrecio ?? ""),
       incluyeHotel: form.incluyeHotel ? "SI" : "",
-      incluyeAlimentacionEstado: initialIncluyeAlimentacion ? "SI" : "NO",
+      incluyeAlimentacionEstado: initialIncluyeAlimentacion ? "SI" : "",
       incluyeAlimentacionGlobal: initialAlimentacionGlobal,
       precioAlimentacionGlobal: "",
     },
@@ -300,7 +300,7 @@ const ServiciosContratadosSection = ({
   }, [form.movilidadPrecio, setValue]);
 
   useEffect(() => {
-    setValue("incluyeHotel", form.incluyeHotel ? "SI" : "NO", {
+    setValue("incluyeHotel", form.incluyeHotel ? "SI" : "", {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,

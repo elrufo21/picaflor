@@ -23,10 +23,11 @@ const isSinHotelPackage = (paquete: unknown) =>
   cleanText(paquete).toLowerCase().includes("sin hotel");
 
 const resolveEstadoBySaldo = (form: TravelPackageFormState): string => {
-  const saldo = Number(form.saldo);
-  const estadoBase = cleanText(form.condicionPago || "CANCELADO");
-  if (Number.isFinite(saldo) && saldo > 0) return "PENDIENTE";
-  return estadoBase || "CANCELADO";
+  const estadoBase = cleanText(form.condicionPago || "CANCELADO").toUpperCase();
+  if (estadoBase === "ACUENTA" || estadoBase === "CREDITO" || estadoBase === "CANCELADO") {
+    return estadoBase;
+  }
+  return "CANCELADO";
 };
 
 const calculateHotelRoomImporteTotal = (

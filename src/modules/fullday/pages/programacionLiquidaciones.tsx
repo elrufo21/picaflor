@@ -10,8 +10,10 @@ import { Autocomplete, TextField } from "@mui/material";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { esES } from "@mui/x-date-pickers/locales";
 import { Check, ChevronLeft, FileSpreadsheet, Search, X } from "lucide-react";
 import dayjs from "dayjs";
+import "dayjs/locale/es";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { API_BASE_URL } from "@/config";
@@ -369,7 +371,9 @@ const readPersistedLiquidacionesDataCache =
       );
       if (!raw) return null;
 
-      const parsed = JSON.parse(raw) as Partial<PersistedLiquidacionesDataCache>;
+      const parsed = JSON.parse(
+        raw,
+      ) as Partial<PersistedLiquidacionesDataCache>;
 
       const payload = String(parsed?.payload ?? "").trim();
       const startDate = parseDateFilterValue(parsed?.startDate);
@@ -1919,8 +1923,8 @@ const LiquidacionesPage = () => {
     setGlobalFilter: (value: string) => void;
   }) => (
     <div className="w-full max-w-full space-y-2">
-      <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 md:flex md:flex-wrap md:items-center md:gap-4">
-        <div className="flex items-end justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600 sm:gap-4">
+        <div className="flex shrink-0 items-end justify-between gap-4">
           <ChevronLeft
             className="cursor-pointer"
             onClick={() => {
@@ -1928,32 +1932,32 @@ const LiquidacionesPage = () => {
             }}
           />
         </div>
-        <label className="inline-flex items-center gap-2">
+        <label className="inline-flex min-w-0 flex-1 items-center gap-2">
           <input
             type="checkbox"
             checked={searchMode === "canal"}
             onChange={(e) => handleToggleSearchByCanal(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
           />
-          Canal de venta
+          <span className="truncate">Canal de venta</span>
         </label>
-        <label className="inline-flex items-center gap-2">
+        <label className="inline-flex min-w-0 flex-1 items-center gap-2">
           <input
             type="checkbox"
             checked={searchMode === "numero"}
             onChange={(e) => handleToggleSearchByNumero(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
           />
-          Numero de pedido
+          <span className="truncate">Numero de pedido</span>
         </label>
-        <label className="inline-flex items-center gap-2">
+        <label className="inline-flex min-w-0 flex-1 items-center gap-2">
           <input
             type="checkbox"
             checked={searchByFechaViaje}
             onChange={(e) => handleToggleSearchByFechaViaje(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
           />
-          Fecha viaje
+          <span className="truncate">Fecha viaje</span>
         </label>
       </div>
 
@@ -2313,140 +2317,153 @@ const LiquidacionesPage = () => {
   };
 
   const DateRangeFilter = () => (
-    <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6 xl:items-end">
-        {/* FECHA INICIO */}
-        <div className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Fecha Inicio</label>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <DatePicker
-              format="DD/MM/YY"
-              value={pendingStartDate ? dayjs(pendingStartDate) : null}
-              onChange={(value) => {
-                const nextValue = value?.format("YYYY-MM-DD") ?? "";
-                setPendingStartDate(nextValue);
-              }}
-              slotProps={{
-                textField: {
-                  size: "small",
-                  sx: {
-                    width: "100%",
-                    "& .MuiOutlinedInput-root": {
-                      height: 40,
-                      borderRadius: "0.5rem",
-                      backgroundColor: "#f8fafc",
+    <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex min-w-[660px] items-end gap-3">
+        <div className="grid min-w-0 flex-1 grid-cols-4 gap-3">
+          {/* FECHA INICIO */}
+          <div className="flex min-w-[130px] flex-col gap-1 text-xs text-slate-500">
+            <label className="font-medium text-slate-600">Fecha Inicio</label>
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="es"
+              localeText={
+                esES.components.MuiLocalizationProvider.defaultProps.localeText
+              }
+            >
+              <DatePicker
+                format="DD/MM/YY"
+                value={pendingStartDate ? dayjs(pendingStartDate) : null}
+                onChange={(value) => {
+                  const nextValue = value?.format("YYYY-MM-DD") ?? "";
+                  setPendingStartDate(nextValue);
+                }}
+                slotProps={{
+                  textField: {
+                    size: "small",
+                    sx: {
+                      width: "100%",
+                      "& .MuiOutlinedInput-root": {
+                        height: 40,
+                        borderRadius: "0.5rem",
+                        backgroundColor: "#f8fafc",
+                      },
                     },
                   },
-                },
-              }}
-            />
-          </LocalizationProvider>
-        </div>
+                }}
+              />
+            </LocalizationProvider>
+          </div>
 
-        {/* FECHA FIN */}
-        <div className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Fecha Fin</label>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <DatePicker
-              format="DD/MM/YY"
-              value={pendingEndDate ? dayjs(pendingEndDate) : null}
-              onOpen={() => {
-                endDateAcceptedRef.current = false;
-              }}
-              onChange={(value) => {
-                const nextValue = value?.format("YYYY-MM-DD") ?? "";
-                setPendingEndDate(nextValue);
-              }}
-              onAccept={(value) => {
-                const nextValue = value?.format("YYYY-MM-DD") ?? "";
-                endDateAcceptedRef.current = true;
-                setPendingEndDate(nextValue);
-                reload(pendingStartDateRef.current, nextValue);
-              }}
-              onClose={() => {
-                if (endDateAcceptedRef.current) {
+          {/* FECHA FIN */}
+          <div className="flex min-w-[130px] flex-col gap-1 text-xs text-slate-500">
+            <label className="font-medium text-slate-600">Fecha Fin</label>
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="es"
+              localeText={
+                esES.components.MuiLocalizationProvider.defaultProps.localeText
+              }
+            >
+              <DatePicker
+                format="DD/MM/YY"
+                value={pendingEndDate ? dayjs(pendingEndDate) : null}
+                onOpen={() => {
                   endDateAcceptedRef.current = false;
-                  return;
-                }
+                }}
+                onChange={(value) => {
+                  const nextValue = value?.format("YYYY-MM-DD") ?? "";
+                  setPendingEndDate(nextValue);
+                }}
+                onAccept={(value) => {
+                  const nextValue = value?.format("YYYY-MM-DD") ?? "";
+                  endDateAcceptedRef.current = true;
+                  setPendingEndDate(nextValue);
+                  reload(pendingStartDateRef.current, nextValue);
+                }}
+                onClose={() => {
+                  if (endDateAcceptedRef.current) {
+                    endDateAcceptedRef.current = false;
+                    return;
+                  }
 
-                const currentStart = pendingStartDateRef.current ?? "";
-                const currentEnd = pendingEndDateRef.current ?? "";
-                const lastRange = lastReloadRangeRef.current;
-                const mustReload =
-                  !lastRange ||
-                  lastRange.start !== currentStart ||
-                  lastRange.end !== currentEnd;
+                  const currentStart = pendingStartDateRef.current ?? "";
+                  const currentEnd = pendingEndDateRef.current ?? "";
+                  const lastRange = lastReloadRangeRef.current;
+                  const mustReload =
+                    !lastRange ||
+                    lastRange.start !== currentStart ||
+                    lastRange.end !== currentEnd;
 
-                if (mustReload) {
-                  reload(currentStart, currentEnd);
-                }
-              }}
-              slotProps={{
-                textField: {
-                  size: "small",
-                  sx: {
-                    width: "100%",
-                    "& .MuiOutlinedInput-root": {
-                      height: 40,
-                      borderRadius: "0.5rem",
-                      backgroundColor: "#f8fafc",
+                  if (mustReload) {
+                    reload(currentStart, currentEnd);
+                  }
+                }}
+                slotProps={{
+                  textField: {
+                    size: "small",
+                    sx: {
+                      width: "100%",
+                      "& .MuiOutlinedInput-root": {
+                        height: 40,
+                        borderRadius: "0.5rem",
+                        backgroundColor: "#f8fafc",
+                      },
                     },
                   },
-                },
+                }}
+              />
+            </LocalizationProvider>
+          </div>
+
+          {/* SERVICIO */}
+          <div className="flex min-w-[110px] flex-col gap-1 text-xs text-slate-500">
+            <label className="font-medium text-slate-600">Servicio</label>
+            <select
+              value={selectedFlagServicio ?? ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedFlagServicio(value ? Number(value) : null);
               }}
-            />
-          </LocalizationProvider>
-        </div>
+              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            >
+              <option value="">Todas</option>
+              {FLAG_SERVICIO_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* SERVICIO */}
-        <div className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Servicio</label>
-          <select
-            value={selectedFlagServicio ?? ""}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSelectedFlagServicio(value ? Number(value) : null);
-            }}
-            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          >
-            <option value="">Todas</option>
-            {FLAG_SERVICIO_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* CONDICIÓN */}
-        <div className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Condición</label>
-          <select
-            value={selectedCondicion}
-            onChange={(e) =>
-              setSelectedCondicion(e.target.value as CondicionFilterValue)
-            }
-            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          >
-            {CONDICION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          {/* CONDICIÓN */}
+          <div className="flex min-w-[110px] flex-col gap-1 text-xs text-slate-500">
+            <label className="font-medium text-slate-600">Condición</label>
+            <select
+              value={selectedCondicion}
+              onChange={(e) =>
+                setSelectedCondicion(e.target.value as CondicionFilterValue)
+              }
+              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            >
+              {CONDICION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* BOTONES */}
-        <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row xl:col-span-2 xl:justify-end">
+        <div className="flex shrink-0 flex-row gap-3">
           {/* BUSCAR */}
           <button
             type="button"
             onClick={handleRangeSearch}
             disabled={loading}
-            className="flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800 disabled:opacity-60 sm:min-w-[132px]"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700 text-white shadow transition hover:bg-slate-800 disabled:opacity-60"
           >
             <Search size={16} />
-            Buscar
           </button>
 
           <button
@@ -2454,10 +2471,9 @@ const LiquidacionesPage = () => {
             onClick={() => {
               handleExcelExport();
             }}
-            className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-700 sm:min-w-[132px]"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shadow transition hover:bg-emerald-700"
           >
             <FileSpreadsheet size={16} />
-            Excel
           </button>
         </div>
       </div>
