@@ -65,6 +65,9 @@ const resolveSavedPackageId = (response: unknown): number | null => {
     if (!trimmed) return null;
     const directNumber = parsePositiveId(trimmed);
     if (directNumber) return directNumber;
+    const firstToken = trimmed.split("¬")[0]?.split("|")[0]?.trim() ?? "";
+    const tokenNumber = parsePositiveId(firstToken);
+    if (tokenNumber) return tokenNumber;
     try {
       return resolveSavedPackageId(JSON.parse(trimmed));
     } catch {
@@ -91,6 +94,82 @@ const resolveSavedPackageId = (response: unknown): number | null => {
   }
 
   return null;
+};
+
+type SavedPackageResponseMeta = {
+  id: number | null;
+  nserie?: string;
+  ndocumento?: string;
+};
+
+const resolveSavedPackageResponseMeta = (
+  response: unknown,
+): SavedPackageResponseMeta => {
+  const clean = (value: unknown) => String(value ?? "").trim();
+
+  if (response === null || response === undefined) {
+    return { id: null };
+  }
+
+  if (typeof response === "number") {
+    return { id: parsePositiveId(response) };
+  }
+
+  if (typeof response === "string") {
+    const trimmed = clean(response);
+    if (!trimmed) return { id: null };
+
+    const [idToken = "", serieToken = "", documentoToken = ""] = trimmed
+      .split("¬")
+      .map((item) => clean(item));
+    const idFromToken = parsePositiveId(idToken);
+    if (idFromToken || serieToken || documentoToken) {
+      return {
+        id: idFromToken,
+        nserie: serieToken || undefined,
+        ndocumento: documentoToken || undefined,
+      };
+    }
+
+    try {
+      return resolveSavedPackageResponseMeta(JSON.parse(trimmed));
+    } catch {
+      return { id: null };
+    }
+  }
+
+  if (Array.isArray(response)) {
+    for (const item of response) {
+      const candidate = resolveSavedPackageResponseMeta(item);
+      if (candidate.id || candidate.nserie || candidate.ndocumento) {
+        return candidate;
+      }
+    }
+    return { id: null };
+  }
+
+  if (typeof response === "object") {
+    const record = response as Record<string, unknown>;
+    const nested = resolveSavedPackageResponseMeta(
+      record.Resultado ?? record.resultado ?? record.Mensaje ?? record.mensaje,
+    );
+    return {
+      id:
+        parsePositiveId(record.IdPaqueteViaje) ??
+        parsePositiveId(record.idPaqueteViaje) ??
+        parsePositiveId(record.Id) ??
+        parsePositiveId(record.id) ??
+        nested.id,
+      nserie:
+        clean(record.NSerie ?? record.nserie) || nested.nserie || undefined,
+      ndocumento:
+        clean(record.NDocumento ?? record.ndocumento) ||
+        nested.ndocumento ||
+        undefined,
+    };
+  }
+
+  return { id: null };
 };
 
 type TravelPackageValidationError = {
@@ -826,10 +905,16 @@ const TravelPackageForm = () => {
         type: "success",
       });
 
-      const responseId = resolveSavedPackageId(response);
+      const responseMeta = resolveSavedPackageResponseMeta(response);
+      const responseId = responseMeta.id ?? resolveSavedPackageId(response);
       const editId = parsePositiveId(id);
       const packageId = responseId ?? (isEditMode ? editId : null);
-      const invoiceData = buildPackageInvoiceData(form, packageId);
+      const formForInvoice: TravelPackageFormState = {
+        ...form,
+        nserie: responseMeta.nserie ?? form.nserie,
+        ndocumento: responseMeta.ndocumento ?? form.ndocumento,
+      };
+      const invoiceData = buildPackageInvoiceData(formForInvoice, packageId);
 
       try {
         localStorage.setItem(
@@ -920,6 +1005,7 @@ const TravelPackageForm = () => {
           : "El paquete fue marcado como no verificado.",
         type: "success",
       });
+      navigate("/paquete-viaje", { state: { refresh: true } });
     } catch (error) {
       showToast({
         title: "Verificación",
@@ -932,7 +1018,7 @@ const TravelPackageForm = () => {
     } finally {
       setIsUpdatingVerificado(false);
     }
-  }, [canToggleVerificado, handlers, id, isEditMode, isVerificado]);
+  }, [canToggleVerificado, handlers, id, isEditMode, isVerificado, navigate]);
 
   const handleConfirmToggleVerificado = useCallback(() => {
     if (!canToggleVerificado || !isEditMode || !id) return;
@@ -967,7 +1053,6 @@ const TravelPackageForm = () => {
     if (!isEditMode) return;
     setIsEditing(true);
   }, [isEditMode]);
-  console.log("form", form);
   const handlePrint = useCallback(() => {
     const editId = parsePositiveId(id);
     const packageId = isEditMode ? editId : null;
@@ -1028,12 +1113,20 @@ const TravelPackageForm = () => {
       itinerario: [],
       pasajeros: [createEmptyPassenger()],
     });
+
+    if (isEditMode) {
+      setIsEditing(true);
+      navigate("/paquete-viaje/new");
+    }
   }, [
     authUser?.displayName,
+    isEditMode,
     isLoadingDetail,
     isSaving,
     isUpdatingVerificado,
+    navigate,
     replaceForm,
+    setIsEditing,
   ]);
 
   return (
@@ -1141,7 +1234,7 @@ const TravelPackageForm = () => {
               />
             </div>
 
-            {isEditMode && (
+            {isEditMode && !isEditing && (
               <button
                 type="button"
                 onClick={handlePrint}
@@ -1152,7 +1245,7 @@ const TravelPackageForm = () => {
               </button>
             )}
 
-            {isEditMode && (
+            {isEditMode && !isEditing && (
               <button
                 type="button"
                 onClick={handleOpenBoleta}
@@ -1191,19 +1284,15 @@ const TravelPackageForm = () => {
 
             {isEditing ? (
               <>
-                {!isEditMode && (
-                  <button
-                    type="button"
-                    onClick={handleNew}
-                    disabled={
-                      isSaving || isLoadingDetail || isUpdatingVerificado
-                    }
-                    className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Nuevo
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleNew}
+                  disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
+                  className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nuevo
+                </button>
 
                 <button
                   type="button"
@@ -1276,6 +1365,7 @@ const TravelPackageForm = () => {
             <div className="md:col-span-2">
               <ItinerarySection
                 itinerario={form.itinerario}
+                destinos={form.destinos}
                 cantPax={form.cantPax}
                 moneda={form.moneda}
                 onUpdateDayField={handlers.updateItineraryDayField}

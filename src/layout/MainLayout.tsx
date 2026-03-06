@@ -24,6 +24,14 @@ const NAVIGATION_FILTER_STORAGE_RULES = [
   },
 ] as const;
 const FULLDAY_PROGRAMACION_ROUTE = "/fullday/programacion/liquidaciones";
+const FULLDAY_PROGRAMACION_STALE_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:stale:v1";
+const FULLDAY_PROGRAMACION_MANUAL_REFRESH_EVENT =
+  "picaflor:fullday-programacion:manual-refresh";
+const TRAVEL_PACKAGE_ROUTE = "/paquete-viaje";
+const TRAVEL_PACKAGE_STALE_STORAGE_KEY = "travel-package:list:stale:v1";
+const TRAVEL_PACKAGE_MANUAL_REFRESH_EVENT =
+  "picaflor:travel-package:list:manual-refresh";
 
 const MainLayout = () => {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -88,7 +96,43 @@ const MainLayout = () => {
     });
   };
 
-  const handleNavRouteClick = (targetPath: string) => {
+  const handleNavRouteClick = (
+    event: React.MouseEvent<HTMLElement>,
+    targetPath: string,
+  ) => {
+    const normalizedTargetPath = String(targetPath || "").toLowerCase().trim();
+    const normalizedCurrentPath = String(location.pathname || "")
+      .toLowerCase()
+      .trim();
+
+    if (
+      typeof window !== "undefined" &&
+      normalizedTargetPath === FULLDAY_PROGRAMACION_ROUTE
+    ) {
+      window.sessionStorage.setItem(FULLDAY_PROGRAMACION_STALE_STORAGE_KEY, "1");
+
+      // Si el usuario vuelve a hacer click en la misma ruta, forzamos navegación
+      // con un evento para que la pantalla recargue los datos.
+      if (normalizedCurrentPath === FULLDAY_PROGRAMACION_ROUTE) {
+        event.preventDefault();
+        window.dispatchEvent(
+          new CustomEvent(FULLDAY_PROGRAMACION_MANUAL_REFRESH_EVENT),
+        );
+      }
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      normalizedTargetPath === TRAVEL_PACKAGE_ROUTE
+    ) {
+      window.sessionStorage.setItem(TRAVEL_PACKAGE_STALE_STORAGE_KEY, "1");
+
+      if (normalizedCurrentPath === TRAVEL_PACKAGE_ROUTE) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent(TRAVEL_PACKAGE_MANUAL_REFRESH_EVENT));
+      }
+    }
+
     clearPersistedFiltersForRoute(targetPath);
     if (!isDesktop) {
       closeSidebar();
@@ -173,7 +217,7 @@ const MainLayout = () => {
               <NavLink
                 to={item.to}
                 end={item.end ?? false}
-                onClick={() => handleNavRouteClick(item.to)}
+                onClick={(event) => handleNavRouteClick(event, item.to)}
                 className={({ isActive }) =>
                   [
                     "group relative flex items-center px-3 py-2 text-sm transition-all rounded-lg",
@@ -220,7 +264,7 @@ const MainLayout = () => {
                       key={child.to}
                       to={child.to}
                       end={child.end ?? false}
-                      onClick={() => handleNavRouteClick(child.to)}
+                      onClick={(event) => handleNavRouteClick(event, child.to)}
                       className={({ isActive }) =>
                         [
                           "group relative flex items-center px-3 py-2 text-sm transition-all rounded-lg ml-6 gap-2",
@@ -285,7 +329,7 @@ const MainLayout = () => {
               <NavLink
                 to={item.to}
                 end={item.end ?? false}
-                onClick={() => handleNavRouteClick(item.to)}
+                onClick={(event) => handleNavRouteClick(event, item.to)}
                 className={({ isActive }) =>
                   [
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
@@ -312,7 +356,7 @@ const MainLayout = () => {
                     key={child.to}
                     to={child.to}
                     end={child.end ?? false}
-                    onClick={() => handleNavRouteClick(child.to)}
+                    onClick={(event) => handleNavRouteClick(event, child.to)}
                     className={({ isActive }) =>
                       [
                         "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all ml-4",

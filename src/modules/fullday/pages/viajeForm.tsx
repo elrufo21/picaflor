@@ -1421,7 +1421,6 @@ const ViajeForm = () => {
       }
     }
   };
-  console.log("watch", watch());
   return (
     <>
       <Backdrop

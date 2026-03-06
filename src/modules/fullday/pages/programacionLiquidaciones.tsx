@@ -28,7 +28,6 @@ import {
 } from "./fulldayPassengerCreate";
 import type { Producto } from "@/app/db/serviciosDB";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
-import { useCanalVenta } from "../hooks/useCanalVenta";
 import { showToast } from "@/components/ui/AppToast";
 
 type BackendDetalle = {
@@ -190,6 +189,8 @@ const LIQUIDACIONES_STALE_STORAGE_KEY =
   "fullday:programacion-liquidaciones:stale:v1";
 const LIQUIDACIONES_PAGINATION_RESET_EVENT =
   "picaflor:fullday-programacion:reset-pagination";
+const LIQUIDACIONES_MANUAL_REFRESH_EVENT =
+  "picaflor:fullday-programacion:manual-refresh";
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const LIQUIDACIONES_PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
 const LIQUIDACIONES_DEFAULT_PAGE_SIZE = 10;
@@ -857,7 +858,6 @@ function parseFechaBackend(value?: string) {
 }
 
 const LiquidacionesPage = () => {
-  const { canalVentaList } = useCanalVenta();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -928,7 +928,7 @@ const LiquidacionesPage = () => {
   const [searchCanalInput, setSearchCanalInput] = useState(
     initialFiltersRef.current.searchCanalInput,
   );
-  const [canalOptions, setCanalOptions] = useState<string[]>([]);
+  const [canalOptions, setCanalOptions] = useState<CanalRecordLike[]>([]);
   const [searchResults, setSearchResults] = useState<LiquidacionRow[] | null>(
     null,
   );
@@ -992,16 +992,51 @@ const LiquidacionesPage = () => {
   }, []);
 
   const getCanalOptionsFromDB = useCallback(async () => {
-    const canales = await serviciosDB.canales.toArray();
-    const normalizedCanales = Array.from(
-      new Set(
-        canales
-          .map((canal) => normalizeCanalRecordToLabel(canal))
-          .filter(Boolean),
-      ),
-    ).sort((a, b) => a.localeCompare(b, "es"));
+    const [canales, auxiliares] = await Promise.all([
+      serviciosDB.canales.toArray(),
+      serviciosDB.auxiliares.toArray(),
+    ]);
+    const auxiliarById = new Map(auxiliares.map((item) => [item.id, item]));
 
-    return normalizedCanales;
+    const mapped = canales
+      .map((canal) => {
+        const canalLabel = normalizeStringValue(canal.nombre);
+        if (!canalLabel) return null;
+
+        const auxiliar = auxiliarById.get(canal.id);
+        const telefono = normalizeStringValue(auxiliar?.telefono);
+        const contacto = normalizeStringValue(
+          canal.contacto ?? auxiliar?.contacto,
+        );
+        const email = normalizeStringValue(canal.email ?? auxiliar?.email);
+
+        return {
+          value: String(canal.id),
+          label: canalLabel,
+          nombre: canalLabel,
+          auxiliar: canalLabel,
+          telefono: telefono || undefined,
+          contacto: contacto || undefined,
+          email: email || undefined,
+        } satisfies CanalRecordLike;
+      })
+      .filter((item): item is CanalRecordLike => Boolean(item));
+
+    const deduped = Array.from(
+      new Map(
+        mapped.map((item) => [
+          normalizeCanalRecordToLabel(item).toLowerCase(),
+          item,
+        ]),
+      ).values(),
+    );
+
+    return deduped.sort((a, b) =>
+      normalizeCanalRecordToLabel(a).localeCompare(
+        normalizeCanalRecordToLabel(b),
+        "es",
+      ),
+    );
   }, [normalizeCanalRecordToLabel]);
 
   const ensureCanalOptionsLoaded = useCallback(async () => {
@@ -1558,9 +1593,21 @@ const LiquidacionesPage = () => {
     //const liquidacionesNota = parseLiquidacionNotaPayload(liquidacionesNotaRaw);
     const hoteles = await serviciosDB.hoteles.toArray();
     const hotel = hoteles.find((h) => h.nombre === row.hotel);
-    const canalDeVenta = canalVentaList.find(
-      (c) => c.auxiliar === row.auxiliar,
-    );
+    const rowCanalLabel = normalizeStringValue(row.auxiliar);
+    const canalDeVenta =
+      canalOptions.find(
+        (canal) =>
+          normalizeCanalRecordToLabel(canal).toLowerCase() ===
+          rowCanalLabel.toLowerCase(),
+      ) ??
+      (rowCanalLabel
+        ? {
+            value: rowCanalLabel.toUpperCase().replace(/\s+/g, "_"),
+            label: rowCanalLabel,
+            auxiliar: rowCanalLabel,
+            telefono: normalizeStringValue(row.telefonoAuxiliar) || undefined,
+          }
+        : null);
     const normalizedData = {
       notaId: Number(data.notaId ?? data.id),
 
@@ -1860,6 +1907,30 @@ const LiquidacionesPage = () => {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleManualRefresh = () => {
+      reload(
+        pendingStartDateRef.current,
+        pendingEndDateRef.current,
+        searchByFechaViaje,
+      );
+    };
+
+    window.addEventListener(
+      LIQUIDACIONES_MANUAL_REFRESH_EVENT,
+      handleManualRefresh,
+    );
+
+    return () => {
+      window.removeEventListener(
+        LIQUIDACIONES_MANUAL_REFRESH_EVENT,
+        handleManualRefresh,
+      );
+    };
+  }, [reload, searchByFechaViaje]);
+
+  useEffect(() => {
     if (initialReloadRef.current) return;
     initialReloadRef.current = true;
     const currentStart = pendingStartDateRef.current ?? todayValue;
@@ -2007,7 +2078,16 @@ const LiquidacionesPage = () => {
         <div className="w-full">
           <Autocomplete
             size="small"
-            options={canalVentaList}
+            options={canalOptions}
+            getOptionLabel={(option) =>
+              typeof option === "string"
+                ? option
+                : normalizeCanalRecordToLabel(option)
+            }
+            isOptionEqualToValue={(option, value) =>
+              normalizeCanalRecordToLabel(option).toLowerCase() ===
+              normalizeCanalRecordToLabel(value).toLowerCase()
+            }
             value={searchCanal}
             inputValue={searchCanalInput}
             onChange={(_, value) => setSearchCanal(value)}

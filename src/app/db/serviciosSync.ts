@@ -7,7 +7,7 @@ import {
 import { serviciosDB } from "@/app/db/serviciosDB";
 
 export type ServiciosData = {
-  productos: { id: number; nombre: string }[];
+  productos: { id: number; nombre: string; region?: string }[];
   preciosProducto: {
     idProducto: number;
     precioBase: number;
@@ -43,7 +43,7 @@ export type ServiciosData = {
   hoteles: { id: number; nombre: string; region: string }[];
   direccionesHotel: { idHotel: number; direccion: string }[];
   ubigeos: { id: string; nombre: string }[];
-  productosCityTourOrdena: { id: number; nombre: string }[];
+  productosCityTourOrdena: { id: number; nombre: string; region?: string }[];
 };
 
 const SERVICIOS_ENDPOINT = `${API_BASE_URL}/Programacion/listServ`;

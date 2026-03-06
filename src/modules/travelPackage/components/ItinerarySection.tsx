@@ -32,6 +32,7 @@ dayjs.locale("es");
 
 type Props = {
   itinerario: ItineraryDayRow[];
+  destinos: string[];
   cantPax: string;
   moneda: TravelPackageFormState["moneda"];
   onUpdateDayField: <
@@ -94,6 +95,7 @@ const preventNumberArrowStep = (event: KeyboardEvent<HTMLInputElement>) => {
 
 const ItinerarySection = ({
   itinerario,
+  destinos,
   cantPax,
   moneda,
   onUpdateDayField,
@@ -159,15 +161,36 @@ const ItinerarySection = ({
     };
   }, []);
 
+  const selectedRegionKeys = useMemo(
+    () =>
+      new Set(
+        (destinos ?? [])
+          .map((region) => normalizeText(String(region ?? "")))
+          .filter(Boolean),
+      ),
+    [destinos],
+  );
+
+  const productosFiltradosPorRegion = useMemo(() => {
+    if (!selectedRegionKeys.size) return productos;
+
+    return productos.filter((producto) => {
+      const regionKey = normalizeText(String(producto.region ?? ""));
+      return regionKey !== "" && selectedRegionKeys.has(regionKey);
+    });
+  }, [productos, selectedRegionKeys]);
+
   const productNames = useMemo(
     () =>
       Array.from(
         new Set([
           NO_ACTIVITY_OPTION,
-          ...productos.map((producto) => String(producto.nombre ?? "").trim()),
+          ...productosFiltradosPorRegion.map((producto) =>
+            String(producto.nombre ?? "").trim(),
+          ),
         ]),
       ).filter(Boolean),
-    [productos],
+    [productosFiltradosPorRegion],
   );
 
   const trasladoNames = useMemo(

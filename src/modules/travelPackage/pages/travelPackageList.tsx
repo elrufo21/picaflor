@@ -4,8 +4,14 @@ import {
   type ColumnDef,
   type PaginationState,
 } from "@tanstack/react-table";
-import { useNavigate } from "react-router";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { esES } from "@mui/x-date-pickers/locales";
+import { useLocation, useNavigate } from "react-router";
 import { Check, ChevronLeft, Plus, Search, X } from "lucide-react";
+import dayjs from "dayjs";
+import "dayjs/locale/es";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { showToast } from "@/components/ui/AppToast";
@@ -233,8 +239,134 @@ const toDdMmYyyy = (value: string) => {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
+const TRAVEL_PACKAGE_LIST_DATA_CACHE_STORAGE_KEY =
+  "travel-package:list:data-cache:v1";
+const TRAVEL_PACKAGE_LIST_STALE_STORAGE_KEY = "travel-package:list:stale:v1";
+const TRAVEL_PACKAGE_LIST_MANUAL_REFRESH_EVENT =
+  "picaflor:travel-package:list:manual-refresh";
+const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+type PersistedTravelPackageDataCache = {
+  rows: TravelPackageListadoRow[];
+  startDate: string;
+  endDate: string;
+  searchByFechaViaje: boolean;
+  areaId: number;
+  usuarioId: number;
+};
+
+const parseDateCacheValue = (value: unknown): string | null => {
+  const normalized = normalizeStringValue(value);
+  return DATE_INPUT_PATTERN.test(normalized) ? normalized : null;
+};
+
+const parseBooleanCacheValue = (value: unknown): boolean | null => {
+  const normalized = normalizeStringValue(value).toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "true" || normalized === "1") return true;
+  if (normalized === "false" || normalized === "0") return false;
+  return null;
+};
+
+const parsePositiveIntegerCacheValue = (value: unknown): number | null => {
+  const normalized = normalizeStringValue(value);
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.floor(parsed);
+};
+
+const readPersistedTravelPackageDataCache =
+  (): PersistedTravelPackageDataCache | null => {
+    if (typeof window === "undefined") return null;
+
+    try {
+      const raw = window.sessionStorage.getItem(
+        TRAVEL_PACKAGE_LIST_DATA_CACHE_STORAGE_KEY,
+      );
+      if (!raw) return null;
+
+      const parsed = JSON.parse(raw) as Partial<PersistedTravelPackageDataCache>;
+      const rows = Array.isArray(parsed?.rows)
+        ? (parsed.rows as TravelPackageListadoRow[])
+        : null;
+      const startDate = parseDateCacheValue(parsed?.startDate);
+      const endDate = parseDateCacheValue(parsed?.endDate);
+      const searchByFechaViaje = parseBooleanCacheValue(
+        parsed?.searchByFechaViaje,
+      );
+      const areaId = parsePositiveIntegerCacheValue(parsed?.areaId);
+      const usuarioId = parsePositiveIntegerCacheValue(parsed?.usuarioId);
+
+      if (
+        !rows ||
+        !startDate ||
+        !endDate ||
+        searchByFechaViaje === null ||
+        !areaId ||
+        !usuarioId
+      ) {
+        return null;
+      }
+
+      return {
+        rows,
+        startDate,
+        endDate,
+        searchByFechaViaje,
+        areaId,
+        usuarioId,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+const writePersistedTravelPackageDataCache = (
+  dataCache: PersistedTravelPackageDataCache,
+) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(
+      TRAVEL_PACKAGE_LIST_DATA_CACHE_STORAGE_KEY,
+      JSON.stringify(dataCache),
+    );
+  } catch {
+    // ignorar errores de almacenamiento para no afectar la pantalla
+  }
+};
+
+const hasPersistedTravelPackageStaleFlag = (): boolean => {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const raw = window.sessionStorage.getItem(
+      TRAVEL_PACKAGE_LIST_STALE_STORAGE_KEY,
+    );
+    return raw === "1" || raw === "true";
+  } catch {
+    return false;
+  }
+};
+
+const clearPersistedTravelPackageStaleFlag = () => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.removeItem(TRAVEL_PACKAGE_LIST_STALE_STORAGE_KEY);
+  } catch {
+    // ignorar errores de almacenamiento para no afectar la pantalla
+  }
+};
+
 const TravelPackageList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const refreshKey =
+    location.state && typeof location.state === "object"
+      ? (location.state as { refresh?: unknown }).refresh
+      : undefined;
   const authUser = useAuthStore((state) => state.user);
   const todayValue = useMemo(() => getTodayIso(), []);
   const [pendingStartDate, setPendingStartDate] = useState(todayValue);
@@ -259,7 +391,14 @@ const TravelPackageList = () => {
     pageIndex: 0,
     pageSize: 10,
   });
+  const pendingStartDateRef = useRef(pendingStartDate);
+  const pendingEndDateRef = useRef(pendingEndDate);
   const initialLoadRef = useRef(false);
+  const handledRefreshKeyRef = useRef<unknown>(undefined);
+  const lastReloadRangeRef = useRef<{ start: string; end: string } | null>(
+    null,
+  );
+  const endDateAcceptedRef = useRef(false);
   const columnHelper = createColumnHelper<TravelPackageListadoRow>();
   const isPagoVerificado = useCallback((row: TravelPackageListadoRow) => {
     return normalizeStringValue(row.flagVerificado) === "1";
@@ -267,12 +406,20 @@ const TravelPackageList = () => {
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
   const sessionStore = sessionRaw ? JSON.parse(sessionRaw) : null;
 
+  useEffect(() => {
+    pendingStartDateRef.current = pendingStartDate;
+  }, [pendingStartDate]);
+
+  useEffect(() => {
+    pendingEndDateRef.current = pendingEndDate;
+  }, [pendingEndDate]);
+
   const loadListado = useCallback(
     async (startDate?: string, endDate?: string, esViajeOverride?: boolean) => {
       const areaId = Number(authUser?.areaId ?? authUser?.area ?? 0);
       const usuarioId = Number(authUser?.id ?? 0);
-      const rangeStart = startDate ?? pendingStartDate;
-      const rangeEnd = endDate ?? pendingEndDate;
+      const rangeStart = startDate ?? pendingStartDateRef.current ?? todayValue;
+      const rangeEnd = endDate ?? pendingEndDateRef.current ?? todayValue;
       const useFechaViaje = esViajeOverride ?? searchByFechaViaje;
 
       if (!areaId || !usuarioId) {
@@ -302,6 +449,7 @@ const TravelPackageList = () => {
         return;
       }
 
+      lastReloadRangeRef.current = { start: rangeStart, end: rangeEnd };
       setAppliedStartDate(rangeStart);
       setAppliedEndDate(rangeEnd);
       const valores = `${rangeStart}|${rangeEnd}|${areaId}|${usuarioId}`;
@@ -310,7 +458,17 @@ const TravelPackageList = () => {
         const response = await listarPaqueteViaje(valores, {
           esViaje: useFechaViaje,
         });
-        setAllRows(parseListadoResponse(response));
+        const parsedRows = parseListadoResponse(response);
+        setAllRows(parsedRows);
+        writePersistedTravelPackageDataCache({
+          rows: parsedRows,
+          startDate: rangeStart,
+          endDate: rangeEnd,
+          searchByFechaViaje: useFechaViaje,
+          areaId,
+          usuarioId,
+        });
+        clearPersistedTravelPackageStaleFlag();
       } catch (error) {
         showToast({
           title: "Error",
@@ -328,17 +486,97 @@ const TravelPackageList = () => {
       authUser?.area,
       authUser?.areaId,
       authUser?.id,
-      pendingEndDate,
-      pendingStartDate,
       searchByFechaViaje,
+      todayValue,
     ],
   );
 
   useEffect(() => {
     if (initialLoadRef.current) return;
     initialLoadRef.current = true;
-    void loadListado(pendingStartDate, pendingEndDate);
-  }, [loadListado, pendingEndDate, pendingStartDate]);
+    const currentStart = pendingStartDateRef.current ?? todayValue;
+    const currentEnd = pendingEndDateRef.current ?? todayValue;
+    const hasStaleData = hasPersistedTravelPackageStaleFlag();
+    const forceRefresh = Boolean(refreshKey) || hasStaleData;
+
+    if (forceRefresh) {
+      handledRefreshKeyRef.current = refreshKey;
+      void loadListado(currentStart, currentEnd, searchByFechaViaje);
+      return;
+    }
+
+    const areaId = Number(authUser?.areaId ?? authUser?.area ?? 0);
+    const usuarioId = Number(authUser?.id ?? 0);
+    const cache = readPersistedTravelPackageDataCache();
+    const canUseCache =
+      cache &&
+      areaId > 0 &&
+      usuarioId > 0 &&
+      cache.areaId === areaId &&
+      cache.usuarioId === usuarioId &&
+      cache.startDate === currentStart &&
+      cache.endDate === currentEnd &&
+      cache.searchByFechaViaje === searchByFechaViaje;
+
+    if (canUseCache && cache) {
+      setAllRows(cache.rows);
+      setAppliedStartDate(cache.startDate);
+      setAppliedEndDate(cache.endDate);
+      lastReloadRangeRef.current = {
+        start: cache.startDate,
+        end: cache.endDate,
+      };
+      setIsLoading(false);
+      return;
+    }
+
+    void loadListado(currentStart, currentEnd, searchByFechaViaje);
+  }, [
+    authUser?.area,
+    authUser?.areaId,
+    authUser?.id,
+    loadListado,
+    refreshKey,
+    searchByFechaViaje,
+    todayValue,
+  ]);
+
+  useEffect(() => {
+    if (!initialLoadRef.current) return;
+    if (!refreshKey) return;
+    if (handledRefreshKeyRef.current === refreshKey) return;
+    handledRefreshKeyRef.current = refreshKey;
+
+    void loadListado(
+      pendingStartDateRef.current,
+      pendingEndDateRef.current,
+      searchByFechaViaje,
+    );
+  }, [refreshKey, loadListado, searchByFechaViaje]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleManualRefresh = () => {
+      void loadListado(
+        pendingStartDateRef.current,
+        pendingEndDateRef.current,
+        searchByFechaViaje,
+      );
+    };
+
+    window.addEventListener(
+      TRAVEL_PACKAGE_LIST_MANUAL_REFRESH_EVENT,
+      handleManualRefresh,
+    );
+
+    return () => {
+      window.removeEventListener(
+        TRAVEL_PACKAGE_LIST_MANUAL_REFRESH_EVENT,
+        handleManualRefresh,
+      );
+    };
+  }, [loadListado, searchByFechaViaje]);
 
   useEffect(() => {
     let sourceRows = allRows;
@@ -677,22 +915,95 @@ const TravelPackageList = () => {
         <div className="grid min-w-0 flex-1 grid-cols-4 gap-3">
           <div className="flex min-w-[130px] flex-col gap-1 text-xs text-slate-500">
             <label className="font-medium text-slate-600">Fecha Inicio</label>
-            <input
-              type="date"
-              value={pendingStartDate}
-              onChange={(event) => setPendingStartDate(event.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="es"
+              localeText={
+                esES.components.MuiLocalizationProvider.defaultProps.localeText
+              }
+            >
+              <DatePicker
+                format="DD/MM/YY"
+                value={pendingStartDate ? dayjs(pendingStartDate) : null}
+                onChange={(value) => {
+                  const nextValue = value?.format("YYYY-MM-DD") ?? "";
+                  setPendingStartDate(nextValue);
+                }}
+                slotProps={{
+                  textField: {
+                    size: "small",
+                    sx: {
+                      width: "100%",
+                      "& .MuiOutlinedInput-root": {
+                        height: 40,
+                        borderRadius: "0.5rem",
+                        backgroundColor: "#f8fafc",
+                      },
+                    },
+                  },
+                }}
+              />
+            </LocalizationProvider>
           </div>
 
           <div className="flex min-w-[130px] flex-col gap-1 text-xs text-slate-500">
             <label className="font-medium text-slate-600">Fecha Fin</label>
-            <input
-              type="date"
-              value={pendingEndDate}
-              onChange={(event) => setPendingEndDate(event.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="es"
+              localeText={
+                esES.components.MuiLocalizationProvider.defaultProps.localeText
+              }
+            >
+              <DatePicker
+                format="DD/MM/YY"
+                value={pendingEndDate ? dayjs(pendingEndDate) : null}
+                onOpen={() => {
+                  endDateAcceptedRef.current = false;
+                }}
+                onChange={(value) => {
+                  const nextValue = value?.format("YYYY-MM-DD") ?? "";
+                  setPendingEndDate(nextValue);
+                }}
+                onAccept={(value) => {
+                  const nextValue = value?.format("YYYY-MM-DD") ?? "";
+                  endDateAcceptedRef.current = true;
+                  setPendingEndDate(nextValue);
+                  void loadListado(pendingStartDateRef.current, nextValue);
+                }}
+                onClose={() => {
+                  if (endDateAcceptedRef.current) {
+                    endDateAcceptedRef.current = false;
+                    return;
+                  }
+
+                  const currentStart = pendingStartDateRef.current ?? "";
+                  const currentEnd = pendingEndDateRef.current ?? "";
+                  const lastRange = lastReloadRangeRef.current;
+                  const mustReload =
+                    !lastRange ||
+                    lastRange.start !== currentStart ||
+                    lastRange.end !== currentEnd;
+
+                  if (mustReload) {
+                    void loadListado(currentStart, currentEnd);
+                  }
+                }}
+                slotProps={{
+                  textField: {
+                    size: "small",
+                    sx: {
+                      width: "100%",
+                      "& .MuiOutlinedInput-root": {
+                        height: 40,
+                        borderRadius: "0.5rem",
+                        backgroundColor: "#f8fafc",
+                      },
+                    },
+                  },
+                }}
+              />
+            </LocalizationProvider>
           </div>
 
           <div className="flex min-w-[110px] flex-col gap-1 text-xs text-slate-500">

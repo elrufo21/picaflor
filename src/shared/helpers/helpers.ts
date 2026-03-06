@@ -62,9 +62,10 @@ export function transformServiciosData(raw: string) {
   return {
     productos:
       b[0]
-        ?.map(([id, nombre]) => ({
+        ?.map(([id, nombre, region]) => ({
           id: Number(id),
           nombre,
+          region: region ?? "",
         }))
         .filter((x) => Number.isFinite(x.id)) ?? [],
 
@@ -198,9 +199,10 @@ export function transformServiciosData(raw: string) {
     // ⭐ EL CULPABLE — AHORA DOMADO
     productosCityTourOrdena:
       b[15]
-        ?.map(([id, nombre]) => ({
+        ?.map(([id, nombre, region]) => ({
           id: Number(id),
           nombre,
+          region: region ?? "",
         }))
         .filter((x) => Number.isFinite(x.id) && x.nombre !== undefined) ?? [],
   };
