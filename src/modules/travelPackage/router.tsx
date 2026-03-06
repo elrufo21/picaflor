@@ -1,5 +1,7 @@
 import TravelPackageList from "./pages/travelPackageList";
 import TravelPackageForm from "./pages/travelPackageForm";
+import TravelPackageInvoicePreview from "./pages/travelPackageInvoicePreview";
+import TravelPackageBoletaPreview from "./pages/travelPackageBoletaPreview";
 
 export default [
   {
@@ -21,6 +23,27 @@ export default [
     element: <TravelPackageForm />,
     handle: {
       breadcrumb: [{ label: "Paquete de Viaje", to: "/paquete-viaje" }, { label: "Editar" }],
+    },
+  },
+  {
+    path: "paquete-viaje/:id/preview",
+    element: <TravelPackageInvoicePreview />,
+    handle: {
+      breadcrumb: [{ label: "Paquete de Viaje", to: "/paquete-viaje" }, { label: "Preview" }],
+    },
+  },
+  {
+    path: "paquete-viaje/preview",
+    element: <TravelPackageInvoicePreview />,
+    handle: {
+      breadcrumb: [{ label: "Paquete de Viaje", to: "/paquete-viaje" }, { label: "Preview" }],
+    },
+  },
+  {
+    path: "paquete-viaje/:id/boleta",
+    element: <TravelPackageBoletaPreview />,
+    handle: {
+      breadcrumb: [{ label: "Paquete de Viaje", to: "/paquete-viaje" }, { label: "Boleta" }],
     },
   },
 ];

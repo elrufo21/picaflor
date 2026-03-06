@@ -276,11 +276,13 @@ const styles = StyleSheet.create({
 });
 
 const buildItems = (data: any) => {
+  const programa = normalizeText(data?.programa);
   const destino = normalizeText(data?.destino);
   const cityTourDescription = buildCityTourDescription(data);
   const isCityTour = isCityTourFromUrl();
   const producto =
-    isCityTour && cityTourDescription ? cityTourDescription : destino || "-";
+    programa ||
+    (isCityTour && cityTourDescription ? cityTourDescription : destino || "-");
   const cantidad = Number(data?.cantPax ?? 0);
   const importe = Number(data?.precioTotal ?? data?.totalGeneral ?? 0);
 

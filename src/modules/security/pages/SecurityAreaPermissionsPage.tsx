@@ -774,7 +774,11 @@ const SecurityAreaPermissionsPage = () => {
       }
     } catch (error) {
       console.error("No se pudo guardar permisos por area en backend", error);
-      toast.error("No se pudo guardar en la base de datos.");
+      const detail =
+        error instanceof Error && error.message
+          ? error.message
+          : "No se pudo guardar en la base de datos.";
+      toast.error(`No se pudo guardar: ${detail}`);
       return;
     }
 

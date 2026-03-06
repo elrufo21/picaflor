@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { CheckCircle, XCircle, AlertTriangle, Info } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 type ToastType = "success" | "error" | "warning" | "info";
@@ -8,9 +8,15 @@ interface ToastProps {
   title: string;
   description?: ReactNode;
   type?: ToastType;
+  onClose?: () => void;
 }
 
-const AppToast = ({ title, description, type = "info" }: ToastProps) => {
+const AppToast = ({
+  title,
+  description,
+  type = "info",
+  onClose,
+}: ToastProps) => {
   const getIcon = () => {
     switch (type) {
       case "success":
@@ -41,10 +47,18 @@ const AppToast = ({ title, description, type = "info" }: ToastProps) => {
 
   return (
     <div
-      className={`flex items-start gap-3 w-full p-4 rounded-xl border shadow-lg backdrop-blur-md ${getBorderColor()}`}
+      className={`relative flex items-start gap-3 w-full p-4 rounded-xl border shadow-lg backdrop-blur-md ${getBorderColor()}`}
     >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Cerrar notificación"
+        className="absolute right-2 top-2 rounded-md p-1 text-slate-500 hover:bg-black/5 hover:text-slate-700"
+      >
+        <X className="h-4 w-4" />
+      </button>
       <div className="mt-0.5">{getIcon()}</div>
-      <div className="flex-1">
+      <div className="flex-1 pr-6">
         <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
         {description && (
           <div className="text-xs text-slate-600 mt-1 leading-relaxed">
@@ -57,9 +71,19 @@ const AppToast = ({ title, description, type = "info" }: ToastProps) => {
 };
 
 export const showToast = ({ title, description, type = "info" }: ToastProps) => {
-  toast.custom((t) => <AppToast title={title} description={description} type={type} />, {
-    duration: 4000,
-  });
+  toast.custom(
+    (t) => (
+      <AppToast
+        title={title}
+        description={description}
+        type={type}
+        onClose={() => toast.dismiss(t.id)}
+      />
+    ),
+    {
+      duration: 4000,
+    },
+  );
 };
 
 export default AppToast;

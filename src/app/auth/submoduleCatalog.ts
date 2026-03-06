@@ -31,6 +31,11 @@ export const SUBMODULE_OPTIONS: SubmoduleOption[] = [
     detail: "Permite abrir la pantalla de hoteles.",
   },
   {
+    code: "maintenance.transport",
+    label: "Mantenimiento - Transporte",
+    detail: "Permite abrir la pantalla de transporte.",
+  },
+  {
     code: "maintenance.partidas",
     label: "Mantenimiento - Puntos de partida",
     detail: "Permite abrir la pantalla de puntos de partida.",

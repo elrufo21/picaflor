@@ -63,6 +63,14 @@ export default function MaintenanceDashboard() {
       submoduleCode: "maintenance.hotels",
     },
     {
+      title: "Transporte",
+      desc: "Gestiona proveedores de transporte y su estado.",
+      icon: Building2,
+      iconClass: "text-indigo-600",
+      route: "/maintenance/transport",
+      submoduleCode: "maintenance.transport",
+    },
+    {
       title: "Puntos de partida",
       desc: "Registra puntos de salida para los viajes.",
       icon: MapPin,

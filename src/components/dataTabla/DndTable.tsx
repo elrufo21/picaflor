@@ -463,15 +463,20 @@ const TableHeader = ({
   dateFilterComponent,
   headerAction,
 }: TableHeaderProps) => {
+  const hasCustomDateFilter = Boolean(dateFilterComponent);
   const searchContainerClassName = `relative w-full flex-1 ${
-    searchInputComponent ? "max-w-full sm:max-w-2xl" : "max-w-md"
+    searchInputComponent
+      ? hasCustomDateFilter
+        ? "max-w-full"
+        : "max-w-full sm:max-w-2xl"
+      : "max-w-md"
   }`;
 
   return (
     <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/60">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex flex-col gap-4 items-start justify-between">
         {/* Buscador + accion primaria */}
-        <div className="flex w-full sm:flex-1 items-center gap-2">
+        <div className="flex w-full items-center gap-2">
           <div className={searchContainerClassName}>
             {enableSearching && (
               searchInputComponent ? (
@@ -502,7 +507,7 @@ const TableHeader = ({
         </div>
 
         {/* Acciones */}
-        <div className="flex w-full sm:w-auto flex-wrap items-start sm:items-center gap-2">
+        <div className="flex w-full flex-wrap items-start sm:items-center gap-2">
           {dateFilterComponent
             ? dateFilterComponent()
             : enableDateFilter && (

@@ -357,28 +357,10 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">
-                  Condicion de pago
-                </label>
-                <select
-                  value={form.condicionPago}
-                  onChange={(event) =>
-                    onUpdateField("condicionPago", event.target.value)
-                  }
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-800"
-                >
-                  {CONDICION_PAGO_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
                   Medio de pago
                 </label>
                 <select
+                  name="medioPago"
                   value={form.medioPago}
                   disabled={isCredit}
                   onChange={(event) =>
@@ -399,6 +381,7 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                   Entidad bancaria
                 </label>
                 <select
+                  name="entidadBancaria"
                   value={form.entidadBancaria}
                   disabled={!canEditBank}
                   onChange={(event) =>
@@ -419,6 +402,7 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                   Nro operacion
                 </label>
                 <input
+                  name="nroOperacion"
                   value={form.nroOperacion}
                   disabled={!canEditOperation}
                   onChange={(event) =>
@@ -427,28 +411,28 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                   className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600">
-                Acuenta
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.acuenta === 0 ? "" : form.acuenta}
-                disabled={form.condicionPago !== "ACUENTA"}
-                onChange={(event) => {
-                  const value = Number(event.target.value || 0);
-                  const capped =
-                    form.totalGeneral > 0
-                      ? Math.min(value, form.totalGeneral)
-                      : value;
-                  onUpdateField("acuenta", roundCurrency(capped));
-                }}
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-right text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100"
-              />
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                  Acuenta
+                </label>
+                <input
+                  name="acuenta"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.acuenta === 0 ? "" : form.acuenta}
+                  disabled={form.condicionPago !== "ACUENTA"}
+                  onChange={(event) => {
+                    const value = Number(event.target.value || 0);
+                    const capped =
+                      form.totalGeneral > 0
+                        ? Math.min(value, form.totalGeneral)
+                        : value;
+                    onUpdateField("acuenta", roundCurrency(capped));
+                  }}
+                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-right text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100"
+                />
+              </div>
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-slate-50">

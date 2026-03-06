@@ -889,6 +889,8 @@ const ItinerarySection = ({
                               step="0.01"
                               min={0}
                               className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
+                              data-row-price-day={String(day.id)}
+                              data-row-price-row={String(row.id)}
                               value={row.precio === 0 ? "" : row.precio}
                               onChange={(e) =>
                                 handlePrecioChange(e.target.value)

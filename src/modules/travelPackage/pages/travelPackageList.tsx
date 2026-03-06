@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createColumnHelper,
   type ColumnDef,
+  type PaginationState,
 } from "@tanstack/react-table";
 import { useNavigate } from "react-router";
-import { Check, Plus, Search, X } from "lucide-react";
+import { Check, ChevronLeft, Plus, Search, X } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { showToast } from "@/components/ui/AppToast";
@@ -41,6 +42,24 @@ type TravelPackageListadoRow = {
   flagVerificado: "0" | "1";
 };
 
+const CONDICION_OPTIONS = [
+  { label: "TODOS", value: "TODOS" },
+  { label: "ACUENTA", value: "ACUENTA" },
+  { label: "CANCELADO", value: "CANCELADO" },
+  { label: "CREDITO", value: "CREDITO" },
+] as const;
+
+const ESTADO_OPTIONS = [
+  { label: "TODOS", value: "TODOS" },
+  { label: "PENDIENTE", value: "PENDIENTE" },
+  { label: "CANCELADO", value: "CANCELADO" },
+  { label: "ANULADO", value: "ANULADO" },
+] as const;
+
+type CondicionFilterValue = (typeof CONDICION_OPTIONS)[number]["value"];
+type EstadoFilterValue = (typeof ESTADO_OPTIONS)[number]["value"];
+type SearchMode = "none" | "numero" | "agencia";
+
 const getTodayIso = () => {
   const now = new Date();
   const offsetMs = now.getTimezoneOffset() * 60 * 1000;
@@ -55,8 +74,59 @@ const parseMoneyLike = (value: string) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const normalizeCell = (value: unknown) => normalizeLegacyXmlPayload(String(value ?? "")).trim();
+const normalizeCell = (value: unknown) =>
+  normalizeLegacyXmlPayload(String(value ?? "")).trim();
 const normalizeStringValue = (value: unknown) => String(value ?? "").trim();
+const normalizeFilterValue = (value: unknown) =>
+  normalizeStringValue(value).toUpperCase().replace(/\s+/g, "");
+
+const normalizeCurrencyForTotals = (value: unknown) => {
+  const currency = normalizeFilterValue(value);
+  if (
+    currency === "DOL" ||
+    currency === "DOLAR" ||
+    currency === "DOLARES" ||
+    currency === "USD" ||
+    currency === "$"
+  ) {
+    return "DOLARES";
+  }
+  if (
+    currency === "SOL" ||
+    currency === "SOLES" ||
+    currency === "PEN" ||
+    currency === "S/" ||
+    currency === "S/."
+  ) {
+    return "SOLES";
+  }
+  return currency;
+};
+
+const formatTotalsAmount = (value: number) =>
+  new Intl.NumberFormat("es-PE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+const normalizeLegacyDateForFilter = (value: unknown) => {
+  const raw = normalizeStringValue(value);
+  if (!raw) return "";
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (slashMatch) {
+    const [, day, month, year] = slashMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  return "";
+};
 
 const parseRow = (
   rawRow: string,
@@ -74,7 +144,9 @@ const parseRow = (
         ? String(idPaqueteViaje)
         : `tmp-${index + 1}`,
     idPaqueteViaje:
-      Number.isFinite(idPaqueteViaje) && idPaqueteViaje > 0 ? idPaqueteViaje : 0,
+      Number.isFinite(idPaqueteViaje) && idPaqueteViaje > 0
+        ? idPaqueteViaje
+        : 0,
     fechaEmision: cols[1] ?? "",
     programa: cols[2] ?? "",
     fechaInicioViaje: cols[3] ?? "",
@@ -105,7 +177,10 @@ const parseRow = (
 const parseListadoResponse = (raw: unknown): TravelPackageListadoRow[] => {
   if (!raw) return [];
 
-  const pushParsedRows = (payload: string, target: TravelPackageListadoRow[]) => {
+  const pushParsedRows = (
+    payload: string,
+    target: TravelPackageListadoRow[],
+  ) => {
     const rows = normalizeLegacyXmlPayload(payload)
       .split("¬")
       .map((item) => item.trim())
@@ -161,10 +236,30 @@ const toDdMmYyyy = (value: string) => {
 const TravelPackageList = () => {
   const navigate = useNavigate();
   const authUser = useAuthStore((state) => state.user);
-  const [fechaInicio, setFechaInicio] = useState(getTodayIso());
-  const [fechaFin, setFechaFin] = useState(getTodayIso());
+  const todayValue = useMemo(() => getTodayIso(), []);
+  const [pendingStartDate, setPendingStartDate] = useState(todayValue);
+  const [pendingEndDate, setPendingEndDate] = useState(todayValue);
+  const [appliedStartDate, setAppliedStartDate] = useState(todayValue);
+  const [appliedEndDate, setAppliedEndDate] = useState(todayValue);
+  const [selectedCondicion, setSelectedCondicion] =
+    useState<CondicionFilterValue>("TODOS");
+  const [selectedEstado, setSelectedEstado] =
+    useState<EstadoFilterValue>("TODOS");
+  const [searchMode, setSearchMode] = useState<SearchMode>("none");
+  const [searchNumber, setSearchNumber] = useState("");
+  const [searchAgency, setSearchAgency] = useState("");
+  const [searchByFechaViaje, setSearchByFechaViaje] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [allRows, setAllRows] = useState<TravelPackageListadoRow[]>([]);
   const [rows, setRows] = useState<TravelPackageListadoRow[]>([]);
+  const [filteredRowsForTotals, setFilteredRowsForTotals] = useState<
+    TravelPackageListadoRow[]
+  >([]);
+  const [tablePagination, setTablePagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+  const initialLoadRef = useRef(false);
   const columnHelper = createColumnHelper<TravelPackageListadoRow>();
   const isPagoVerificado = useCallback((row: TravelPackageListadoRow) => {
     return normalizeStringValue(row.flagVerificado) === "1";
@@ -172,66 +267,182 @@ const TravelPackageList = () => {
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
   const sessionStore = sessionRaw ? JSON.parse(sessionRaw) : null;
 
-  const loadListado = useCallback(async () => {
-    const areaId = Number(authUser?.areaId ?? authUser?.area ?? 0);
-    const usuarioId = Number(authUser?.id ?? 0);
+  const loadListado = useCallback(
+    async (startDate?: string, endDate?: string, esViajeOverride?: boolean) => {
+      const areaId = Number(authUser?.areaId ?? authUser?.area ?? 0);
+      const usuarioId = Number(authUser?.id ?? 0);
+      const rangeStart = startDate ?? pendingStartDate;
+      const rangeEnd = endDate ?? pendingEndDate;
+      const useFechaViaje = esViajeOverride ?? searchByFechaViaje;
 
-    if (!areaId || !usuarioId) {
-      showToast({
-        title: "Error",
-        description: "No se pudo resolver AreaId/UsuarioId de la sesión.",
-        type: "error",
-      });
-      return;
-    }
+      if (!areaId || !usuarioId) {
+        showToast({
+          title: "Error",
+          description: "No se pudo resolver AreaId/UsuarioId de la sesión.",
+          type: "error",
+        });
+        return;
+      }
 
-    if (!fechaInicio || !fechaFin) {
-      showToast({
-        title: "Atención",
-        description: "Debe seleccionar fecha inicio y fecha fin.",
-        type: "warning",
-      });
-      return;
-    }
+      if (!rangeStart || !rangeEnd) {
+        showToast({
+          title: "Atención",
+          description: "Debe seleccionar fecha inicio y fecha fin.",
+          type: "warning",
+        });
+        return;
+      }
 
-    if (fechaFin < fechaInicio) {
-      showToast({
-        title: "Atención",
-        description: "La fecha fin no puede ser menor a la fecha inicio.",
-        type: "warning",
-      });
-      return;
-    }
+      if (rangeEnd < rangeStart) {
+        showToast({
+          title: "Atención",
+          description: "La fecha fin no puede ser menor a la fecha inicio.",
+          type: "warning",
+        });
+        return;
+      }
 
-    const valores = `${fechaInicio}|${fechaFin}|${areaId}|${usuarioId}`;
-    setIsLoading(true);
-    try {
-      const response = await listarPaqueteViaje(valores);
-      setRows(parseListadoResponse(response));
-    } catch (error) {
-      showToast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "No se pudo cargar el listado de paquetes de viaje.",
-        type: "error",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [authUser?.area, authUser?.areaId, authUser?.id, fechaFin, fechaInicio]);
+      setAppliedStartDate(rangeStart);
+      setAppliedEndDate(rangeEnd);
+      const valores = `${rangeStart}|${rangeEnd}|${areaId}|${usuarioId}`;
+      setIsLoading(true);
+      try {
+        const response = await listarPaqueteViaje(valores, {
+          esViaje: useFechaViaje,
+        });
+        setAllRows(parseListadoResponse(response));
+      } catch (error) {
+        showToast({
+          title: "Error",
+          description:
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar el listado de paquetes de viaje.",
+          type: "error",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      authUser?.area,
+      authUser?.areaId,
+      authUser?.id,
+      pendingEndDate,
+      pendingStartDate,
+      searchByFechaViaje,
+    ],
+  );
 
   useEffect(() => {
-    void loadListado();
-  }, [loadListado]);
+    if (initialLoadRef.current) return;
+    initialLoadRef.current = true;
+    void loadListado(pendingStartDate, pendingEndDate);
+  }, [loadListado, pendingEndDate, pendingStartDate]);
 
-  const columns = useMemo<ColumnDef<TravelPackageListadoRow>[]>(
-    () => {
-      const cols: ColumnDef<TravelPackageListadoRow>[] = [];
+  useEffect(() => {
+    let sourceRows = allRows;
 
-      if (sessionStore?.user?.areaId === "6") {
-        cols.push(columnHelper.display({
+    sourceRows = sourceRows.filter((row) => {
+      const dateCandidate = searchByFechaViaje
+        ? normalizeLegacyDateForFilter(row.fechaInicioViaje)
+        : normalizeLegacyDateForFilter(row.fechaEmision);
+
+      if (!dateCandidate) return true;
+      if (appliedStartDate && dateCandidate < appliedStartDate) return false;
+      if (appliedEndDate && dateCandidate > appliedEndDate) return false;
+      return true;
+    });
+
+    if (selectedCondicion !== "TODOS") {
+      sourceRows = sourceRows.filter(
+        (row) =>
+          normalizeFilterValue(row.condicionPago) ===
+          normalizeFilterValue(selectedCondicion),
+      );
+    }
+
+    if (selectedEstado !== "TODOS") {
+      sourceRows = sourceRows.filter(
+        (row) =>
+          normalizeFilterValue(row.estado) ===
+          normalizeFilterValue(selectedEstado),
+      );
+    }
+
+    if (searchMode === "numero") {
+      const query = normalizeStringValue(searchNumber);
+      sourceRows = query
+        ? sourceRows.filter((row) => String(row.idPaqueteViaje).includes(query))
+        : sourceRows;
+    }
+
+    if (searchMode === "agencia") {
+      const query = normalizeStringValue(searchAgency).toLowerCase();
+      sourceRows = query
+        ? sourceRows.filter((row) =>
+            normalizeStringValue(row.agenciaNombre)
+              .toLowerCase()
+              .includes(query),
+          )
+        : sourceRows;
+    }
+
+    setRows(sourceRows);
+  }, [
+    allRows,
+    appliedEndDate,
+    appliedStartDate,
+    searchAgency,
+    searchByFechaViaje,
+    searchMode,
+    searchNumber,
+    selectedCondicion,
+    selectedEstado,
+  ]);
+
+  useEffect(() => {
+    setFilteredRowsForTotals(rows);
+  }, [rows]);
+
+  const totales = useMemo(() => {
+    return filteredRowsForTotals.reduce(
+      (acc, row) => {
+        const moneda = normalizeCurrencyForTotals(row.moneda);
+        if (moneda === "DOLARES") {
+          acc.totalDolares += row.totalGeneral;
+          acc.acuentaDolares += row.acuenta;
+          acc.saldoDolares += row.saldo;
+          return acc;
+        }
+        if (moneda === "SOLES") {
+          acc.totalSoles += row.totalGeneral;
+          acc.acuentaSoles += row.acuenta;
+          acc.saldoSoles += row.saldo;
+        }
+        return acc;
+      },
+      {
+        totalDolares: 0,
+        acuentaDolares: 0,
+        saldoDolares: 0,
+        totalSoles: 0,
+        acuentaSoles: 0,
+        saldoSoles: 0,
+      },
+    );
+  }, [filteredRowsForTotals]);
+
+  const handleRangeSearch = () => {
+    void loadListado(pendingStartDate, pendingEndDate);
+  };
+
+  const columns = useMemo<ColumnDef<TravelPackageListadoRow>[]>(() => {
+    const cols: ColumnDef<TravelPackageListadoRow>[] = [];
+
+    if (sessionStore?.user?.areaId === "6") {
+      cols.push(
+        columnHelper.display({
           id: "pVerificado",
           size: 110,
           header: "Verificado",
@@ -248,43 +459,12 @@ const TravelPackageList = () => {
                 aria-label="No verificado"
               />
             ),
-        }));
-      }
-
-      cols.push(
-        columnHelper.accessor("idPaqueteViaje", {
-          header: "Id",
-          meta: { align: "center" },
-        }),
-        columnHelper.accessor("fechaEmision", {
-          header: "Fecha emision",
-        }),
-        columnHelper.accessor("programa", {
-          header: "Programa",
-        }),
-        columnHelper.accessor("agenciaNombre", {
-          header: "Agencia",
-        }),
-        columnHelper.accessor("primerPasajero", {
-          header: "Primer pasajero",
-        }),
-        columnHelper.accessor("totalGeneral", {
-          header: "Total",
-          meta: { align: "right" },
-          cell: ({ row }) => row.original.totalGeneral.toFixed(2),
-        }),
-        columnHelper.accessor("saldo", {
-          header: "Saldo",
-          meta: { align: "right" },
-          cell: ({ row }) => row.original.saldo.toFixed(2),
-        }),
-        columnHelper.accessor("estado", {
-          header: "Estado",
-          meta: { align: "center" },
         }),
       );
+    }
 
-      cols.push(columnHelper.display({
+    cols.push(
+      columnHelper.display({
         id: "acciones",
         header: "Acciones",
         meta: { align: "center" },
@@ -297,78 +477,393 @@ const TravelPackageList = () => {
                 state: { listItem: row.original },
               });
             }}
-            className="px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+            className="text-sm cursor-pointer font-semibold text-emerald-600 hover:text-emerald-700"
           >
-            Editar
+            Ver
           </button>
         ),
-      }));
+      }),
+      columnHelper.accessor("idPaqueteViaje", {
+        header: "Id",
+        meta: { align: "center" },
+      }),
+      columnHelper.accessor("fechaEmision", {
+        header: "Fecha emision",
+      }),
+      columnHelper.accessor("programa", {
+        header: "Programa",
+      }),
+      columnHelper.accessor("agenciaNombre", {
+        header: "Agencia",
+      }),
+      columnHelper.accessor("primerPasajero", {
+        header: "Primer pasajero",
+      }),
+      columnHelper.accessor("condicionPago", {
+        header: "Condición",
+      }),
+      columnHelper.accessor("moneda", {
+        header: "Moneda",
+      }),
+      columnHelper.accessor("totalGeneral", {
+        header: "Total",
+        meta: { align: "right" },
+        cell: ({ row }) => row.original.totalGeneral.toFixed(2),
+      }),
+      columnHelper.accessor("acuenta", {
+        header: "A cuenta",
+        meta: { align: "right" },
+        cell: ({ row }) => row.original.acuenta.toFixed(2),
+      }),
+      columnHelper.accessor("saldo", {
+        header: "Saldo",
+        meta: { align: "right" },
+        cell: ({ row }) => row.original.saldo.toFixed(2),
+      }),
+      columnHelper.accessor("estado", {
+        header: "Estado",
+        meta: { align: "center" },
+      }),
+    );
+    return cols;
+  }, [columnHelper, isPagoVerificado, navigate, sessionStore?.user?.areaId]);
 
-      return cols;
-    },
-    [columnHelper, isPagoVerificado, navigate, sessionStore?.user?.areaId],
-  );
+  const SearchInputComponent = ({
+    globalFilter,
+    setGlobalFilter,
+  }: {
+    globalFilter: string;
+    setGlobalFilter: (value: string) => void;
+  }) => {
+    const handleToggleSearchByNumero = (checked: boolean) => {
+      if (checked) {
+        setSearchMode("numero");
+        setSearchAgency("");
+        setSearchByFechaViaje(false);
+        setGlobalFilter("");
+        void loadListado(pendingStartDate, pendingEndDate, false);
+        return;
+      }
+      setSearchMode("none");
+      setSearchNumber("");
+    };
 
-  return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Fecha inicio
-              </label>
-              <input
-                type="date"
-                value={fechaInicio}
-                onChange={(event) => setFechaInicio(event.target.value)}
-                className="w-full px-3 py-2 text-sm border rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Fecha fin
-              </label>
-              <input
-                type="date"
-                value={fechaFin}
-                onChange={(event) => setFechaFin(event.target.value)}
-                className="w-full px-3 py-2 text-sm border rounded-lg"
-              />
-            </div>
-            <div className="flex items-end">
+    const handleToggleSearchByAgencia = (checked: boolean) => {
+      if (checked) {
+        setSearchMode("agencia");
+        setSearchNumber("");
+        setGlobalFilter("");
+        return;
+      }
+      setSearchMode("none");
+      setSearchAgency("");
+    };
+
+    const handleToggleSearchByFechaViaje = (checked: boolean) => {
+      setSearchByFechaViaje(checked);
+      void loadListado(pendingStartDate, pendingEndDate, checked);
+    };
+
+    return (
+      <div className="w-full max-w-full space-y-2 sm:max-w-lg lg:max-w-xl">
+        <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <ChevronLeft
+              className="cursor-pointer"
+              onClick={() => {
+                navigate("/fullday");
+              }}
+            />
+          </div>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={searchMode === "agencia"}
+              onChange={(event) =>
+                handleToggleSearchByAgencia(event.target.checked)
+              }
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            Agencia
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={searchMode === "numero"}
+              onChange={(event) =>
+                handleToggleSearchByNumero(event.target.checked)
+              }
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            Numero de paquete
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={searchByFechaViaje}
+              onChange={(event) =>
+                handleToggleSearchByFechaViaje(event.target.checked)
+              }
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            Fecha viaje
+          </label>
+        </div>
+
+        {searchMode === "none" && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+            <input
+              type="text"
+              value={globalFilter ?? ""}
+              onChange={(event) => setGlobalFilter(event.target.value)}
+              placeholder="Buscar en toda la tabla..."
+              className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-10 text-sm text-slate-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            {globalFilter && (
               <button
                 type="button"
-                onClick={() => void loadListado()}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-slate-800 text-white text-sm font-semibold hover:bg-slate-900"
+                onClick={() => setGlobalFilter("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                <Search size={16} />
-                Buscar
+                <X className="h-4 w-4" />
               </button>
-            </div>
+            )}
           </div>
+        )}
+
+        {searchMode === "numero" && (
+          <div className="space-y-1">
+            <input
+              type="text"
+              value={searchNumber}
+              onChange={(event) => setSearchNumber(event.target.value)}
+              placeholder="Buscar por numero de paquete"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+          </div>
+        )}
+
+        {searchMode === "agencia" && (
+          <div className="space-y-1">
+            <input
+              list="travel-package-agency-options"
+              type="text"
+              value={searchAgency}
+              onChange={(event) => setSearchAgency(event.target.value)}
+              placeholder="Buscar por agencia"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+            <datalist id="travel-package-agency-options">
+              {Array.from(
+                new Set(
+                  allRows
+                    .map((row) => normalizeStringValue(row.agenciaNombre))
+                    .filter(Boolean),
+                ),
+              ).map((agency) => (
+                <option key={agency} value={agency} />
+              ))}
+            </datalist>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const DateRangeFilter = () => (
+    <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
+        <div className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="font-medium text-slate-600">Fecha Inicio</label>
+          <input
+            type="date"
+            value={pendingStartDate}
+            onChange={(event) => setPendingStartDate(event.target.value)}
+            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="font-medium text-slate-600">Fecha Fin</label>
+          <input
+            type="date"
+            value={pendingEndDate}
+            onChange={(event) => setPendingEndDate(event.target.value)}
+            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="font-medium text-slate-600">Condición</label>
+          <select
+            value={selectedCondicion}
+            onChange={(event) =>
+              setSelectedCondicion(event.target.value as CondicionFilterValue)
+            }
+            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+          >
+            {CONDICION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1 text-xs text-slate-500">
+          <label className="font-medium text-slate-600">Estado</label>
+          <select
+            value={selectedEstado}
+            onChange={(event) =>
+              setSelectedEstado(event.target.value as EstadoFilterValue)
+            }
+            className="h-10 w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+          >
+            {ESTADO_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex gap-3 lg:ml-auto">
+          <button
+            type="button"
+            onClick={handleRangeSearch}
+            disabled={isLoading}
+            className="flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800 disabled:opacity-60 transition"
+          >
+            <Search size={16} />
+            Buscar
+          </button>
 
           <button
             type="button"
             onClick={() => navigate("/paquete-viaje/new")}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 transition"
           >
             <Plus size={16} />
             Nuevo paquete
           </button>
         </div>
       </div>
+    </div>
+  );
 
+  return (
+    <div className="space-y-4">
       <DndTable
         data={rows}
+        onFilteredDataChange={setFilteredRowsForTotals}
         columns={columns}
+        paginationState={tablePagination}
+        onPaginationStateChange={setTablePagination}
+        autoResetPageIndex={false}
+        pageSizeOptions={[5, 10, 20, 50]}
+        searchColumns={[
+          "idPaqueteViaje",
+          "programa",
+          "agenciaNombre",
+          "counterNombre",
+          "primerPasajero",
+          "estado",
+          "condicionPago",
+          "moneda",
+        ]}
+        enableSearching
+        searchInputComponent={SearchInputComponent}
         isLoading={isLoading}
         enableDateFilter={false}
         enableFiltering={false}
         enableSorting={false}
-        emptyMessage={`No hay paquetes entre ${toDdMmYyyy(fechaInicio)} y ${toDdMmYyyy(
-          fechaFin,
-        )}.`}
+        emptyMessage={`No hay paquetes entre ${toDdMmYyyy(
+          appliedStartDate,
+        )} y ${toDdMmYyyy(appliedEndDate)}.`}
+        dateFilterComponent={DateRangeFilter}
+        enableRowSelection={false}
+        enableCellNavigation={true}
+        paginationBottomContent={
+          <div className="px-4 sm:px-6 py-3 bg-slate-50/60">
+            <div className="overflow-x-auto">
+              <table className="ml-auto min-w-[680px] text-right text-xs sm:text-sm">
+                <tbody>
+                  <tr className="border-b border-slate-200">
+                    <td className="px-4 py-2 align-top">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Dolares - Total
+                      </div>
+                      <div className="font-medium text-slate-800">
+                        {formatTotalsAmount(totales.totalDolares)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 align-top border-l border-slate-200">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Dolares - A cuenta
+                      </div>
+                      <div className="font-medium text-slate-800">
+                        {formatTotalsAmount(totales.acuentaDolares)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 align-top border-l border-slate-200">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Dolares - Saldo
+                      </div>
+                      <div className="font-semibold text-slate-900">
+                        {formatTotalsAmount(totales.saldoDolares)}
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 align-top">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Soles - Total
+                      </div>
+                      <div className="font-medium text-slate-800">
+                        {formatTotalsAmount(totales.totalSoles)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 align-top border-l border-slate-200">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Soles - A cuenta
+                      </div>
+                      <div className="font-medium text-slate-800">
+                        {formatTotalsAmount(totales.acuentaSoles)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 align-top border-l border-slate-200">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Soles - Saldo
+                      </div>
+                      <div className="font-semibold text-slate-900">
+                        {formatTotalsAmount(totales.saldoSoles)}
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+        rowColorRules={[
+          {
+            when: (row) => normalizeFilterValue(row.estado) === "ANULADO",
+            className: "bg-red-50 text-red-700",
+          },
+          {
+            when: (row) =>
+              normalizeFilterValue(row.estado) !== "ANULADO" &&
+              normalizeFilterValue(row.condicionPago) === "CREDITO",
+            className: "bg-orange-200 text-orange-700",
+          },
+          {
+            when: (row) =>
+              normalizeFilterValue(row.estado) !== "ANULADO" &&
+              normalizeFilterValue(row.estado) === "PENDIENTE",
+            className: "bg-yellow-50 text-yellow-800",
+          },
+        ]}
       />
     </div>
   );

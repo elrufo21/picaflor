@@ -197,9 +197,10 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
           name="email"
           control={control}
           size="small"
-          type="email"
+          type="text"
           label="Email"
           disableAutoUppercase
+          inputProps={{ inputMode: "email" }}
           onChange={(e) => onUpdateField("email", e.target.value)}
         />
 
