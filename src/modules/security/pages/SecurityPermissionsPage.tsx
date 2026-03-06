@@ -481,10 +481,10 @@ const SecurityPermissionsPage = () => {
         const row = submoduleChecks[code];
         return Boolean(
           row?.submodule &&
-            row?.read &&
-            row?.edit &&
-            row?.create &&
-            row?.delete,
+          row?.read &&
+          row?.edit &&
+          row?.create &&
+          row?.delete,
         );
       }),
     [filteredSubmoduleOptions, submoduleChecks],
@@ -577,7 +577,6 @@ const SecurityPermissionsPage = () => {
       checks,
       submoduleChecks,
     );
-    console.log("PermisosUsuario payload plano:", payloadPlano);
 
     try {
       const response = await fetch(USER_PERMISSIONS_SAVE_ENDPOINT, {

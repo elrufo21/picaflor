@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2, BusFront } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import {
   ALIMENTACION_BOOL_OPTIONS,
   ALIMENTACION_OPTIONS,
@@ -15,6 +15,8 @@ import type {
   TravelPackageFormState,
 } from "../types/travelPackage.types";
 import SectionCard from "./SectionCard";
+import { useDialogStore } from "@/app/store/dialogStore";
+import { showToast } from "@/components/ui/AppToast";
 import {
   AutocompleteTable,
   RoomQuantitySelector,
@@ -22,7 +24,12 @@ import {
   TextControlled,
   type RoomQuantityValue,
 } from "@/components/ui/inputs";
+import HotelFormDialog, {
+  type HotelFormValues,
+} from "@/modules/maintenance/hotels/components/HotelFormDialog";
+import { refreshServiciosData } from "@/app/db/serviciosSync";
 import { serviciosDB, type Hotel, type Ubigeo } from "@/app/db/serviciosDB";
+import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 
 type Props = {
   form: TravelPackageFormState;
@@ -79,6 +86,10 @@ const calculateHabitacionesImporteTotal = (
 
 type ServiciosContratadosFormValues = Record<string, string>;
 const normalizeRegionName = (value: string) => value.trim().toLowerCase();
+const normalizeHotelName = (value?: string) =>
+  String(value ?? "")
+    .trim()
+    .toUpperCase();
 const MOVILIDAD_EMPRESAS_PERU = {
   BUS: [
     "Cruz del Sur",
@@ -127,6 +138,9 @@ const ServiciosContratadosSection = ({
       precioAlimentacionGlobal: "",
     },
   });
+  const openDialog = useDialogStore((state) => state.openDialog);
+  const addHotel = useMaintenanceStore((state) => state.addHotel);
+  const hotelFormRef = useRef<UseFormReturn<HotelFormValues> | null>(null);
   const [regiones, setRegiones] = useState<Ubigeo[]>([]);
   const [hotelesCatalogo, setHotelesCatalogo] = useState<Hotel[]>([]);
   const [empresasMovilidad, setEmpresasMovilidad] = useState<string[]>([]);
@@ -474,6 +488,79 @@ const ServiciosContratadosSection = ({
     onUpdateField,
   ]);
 
+  const handleAddHotelCatalog = useCallback(() => {
+    openDialog({
+      title: "Nuevo hotel",
+      description: "Crea un hotel sin salir del formulario.",
+      size: "md",
+      confirmLabel: "Guardar hotel",
+      content: () => <HotelFormDialog formRef={hotelFormRef} />,
+      onConfirm: () => {
+        if (!hotelFormRef.current) return;
+        return hotelFormRef.current.handleSubmit(async (values) => {
+          const hotelName = normalizeHotelName(values.hotel);
+          const region = String(values.region ?? "").trim();
+          const horaIngreso = String(values.horaIngreso ?? "").trim();
+          const horaSalida = String(values.horaSalida ?? "").trim();
+          const direccion = String(values.direccion ?? "")
+            .trim()
+            .toUpperCase();
+
+          if (!region) {
+            showToast({
+              title: "Atención",
+              description: "Ingresa la región del hotel.",
+              type: "warning",
+            });
+            throw new Error("Región de hotel requerida");
+          }
+
+          if (!hotelName) {
+            showToast({
+              title: "Atención",
+              description: "Ingresa el nombre del hotel.",
+              type: "warning",
+            });
+            throw new Error("Nombre de hotel requerido");
+          }
+
+          if (
+            (hotelesCatalogo ?? []).some(
+              (hotelItem) =>
+                normalizeHotelName(hotelItem.nombre) === hotelName &&
+                String(hotelItem.region ?? "")
+                  .trim()
+                  .toUpperCase() === region.toUpperCase(),
+            )
+          ) {
+            showToast({
+              title: "Atención",
+              description: "Ese hotel ya existe en la lista.",
+              type: "warning",
+            });
+            throw new Error("Hotel duplicado");
+          }
+
+          await addHotel({
+            hotel: hotelName,
+            region,
+            horaIngreso,
+            horaSalida,
+            direccion,
+          });
+          await refreshServiciosData();
+
+          const [ubigeosRows, hotelesRows] = await Promise.all([
+            serviciosDB.ubigeos.toArray(),
+            serviciosDB.hoteles.toArray(),
+          ]);
+          setRegiones(ubigeosRows);
+          setHotelesCatalogo(hotelesRows);
+        })();
+      },
+    });
+  }, [addHotel, hotelesCatalogo, openDialog]);
+
   return (
     <SectionCard
       icon={BusFront}
@@ -711,7 +798,16 @@ const ServiciosContratadosSection = ({
                 }
               />
             </div>
-            <div className="hidden md:block" />
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={handleAddHotelCatalog}
+                className="inline-flex h-9 items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Agregar hotel
+              </button>
+            </div>
             <div className="hidden md:block" />
           </div>
         </div>
@@ -906,14 +1002,14 @@ const ServiciosContratadosSection = ({
               </table>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={onAddHotelServicio}
-                className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Agregar hotel
+                Agregar fila
               </button>
             </div>
           </div>

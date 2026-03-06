@@ -1,8 +1,12 @@
 // src/db/serviciosDB.ts
 import Dexie, { type Table } from "dexie";
 
-export type Producto = { id: number; nombre: string };
-export type ProductoCityTourOrdena = { id: number; nombre: string };
+export type Producto = { id: number; nombre: string; region?: string };
+export type ProductoCityTourOrdena = {
+  id: number;
+  nombre: string;
+  region?: string;
+};
 export type PrecioProducto = {
   idProducto: number;
   precioBase: number;
@@ -102,7 +106,26 @@ export async function hasServiciosData() {
     serviciosDB.actividades.count(),
   ]);
 
-  return counts.some((count) => count > 0);
+  const hasAnyData = counts.some((count) => count > 0);
+  if (!hasAnyData) return false;
+
+  // Backward compatibility: si los productos antiguos no tienen `region`,
+  // forzamos recarga desde backend para hidratar el nuevo campo.
+  const sampleProducto = await serviciosDB.productos.orderBy("id").first();
+  if (sampleProducto && (sampleProducto as Producto).region === undefined) {
+    return false;
+  }
+
+  const sampleCityTourProducto =
+    await serviciosDB.productosCityTourOrdena.orderBy("id").first();
+  if (
+    sampleCityTourProducto &&
+    (sampleCityTourProducto as ProductoCityTourOrdena).region === undefined
+  ) {
+    return false;
+  }
+
+  return true;
 }
 export async function getServiciosFromDB() {
   return {

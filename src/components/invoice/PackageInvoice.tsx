@@ -172,6 +172,12 @@ function formatMoney(value: unknown) {
   });
 }
 
+function roundMoney(value: unknown) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  return Number(n.toFixed(2));
+}
+
 function safeText(v: unknown) {
   return String(v ?? "").trim();
 }
@@ -338,6 +344,7 @@ const S = StyleSheet.create({
   },
   dayBody: { padding: 6 },
   bullet: { fontSize: 8, marginBottom: 2, color: "#334155" },
+  dayObservation: { fontSize: 8, marginTop: 4, color: "#0F172A" },
 
   priceBox: { marginTop: 10 },
   priceTable: {
@@ -476,62 +483,155 @@ export default function PackageInvoicePdf({
       key: `${d.fecha}-${d.id ?? ""}`,
       header: `${formatFechaTitulo(d.fecha)} : ${safeText(d.titulo).toUpperCase()}`,
       bullets,
+      observacion: safeText(d.observacion),
     };
   });
 
-  // Filas de liquidación (si tienes paquetesViaje, aquí lo puedes usar; por ahora usamos movilidad + hotel + días con precioUnitario)
+  const paxCount = Math.max(0, Number(data.cantPax || 0));
+  const destinosLabel = (() => {
+    const values = (data.destinos ?? [])
+      .map((item) => safeText(item))
+      .filter(Boolean);
+    return values.length ? values.join(" - ") : "SIN DESTINOS";
+  })();
+
+  const liquidationRows: {
+    key: string;
+    roomType: string;
+    roomPrice: number;
+    quantity: number;
+  }[] = (() => {
+    if (!data.incluyeHotel) return [];
+
+    const groupedByType = new Map<
+      string,
+      { roomType: string; unitPriceSum: number; quantity: number }
+    >();
+
+    (data.hotelesContratados ?? []).forEach((hotelRow) => {
+      (hotelRow.habitaciones ?? []).forEach((room) => {
+        const roomType = safeText(room.tipo);
+        if (!roomType) return;
+
+        const quantity = Math.max(0, Number(room.cantidad || 0));
+        if (quantity <= 0) return;
+
+        const roomPrice = roundMoney(Number(room.precio || 0));
+        const key = roomType.toUpperCase();
+        const current = groupedByType.get(key);
+
+        if (current) {
+          current.unitPriceSum = roundMoney(current.unitPriceSum + roomPrice);
+          current.quantity = Math.max(current.quantity, quantity);
+          return;
+        }
+
+        groupedByType.set(key, {
+          roomType,
+          unitPriceSum: roomPrice,
+          quantity,
+        });
+      });
+    });
+
+    return Array.from(groupedByType.entries())
+      .map(([key, value]) => ({
+        key,
+        roomType: value.roomType,
+        roomPrice: value.unitPriceSum,
+        quantity: value.quantity,
+      }))
+      .sort((a, b) => a.roomType.localeCompare(b.roomType));
+  })();
+
+  const activitiesTotal = roundMoney(
+    (data.itinerario ?? []).reduce((acc, day) => {
+      const dayActivitiesSubtotal = (day.actividades ?? []).reduce(
+        (sum, activity) => sum + Number(activity.subtotal || 0),
+        0,
+      );
+      const dayImporteTotal =
+        Number(day.precioUnitario || 0) * paxCount + dayActivitiesSubtotal;
+      return acc + dayImporteTotal;
+    }, 0),
+  );
+  const activitiesUnit = paxCount > 0 ? roundMoney(activitiesTotal / paxCount) : 0;
+  const showActivitiesRow = activitiesTotal > 0 && paxCount > 0;
+
+  const foodUnit = roundMoney(
+    (data.hotelesContratados ?? []).reduce((acc, hotelRow) => {
+      if (!hotelRow.incluyeAlimentacion) return acc;
+      return acc + Number(hotelRow.alimentacionPrecio || 0);
+    }, 0),
+  );
+  const foodTotal = roundMoney(foodUnit * paxCount);
+  const showFoodRow = Boolean(data.incluyeHotel && foodUnit > 0 && paxCount > 0);
+
+  const movilidadUnit = roundMoney(Number(data.movilidadPrecio || 0));
+  const movilidadQuantity = Math.max(0, paxCount);
+  const movilidadTotal = roundMoney(movilidadUnit * movilidadQuantity);
+  const movilidadTipo = safeText(data.movilidadTipo).toUpperCase();
+  const showMovilidadRow = Boolean(
+    movilidadTipo &&
+      movilidadTipo !== "NO INCLUYE" &&
+      movilidadUnit > 0 &&
+      movilidadQuantity > 0,
+  );
+  const movilidadLabel = movilidadTipo === "AEREO" ? "Vuelo" : "Movilidad";
+
+  const hasPricingRows =
+    liquidationRows.length > 0 ||
+    showMovilidadRow ||
+    showActivitiesRow ||
+    showFoodRow;
+
   const pricingRows: {
+    key: string;
     desc: string;
     unit: number;
     qty: number;
     total: number;
   }[] = [];
 
-  // movilidad si tiene precio
-  if (Number(data.movilidadPrecio ?? 0) > 0) {
+  liquidationRows.forEach((row) => {
+    const unitAmount = roundMoney(row.roomPrice);
+    const total = roundMoney(unitAmount * row.quantity);
     pricingRows.push({
-      desc: `MOVILIDAD ${safeText(data.movilidadTipo).toUpperCase()} - ${safeText(
-        data.movilidadEmpresa,
-      ).toUpperCase()}`,
-      unit: Number(data.movilidadPrecio ?? 0),
-      qty: 1,
-      total: Number(data.movilidadPrecio ?? 0),
+      key: row.key,
+      desc: `Paquete ${destinosLabel} / Hab ${row.roomType}`,
+      unit: unitAmount,
+      qty: row.quantity,
+      total,
+    });
+  });
+
+  if (showMovilidadRow) {
+    pricingRows.push({
+      key: "movilidad",
+      desc: `Paquete ${destinosLabel} / ${movilidadLabel}`,
+      unit: movilidadUnit,
+      qty: movilidadQuantity,
+      total: movilidadTotal,
     });
   }
 
-  // hoteles (importeTotal)
-  for (const h of data.hotelesContratados ?? []) {
-    const total = Number(h.importeTotal ?? 0);
-    if (total > 0) {
-      pricingRows.push({
-        desc: `HOTEL ${safeText(h.region).toUpperCase()} - ${safeText(h.hotel).toUpperCase()}`,
-        unit: total,
-        qty: 1,
-        total,
-      });
-    }
-  }
-
-  // días con precioUnitario
-  for (const d of data.itinerario ?? []) {
-    const unit = Number(d.precioUnitario ?? 0);
-    if (unit > 0) {
-      pricingRows.push({
-        desc: safeText(d.titulo).toUpperCase(),
-        unit,
-        qty: 1,
-        total: unit,
-      });
-    }
-  }
-
-  // si quedó vacío, al menos 1 fila con total general
-  if (!pricingRows.length) {
+  if (showActivitiesRow) {
     pricingRows.push({
-      desc: `PAQUETE ${normalizeDestinos(data.destinos).toUpperCase()} / ${safeText(data.programa).toUpperCase()}`,
-      unit: Number(data.totalGeneral ?? 0),
-      qty: 1,
-      total: Number(data.totalGeneral ?? 0),
+      key: "actividades",
+      desc: `Paquete ${destinosLabel} / Paquete`,
+      unit: activitiesUnit,
+      qty: paxCount,
+      total: activitiesTotal,
+    });
+  }
+
+  if (showFoodRow) {
+    pricingRows.push({
+      key: "alimentacion",
+      desc: `Paquete ${destinosLabel} / Alimentacion`,
+      unit: foodUnit,
+      qty: paxCount,
+      total: foodTotal,
     });
   }
 
@@ -727,6 +827,11 @@ export default function PackageInvoicePdf({
                       {i === 0 ? "" : ""}- {b}
                     </Text>
                   ))}
+                  {nonEmptyLine(d.observacion) ? (
+                    <Text style={S.dayObservation}>
+                      {`Observación: ${d.observacion}`}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             ))}
@@ -738,46 +843,54 @@ export default function PackageInvoicePdf({
 
             <View style={S.priceTable}>
               <View style={[S.priceRow, S.priceHeader]}>
-                <Text style={[S.priceCell, { width: "55%" }]}>DESCRIPCIÓN</Text>
-                <Text style={[S.priceCell, { width: "15%" }, S.alignRight]}>
-                  {curr}
+                <Text style={[S.priceCell, { width: "58%" }]}>PAQUETE</Text>
+                <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
+                  P. UNITARIO
                 </Text>
-                <Text style={[S.priceCell, { width: "15%" }, S.alignCenter]}>
+                <Text style={[S.priceCell, { width: "10%" }, S.alignCenter]}>
                   CANT
                 </Text>
                 <Text
                   style={[
                     S.priceCell,
                     S.lastCell,
-                    { width: "15%" },
+                    { width: "16%" },
                     S.alignRight,
                   ]}
                 >
-                  TOTAL
+                  P. TOTAL
                 </Text>
               </View>
 
-              {pricingRows.map((r, idx) => (
-                <View key={idx} style={S.priceRow}>
-                  <Text style={[S.priceCell, { width: "55%" }]}>{r.desc}</Text>
-                  <Text style={[S.priceCell, { width: "15%" }, S.alignRight]}>
-                    {formatMoney(r.unit)}
-                  </Text>
-                  <Text style={[S.priceCell, { width: "15%" }, S.alignCenter]}>
-                    {r.qty}
-                  </Text>
-                  <Text
-                    style={[
-                      S.priceCell,
-                      S.lastCell,
-                      { width: "15%" },
-                      S.alignRight,
-                    ]}
-                  >
-                    {formatMoney(r.total)}
+              {!hasPricingRows ? (
+                <View style={S.priceRow}>
+                  <Text style={[S.priceCell, S.lastCell, { width: "100%" }]}>
+                    No hay habitaciones con cantidad para liquidar.
                   </Text>
                 </View>
-              ))}
+              ) : (
+                pricingRows.map((r) => (
+                  <View key={r.key} style={S.priceRow}>
+                    <Text style={[S.priceCell, { width: "58%" }]}>{r.desc}</Text>
+                    <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
+                      {`${curr} ${formatMoney(r.unit)}`}
+                    </Text>
+                    <Text style={[S.priceCell, { width: "10%" }, S.alignCenter]}>
+                      {r.qty}
+                    </Text>
+                    <Text
+                      style={[
+                        S.priceCell,
+                        S.lastCell,
+                        { width: "16%" },
+                        S.alignRight,
+                      ]}
+                    >
+                      {`${curr} ${formatMoney(r.total)}`}
+                    </Text>
+                  </View>
+                ))
+              )}
             </View>
 
             <View style={S.footerTwo}>
@@ -860,12 +973,12 @@ export default function PackageInvoicePdf({
                   </View>
                 ))}
 
-                <View style={S.notesBox}>
+                {/** <View style={S.notesBox}>
                   <Text style={S.notesHeader}>OBSERVACIONES</Text>
                   <Text style={[S.notesBody, { fontWeight: "bold" }]}>
                     {safeText(data.observaciones)}
                   </Text>
-                </View>
+                </View> */}
               </View>
             </View>
 
