@@ -68,6 +68,7 @@ export type TravelPackageFormState = {
   counter: string;
   contacto: string;
   telefono: string;
+  telPax: string;
   email: string;
   condicionPago: string;
   moneda: "SOLES" | "DOLARES";

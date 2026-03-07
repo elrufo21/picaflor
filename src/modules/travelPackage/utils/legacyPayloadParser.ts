@@ -361,6 +361,11 @@ export const parseTravelPackageLegacyPayload = (
       id: nextId(),
       ...item.row,
     }));
+  const telPaxHeader = normalizeCell(header[41]);
+  const telPaxFallback =
+    pasajerosState.find((passenger) => normalizeCell(passenger.telefono))
+      ?.telefono ?? "";
+  const telPaxState = telPaxHeader || telPaxFallback;
 
   const hotelesState: HotelServicioRow[] = Array.from(hotelesMap.values())
     .sort((a, b) => a.orden - b.orden || a.hotelKey - b.hotelKey)
@@ -461,6 +466,7 @@ export const parseTravelPackageLegacyPayload = (
     counter: header[6] ?? "",
     contacto: header[7] ?? "",
     telefono: header[8] ?? "",
+    telPax: telPaxState,
     email: header[9] ?? "",
     condicionPago: header[10] || "CANCELADO",
     moneda,

@@ -189,6 +189,23 @@ function nonEmptyLine(line?: string) {
   return u !== "-" && u !== "N/A" && u !== "NA";
 }
 
+function normalizeServiceDisplay(value: unknown) {
+  const raw = safeText(value);
+  const upper = raw.toUpperCase();
+  if (upper === "-") return "N/A";
+  if (
+    !upper ||
+    upper === "N/A" ||
+    upper === "NA" ||
+    upper === "NO" ||
+    upper === "NO INCLUYE" ||
+    upper === "SELECCIONE"
+  ) {
+    return "NO INCLUYE";
+  }
+  return upper;
+}
+
 function buildNroDocumento(nserie: string, ndocumento: string) {
   const s = safeText(nserie);
   const n = safeText(ndocumento);
@@ -442,26 +459,39 @@ export default function PackageInvoicePdf({
   const igv = Number(data.igv ?? 0);
   const cargoExtra = Number(data.cargosExtra ?? 0);
   const subtotalBase = totalGeneral - igv - cargoExtra;
+  const movilidadTipoLabel = normalizeServiceDisplay(data.movilidadTipo);
+  const movilidadEmpresaText = safeText(data.movilidadEmpresa);
+  const movilidadEmpresaLabel =
+    movilidadTipoLabel === "NO INCLUYE" || movilidadTipoLabel === "N/A"
+      ? ""
+      : movilidadEmpresaText
+        ? ` - ${normalizeServiceDisplay(movilidadEmpresaText)}`
+        : "";
 
   // Servicios / hoteles render-friendly
   const hotelLines = (data.hotelesContratados ?? []).map((h) => {
-    const region = safeText(h.region).toUpperCase();
-    const hotel = safeText(h.hotel);
+    const region = normalizeServiceDisplay(h.region);
+    const hotel = normalizeServiceDisplay(h.hotel);
     const hs = safeText(h.entradaSalida);
     const habit = (h.habitaciones ?? [])
       .map(
         (r) =>
-          `${String(r.cantidad ?? 0).padStart(2, "0")} ${safeText(r.tipo).toUpperCase()}`,
+          `${String(r.cantidad ?? 0).padStart(2, "0")} ${normalizeServiceDisplay(r.tipo)}`,
       )
       .join("  |  ");
-    const alim =
-      h.incluyeAlimentacion && nonEmptyLine(h.alimentacionTipo)
-        ? `  •  ALIMENTACIÓN: ${safeText(h.alimentacionTipo).toUpperCase()}`
-        : "";
-    const check = hs ? ` / ${hs}` : "";
+    const alimValue = h.incluyeAlimentacion
+      ? normalizeServiceDisplay(h.alimentacionTipo)
+      : "NO INCLUYE";
+    const alim = `  •  ALIMENTACIÓN: ${alimValue}`;
+    const check = hs ? ` / ${hs.toUpperCase()}` : "";
+    const hasHotelName = hotel !== "NO INCLUYE" && hotel !== "N/A";
+    const hasRegion = region !== "NO INCLUYE" && region !== "N/A";
+    const line = hasHotelName
+      ? `${hasRegion ? `${region} : ` : ""}${hotel}${check}`
+      : hotel;
     return {
       key: `${region}-${hotel}-${h.id ?? ""}`,
-      line: `${region} : ${hotel}${check}`,
+      line,
       rooms: habit,
       alim,
     };
@@ -757,10 +787,7 @@ export default function PackageInvoicePdf({
               <Text style={S.servicesLabel}>MOVILIDAD</Text>
               <Text style={S.servicesColon}>:</Text>
               <Text style={S.servicesValue}>
-                {safeText(data.movilidadTipo).toUpperCase()}{" "}
-                {safeText(data.movilidadEmpresa)
-                  ? `- ${safeText(data.movilidadEmpresa).toUpperCase()}`
-                  : ""}
+                {`${movilidadTipoLabel}${movilidadEmpresaLabel}`}
               </Text>
             </View>
 
@@ -768,7 +795,9 @@ export default function PackageInvoicePdf({
               <Text style={S.servicesLabel}>HOTELES</Text>
               <Text style={S.servicesColon}>:</Text>
               <View style={S.servicesValueBlock}>
-                {hotelLines.length ? (
+                {!data.incluyeHotel ? (
+                  <Text style={S.hotelLine}>NO INCLUYE</Text>
+                ) : hotelLines.length ? (
                   <>
                     {hotelLines.map((h) => (
                       <View key={h.key} style={S.hotelItemBox}>
@@ -783,7 +812,7 @@ export default function PackageInvoicePdf({
                     ))}
                   </>
                 ) : (
-                  <Text style={S.hotelLine}>N/A</Text>
+                  <Text style={S.hotelLine}>NO INCLUYE</Text>
                 )}
               </View>
             </View>
@@ -794,6 +823,9 @@ export default function PackageInvoicePdf({
               <Text style={S.servicesColon}>:</Text>
               <View style={S.servicesValueBlock}>
                 {(() => {
+                  if (!data.incluyeHotel) {
+                    return <Text style={S.hotelLine}>NO INCLUYE</Text>;
+                  }
                   const map = new Map<string, number>();
                   for (const h of data.hotelesContratados ?? []) {
                     for (const r of h.habitaciones ?? []) {
@@ -805,7 +837,7 @@ export default function PackageInvoicePdf({
                   }
                   const entries = Array.from(map.entries());
                   if (!entries.length)
-                    return <Text style={S.hotelLine}>N/A</Text>;
+                    return <Text style={S.hotelLine}>NO INCLUYE</Text>;
                   return entries.map(([tipo, cant]) => (
                     <Text key={tipo} style={[S.hotelLine, S.redText]}>
                       {String(cant).padStart(2, "0")} {tipo}

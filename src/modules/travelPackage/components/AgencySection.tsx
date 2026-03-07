@@ -35,6 +35,7 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
     defaultValues: {
       canalDeVenta: null,
       telefono: form.telefono,
+      telPax: form.telPax,
       email: form.email,
       contacto: form.contacto,
       counter: form.counter,
@@ -130,6 +131,10 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
   useEffect(() => {
     setValue("counter", form.counter);
   }, [form.counter, setValue]);
+
+  useEffect(() => {
+    setValue("telPax", form.telPax);
+  }, [form.telPax, setValue]);
 
   useEffect(() => {
     setValue("condicionPago", form.condicionPago);
@@ -229,7 +234,7 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
           control={control}
           size="small"
           label="Telefono Pax"
-          InputProps={{ readOnly: true }}
+          onChange={(e) => onUpdateField("telPax", e.target.value)}
         />
 
         {/** <SelectControlled<AgencySectionFormValues>

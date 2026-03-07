@@ -2541,6 +2541,8 @@ const LiquidacionesPage = () => {
             type="button"
             onClick={handleRangeSearch}
             disabled={loading}
+            title="Buscar"
+            aria-label="Buscar"
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700 text-white shadow transition hover:bg-slate-800 disabled:opacity-60"
           >
             <Search size={16} />
@@ -2551,6 +2553,8 @@ const LiquidacionesPage = () => {
             onClick={() => {
               handleExcelExport();
             }}
+            title="Exportar a Excel"
+            aria-label="Exportar a Excel"
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shadow transition hover:bg-emerald-700"
           >
             <FileSpreadsheet size={16} />
@@ -2584,6 +2588,7 @@ const LiquidacionesPage = () => {
           "formaPago",
           "estado",
           "notaId",
+          "moneda",
         ]}
         enableSearching
         searchInputComponent={SearchModeFilterInput}

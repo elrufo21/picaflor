@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useForm } from "react-hook-form";
+import { refreshServiciosData } from "@/app/db/serviciosSync";
 import {
   serviciosDB,
   type Actividad,
@@ -78,6 +79,13 @@ type ItinerarySectionFormValues = Record<string, string>;
 
 const round2 = (value: number) =>
   Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+const pickFirstPositive = (...values: unknown[]) => {
+  const nums = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  const positive = nums.find((value) => value > 0);
+  return positive ?? nums[0] ?? 0;
+};
 const normalizeText = (value: string) =>
   String(value ?? "")
     .normalize("NFD")
@@ -123,13 +131,15 @@ const ItinerarySection = ({
 
   const paxCount = Math.max(0, Number(cantPax || 0));
   const currencySymbol = getTravelCurrencySymbol(moneda);
+  const isDolCurrency = String(moneda ?? "").toUpperCase() === "DOLARES";
 
   useEffect(() => {
     let active = true;
 
     const loadOptions = async () => {
-      const [
+      let [
         productosRows,
+        productosCityTourRows,
         actividadesRows,
         trasladosRows,
         preciosProductoRows,
@@ -137,6 +147,7 @@ const ItinerarySection = ({
         preciosTrasladoRows,
       ] = await Promise.all([
         serviciosDB.productos.toArray(),
+        serviciosDB.productosCityTourOrdena.toArray(),
         serviciosDB.actividades.toArray(),
         serviciosDB.traslados.toArray(),
         serviciosDB.preciosProducto.toArray(),
@@ -144,9 +155,40 @@ const ItinerarySection = ({
         serviciosDB.preciosTraslado.toArray(),
       ]);
 
+      // Si City Tour aún no está en local, sincronizamos y reintentamos.
+      if (!productosCityTourRows.length) {
+        try {
+          await refreshServiciosData();
+          [productosRows, productosCityTourRows] = await Promise.all([
+            serviciosDB.productos.toArray(),
+            serviciosDB.productosCityTourOrdena.toArray(),
+          ]);
+        } catch (error) {
+          console.error(
+            "No se pudo refrescar servicios para cargar City Tour",
+            error,
+          );
+        }
+      }
+
+      const mergedProductos = [
+        ...productosRows,
+        ...productosCityTourRows.map((item) => ({
+          id: item.id,
+          nombre: item.nombre,
+          region: item.region,
+        })),
+      ];
+      const uniqueByName = new Map<string, Producto>();
+      mergedProductos.forEach((item) => {
+        const key = normalizeText(String(item.nombre ?? ""));
+        if (!key || uniqueByName.has(key)) return;
+        uniqueByName.set(key, item);
+      });
+
       if (!active) return;
 
-      setProductos(productosRows);
+      setProductos(Array.from(uniqueByName.values()));
       setActividades(actividadesRows);
       setTraslados(trasladosRows);
       setPreciosProducto(preciosProductoRows);
@@ -210,7 +252,38 @@ const ItinerarySection = ({
     const priceRow = preciosProducto.find(
       (price) => Number(price.idProducto) === Number(productId),
     );
-    return round2(Number(priceRow?.precioVenta ?? priceRow?.precioBase ?? 0));
+    const price = isDolCurrency
+      ? pickFirstPositive(
+          priceRow?.precioDol,
+          priceRow?.precioVenta,
+          priceRow?.precioBase,
+        )
+      : pickFirstPositive(
+          priceRow?.precioVenta,
+          priceRow?.precioBase,
+          priceRow?.precioDol,
+        );
+    return round2(price);
+  };
+  const getActivityUnitPrice = (activityId?: number) => {
+    if (!activityId) return 0;
+    const priceRow = preciosActividades.find(
+      (price) => Number(price.idActi) === Number(activityId),
+    );
+    const price = isDolCurrency
+      ? pickFirstPositive(priceRow?.precioDol, priceRow?.precioSol)
+      : pickFirstPositive(priceRow?.precioSol, priceRow?.precioDol);
+    return round2(price);
+  };
+  const getTrasladoUnitPrice = (trasladoId?: number) => {
+    if (!trasladoId) return 0;
+    const priceRow = preciosTraslado.find(
+      (price) => Number(price.id) === Number(trasladoId),
+    );
+    const price = isDolCurrency
+      ? pickFirstPositive(priceRow?.precioDol, priceRow?.precioSol)
+      : pickFirstPositive(priceRow?.precioSol, priceRow?.precioDol);
+    return round2(price);
   };
 
   const getObservationFieldName = (dayId: number) => `observacion_${dayId}`;
@@ -405,6 +478,81 @@ const ItinerarySection = ({
       });
     }
   }, [itinerario, paxCount, onUpdateEventField]);
+
+  useEffect(() => {
+    if (isSyncingRowsRef.current) return;
+    if (!itinerario.length) return;
+    let changed = false;
+
+    itinerario.forEach((day) => {
+      const selectedProduct = getProductByTitle(day.titulo ?? "");
+      const nextBasePrice = getProductBasePrice(selectedProduct?.id);
+      if (round2(Number(day.precioUnitario || 0)) !== nextBasePrice) {
+        changed = true;
+        onUpdateDayField(day.id, "precioUnitario", nextBasePrice);
+      }
+
+      (day.actividades ?? []).forEach((row) => {
+        if (row.id <= 0) return;
+
+        if (row.tipo === "ACT1" || row.tipo === "ACT2" || row.tipo === "ACT3") {
+          const detalle = String(row.detalle ?? "").trim();
+          if (!detalle || detalle === "-") return;
+
+          const actividadSeleccionada = actividades.find(
+            (item) =>
+              item.actividad.toLowerCase() === detalle.toLowerCase() &&
+              (selectedProduct ? item.idProducto === selectedProduct.id : true),
+          );
+          const nextPrice = actividadSeleccionada
+            ? isBallestasText(detalle)
+              ? 0
+              : getActivityUnitPrice(actividadSeleccionada.id)
+            : 0;
+          const nextSubtotal = round2(nextPrice * Number(row.cant || 0));
+
+          if (round2(Number(row.precio || 0)) !== nextPrice) {
+            changed = true;
+            onUpdateEventField(day.id, row.id, "precio", nextPrice);
+          }
+          if (round2(Number(row.subtotal || 0)) !== nextSubtotal) {
+            changed = true;
+            onUpdateEventField(day.id, row.id, "subtotal", nextSubtotal);
+          }
+          return;
+        }
+
+        if (row.tipo === "TRASLADO") {
+          const detalle = String(row.detalle ?? "").trim();
+          if (!detalle || detalle === "-") return;
+
+          const trasladoSeleccionado = traslados.find(
+            (item) => item.nombre.toLowerCase() === detalle.toLowerCase(),
+          );
+          const nextPrice = trasladoSeleccionado
+            ? getTrasladoUnitPrice(trasladoSeleccionado.id)
+            : 0;
+          const nextSubtotal = round2(nextPrice * Number(row.cant || 0));
+
+          if (round2(Number(row.precio || 0)) !== nextPrice) {
+            changed = true;
+            onUpdateEventField(day.id, row.id, "precio", nextPrice);
+          }
+          if (round2(Number(row.subtotal || 0)) !== nextSubtotal) {
+            changed = true;
+            onUpdateEventField(day.id, row.id, "subtotal", nextSubtotal);
+          }
+        }
+      });
+    });
+
+    if (changed) {
+      isSyncingRowsRef.current = true;
+      queueMicrotask(() => {
+        isSyncingRowsRef.current = false;
+      });
+    }
+  }, [itinerario, moneda, actividades, traslados, onUpdateDayField, onUpdateEventField]);
 
   const getRowFallback = (
     rowType: ItineraryActivityRow["tipo"],
@@ -763,13 +911,7 @@ const ItinerarySection = ({
                           const precioActividad = actividadSeleccionada
                             ? isBallestasText(nextDetalle)
                               ? 0
-                              : Number(
-                                  preciosActividades.find(
-                                    (price) =>
-                                      String(price.idActi) ===
-                                      String(actividadSeleccionada.id),
-                                  )?.precioSol || 0,
-                                )
+                              : getActivityUnitPrice(actividadSeleccionada.id)
                             : 0;
 
                           updateRow("precio", round2(precioActividad));
@@ -789,13 +931,7 @@ const ItinerarySection = ({
                           );
 
                           const precioTrasladoItem = trasladoSeleccionado
-                            ? Number(
-                                preciosTraslado.find(
-                                  (price) =>
-                                    String(price.id) ===
-                                    String(trasladoSeleccionado.id),
-                                )?.precioSol || 0,
-                              )
+                            ? getTrasladoUnitPrice(trasladoSeleccionado.id)
                             : 0;
 
                           updateRow("precio", round2(precioTrasladoItem));

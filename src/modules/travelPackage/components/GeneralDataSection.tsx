@@ -15,7 +15,12 @@ import {
   SelectControlled,
   TextControlled,
 } from "@/components/ui/inputs";
-import { serviciosDB, type Ubigeo } from "@/app/db/serviciosDB";
+import { refreshServiciosData } from "@/app/db/serviciosSync";
+import {
+  serviciosDB,
+  type ProductoCityTourOrdena,
+  type Ubigeo,
+} from "@/app/db/serviciosDB";
 
 type Props = {
   form: TravelPackageFormState;
@@ -69,6 +74,9 @@ const buildProgramaFromForm = (
 
 const GeneralDataSection = ({ form, onUpdateField }: Props) => {
   const [regiones, setRegiones] = useState<Ubigeo[]>([]);
+  const [regionesCityTour, setRegionesCityTour] = useState<
+    ProductoCityTourOrdena[]
+  >([]);
   const { control, setValue } = useForm<GeneralDataFormValues>({
     defaultValues: {
       destinos: form.destinos,
@@ -140,9 +148,27 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
     let active = true;
 
     const loadRegiones = async () => {
-      const ubigeosRows = await serviciosDB.ubigeos.toArray();
-      if (!active) return;
-      setRegiones(ubigeosRows);
+      try {
+        let [ubigeosRows, cityTourRows] = await Promise.all([
+          serviciosDB.ubigeos.toArray(),
+          serviciosDB.productosCityTourOrdena.toArray(),
+        ]);
+
+        // Si City Tour no está poblado aún en local, forzamos sync y reintentamos.
+        if (!cityTourRows.length) {
+          await refreshServiciosData();
+          [ubigeosRows, cityTourRows] = await Promise.all([
+            serviciosDB.ubigeos.toArray(),
+            serviciosDB.productosCityTourOrdena.toArray(),
+          ]);
+        }
+
+        if (!active) return;
+        setRegiones(ubigeosRows);
+        setRegionesCityTour(cityTourRows);
+      } catch (error) {
+        console.error("Error cargando regiones para paquete de viaje", error);
+      }
     };
 
     void loadRegiones();
@@ -159,8 +185,13 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
       if (!nombre) return;
       unique.add(nombre);
     });
+    regionesCityTour.forEach((item) => {
+      const nombre = String(item.region ?? item.nombre ?? "").trim();
+      if (!nombre) return;
+      unique.add(nombre);
+    });
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
-  }, [regiones]);
+  }, [regiones, regionesCityTour]);
 
   const selectedPackageOptions = useMemo(() => {
     const selectedIds = new Set(

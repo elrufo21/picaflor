@@ -10,7 +10,11 @@ import type {
 
 type Option = { value: string; label: string };
 
-export const usePackageData = (id: string | undefined, setValue: any) => {
+export const usePackageData = (
+  id: string | undefined,
+  setValue: any,
+  currency?: string,
+) => {
   /* =========================
      STATE
   ========================= */
@@ -161,13 +165,6 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
         // PRECIO PRODUCTO
         setPrecioProducto(precioProductoFromDB);
 
-        if (precioProductoFromDB?.precioVenta != null) {
-          setValue("precioVenta", Number(precioProductoFromDB.precioVenta), {
-            shouldDirty: false,
-            shouldTouch: false,
-          });
-        }
-
         if (precioProductoFromDB?.visitas) {
           setValue("visitas", precioProductoFromDB.visitas, {
             shouldDirty: false,
@@ -186,6 +183,24 @@ export const usePackageData = (id: string | undefined, setValue: any) => {
       cancelled = true;
     };
   }, [id, pkg?.region, loadServicios, loadServiciosFromDB, setValue]);
+
+  useEffect(() => {
+    if (!precioProducto) return;
+    const isUsd = String(currency ?? "").trim().toUpperCase() === "USD";
+    const nextPrice = isUsd
+      ? Number(
+          precioProducto?.precioDol ??
+            precioProducto?.precioVenta ??
+            precioProducto?.precioBase ??
+            0,
+        )
+      : Number(precioProducto?.precioVenta ?? precioProducto?.precioBase ?? 0);
+
+    setValue("precioVenta", nextPrice, {
+      shouldDirty: false,
+      shouldTouch: false,
+    });
+  }, [precioProducto, currency, setValue]);
 
   /* =========================
      RETURN

@@ -23,6 +23,7 @@ type ActivityOption = {
   id?: string;
   precioVenta?: number;
   precioBase?: number;
+  precioDol?: number;
   visitas?: string;
 };
 
@@ -50,6 +51,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     productosCityTourDetalle,
   } = usePackageData(idProduct, setValue);
   const cantPax = Number(watch("cantPax") || 0);
+  const moneda = String(watch("moneda") ?? "PEN")
+    .trim()
+    .toUpperCase();
   const disponibles = Number(watch("disponibles") ?? 0);
   const prevCantPaxRef = useRef<number | null>(null);
   const hotelFormRef = useRef<UseFormReturn<HotelFormValues> | null>(null);
@@ -76,6 +80,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
           id: String(producto.id),
           precioVenta: Number(producto.precioVenta || 0),
           precioBase: Number(producto.precioBase || 0),
+          precioDol: Number(producto.precioDol || 0),
           visitas: normalizeLegacyXmlPayload(
             String(producto.visitas ?? ""),
           ).trim(),
@@ -120,9 +125,19 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
 
   const getPrecioActividad = (option: ActivityOption | null) => {
     if (!option) return 0;
+    const isUsd = moneda === "USD";
+    const precioDol = Number(option.precioDol || 0);
     const precioVenta = Number(option.precioVenta || 0);
     const precioBase = Number(option.precioBase || 0);
-    const precio = precioVenta > 0 ? precioVenta : precioBase;
+    const precio = isUsd
+      ? precioDol > 0
+        ? precioDol
+        : precioVenta > 0
+          ? precioVenta
+          : precioBase
+      : precioVenta > 0
+        ? precioVenta
+        : precioBase;
     return roundCurrency(precio);
   };
 

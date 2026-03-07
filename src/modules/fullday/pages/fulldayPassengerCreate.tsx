@@ -300,7 +300,7 @@ const PackagePassengerCreate = () => {
     preciosActividades,
     preciosAlmuerzo,
     preciosTraslado,
-  } = usePackageData(id, setValue);
+  } = usePackageData(id, setValue, watch("moneda"));
   const loadPackages = usePackageStore((s) => s.loadPackages);
 
   useEffect(() => {

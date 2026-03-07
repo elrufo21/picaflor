@@ -12,6 +12,7 @@ export type PrecioProducto = {
   precioBase: number;
   visitas: string;
   precioVenta: number;
+  precioDol?: number;
 };
 export type Canal = {
   id: number;
@@ -113,6 +114,16 @@ export async function hasServiciosData() {
   // forzamos recarga desde backend para hidratar el nuevo campo.
   const sampleProducto = await serviciosDB.productos.orderBy("id").first();
   if (sampleProducto && (sampleProducto as Producto).region === undefined) {
+    return false;
+  }
+
+  const samplePrecioProducto = await serviciosDB.preciosProducto
+    .orderBy("idProducto")
+    .first();
+  if (
+    samplePrecioProducto &&
+    (samplePrecioProducto as PrecioProducto).precioDol === undefined
+  ) {
     return false;
   }
 

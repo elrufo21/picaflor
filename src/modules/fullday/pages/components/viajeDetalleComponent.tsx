@@ -80,6 +80,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
      CANTIDAD GLOBAL
   ========================= */
   const cantPax = Number(watch("cantPax") || 0);
+  const moneda = String(watch("moneda") ?? "PEN")
+    .trim()
+    .toUpperCase();
   const disabledByCantPax = cantPax <= 0;
   const disponibles = Number(watch("disponibles") ?? 0);
   const TIME_EDITABLE_POSITIONS = [0, 1, 3, 4, 5, 6];
@@ -160,7 +163,16 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     if (!isEditing) return;
     if (precioProducto?.precioVenta === undefined) return;
 
-    const base = roundCurrency(Number(precioProducto.precioVenta));
+    const base = roundCurrency(
+      moneda === "USD"
+        ? Number(
+            precioProducto?.precioDol ??
+              precioProducto?.precioVenta ??
+              precioProducto?.precioBase ??
+              0,
+          )
+        : Number(precioProducto?.precioVenta ?? precioProducto?.precioBase ?? 0),
+    );
     const currentPrecio = roundCurrency(
       getValues("detalle.tarifa.precio") ?? 0,
     );
@@ -175,7 +187,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
 
     setValue("detalle.tarifa.precio", base);
     setValue("detalle.tarifa.total", roundCurrency(base * cantPax));
-  }, [precioProducto, cantPax, getValues, setValue, isEditing]);
+  }, [precioProducto, cantPax, getValues, setValue, isEditing, moneda]);
 
   /* =========================
      ACTIVIDADES YA USADAS
