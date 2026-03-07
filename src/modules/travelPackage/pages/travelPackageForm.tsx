@@ -185,6 +185,10 @@ const MONEDA_ALLOWED = new Set(["SOLES", "DOLARES"]);
 const MEDIOS_PAGO_BANCARIOS = new Set(["DEPOSITO", "YAPE", "TARJETA"]);
 
 const normalizeText = (value: unknown) => String(value ?? "").trim();
+const normalizeLegacyToken = (value: unknown) =>
+  normalizeText(value)
+    .replace(/\r?\n/g, " ")
+    .replace(/[|;[\]]/g, " ");
 const normalizeUpperText = (value: unknown) =>
   normalizeText(value).toUpperCase();
 const normalizeComparableText = (value: unknown) =>
@@ -864,10 +868,11 @@ const TravelPackageForm = () => {
     try {
       const payload = buildTravelPackageLegacyPayload(form);
       const splitIndex = payload.indexOf("[");
+      const telPaxToken = normalizeLegacyToken(form.telPax);
       const payloadWithUsuario =
         splitIndex >= 0
-          ? `${payload.slice(0, splitIndex)}|${usuarioId}${payload.slice(splitIndex)}`
-          : `${payload}|${usuarioId}`;
+          ? `${payload.slice(0, splitIndex)}|${usuarioId}|${telPaxToken}${payload.slice(splitIndex)}`
+          : `${payload}|${usuarioId}|${telPaxToken}`;
       const valoresFinal = isEditMode
         ? `${String(id)}|${payloadWithUsuario}`
         : payloadWithUsuario;
@@ -1325,7 +1330,11 @@ const TravelPackageForm = () => {
         </div>
 
         <fieldset disabled={fieldsetDisabled} className="contents">
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 items-start">
+          <div
+            className={`mt-4 grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 items-start ${
+              fieldsetDisabled ? "pointer-events-none" : ""
+            }`}
+          >
             {/* Row 1: General Data - Full Width */}
             <div className="md:col-span-2">
               <GeneralDataSection

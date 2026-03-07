@@ -21,10 +21,15 @@ type ProductoCityTourDetalle = {
   idProducto: number;
   precioBase: number;
   precioVenta: number;
+  precioDol?: number;
   visitas: string;
 };
 
-export const usePackageData = (id: string | undefined, setValue: SetValueFn) => {
+export const usePackageData = (
+  id: string | undefined,
+  setValue: SetValueFn,
+  currency?: string,
+) => {
   /* =========================
      STATE
   ========================= */
@@ -187,6 +192,7 @@ export const usePackageData = (id: string | undefined, setValue: SetValueFn) => 
               idProducto: Number(precio.idProducto),
               precioBase: Number(precio.precioBase || 0),
               precioVenta: Number(precio.precioVenta || 0),
+              precioDol: Number(precio.precioDol || 0),
               visitas: normalizeLegacyXmlPayload(String(precio.visitas ?? "")),
             };
           })
@@ -199,13 +205,6 @@ export const usePackageData = (id: string | undefined, setValue: SetValueFn) => 
         const precioProductoFromDB =
           detalle.find((item) => Number(item.id) === Number(id)) ?? null;
         setPrecioProducto(precioProductoFromDB);
-
-        if (precioProductoFromDB?.precioVenta != null) {
-          setValue("precioVenta", Number(precioProductoFromDB.precioVenta), {
-            shouldDirty: false,
-            shouldTouch: false,
-          });
-        }
 
         if (precioProductoFromDB?.visitas) {
           setValue(
@@ -229,6 +228,24 @@ export const usePackageData = (id: string | undefined, setValue: SetValueFn) => 
       cancelled = true;
     };
   }, [id, pkg?.region, loadServicios, loadServiciosFromDB, setValue]);
+
+  useEffect(() => {
+    if (!precioProducto) return;
+    const isUsd = String(currency ?? "").trim().toUpperCase() === "USD";
+    const nextPrice = isUsd
+      ? Number(
+          precioProducto.precioDol ??
+            precioProducto.precioVenta ??
+            precioProducto.precioBase ??
+            0,
+        )
+      : Number(precioProducto.precioVenta ?? precioProducto.precioBase ?? 0);
+
+    setValue("precioVenta", nextPrice, {
+      shouldDirty: false,
+      shouldTouch: false,
+    });
+  }, [precioProducto, currency, setValue]);
 
   /* =========================
      RETURN

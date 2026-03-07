@@ -248,6 +248,7 @@ export const INITIAL_FORM_STATE: TravelPackageFormState = {
   counter: getSessionDisplayName(),
   contacto: "",
   telefono: "",
+  telPax: "",
   email: "",
   condicionPago: "",
   moneda: "DOLARES",

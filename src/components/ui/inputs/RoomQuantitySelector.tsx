@@ -50,7 +50,7 @@ const toSummary = (
     (acc, item) => acc + item.quantity * Number(item.price || 0),
     0,
   );
-  return `${selected.length} tipos | ${totalRooms} hab | ${currencySymbol} ${formatPrice(totalAmount)}`;
+  return `${currencySymbol} ${formatPrice(totalAmount)} | ${selected.length} tipos | ${totalRooms} hab |`;
 };
 
 const sortByOptions = (value: RoomQuantityValue[], options: RoomOption[]) => {

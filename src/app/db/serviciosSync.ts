@@ -13,6 +13,7 @@ export type ServiciosData = {
     precioBase: number;
     visitas: string;
     precioVenta: number;
+    precioDol?: number;
   }[];
   canales: { id: number; nombre: string; contacto?: string; email?: string }[];
   actividades: {

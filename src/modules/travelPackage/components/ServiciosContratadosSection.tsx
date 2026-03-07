@@ -132,8 +132,8 @@ const ServiciosContratadosSection = ({
       movilidadTipo: form.movilidadTipo ?? "",
       movilidadEmpresa: form.movilidadEmpresa ?? "",
       movilidadPrecio: String(form.movilidadPrecio ?? ""),
-      incluyeHotel: form.incluyeHotel ? "SI" : "",
-      incluyeAlimentacionEstado: initialIncluyeAlimentacion ? "SI" : "",
+      incluyeHotel: form.incluyeHotel ? "SI" : "NO",
+      incluyeAlimentacionEstado: initialIncluyeAlimentacion ? "SI" : "NO",
       incluyeAlimentacionGlobal: initialAlimentacionGlobal,
       precioAlimentacionGlobal: "",
     },
@@ -315,11 +315,7 @@ const ServiciosContratadosSection = ({
   }, [form.movilidadPrecio, setValue]);
 
   useEffect(() => {
-    const nextValue = form.incluyeHotel
-      ? "SI"
-      : selectedIncluyeHotel === "NO"
-        ? "NO"
-        : "";
+    const nextValue = form.incluyeHotel ? "SI" : "NO";
     if (selectedIncluyeHotel === nextValue) return;
     setValue("incluyeHotel", nextValue, {
       shouldDirty: false,
@@ -327,6 +323,46 @@ const ServiciosContratadosSection = ({
       shouldValidate: false,
     });
   }, [form.incluyeHotel, selectedIncluyeHotel, setValue]);
+
+  useEffect(() => {
+    const firstWithFood = hotelesContratados.find((row) => row.incluyeAlimentacion);
+    const nextEstado = firstWithFood ? "SI" : "NO";
+    const nextTipo =
+      nextEstado === "SI"
+        ? String(firstWithFood?.alimentacionTipo ?? "").trim()
+        : "-";
+    const nextPrecio =
+      nextEstado === "SI"
+        ? String(Number(firstWithFood?.alimentacionPrecio ?? 0) || "")
+        : "";
+
+    if (selectedAlimentacionEstado !== nextEstado) {
+      setValue("incluyeAlimentacionEstado", nextEstado, {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
+
+    if (selectedAlimentacionGlobal !== nextTipo) {
+      setValue("incluyeAlimentacionGlobal", nextTipo, {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
+
+    setValue("precioAlimentacionGlobal", nextPrecio, {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+  }, [
+    hotelesContratados,
+    selectedAlimentacionEstado,
+    selectedAlimentacionGlobal,
+    setValue,
+  ]);
 
   useEffect(() => {
     hotelesContratados.forEach((row) => {

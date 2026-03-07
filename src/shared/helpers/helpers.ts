@@ -35,6 +35,14 @@ function parseLegacyData(raw: string): string[][][] {
   );
 }
 
+const parseLegacyNumber = (value?: string) => {
+  const normalized = String(value ?? "")
+    .replace(/,/g, "")
+    .trim();
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export function transformServiciosData(raw: string) {
   const b = parseLegacyData(raw);
   const canalById = new Map<
@@ -71,11 +79,12 @@ export function transformServiciosData(raw: string) {
 
     preciosProducto:
       b[1]
-        ?.map(([idProducto, precioBase, visitas, precioVenta]) => ({
+        ?.map(([idProducto, precioBase, visitas, precioVenta, precioDol]) => ({
           idProducto: Number(idProducto),
-          precioBase: Number(precioBase),
+          precioBase: parseLegacyNumber(precioBase),
           visitas,
-          precioVenta: Number(precioVenta),
+          precioVenta: parseLegacyNumber(precioVenta),
+          precioDol: parseLegacyNumber(precioDol),
         }))
         .filter((x) => Number.isFinite(x.idProducto)) ?? [],
 
