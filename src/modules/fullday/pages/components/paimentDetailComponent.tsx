@@ -33,6 +33,9 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
     { value: "BCP", label: "BCP" },
     { value: "BBVA", label: "BBVA" },
     { value: "INTERBANK", label: "Interbank" },
+    { value: "SCOTIABANK", label: "SCOTIABANK" },
+    { value: "POS", label: "POS" },
+    { value: "PAGOLINK", label: "PAGOLINK" },
   ];
 
   const medioPago = watch("medioPago");

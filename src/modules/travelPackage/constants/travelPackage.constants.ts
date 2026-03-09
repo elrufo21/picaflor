@@ -71,6 +71,9 @@ export const ENTIDAD_BANCARIA_OPTIONS = [
   { value: "BCP", label: "BCP" },
   { value: "BBVA", label: "BBVA" },
   { value: "INTERBANK", label: "Interbank" },
+  { value: "SCOTIABANK", label: "SCOTIABANK" },
+  { value: "POS", label: "POS" },
+  { value: "PAGOLINK", label: "PAGOLINK" },
 ];
 
 export const DOCUMENTO_COBRANZA_OPTIONS = [
@@ -228,10 +231,15 @@ export const createHotelServicioRow = (id: number): HotelServicioRow => ({
 
 // ─── Helper aliases for Hook ──────────────────────────────────────────────────
 
-export const createEmptyPassenger = () => createPassengerRow(Date.now() + Math.random());
-export const createEmptyActivity = () => createActivityRow(Date.now() + Math.random());
-export const createEmptyItineraryDay = () => 
-  createItineraryDayRow(Date.now() + Math.random(), Date.now() + Math.random() + 1);
+export const createEmptyPassenger = () =>
+  createPassengerRow(Date.now() + Math.random());
+export const createEmptyActivity = () =>
+  createActivityRow(Date.now() + Math.random());
+export const createEmptyItineraryDay = () =>
+  createItineraryDayRow(
+    Date.now() + Math.random(),
+    Date.now() + Math.random() + 1,
+  );
 export const createEmptyHotelServicio = () =>
   createHotelServicioRow(Date.now() + Math.random());
 
