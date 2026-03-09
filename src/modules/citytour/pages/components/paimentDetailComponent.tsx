@@ -4,6 +4,9 @@ import { Controller } from "react-hook-form";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import { usePackageStore } from "../../store/cityTourStore";
 
+const CARD_ONLY_BANK_VALUES = new Set(["POS", "PAGOLINK"]);
+const BASE_BANK_VALUES = new Set(["", "-"]);
+
 const PaimentDetailComponent = ({ control, setValue, watch }) => {
   const { isEditing } = usePackageStore();
   const documentoCobranzaOptions = [
@@ -66,9 +69,18 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
   }, [watch("precioTotal"), watch("documentoCobranza"), watch("medioPago")]);
 
   const medioPago = watch("medioPago");
+  const entidadBancaria = watch("entidadBancaria");
   const condicion = watch("condicion")?.value ?? watch("condicion");
   const acuenta = watch("acuenta");
   const moneda = watch("moneda");
+  const bancoVisibleOptions =
+    medioPago === "TARJETA"
+      ? bancoOptions.filter(
+          (option) =>
+            BASE_BANK_VALUES.has(option.value) ||
+            CARD_ONLY_BANK_VALUES.has(option.value),
+        )
+      : bancoOptions.filter((option) => !CARD_ONLY_BANK_VALUES.has(option.value));
   const currencySymbol =
     moneda === "DOLARES" ? "USD$" : moneda === "SOLES" ? "S/" : "S/";
   const precioExtraSoles = Number(watch("precioExtraSoles") ?? 0);
@@ -124,10 +136,18 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
       setValue("nroOperacion", "");
     }
 
-    if (medioPago === "DEPOSITO" && watch("entidadBancaria") === "-") {
+    if (medioPago === "DEPOSITO" && entidadBancaria === "-") {
       setValue("entidadBancaria", "");
     }
-  }, [medioPago, isEditing]);
+
+    if (
+      medioPago !== "TARJETA" &&
+      CARD_ONLY_BANK_VALUES.has(String(entidadBancaria ?? "").toUpperCase())
+    ) {
+      setValue("entidadBancaria", "");
+      setValue("nroOperacion", "");
+    }
+  }, [medioPago, entidadBancaria, isEditing, setValue]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -405,7 +425,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                     !isEditing
                   }
                   control={control}
-                  options={bancoOptions}
+                  options={bancoVisibleOptions}
                   size="small"
                   SelectProps={{ displayEmpty: true }}
                   inputProps={{

@@ -15,6 +15,7 @@ import type {
   TravelPackageFormState,
 } from "../types/travelPackage.types";
 import {
+  CARD_ONLY_ENTIDAD_BANCARIA_VALUES,
   INITIAL_FORM_STATE,
   createEmptyPassenger,
   createEmptyActivity,
@@ -110,6 +111,16 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
     next.efectivo = 0;
     next.medioPago = "-";
     next.entidadBancaria = "-";
+    next.nroOperacion = "";
+  }
+
+  if (
+    next.medioPago !== "TARJETA" &&
+    CARD_ONLY_ENTIDAD_BANCARIA_VALUES.has(
+      String(next.entidadBancaria ?? "").toUpperCase(),
+    )
+  ) {
+    next.entidadBancaria = "";
     next.nroOperacion = "";
   }
 
