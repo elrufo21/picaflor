@@ -76,6 +76,20 @@ export const ENTIDAD_BANCARIA_OPTIONS = [
   { value: "PAGOLINK", label: "PAGOLINK" },
 ];
 
+export const CARD_ONLY_ENTIDAD_BANCARIA_VALUES = new Set(["POS", "PAGOLINK"]);
+export const BASE_ENTIDAD_BANCARIA_VALUES = new Set(["", "-"]);
+
+export const getEntidadBancariaOptions = (medioPago: string): SelectOption[] =>
+  medioPago === "TARJETA"
+    ? ENTIDAD_BANCARIA_OPTIONS.filter(
+        (option) =>
+          BASE_ENTIDAD_BANCARIA_VALUES.has(option.value) ||
+          CARD_ONLY_ENTIDAD_BANCARIA_VALUES.has(option.value),
+      )
+    : ENTIDAD_BANCARIA_OPTIONS.filter(
+        (option) => !CARD_ONLY_ENTIDAD_BANCARIA_VALUES.has(option.value),
+      );
+
 export const DOCUMENTO_COBRANZA_OPTIONS = [
   { value: "DOCUMENTO COBRANZA", label: "Documento de Cobranza" },
   { value: "BOLETA", label: "Boleta" },

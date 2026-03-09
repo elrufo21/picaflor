@@ -3,8 +3,8 @@ import { Calculator } from "lucide-react";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import {
   CONDICION_PAGO_OPTIONS,
-  ENTIDAD_BANCARIA_OPTIONS,
   MEDIO_PAGO_OPTIONS,
+  getEntidadBancariaOptions,
   getTravelCurrencySymbol,
 } from "../constants/travelPackage.constants";
 import { calculateTravelPackageCharges } from "../utils/liquidationCalculator";
@@ -189,6 +189,10 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
   const totalConExtra = roundCurrency(totalGeneral + extraAplicado);
   const enablesBankFlow = ["DEPOSITO", "YAPE", "TARJETA"].includes(
     form.medioPago,
+  );
+  const entidadBancariaOptions = useMemo(
+    () => getEntidadBancariaOptions(form.medioPago),
+    [form.medioPago],
   );
   const isCredit = form.condicionPago === "CREDITO";
   const canEditBank = !isCredit && enablesBankFlow;
@@ -390,7 +394,7 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                   }}
                   className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100"
                 >
-                  {ENTIDAD_BANCARIA_OPTIONS.map((option) => (
+                  {entidadBancariaOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
