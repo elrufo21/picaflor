@@ -36,6 +36,7 @@ const ACTIVITY_ROWS: { key: ActivityRowKey; label: string }[] = [
 const TURNOS = ["AM", "PM"];
 const FIXED_ACTIVITY_KEY: ActivityRowKey = "act1";
 const HOTEL_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const TURNO_LABEL_PATTERN = /^(.*)\s(AM|PM)$/i;
 
 const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const { idProduct } = useParams();
@@ -115,6 +116,18 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       productOptions.find((option) => String(option.value) === fixedId) ?? null
     );
   }, [productOptions, precioProducto?.id]);
+
+  const fixedCurrentOption = useMemo(() => {
+    const fixedServicio = serviciosWatch?.[0];
+    const fixedValue = String(fixedServicio?.value ?? "").trim();
+    if (fixedValue) {
+      const matched = productOptions.find(
+        (option) => String(option.value) === fixedValue,
+      );
+      if (matched) return matched;
+    }
+    return fixedProductOption;
+  }, [serviciosWatch, productOptions, fixedProductOption]);
 
   const SubTotal = ({ name, visible = true }) => {
     const total = useWatch({ control, name });
@@ -196,12 +209,88 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     });
   };
 
+  const normalizeProductLabel = (label: string) =>
+    normalizeLegacyXmlPayload(String(label ?? ""))
+      .trim()
+      .replace(/\s+/g, " ")
+      .toUpperCase();
+
+  const splitProductLabelTurno = (label: string) => {
+    const normalized = normalizeProductLabel(label);
+    const match = normalized.match(TURNO_LABEL_PATTERN);
+    if (!match) return { base: normalized, turno: "" };
+    return { base: match[1].trim(), turno: match[2].trim().toUpperCase() };
+  };
+
+  const findSiblingProductByTurno = (
+    selectedOption: ActivityOption | null,
+    targetTurno: string,
+  ) => {
+    if (!selectedOption) return null;
+    const normalizedTurno = String(targetTurno ?? "").trim().toUpperCase();
+    if (!TURNOS.includes(normalizedTurno)) return selectedOption;
+
+    const { base } = splitProductLabelTurno(selectedOption.label);
+    if (!base) return selectedOption;
+
+    const expectedLabel = `${base} ${normalizedTurno}`;
+    const exactMatch =
+      (productOptions || []).find(
+        (option) => normalizeProductLabel(option.label) === expectedLabel,
+      ) ?? null;
+    if (exactMatch) return exactMatch;
+
+    return (
+      (productOptions || []).find((option) => {
+        const optionTurno = splitProductLabelTurno(option.label);
+        return optionTurno.base === base && optionTurno.turno === normalizedTurno;
+      }) ?? selectedOption
+    );
+  };
+
+  const handleTurnoChange = (
+    rowKey: ActivityRowKey,
+    turnoValue: string,
+    onChange: (value: string) => void,
+  ) => {
+    if (!isEditing) return;
+
+    onChange(turnoValue);
+    if (!isRowLocked(rowKey)) return;
+
+    const currentServicio = getValues(`detalle.${rowKey}.servicio`);
+    const currentValue = String(currentServicio?.value ?? "").trim();
+    const currentOption =
+      (productOptions || []).find(
+        (option) => String(option.value ?? "").trim() === currentValue,
+      ) ??
+      fixedCurrentOption ??
+      null;
+
+    const nextOption = findSiblingProductByTurno(currentOption, turnoValue);
+    if (!nextOption) return;
+
+    const nextValue = String(nextOption.value ?? "").trim();
+    if (!nextValue || nextValue === currentValue) return;
+
+    const precio = getPrecioActividad(nextOption);
+    const currentCant = Number(getValues(`detalle.${rowKey}.cant`)) || 0;
+    const targetCant = currentCant > 0 ? currentCant : cantPax;
+
+    setValue(`detalle.${rowKey}.servicio`, nextOption, { shouldDirty: true });
+    setValue(`detalle.${rowKey}.precio`, precio, { shouldDirty: true });
+    setValue(`detalle.${rowKey}.cant`, targetCant, { shouldDirty: true });
+    setValue(`detalle.${rowKey}.total`, roundCurrency(precio * targetCant), {
+      shouldDirty: true,
+    });
+  };
+
   const getActivityOptions = (
     rowKey: ActivityRowKey,
     currentValue: string,
   ): (ActivityOption & { descripcion?: string })[] => {
     if (isRowLocked(rowKey)) {
-      return fixedProductOption ? [fixedProductOption] : [];
+      return fixedCurrentOption ? [fixedCurrentOption] : [];
     }
 
     return (productOptions || []).filter((option) => {
@@ -328,16 +417,20 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
 
   useEffect(() => {
     if (!isEditing) return;
-    if (!fixedProductOption) return;
+    if (!fixedCurrentOption) return;
 
     const currentServicio = getValues(`detalle.${FIXED_ACTIVITY_KEY}.servicio`);
     const currentValue = String(currentServicio?.value ?? "").trim();
-    const fixedValue = String(fixedProductOption.value ?? "").trim();
-    const defaultPrecio = getPrecioActividad(fixedProductOption);
+    const currentOption =
+      (productOptions || []).find(
+        (option) => String(option.value ?? "").trim() === currentValue,
+      ) ?? fixedCurrentOption;
+    const currentOptionValue = String(currentOption.value ?? "").trim();
+    const defaultPrecio = getPrecioActividad(currentOption);
     const currentPrecio =
       Number(getValues(`detalle.${FIXED_ACTIVITY_KEY}.precio`)) || 0;
     const targetPrecio =
-      currentValue !== fixedValue ? defaultPrecio : currentPrecio;
+      currentValue !== currentOptionValue ? defaultPrecio : currentPrecio;
     const targetCant = cantPax;
     const targetTotal = roundCurrency(targetPrecio * targetCant);
     const currentCant =
@@ -346,7 +439,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       Number(getValues(`detalle.${FIXED_ACTIVITY_KEY}.total`)) || 0;
 
     if (
-      currentValue === fixedValue &&
+      currentValue === currentOptionValue &&
       currentPrecio === targetPrecio &&
       currentCant === targetCant &&
       currentTotal === targetTotal
@@ -354,8 +447,8 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
       return;
     }
 
-    if (currentValue !== fixedValue) {
-      setValue(`detalle.${FIXED_ACTIVITY_KEY}.servicio`, fixedProductOption, {
+    if (currentValue !== currentOptionValue) {
+      setValue(`detalle.${FIXED_ACTIVITY_KEY}.servicio`, currentOption, {
         shouldDirty: false,
       });
     }
@@ -370,7 +463,14 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     setValue(`detalle.${FIXED_ACTIVITY_KEY}.total`, targetTotal, {
       shouldDirty: false,
     });
-  }, [isEditing, fixedProductOption, cantPax, getValues, setValue]);
+  }, [
+    isEditing,
+    fixedCurrentOption,
+    productOptions,
+    cantPax,
+    getValues,
+    setValue,
+  ]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -756,7 +856,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
                       value={field.value ?? ""}
                       disabled={!isEditing || isRowInactive(row.key)}
-                      onChange={(e) => field.onChange(e.target.value)}
+                      onChange={(e) =>
+                        handleTurnoChange(row.key, e.target.value, field.onChange)
+                      }
                     >
                       <option value="">-</option>
                       {getTurnoOptions().map((turno) => (
@@ -880,7 +982,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       className="w-full border rounded px-2 py-1 disabled:bg-slate-100"
                       value={field.value ?? ""}
                       disabled={!isEditing || isRowInactive(row.key)}
-                      onChange={(e) => field.onChange(e.target.value)}
+                      onChange={(e) =>
+                        handleTurnoChange(row.key, e.target.value, field.onChange)
+                      }
                     >
                       <option value="">-</option>
                       {getTurnoOptions().map((turno) => (
