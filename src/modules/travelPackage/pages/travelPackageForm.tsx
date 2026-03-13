@@ -5,7 +5,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useTravelPackageForm } from "../hooks/useTravelPackageForm";
@@ -656,7 +656,13 @@ const buildTravelPackageBoletaData = (
 
 const TravelPackageForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
+  const routeState =
+    location.state && typeof location.state === "object"
+      ? (location.state as { fromLiquidaciones?: unknown })
+      : null;
+  const fromLiquidaciones = routeState?.fromLiquidaciones === true;
   const isEditMode = Boolean(id);
   const openDialog = useDialogStore((state) => state.openDialog);
   const authUser = useAuthStore((state) => state.user);
@@ -708,7 +714,11 @@ const TravelPackageForm = () => {
               : "No se pudo obtener el detalle del paquete de viaje.",
           type: "error",
         });
-        navigate("/paquete-viaje");
+        if (fromLiquidaciones) {
+          navigate("/fullday/programacion/liquidaciones");
+        } else {
+          navigate("/paquete-viaje");
+        }
       } finally {
         if (!isCancelled) setIsLoadingDetail(false);
       }
@@ -719,7 +729,15 @@ const TravelPackageForm = () => {
     return () => {
       isCancelled = true;
     };
-  }, [id, isEditMode, navigate, replaceForm]);
+  }, [fromLiquidaciones, id, isEditMode, navigate, replaceForm]);
+
+  const handleBackNavigation = useCallback(() => {
+    if (fromLiquidaciones) {
+      navigate("/fullday/programacion/liquidaciones");
+      return;
+    }
+    navigate("/paquete-viaje");
+  }, [fromLiquidaciones, navigate]);
 
   const focusSibling = useCallback(
     (target: HTMLElement, options?: { reverse?: boolean }) => {
@@ -1156,10 +1174,7 @@ const TravelPackageForm = () => {
           {/* ================= INFO ================= */}
           <div className="flex flex-wrap items-end gap-3 min-w-0">
             <div className="flex items-end justify-between w-[40px]">
-              <ChevronLeft
-                className="cursor-pointer"
-                onClick={() => navigate("/paquete-viaje")}
-              />
+              <ChevronLeft className="cursor-pointer" onClick={handleBackNavigation} />
             </div>
 
             {/* FECHA VIAJE */}
