@@ -1603,9 +1603,7 @@ const LiquidacionesPage = () => {
           state: { fromLiquidaciones: true, notaId: row.notaId },
         });
       } else {
-        setError(
-          "No se encontró el paquete de viaje vinculado a esta nota.",
-        );
+        setError("No se encontró el paquete de viaje vinculado a esta nota.");
       }
       return;
     }
@@ -2593,7 +2591,6 @@ const LiquidacionesPage = () => {
       </div>
     </div>
   );
-  console.log("rows", rows);
   return (
     <div className="space-y-4">
       {error && (
