@@ -650,6 +650,7 @@ const LIQUIDACION_FIELDS = [
   { key: "regionNota", label: "RegionNota", sourceIndex: 50 },
   { key: "flagServicio", label: "FlagServicio", sourceIndex: 51 },
   { key: "flagVerificado", label: "FlagVerificado", sourceIndex: 52 },
+  { key: "idPaqueteViaje", label: "IdPaqueteViaje", sourceIndex: 53 },
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
@@ -671,6 +672,11 @@ const parseLiquidacionRow = (
   index: number,
 ): LiquidacionRow => {
   const rawValues = rowText.split("|");
+  const looksLikeHour = (value?: string) =>
+    /^\d{1,2}:\d{2}(\s?[AP]M)?$/i.test(normalizeStringValue(value));
+  const hasLetters = (value?: string) =>
+    /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(normalizeStringValue(value));
+
   const normalizeToExpectedLength = (
     values: string[],
     expectedLength: number,
@@ -681,7 +687,11 @@ const parseLiquidacionRow = (
           .concat(values.slice(expectedLength - 1).join("|"))
       : values;
 
-  const looksLikeLegacyPayload = rawValues.length >= LEGACY_EXPECTED_FIELDS;
+  const legacyHeuristic =
+    rawValues.length === EXPECTED_FIELDS &&
+    (looksLikeHour(rawValues[7]) || hasLetters(rawValues[8]));
+  const looksLikeLegacyPayload =
+    rawValues.length >= LEGACY_EXPECTED_FIELDS || legacyHeuristic;
   const valuesByFormat = normalizeToExpectedLength(
     rawValues,
     looksLikeLegacyPayload ? LEGACY_EXPECTED_FIELDS : EXPECTED_FIELDS,
@@ -689,11 +699,17 @@ const parseLiquidacionRow = (
   const legacyClienteId = looksLikeLegacyPayload
     ? normalizeStringValue(valuesByFormat[LEGACY_CLIENTE_ID_INDEX] ?? "")
     : "";
-  const normalizedValues = looksLikeLegacyPayload
-    ? valuesByFormat.filter(
-        (_, valueIndex) => valueIndex !== LEGACY_CLIENTE_ID_INDEX,
-      )
-    : valuesByFormat;
+  const normalizedValues = normalizeToExpectedLength(
+    looksLikeLegacyPayload
+      ? valuesByFormat.filter(
+          (_, valueIndex) => valueIndex !== LEGACY_CLIENTE_ID_INDEX,
+        )
+      : valuesByFormat,
+    EXPECTED_FIELDS,
+  );
+  while (normalizedValues.length < EXPECTED_FIELDS) {
+    normalizedValues.push("");
+  }
 
   const rowRecord = LIQUIDACION_FIELDS.reduce(
     (acc, field) => {
@@ -1579,6 +1595,20 @@ const LiquidacionesPage = () => {
   };
 
   const handleView = async (row: LiquidacionRow) => {
+    const flagServicio = normalizeStringValue(row.flagServicio);
+    if (flagServicio === "0") {
+      const idPaqueteViaje = Number(normalizeStringValue(row.idPaqueteViaje));
+      if (Number.isFinite(idPaqueteViaje) && idPaqueteViaje > 0) {
+        navigate(`/paquete-viaje/${idPaqueteViaje}/edit`, {
+          state: { fromLiquidaciones: true, notaId: row.notaId },
+        });
+      } else {
+        setError(
+          "No se encontró el paquete de viaje vinculado a esta nota.",
+        );
+      }
+      return;
+    }
     const productosLocal = await ensureProductosLoaded();
     try {
       //await loadCanalDeVentas();
@@ -2563,6 +2593,7 @@ const LiquidacionesPage = () => {
       </div>
     </div>
   );
+  console.log("rows", rows);
   return (
     <div className="space-y-4">
       {error && (

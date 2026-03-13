@@ -157,6 +157,7 @@ const LIQUIDACION_FIELDS = [
   { key: "regionNota", label: "RegionNota", sourceIndex: 51 },
   { key: "flagServicio", label: "FlagServicio", sourceIndex: 52 },
   { key: "flagVerificado", label: "FlagVerificado", sourceIndex: 53 },
+  { key: "idPaqueteViaje", label: "IdPaqueteViaje", sourceIndex: 54 },
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];

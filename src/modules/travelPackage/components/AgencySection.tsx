@@ -159,7 +159,7 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
         <div className="md:col-span-2 xl:col-span-3">
           <AutocompleteControlled<AgencySectionFormValues, CanalOption>
-            data-focus-next='input[data-focus-target="agencia-telefono"]'
+            data-focus-next='input[data-focus-target="agencia-telpax"]'
             onValueChange={(value) => {
               onUpdateAgencia(
                 value ? { label: value.label, value: value.value } : null,
@@ -235,6 +235,7 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
           size="small"
           label="Telefono Pax"
           onChange={(e) => onUpdateField("telPax", e.target.value)}
+          inputProps={{ "data-focus-target": "agencia-telpax" }}
         />
 
         {/** <SelectControlled<AgencySectionFormValues>
