@@ -18,8 +18,10 @@ import {
   type PrecioProducto,
   type PrecioTraslado,
   type Producto,
+  type ProductoResto,
   type Traslado,
 } from "@/app/db/serviciosDB";
+import { showToast } from "@/components/ui/AppToast";
 import { TextControlled } from "@/components/ui/inputs";
 import { getTravelCurrencySymbol } from "../constants/travelPackage.constants";
 import type {
@@ -76,6 +78,10 @@ const ROW_LABELS: Record<ItineraryActivityRow["tipo"], string> = {
 };
 
 type ItinerarySectionFormValues = Record<string, string>;
+type ItineraryProducto = Producto & {
+  precioVenta?: number;
+  precioDol?: number;
+};
 
 const round2 = (value: number) =>
   Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -116,7 +122,7 @@ const ItinerarySection = ({
   void onAddDay;
   void onRemoveDay;
 
-  const [productos, setProductos] = useState<Producto[]>([]);
+  const [productos, setProductos] = useState<ItineraryProducto[]>([]);
   const [actividades, setActividades] = useState<Actividad[]>([]);
   const [traslados, setTraslados] = useState<Traslado[]>([]);
   const [preciosProducto, setPreciosProducto] = useState<PrecioProducto[]>([]);
@@ -125,6 +131,7 @@ const ItinerarySection = ({
   >([]);
   const [preciosTraslado, setPreciosTraslado] = useState<PrecioTraslado[]>([]);
   const isSyncingRowsRef = useRef(false);
+  const syncedProductTitleByDayRef = useRef<Record<number, string>>({});
   const { control, setValue } = useForm<ItinerarySectionFormValues>({
     defaultValues: {},
   });
@@ -137,9 +144,10 @@ const ItinerarySection = ({
     let active = true;
 
     const loadOptions = async () => {
-      let [
-        productosRows,
-        productosCityTourRows,
+      const [
+        productosRowsInitial,
+        productosCityTourRowsInitial,
+        productosRestoRowsInitial,
         actividadesRows,
         trasladosRows,
         preciosProductoRows,
@@ -148,42 +156,80 @@ const ItinerarySection = ({
       ] = await Promise.all([
         serviciosDB.productos.toArray(),
         serviciosDB.productosCityTourOrdena.toArray(),
+        serviciosDB.productosResto.toArray(),
         serviciosDB.actividades.toArray(),
         serviciosDB.traslados.toArray(),
         serviciosDB.preciosProducto.toArray(),
         serviciosDB.preciosActividades.toArray(),
         serviciosDB.preciosTraslado.toArray(),
       ]);
+      let productosRows = productosRowsInitial;
+      let productosCityTourRows = productosCityTourRowsInitial;
+      let productosRestoRows = productosRestoRowsInitial;
 
-      // Si City Tour aún no está en local, sincronizamos y reintentamos.
-      if (!productosCityTourRows.length) {
+      // Si aún faltan bloques de productos en local, sincronizamos y reintentamos.
+      if (!productosCityTourRows.length || !productosRestoRows.length) {
         try {
           await refreshServiciosData();
-          [productosRows, productosCityTourRows] = await Promise.all([
-            serviciosDB.productos.toArray(),
-            serviciosDB.productosCityTourOrdena.toArray(),
-          ]);
+          [productosRows, productosCityTourRows, productosRestoRows] =
+            await Promise.all([
+              serviciosDB.productos.toArray(),
+              serviciosDB.productosCityTourOrdena.toArray(),
+              serviciosDB.productosResto.toArray(),
+            ]);
         } catch (error) {
           console.error(
-            "No se pudo refrescar servicios para cargar City Tour",
+            "No se pudo refrescar servicios para cargar productos del itinerario",
             error,
           );
         }
       }
 
-      const mergedProductos = [
-        ...productosRows,
+      const mergedProductos: ItineraryProducto[] = [
+        ...productosRows.map((item) => ({
+          ...item,
+          precioVenta: undefined,
+          precioDol: undefined,
+        })),
         ...productosCityTourRows.map((item) => ({
           id: item.id,
           nombre: item.nombre,
           region: item.region,
+          precioVenta: undefined,
+          precioDol: undefined,
+        })),
+        ...productosRestoRows.map((item: ProductoResto) => ({
+          id: item.id,
+          nombre: item.nombre,
+          region: item.region,
+          precioVenta: Number(item.precioVenta || 0),
+          precioDol: Number(item.precioDol || 0),
         })),
       ];
-      const uniqueByName = new Map<string, Producto>();
+      const uniqueByName = new Map<string, ItineraryProducto>();
       mergedProductos.forEach((item) => {
         const key = normalizeText(String(item.nombre ?? ""));
-        if (!key || uniqueByName.has(key)) return;
-        uniqueByName.set(key, item);
+        if (!key) return;
+
+        const existing = uniqueByName.get(key);
+        if (!existing) {
+          uniqueByName.set(key, item);
+          return;
+        }
+
+        const merged: ItineraryProducto = {
+          ...existing,
+          region: existing.region || item.region,
+          precioVenta:
+            existing.precioVenta !== undefined
+              ? existing.precioVenta
+              : item.precioVenta,
+          precioDol:
+            existing.precioDol !== undefined
+              ? existing.precioDol
+              : item.precioDol,
+        };
+        uniqueByName.set(key, merged);
       });
 
       if (!active) return;
@@ -249,6 +295,19 @@ const ItinerarySection = ({
     );
   const getProductBasePrice = (productId?: number) => {
     if (!productId) return 0;
+    const productData = productos.find(
+      (producto) => Number(producto.id) === Number(productId),
+    );
+    if (
+      productData &&
+      (productData.precioVenta !== undefined || productData.precioDol !== undefined)
+    ) {
+      const embeddedPrice = isDolCurrency
+        ? pickFirstPositive(productData.precioDol, productData.precioVenta)
+        : pickFirstPositive(productData.precioVenta, productData.precioDol);
+      return round2(embeddedPrice);
+    }
+
     const priceRow = preciosProducto.find(
       (price) => Number(price.idProducto) === Number(productId),
     );
@@ -483,8 +542,20 @@ const ItinerarySection = ({
     if (isSyncingRowsRef.current) return;
     if (!itinerario.length) return;
     let changed = false;
+    const seenDayIds = new Set<number>();
+    const nextSyncedProductTitleByDay = { ...syncedProductTitleByDayRef.current };
 
     itinerario.forEach((day) => {
+      const dayId = Number(day.id);
+      seenDayIds.add(dayId);
+      const currentTitleKey = normalizeText(String(day.titulo ?? ""));
+      const previousTitleKey = syncedProductTitleByDayRef.current[dayId];
+      nextSyncedProductTitleByDay[dayId] = currentTitleKey;
+
+      // Evita pisar precios de datos ya cargados en el primer render.
+      if (previousTitleKey === undefined) return;
+      if (previousTitleKey === currentTitleKey) return;
+
       const selectedProduct = getProductByTitle(day.titulo ?? "");
       const nextBasePrice = getProductBasePrice(selectedProduct?.id);
       if (round2(Number(day.precioUnitario || 0)) !== nextBasePrice) {
@@ -519,32 +590,17 @@ const ItinerarySection = ({
             changed = true;
             onUpdateEventField(day.id, row.id, "subtotal", nextSubtotal);
           }
-          return;
-        }
-
-        if (row.tipo === "TRASLADO") {
-          const detalle = String(row.detalle ?? "").trim();
-          if (!detalle || detalle === "-") return;
-
-          const trasladoSeleccionado = traslados.find(
-            (item) => item.nombre.toLowerCase() === detalle.toLowerCase(),
-          );
-          const nextPrice = trasladoSeleccionado
-            ? getTrasladoUnitPrice(trasladoSeleccionado.id)
-            : 0;
-          const nextSubtotal = round2(nextPrice * Number(row.cant || 0));
-
-          if (round2(Number(row.precio || 0)) !== nextPrice) {
-            changed = true;
-            onUpdateEventField(day.id, row.id, "precio", nextPrice);
-          }
-          if (round2(Number(row.subtotal || 0)) !== nextSubtotal) {
-            changed = true;
-            onUpdateEventField(day.id, row.id, "subtotal", nextSubtotal);
-          }
         }
       });
     });
+
+    Object.keys(nextSyncedProductTitleByDay).forEach((key) => {
+      const dayId = Number(key);
+      if (!seenDayIds.has(dayId)) {
+        delete nextSyncedProductTitleByDay[dayId];
+      }
+    });
+    syncedProductTitleByDayRef.current = nextSyncedProductTitleByDay;
 
     if (changed) {
       isSyncingRowsRef.current = true;
@@ -552,7 +608,7 @@ const ItinerarySection = ({
         isSyncingRowsRef.current = false;
       });
     }
-  }, [itinerario, moneda, actividades, traslados, onUpdateDayField, onUpdateEventField]);
+  }, [itinerario, actividades, onUpdateDayField, onUpdateEventField]);
 
   const getRowFallback = (
     rowType: ItineraryActivityRow["tipo"],
@@ -699,6 +755,18 @@ const ItinerarySection = ({
                   value={day.titulo}
                   onChange={(_, newValue) => {
                     const nextTitle = newValue || "";
+                    const currentTitle = String(day.titulo ?? "");
+                    const isChangingSelection = nextTitle !== currentTitle;
+
+                    if (isChangingSelection && paxCount <= 0) {
+                      showToast({
+                        title: "Alerta",
+                        description: "Anade un pasajero por lo menos.",
+                        type: "error",
+                      });
+                      return;
+                    }
+
                     if (nextTitle !== String(day.titulo ?? "")) {
                       onUpdateDayField(day.id, "titulo", nextTitle);
                     }

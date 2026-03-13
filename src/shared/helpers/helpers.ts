@@ -214,6 +214,17 @@ export function transformServiciosData(raw: string) {
           region: region ?? "",
         }))
         .filter((x) => Number.isFinite(x.id) && x.nombre !== undefined) ?? [],
+
+    productosResto:
+      b[16]
+        ?.map(([id, nombre, region, precioVenta, precioDol]) => ({
+          id: Number(id),
+          nombre,
+          region: region ?? "",
+          precioVenta: parseLegacyNumber(precioVenta),
+          precioDol: parseLegacyNumber(precioDol),
+        }))
+        .filter((x) => Number.isFinite(x.id) && x.nombre !== undefined) ?? [],
   };
 }
 
