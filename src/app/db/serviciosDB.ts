@@ -7,6 +7,13 @@ export type ProductoCityTourOrdena = {
   nombre: string;
   region?: string;
 };
+export type ProductoResto = {
+  id: number;
+  nombre: string;
+  region?: string;
+  precioVenta: number;
+  precioDol: number;
+};
 export type PrecioProducto = {
   idProducto: number;
   precioBase: number;
@@ -74,6 +81,7 @@ class ServiciosDB extends Dexie {
   direccionesHotel!: Table<DireccionHotel, number>;
   ubigeos!: Table<Ubigeo, string>;
   productosCityTourOrdena!: Table<ProductoCityTourOrdena, number>;
+  productosResto!: Table<ProductoResto, number>;
 
   constructor() {
     super("servicios-db");
@@ -97,6 +105,9 @@ class ServiciosDB extends Dexie {
     });
     this.version(2).stores({
       productosCityTourOrdena: "id",
+    });
+    this.version(3).stores({
+      productosResto: "id",
     });
   }
 }
@@ -136,6 +147,20 @@ export async function hasServiciosData() {
     return false;
   }
 
+  const productosRestoCount = await serviciosDB.productosResto.count();
+  if (productosRestoCount === 0) {
+    return false;
+  }
+
+  const sampleProductoResto = await serviciosDB.productosResto.orderBy("id").first();
+  if (
+    sampleProductoResto &&
+    ((sampleProductoResto as ProductoResto).precioVenta === undefined ||
+      (sampleProductoResto as ProductoResto).precioDol === undefined)
+  ) {
+    return false;
+  }
+
   return true;
 }
 export async function getServiciosFromDB() {
@@ -157,6 +182,7 @@ export async function getServiciosFromDB() {
     ubigeos: await serviciosDB.ubigeos.toArray(),
     productosCityTourOrdena:
       await serviciosDB.productosCityTourOrdena.toArray(),
+    productosResto: await serviciosDB.productosResto.toArray(),
   };
 }
 

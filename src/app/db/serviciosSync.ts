@@ -45,6 +45,13 @@ export type ServiciosData = {
   direccionesHotel: { idHotel: number; direccion: string }[];
   ubigeos: { id: string; nombre: string }[];
   productosCityTourOrdena: { id: number; nombre: string; region?: string }[];
+  productosResto: {
+    id: number;
+    nombre: string;
+    region?: string;
+    precioVenta: number;
+    precioDol: number;
+  }[];
 };
 
 const SERVICIOS_ENDPOINT = `${API_BASE_URL}/Programacion/listServ`;
@@ -85,6 +92,7 @@ async function persistServiciosData(data: ServiciosData): Promise<void> {
     "id",
     data.productosCityTourOrdena,
   );
+  assertValidArray("productosResto", "id", data.productosResto);
 
   await serviciosDB.transaction(
     "rw",
@@ -105,6 +113,7 @@ async function persistServiciosData(data: ServiciosData): Promise<void> {
       serviciosDB.direccionesHotel,
       serviciosDB.ubigeos,
       serviciosDB.productosCityTourOrdena,
+      serviciosDB.productosResto,
     ] as const,
     async () => {
       await fullSyncTable(serviciosDB.productos, data.productos, "id");
@@ -113,6 +122,7 @@ async function persistServiciosData(data: ServiciosData): Promise<void> {
         data.productosCityTourOrdena,
         "id",
       );
+      await fullSyncTable(serviciosDB.productosResto, data.productosResto, "id");
 
       await serviciosDB.preciosProducto.bulkPut(data.preciosProducto);
       await serviciosDB.canales.bulkPut(data.canales);
