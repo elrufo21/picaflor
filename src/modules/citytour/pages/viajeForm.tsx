@@ -431,6 +431,19 @@ function resolveServicioProductoId(servicio: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function resolveMainProductId(values: any, fallbackProductId?: string): number {
+  const act1ProductId = resolveServicioProductoId(values?.detalle?.act1?.servicio);
+  if (act1ProductId > 0) return act1ProductId;
+
+  const valuesProductId = Number(values?.idProducto ?? 0);
+  if (Number.isFinite(valuesProductId) && valuesProductId > 0) {
+    return valuesProductId;
+  }
+
+  const fallback = Number(fallbackProductId);
+  return Number.isFinite(fallback) && fallback > 0 ? fallback : 0;
+}
+
 function normalizarDetalleCreate(detalle: any): string {
   const detalleKeys = ["act1", "act2", "act3"] as const;
 
@@ -1167,6 +1180,16 @@ const ViajeForm = () => {
     setIsSaving(true);
 
     try {
+      const mainProductId = resolveMainProductId(data, idProduct);
+      if (!mainProductId) {
+        showToast({
+          title: "Validación",
+          description: "No se pudo resolver el producto principal del viaje.",
+          type: "error",
+        });
+        return;
+      }
+
       const fechaViajeValue =
         toISODate(data.fechaViaje) || parseFecha(data.fechaViaje);
 
@@ -1181,7 +1204,7 @@ const ViajeForm = () => {
         cantPax: Number(data.cantPax),
         usuarioId: Number(session.user.id),
         companiaId: 1,
-        idProducto: Number(idProduct),
+        idProducto: mainProductId,
         canalVenta: data.canalDeVenta?.auxiliar ?? data.canalVenta,
         igv: watch("igv"),
         cargosExtra: watch("cargosExtra"),
