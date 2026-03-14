@@ -676,6 +676,11 @@ const parseLiquidacionRow = (
     /^\d{1,2}:\d{2}(\s?[AP]M)?$/i.test(normalizeStringValue(value));
   const hasLetters = (value?: string) =>
     /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(normalizeStringValue(value));
+  const looksLikePhone = (value?: string) => {
+    const normalized = normalizeStringValue(value);
+    const digits = normalized.replace(/\D/g, "").length;
+    return digits >= 6;
+  };
 
   const normalizeToExpectedLength = (
     values: string[],
@@ -687,9 +692,14 @@ const parseLiquidacionRow = (
           .concat(values.slice(expectedLength - 1).join("|"))
       : values;
 
+  // Legacy payload includes an extra clienteId column at index 6.
+  // Detect it with stable shape checks to avoid shifting modern rows.
   const legacyHeuristic =
     rawValues.length === EXPECTED_FIELDS &&
-    (looksLikeHour(rawValues[7]) || hasLetters(rawValues[8]));
+    (looksLikeHour(rawValues[7]) ||
+      (hasLetters(rawValues[8]) &&
+        looksLikePhone(rawValues[9]) &&
+        !looksLikePhone(rawValues[8])));
   const looksLikeLegacyPayload =
     rawValues.length >= LEGACY_EXPECTED_FIELDS || legacyHeuristic;
   const valuesByFormat = normalizeToExpectedLength(
@@ -1716,7 +1726,7 @@ const LiquidacionesPage = () => {
       });
     }
   };
-
+  console.log("row", rows);
   const columnHelper = createColumnHelper<LiquidacionRow>();
   const isPagoVerificado = useCallback((row: LiquidacionRow) => {
     return normalizeStringValue(row.flagVerificado) === "1";
