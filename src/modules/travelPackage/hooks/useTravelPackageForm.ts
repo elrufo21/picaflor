@@ -60,8 +60,16 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
     );
   if (hasHotelPackage) {
     next.incluyeHotel = true;
+    next.incluyeHotelSeleccion = "SI";
   }
   if (onlySinHotelPackageSelected) {
+    next.incluyeHotel = false;
+    next.incluyeHotelSeleccion = "NO";
+    next.hotelesContratados = [];
+  }
+  if (next.incluyeHotelSeleccion === "SI") {
+    next.incluyeHotel = true;
+  } else if (next.incluyeHotelSeleccion === "NO") {
     next.incluyeHotel = false;
     next.hotelesContratados = [];
   }

@@ -57,6 +57,12 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     .toUpperCase();
   const disponibles = Number(watch("disponibles") ?? 0);
   const prevCantPaxRef = useRef<number | null>(null);
+  const prevPuntoPartidaRef = useRef<string | null>(null);
+  const otrosPartidasRef = useRef<HTMLInputElement | null>(null);
+  const [hotelHistoryUnlocked, setHotelHistoryUnlocked] = useState(false);
+  const hotelHistoryFieldNameRef = useRef(
+    `nh-hotel-${Math.random().toString(36).slice(2, 10)}`,
+  );
   const hotelFormRef = useRef<UseFormReturn<HotelFormValues> | null>(null);
   const [hotelesOptions, setHotelesOptions] = useState<
     { value: string; label: string }[]
@@ -646,22 +652,30 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const puntoPartida = watch("puntoPartida");
   const isHotel = puntoPartida === "HOTEL";
   const isOtros = puntoPartida === "OTROS";
+  const isOtrosPartidasEnabled = isEditing && isOtros;
 
   useEffect(() => {
+    const currentPuntoPartida = String(puntoPartida ?? "")
+      .trim()
+      .toUpperCase();
+    const prevPuntoPartida = prevPuntoPartidaRef.current;
+    prevPuntoPartidaRef.current = currentPuntoPartida;
+
     if (!isEditing) return;
-    if (isHotel) {
-      setValue("otrosPartidas", "", { shouldDirty: true });
+    if (prevPuntoPartida === null || prevPuntoPartida === currentPuntoPartida)
       return;
-    }
+
+    setValue("otrosPartidas", "", { shouldDirty: true });
 
     if (isOtros) {
       setValue("hotel", null, { shouldDirty: true });
       return;
     }
 
-    setValue("hotel", null, { shouldDirty: true });
-    setValue("otrosPartidas", "", { shouldDirty: true });
-  }, [isHotel, isOtros, setValue, isEditing]);
+    if (!isHotel) {
+      setValue("hotel", null, { shouldDirty: true });
+    }
+  }, [isEditing, isHotel, isOtros, puntoPartida, setValue]);
 
   return (
     <div className="p-2.5 space-y-3">
@@ -691,6 +705,12 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                     )?.hora ?? "";
 
                   setValue("horaPartida", hora, { shouldDirty: true });
+
+                  if (isEditing && selectedValue === "OTROS") {
+                    setTimeout(() => {
+                      otrosPartidasRef.current?.focus();
+                    }, 0);
+                  }
                 }}
               >
                 <option value="">Seleccione</option>
@@ -741,6 +761,8 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                   <TextField
                     {...params}
                     placeholder="-"
+                    autoComplete="off"
+                    id={`${hotelHistoryFieldNameRef.current}-input`}
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
@@ -758,6 +780,35 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                         </>
                       ),
                     }}
+                    inputProps={{
+                      ...params.inputProps,
+                      name: hotelHistoryFieldNameRef.current,
+                      autoComplete: "new-password",
+                      autoCorrect: "off",
+                      spellCheck: false,
+                      autoCapitalize: "none",
+                      readOnly:
+                        !hotelHistoryUnlocked ||
+                        (params.inputProps as { readOnly?: boolean })?.readOnly,
+                      "aria-autocomplete": "none",
+                      "data-lpignore": "true",
+                      "data-1p-ignore": "true",
+                      "data-bwignore": "true",
+                      "data-form-type": "other",
+                      "data-autocomplete": "off",
+                      onFocus: (event: React.FocusEvent<HTMLInputElement>) => {
+                        if (!hotelHistoryUnlocked) {
+                          setHotelHistoryUnlocked(true);
+                        }
+                        (
+                          params.inputProps as {
+                            onFocus?: (
+                              e: React.FocusEvent<HTMLInputElement>,
+                            ) => void;
+                          }
+                        )?.onFocus?.(event);
+                      },
+                    }}
                   />
                 )}
               />
@@ -772,9 +823,11 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
             id="otrosPartidas"
             name="otrosPartidas"
             className="rounded-lg"
+            disabled={!isOtrosPartidasEnabled}
             transform={(value) => value.toUpperCase()}
             size="small"
             disableHistory
+            inputRef={otrosPartidasRef}
           />
         </label>
 

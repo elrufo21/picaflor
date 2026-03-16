@@ -8,7 +8,7 @@ import {
   type Control,
   type Path,
 } from "react-hook-form";
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { focusNextElement } from "@/shared/helpers/formFocus";
 
 type Props<
@@ -62,8 +62,12 @@ function AutocompleteControlled<
   const fieldKey = String(name ?? "field")
     .replace(/[^a-zA-Z0-9_-]/g, "-")
     .toLowerCase();
-  const historySafeFieldName = `nh-${fieldKey}-${safeInputId}`;
-  const lockHistoryInput = isMultiple && !historyUnlocked;
+  const historyNonce = useMemo(
+    () => Math.random().toString(36).slice(2, 10),
+    [],
+  );
+  const historySafeFieldName = `nh-${fieldKey}-${safeInputId}-${historyNonce}`;
+  const lockHistoryInput = !historyUnlocked;
 
   return (
     <Controller
@@ -120,7 +124,7 @@ function AutocompleteControlled<
                 label={label}
                 error={!!fieldState.error}
                 helperText={(rest as any).helperText}
-                autoComplete="new-password"
+                autoComplete="off"
                 id={`${historySafeFieldName}-input`}
                 InputProps={{
                   ...params.InputProps,

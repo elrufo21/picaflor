@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { PDFViewer, pdf } from "@react-pdf/renderer";
 import { useLocation, useNavigate, useParams } from "react-router";
-import { Download, Printer } from "lucide-react";
+import { ChevronLeft, Download, Printer } from "lucide-react";
 
 import { showToast } from "@/components/ui/AppToast";
 import PackageInvoicePdf, {
@@ -11,6 +11,8 @@ import PackageInvoicePdf, {
 type LocationState = {
   invoiceData?: PackageInvoiceData;
   packageId?: string | number;
+  notaId?: string | number;
+  fromNewTravelPackage?: boolean;
 };
 
 const STORAGE_KEY = "travel-package:invoice-preview:data:v1";
@@ -35,22 +37,35 @@ const TravelPackageInvoicePreview = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const location = useLocation();
-  const { invoiceData: stateInvoiceData, packageId } = (location.state ??
-    {}) as LocationState;
+  const {
+    invoiceData: stateInvoiceData,
+    packageId,
+    notaId,
+    fromNewTravelPackage,
+  } = (location.state ?? {}) as LocationState;
   const invoiceData = stateInvoiceData ?? readStoredInvoiceData();
-
-  const effectiveId = String(packageId ?? id ?? "").trim();
+  const effectiveNotaId = [
+    notaId,
+    invoiceData?.notaId,
+    packageId,
+    id,
+  ]
+    .map((value) => String(value ?? "").trim())
+    .find((value) => value.length > 0) ?? "";
   const pdfName = useMemo(() => {
     const fecha =
       String(invoiceData?.fechaEmision ?? "")
         .trim()
         .replace(/\//g, "-") || "SIN-FECHA";
-    return `${fecha}-PaqueteViaje-ID-${effectiveId || "SIN-ID"}.pdf`;
-  }, [effectiveId, invoiceData?.fechaEmision]);
+    return `${fecha}-PaqueteViaje-NOTA-${effectiveNotaId || "SIN-NOTA"}.pdf`;
+  }, [effectiveNotaId, invoiceData?.fechaEmision]);
 
   const createPdfBlob = async () => {
-    if (!invoiceData) throw new Error("No se encontró información del invoice.");
-    return pdf(<PackageInvoicePdf data={invoiceData} pdfName={pdfName} />).toBlob();
+    if (!invoiceData)
+      throw new Error("No se encontró información del invoice.");
+    return pdf(
+      <PackageInvoicePdf data={invoiceData} pdfName={pdfName} />,
+    ).toBlob();
   };
 
   const handleDownload = async () => {
@@ -100,22 +115,40 @@ const TravelPackageInvoicePreview = () => {
   };
 
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const backPath = fromNewTravelPackage
+    ? "/paquete-viaje/new"
+    : "/fullday/programacion/liquidaciones";
+  const backTitle = fromNewTravelPackage
+    ? "Volver al formulario"
+    : "Volver a programaciones";
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="rounded-lg bg-slate-50 px-4 py-2 text-sm text-slate-700">
-          <span className="font-semibold">Paquete:</span>{" "}
-          <span>{effectiveId || "-"}</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(backPath)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50"
+            title={backTitle}
+            aria-label={backTitle}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <div className="rounded-lg bg-slate-50 px-4 py-2 text-sm text-slate-700">
+            <span className="font-semibold">Paquete:</span>{" "}
+            <span>{effectiveNotaId || "-"}</span>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => navigate("/paquete-viaje")}
+            onClick={() => navigate("/fullday/programacion/liquidaciones")}
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
           >
-            Volver al listado
+            Ver listado
           </button>
         </div>
       </div>
@@ -176,10 +209,10 @@ const TravelPackageInvoicePreview = () => {
             <p>No hay datos para mostrar.</p>
             <button
               type="button"
-              onClick={() => navigate("/paquete-viaje")}
+              onClick={() => navigate("/fullday/programacion/liquidaciones")}
               className="rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400"
             >
-              Volver
+              Ver listado
             </button>
           </div>
         )}

@@ -89,9 +89,15 @@ const toIsoDate = (value: unknown) => {
   const text = normalizeCell(value);
   if (!text) return "";
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const isoMatch = text.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s]\d{2}:\d{2}(?::\d{2})?)?$/,
+  );
+  if (isoMatch) {
+    const [, yyyy, mm, dd] = isoMatch;
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
-  const ddmmyyyy = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const ddmmyyyy = /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+\d{2}:\d{2}(?::\d{2})?)?$/;
   const match = text.match(ddmmyyyy);
   if (match) {
     const [, dd, mm, yyyy] = match;
@@ -456,6 +462,12 @@ export const parseTravelPackageLegacyPayload = (
 
   const moneda =
     normalizeCell(header[11]).toUpperCase() === "SOLES" ? "SOLES" : "DOLARES";
+  const incluyeHotel = parseBool(header[31]);
+  const incluyeAlimentacionEstadoSeleccion = hotelesState.some(
+    (row) => row.incluyeAlimentacion,
+  )
+    ? "SI"
+    : "NO";
 
   const nextState: TravelPackageFormState = {
     ...INITIAL_FORM_STATE,
@@ -491,7 +503,9 @@ export const parseTravelPackageLegacyPayload = (
     movilidadTipo: header[28] ?? "",
     movilidadEmpresa: header[29] ?? "",
     movilidadPrecio: parseNumeric(header[30]),
-    incluyeHotel: parseBool(header[31]),
+    incluyeHotelSeleccion: incluyeHotel ? "SI" : "NO",
+    incluyeHotel,
+    incluyeAlimentacionEstadoSeleccion,
     cantPax: String(parsePositiveInt(header[32])),
     idioma: header[33] ?? "",
     incluye: header[34] ?? "",

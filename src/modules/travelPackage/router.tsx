@@ -1,14 +1,22 @@
-import TravelPackageList from "./pages/travelPackageList";
+// import TravelPackageList from "./pages/travelPackageList";
 import TravelPackageForm from "./pages/travelPackageForm";
 import TravelPackageInvoicePreview from "./pages/travelPackageInvoicePreview";
 import TravelPackageBoletaPreview from "./pages/travelPackageBoletaPreview";
 
 export default [
+  // Vista de listado deshabilitada temporalmente.
+  // {
+  //   path: "paquete-viaje",
+  //   element: <TravelPackageList />,
+  //   handle: {
+  //     breadcrumb: [{ label: "Paquete de Viaje" }, { label: "Listado" }],
+  //   },
+  // },
   {
     path: "paquete-viaje",
-    element: <TravelPackageList />,
+    element: <TravelPackageForm />,
     handle: {
-      breadcrumb: [{ label: "Paquete de Viaje" }, { label: "Listado" }],
+      breadcrumb: [{ label: "Paquete de Viaje" }, { label: "Formulario" }],
     },
   },
   {

@@ -4,7 +4,6 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
-  CONDICION_PAGO_OPTIONS,
   TRAVEL_PACKAGE_SELECTOR_OPTIONS,
 } from "../constants/travelPackage.constants";
 import type { TravelPackageFormState } from "../types/travelPackage.types";
@@ -35,8 +34,19 @@ type GeneralDataFormValues = {
   moneda: "SOLES" | "DOLARES";
   programa: string;
   cantPax: string;
-  condicionPago: string;
+  condicionPago: EstadoPagoOption | null;
 };
+
+type EstadoPagoOption = {
+  value: "CANCELADO" | "ACUENTA" | "CREDITO";
+  label: string;
+};
+
+const ESTADO_PAGO_OPTIONS: EstadoPagoOption[] = [
+  { value: "CANCELADO", label: "Cancelado" },
+  { value: "ACUENTA", label: "A Cuenta" },
+  { value: "CREDITO", label: "Crédito" },
+];
 
 const buildProgramaFromForm = (
   destinos: string[],
@@ -83,7 +93,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
       moneda: form.moneda,
       programa: form.programa,
       cantPax: form.cantPax,
-      condicionPago: form.condicionPago,
+      condicionPago: null,
     },
   });
 
@@ -120,7 +130,11 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
   }, [form.cantPax, setValue]);
 
   useEffect(() => {
-    setValue("condicionPago", form.condicionPago, {
+    const selectedCondition =
+      ESTADO_PAGO_OPTIONS.find(
+        (option) => option.value === String(form.condicionPago ?? "").toUpperCase(),
+      ) ?? null;
+    setValue("condicionPago", selectedCondition, {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
@@ -443,18 +457,17 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
         </div>
 
         <div>
-          <SelectControlled<GeneralDataFormValues>
+          <AutocompleteControlled<GeneralDataFormValues, EstadoPagoOption>
+            id="condicion"
             name="condicionPago"
             control={control}
-            options={[
-              { value: "", label: "SELECCIONE" },
-              ...CONDICION_PAGO_OPTIONS,
-            ]}
+            options={ESTADO_PAGO_OPTIONS}
             size="small"
             label="Condición"
-            InputLabelProps={{ shrink: true }}
-            onChange={(event) =>
-              onUpdateField("condicionPago", event.target.value)
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, value) => option.value === value.value}
+            onValueChange={(option) =>
+              onUpdateField("condicionPago", option?.value ?? "")
             }
           />
         </div>
