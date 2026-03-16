@@ -635,7 +635,7 @@ const buildTravelPackageBoletaData = (
   programa: normalizeText(form.programa),
   destino: normalizeText(form.destinos?.[0] ?? ""),
   fechaViaje: normalizeText(form.fechaInicioViaje),
-  notaId: packageId ? String(packageId) : "",
+  notaId: normalizeText(form.notaId) || (packageId ? String(packageId) : ""),
   documentoCobranza: normalizeText(form.documentoCobranza),
   nserie: normalizeText(form.nserie),
   ndocumento: normalizeText(form.ndocumento),
@@ -654,15 +654,38 @@ const buildTravelPackageBoletaData = (
   medioPago: normalizeText(form.medioPago),
 });
 
+type TravelPackageRouteState = {
+  fromLiquidaciones?: unknown;
+  notaId?: unknown;
+  listItem?: unknown;
+};
+
+const resolveRouteNotaId = (routeState: TravelPackageRouteState | null) => {
+  const fromState = parsePositiveId(routeState?.notaId);
+  if (fromState) return String(fromState);
+
+  if (routeState?.listItem && typeof routeState.listItem === "object") {
+    const listItem = routeState.listItem as Record<string, unknown>;
+    const fromListItem =
+      parsePositiveId(listItem.notaId) ??
+      parsePositiveId(listItem.NotaId) ??
+      parsePositiveId(listItem.notaID);
+    if (fromListItem) return String(fromListItem);
+  }
+
+  return "";
+};
+
 const TravelPackageForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
   const routeState =
     location.state && typeof location.state === "object"
-      ? (location.state as { fromLiquidaciones?: unknown })
+      ? (location.state as TravelPackageRouteState)
       : null;
   const fromLiquidaciones = routeState?.fromLiquidaciones === true;
+  const routeNotaId = resolveRouteNotaId(routeState);
   const isEditMode = Boolean(id);
   const openDialog = useDialogStore((state) => state.openDialog);
   const authUser = useAuthStore((state) => state.user);
@@ -687,6 +710,11 @@ const TravelPackageForm = () => {
   }, [isEditMode, id]);
 
   useEffect(() => {
+    if (!routeState?.listItem) return;
+    console.log("travelPackageForm listItem:", routeState.listItem);
+  }, [routeState?.listItem]);
+
+  useEffect(() => {
     if (!isEditMode || !id) return;
 
     let isCancelled = false;
@@ -703,7 +731,11 @@ const TravelPackageForm = () => {
         }
 
         if (isCancelled) return;
-        replaceForm(parsedForm);
+        const parsedNotaId = parsePositiveId(parsedForm.notaId);
+        replaceForm({
+          ...parsedForm,
+          notaId: parsedNotaId ? String(parsedNotaId) : routeNotaId,
+        });
       } catch (error) {
         if (isCancelled) return;
         showToast({
@@ -729,7 +761,7 @@ const TravelPackageForm = () => {
     return () => {
       isCancelled = true;
     };
-  }, [fromLiquidaciones, id, isEditMode, navigate, replaceForm]);
+  }, [fromLiquidaciones, id, isEditMode, navigate, replaceForm, routeNotaId]);
 
   const handleBackNavigation = useCallback(() => {
     if (fromLiquidaciones) {
@@ -1151,7 +1183,7 @@ const TravelPackageForm = () => {
     replaceForm,
     setIsEditing,
   ]);
-
+  console.log("form", form);
   return (
     <form
       className="w-full space-y-6 pb-12"
@@ -1174,7 +1206,10 @@ const TravelPackageForm = () => {
           {/* ================= INFO ================= */}
           <div className="flex flex-wrap items-end gap-3 min-w-0">
             <div className="flex items-end justify-between w-[40px]">
-              <ChevronLeft className="cursor-pointer" onClick={handleBackNavigation} />
+              <ChevronLeft
+                className="cursor-pointer"
+                onClick={handleBackNavigation}
+              />
             </div>
 
             {/* FECHA VIAJE */}
@@ -1182,6 +1217,13 @@ const TravelPackageForm = () => {
               <span className="text-slate-500 text-xs">Fecha emision:</span>
               <span className="text-sm font-medium text-slate-700">
                 {fechaEmisionLabel}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 whitespace-nowrap">
+              <span className="text-slate-500 text-xs">Nota ID:</span>
+              <span className="text-sm font-medium text-slate-700">
+                {normalizeText(form.notaId) || "-"}
               </span>
             </div>
           </div>

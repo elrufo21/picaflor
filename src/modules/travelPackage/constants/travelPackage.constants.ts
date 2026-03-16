@@ -260,6 +260,7 @@ export const createEmptyHotelServicio = () =>
 // ─── Initial State ────────────────────────────────────────────────────────────
 
 export const INITIAL_FORM_STATE: TravelPackageFormState = {
+  notaId: "",
   fechaEmision: getTodayIso(),
   paquetesViaje: [],
   destinos: [],

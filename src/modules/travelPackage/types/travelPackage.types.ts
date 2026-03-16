@@ -58,6 +58,7 @@ export type TravelPackageSelectionRow = {
 };
 
 export type TravelPackageFormState = {
+  notaId: string;
   fechaEmision: string;
   paquetesViaje: TravelPackageSelectionRow[];
   destinos: string[];

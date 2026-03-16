@@ -362,6 +362,7 @@ export const parseTravelPackageLegacyPayload = (
       ...item.row,
     }));
   const telPaxHeader = normalizeCell(header[41]);
+  const notaIdHeader = normalizeCell(header[42]);
   const telPaxFallback =
     pasajerosState.find((passenger) => normalizeCell(passenger.telefono))
       ?.telefono ?? "";
@@ -458,6 +459,7 @@ export const parseTravelPackageLegacyPayload = (
 
   const nextState: TravelPackageFormState = {
     ...INITIAL_FORM_STATE,
+    notaId: notaIdHeader,
     fechaEmision: toIsoDate(header[0]) || INITIAL_FORM_STATE.fechaEmision,
     programa: header[1] ?? "",
     fechaInicioViaje: toIsoDate(header[2]),

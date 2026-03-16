@@ -47,7 +47,8 @@ const TravelPackageBoletaPreview = () => {
   );
 
   const createPdfBlob = async () => {
-    if (!boletaData) throw new Error("No se encontro data para generar boleta.");
+    if (!boletaData)
+      throw new Error("No se encontro data para generar boleta.");
     return pdf(<InvoiceDocument data={boletaData} />).toBlob();
   };
 
@@ -62,7 +63,9 @@ const TravelPackageBoletaPreview = () => {
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "No se pudo descargar la boleta.";
+        error instanceof Error
+          ? error.message
+          : "No se pudo descargar la boleta.";
       showToast({
         title: "Error",
         description: message,
@@ -80,7 +83,8 @@ const TravelPackageBoletaPreview = () => {
         URL.revokeObjectURL(url);
         showToast({
           title: "Atencion",
-          description: "Permite las ventanas emergentes para imprimir la boleta.",
+          description:
+            "Permite las ventanas emergentes para imprimir la boleta.",
           type: "warning",
         });
         return;
@@ -90,7 +94,9 @@ const TravelPackageBoletaPreview = () => {
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "No se pudo imprimir la boleta.";
+        error instanceof Error
+          ? error.message
+          : "No se pudo imprimir la boleta.";
       showToast({
         title: "Error",
         description: message,
@@ -98,7 +104,7 @@ const TravelPackageBoletaPreview = () => {
       });
     }
   };
-
+  console.log("boletaData", boletaData);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
