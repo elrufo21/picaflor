@@ -92,7 +92,9 @@ export type TravelPackageFormState = {
   movilidadTipo: string;
   movilidadEmpresa: string;
   movilidadPrecio: number;
+  incluyeHotelSeleccion: "" | "SI" | "NO";
   incluyeHotel: boolean;
+  incluyeAlimentacionEstadoSeleccion: "" | "SI" | "NO";
   hotelesContratados: HotelServicioRow[];
   pasajeros: PassengerRow[];
   itinerario: ItineraryDayRow[];

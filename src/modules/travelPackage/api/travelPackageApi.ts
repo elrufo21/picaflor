@@ -140,3 +140,23 @@ export async function actualizarVerificadoPaqueteViaje(params: {
     return raw;
   }
 }
+
+export async function eliminarPaqueteViaje(idPaqueteViaje: number | string) {
+  const id = encodeURIComponent(String(idPaqueteViaje));
+  const response = await fetch(`${API_BASE_URL}/PaqueteDeViaje/${id}`, {
+    method: "DELETE",
+  });
+
+  const raw = (await response.text()).trim();
+  if (!response.ok) {
+    throw new Error(raw || "Error al eliminar paquete de viaje");
+  }
+
+  if (!raw) return true;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}

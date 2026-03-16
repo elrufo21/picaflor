@@ -103,6 +103,7 @@ function normalizeBackendDetalleToForm(detalles: BackendDetalle[]) {
 const LEGACY_ROW_SEPARATOR = "\u00ac";
 
 const FLAG_SERVICIO_OPTIONS = [
+  { label: "PAQ.Viaje", value: 0 },
   { label: "Full day", value: 1 },
   { label: "City tour", value: 2 },
 ];
@@ -729,9 +730,19 @@ const parseLiquidacionRow = (
     },
     {} as Record<LiquidacionFieldKey, string>,
   );
+  const isPackageRow = normalizeStringValue(rowRecord.flagServicio) === "0";
+  const registroWithZeroTime =
+    /\s00:00:00$/.test(normalizeStringValue(rowRecord.fechaRegistro)) ||
+    /T00:00:00(?:\.000)?$/i.test(normalizeStringValue(rowRecord.fechaRegistro));
+  const fechaEditaValue = normalizeStringValue(rowRecord.fechaEdita);
+  const fechaRegistroResolved =
+    isPackageRow && registroWithZeroTime && fechaEditaValue
+      ? fechaEditaValue
+      : rowRecord.fechaRegistro;
 
   return {
     ...rowRecord,
+    fechaRegistro: fechaRegistroResolved,
     clienteId: legacyClienteId,
     id: rowRecord.notaId || String(index + 1),
   };
@@ -1205,7 +1216,7 @@ const LiquidacionesPage = () => {
 
   const filterRowsByFlagServicio = useCallback(
     (sourceRows: LiquidacionRow[]) => {
-      if (!selectedFlagServicio) return sourceRows;
+      if (selectedFlagServicio === null) return sourceRows;
 
       return sourceRows.filter((row) => {
         const candidate = Number(row.flagServicio ?? 0);
@@ -1726,7 +1737,6 @@ const LiquidacionesPage = () => {
       });
     }
   };
-  console.log("row", rows);
   const columnHelper = createColumnHelper<LiquidacionRow>();
   const isPagoVerificado = useCallback((row: LiquidacionRow) => {
     return normalizeStringValue(row.flagVerificado) === "1";
@@ -2552,7 +2562,6 @@ const LiquidacionesPage = () => {
               ))}
             </select>
           </div>
-
           {/* CONDICIÓN */}
           <div className="flex min-w-[110px] flex-col gap-1 text-xs text-slate-500">
             <label className="font-medium text-slate-600">Condición</label>

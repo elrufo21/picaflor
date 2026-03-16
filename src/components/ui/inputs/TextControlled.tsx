@@ -64,6 +64,7 @@ function TextControlled<T extends FieldValues>({
     onChange: restOnChange,
     onFocus: restOnFocus,
     inputProps: restInputProps,
+    inputRef: restInputRef,
     ...restProps
   } = rest;
   const [historyUnlocked, setHistoryUnlocked] = useState(false);
@@ -76,6 +77,19 @@ function TextControlled<T extends FieldValues>({
       defaultValue={defaultValue}
       render={({ field, fieldState }) => {
         const { ref, onChange, value, ...fieldProps } = field;
+        const handleInputRef = (node: HTMLInputElement | null) => {
+          ref(node);
+          if (!restInputRef) return;
+          if (typeof restInputRef === "function") {
+            restInputRef(node);
+            return;
+          }
+          (
+            restInputRef as {
+              current: HTMLInputElement | null;
+            }
+          ).current = node;
+        };
         const shouldDisableHistory = disableHistory ?? true;
         const fieldKey = String(name ?? "field")
           .replace(/[^a-zA-Z0-9_-]/g, "-")
@@ -178,7 +192,7 @@ function TextControlled<T extends FieldValues>({
                 : restProps.id
             }
             value={displayValue}
-            inputRef={ref}
+            inputRef={handleInputRef}
             autoComplete={historyAutoCompleteValue}
             onFocus={(event) => {
               if (shouldDisableHistory && !historyUnlocked) {

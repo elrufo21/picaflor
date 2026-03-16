@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2, BusFront } from "lucide-react";
 import { useForm, type UseFormReturn } from "react-hook-form";
+import { useParams } from "react-router";
 import {
   ALIMENTACION_BOOL_OPTIONS,
   ALIMENTACION_OPTIONS,
@@ -115,6 +116,8 @@ const ServiciosContratadosSection = ({
   onRemoveHotelServicio,
   onUpdateHotelServicioField,
 }: Props) => {
+  const { id } = useParams<{ id?: string }>();
+  const isEditMode = Boolean(id);
   const initialAlimentacionTipo = String(
     (form.hotelesContratados ?? []).find(
       (row) => row.incluyeAlimentacion && row.alimentacionTipo !== "-",
@@ -132,8 +135,11 @@ const ServiciosContratadosSection = ({
       movilidadTipo: form.movilidadTipo ?? "",
       movilidadEmpresa: form.movilidadEmpresa ?? "",
       movilidadPrecio: String(form.movilidadPrecio ?? ""),
-      incluyeHotel: form.incluyeHotel ? "SI" : "NO",
-      incluyeAlimentacionEstado: initialIncluyeAlimentacion ? "SI" : "NO",
+      incluyeHotel:
+        form.incluyeHotelSeleccion || (form.incluyeHotel ? "SI" : isEditMode ? "NO" : ""),
+      incluyeAlimentacionEstado:
+        form.incluyeAlimentacionEstadoSeleccion ||
+        (initialIncluyeAlimentacion ? "SI" : isEditMode ? "NO" : ""),
       incluyeAlimentacionGlobal: initialAlimentacionGlobal,
       precioAlimentacionGlobal: "",
     },
@@ -315,22 +321,48 @@ const ServiciosContratadosSection = ({
   }, [form.movilidadPrecio, setValue]);
 
   useEffect(() => {
-    const nextValue = form.incluyeHotel ? "SI" : "NO";
+    const nextValue = hasHotelPackage
+      ? "SI"
+      : onlySinHotelPackageSelected
+        ? "NO"
+        : form.incluyeHotelSeleccion
+          ? form.incluyeHotelSeleccion
+          : form.incluyeHotel
+            ? "SI"
+            : isEditMode
+              ? "NO"
+              : "";
     if (selectedIncluyeHotel === nextValue) return;
     setValue("incluyeHotel", nextValue, {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
     });
-  }, [form.incluyeHotel, selectedIncluyeHotel, setValue]);
+  }, [
+    form.incluyeHotel,
+    form.incluyeHotelSeleccion,
+    hasHotelPackage,
+    isEditMode,
+    onlySinHotelPackageSelected,
+    selectedIncluyeHotel,
+    setValue,
+  ]);
 
   useEffect(() => {
     const firstWithFood = hotelesContratados.find((row) => row.incluyeAlimentacion);
-    const nextEstado = firstWithFood ? "SI" : "NO";
+    const nextEstado = firstWithFood
+      ? "SI"
+      : form.incluyeAlimentacionEstadoSeleccion
+        ? form.incluyeAlimentacionEstadoSeleccion
+        : isEditMode
+          ? "NO"
+          : "";
     const nextTipo =
       nextEstado === "SI"
         ? String(firstWithFood?.alimentacionTipo ?? "").trim()
-        : "-";
+        : nextEstado === "NO"
+          ? "-"
+          : "";
     const nextPrecio =
       nextEstado === "SI"
         ? String(Number(firstWithFood?.alimentacionPrecio ?? 0) || "")
@@ -358,7 +390,9 @@ const ServiciosContratadosSection = ({
       shouldValidate: false,
     });
   }, [
+    form.incluyeAlimentacionEstadoSeleccion,
     hotelesContratados,
+    isEditMode,
     selectedAlimentacionEstado,
     selectedAlimentacionGlobal,
     setValue,
@@ -710,10 +744,20 @@ const ServiciosContratadosSection = ({
                 size="small"
                 onChange={(e) => {
                   const nextEstado = String(e.target.value);
+                  onUpdateField(
+                    "incluyeAlimentacionEstadoSeleccion",
+                    (nextEstado === "SI" || nextEstado === "NO"
+                      ? nextEstado
+                      : "") as TravelPackageFormState["incluyeAlimentacionEstadoSeleccion"],
+                  );
                   const include = nextEstado === "SI";
                   const selectedTipo = selectedAlimentacionGlobal.trim();
                   const normalizedTipo = selectedTipo === "-" ? "" : selectedTipo;
-                  const nextTipo = include ? normalizedTipo : "-";
+                  const nextTipo = include
+                    ? normalizedTipo
+                    : nextEstado === "NO"
+                      ? "-"
+                      : "";
                   hotelesContratados.forEach((row) => {
                     onUpdateHotelServicioField(
                       row.id,
@@ -734,11 +778,15 @@ const ServiciosContratadosSection = ({
                     }
                   });
                   if (!include) {
-                    setValue("incluyeAlimentacionGlobal", "-", {
-                      shouldDirty: false,
-                      shouldTouch: false,
-                      shouldValidate: false,
-                    });
+                    setValue(
+                      "incluyeAlimentacionGlobal",
+                      nextEstado === "NO" ? "-" : "",
+                      {
+                        shouldDirty: false,
+                        shouldTouch: false,
+                        shouldValidate: false,
+                      },
+                    );
                     setValue("precioAlimentacionGlobal", "", {
                       shouldDirty: false,
                       shouldTouch: false,
@@ -836,9 +884,16 @@ const ServiciosContratadosSection = ({
                 ]}
                 size="small"
                 disabled={hasHotelPackage || onlySinHotelPackageSelected}
-                onChange={(e) =>
-                  onUpdateField("incluyeHotel", String(e.target.value) === "SI")
-                }
+                onChange={(e) => {
+                  const nextValue = String(e.target.value);
+                  onUpdateField(
+                    "incluyeHotelSeleccion",
+                    (nextValue === "SI" || nextValue === "NO"
+                      ? nextValue
+                      : "") as TravelPackageFormState["incluyeHotelSeleccion"],
+                  );
+                  onUpdateField("incluyeHotel", nextValue === "SI");
+                }}
               />
             </div>
             {form.incluyeHotel && (

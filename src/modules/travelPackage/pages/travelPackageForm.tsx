@@ -8,6 +8,7 @@ import {
 import { useLocation, useNavigate, useParams } from "react-router";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { useAuthStore } from "@/store/auth/auth.store";
+import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
 import { useTravelPackageForm } from "../hooks/useTravelPackageForm";
 import AgencySection from "../components/AgencySection";
 import GeneralDataSection from "../components/GeneralDataSection";
@@ -25,12 +26,14 @@ import {
   Printer,
   RefreshCw,
   Save,
+  Trash,
 } from "lucide-react";
 import { getFocusableElements } from "@/shared/helpers/formFocus";
 import { buildTravelPackageLegacyPayload } from "../utils/legacyPayloadBuilder";
 import {
   agregarPaqueteViaje,
   actualizarPaqueteViaje,
+  eliminarPaqueteViaje,
   actualizarVerificadoPaqueteViaje,
   obtenerPaqueteViaje,
 } from "../api/travelPackageApi";
@@ -46,6 +49,18 @@ import type { PackageInvoiceData } from "@/components/invoice/PackageInvoice";
 import type { TravelPackageFormState } from "../types/travelPackage.types";
 
 const PACKAGE_INVOICE_STORAGE_KEY = "travel-package:invoice-preview:data:v1";
+const LIQUIDACIONES_STALE_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:stale:v1";
+
+const markLiquidacionesAsStale = () => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(LIQUIDACIONES_STALE_STORAGE_KEY, "1");
+  } catch {
+    // ignorar errores de almacenamiento para no afectar el flujo
+  }
+};
 
 const parsePositiveId = (value: unknown): number | null => {
   const normalized = String(value ?? "").trim();
@@ -203,6 +218,12 @@ const parseSafeNumber = (value: unknown) => {
 const isValidIsoDate = (value: string) => {
   if (!ISO_DATE_PATTERN.test(value)) return false;
   return !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
+};
+const pad2 = (value: number) => String(value).padStart(2, "0");
+const buildFechaRegistroDateTime = (fechaBase: string) => {
+  const now = new Date();
+  const fecha = isValidIsoDate(fechaBase) ? fechaBase : getTodayIso();
+  return `${fecha} ${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
 };
 const isActiveItineraryActivity = (
   row: TravelPackageFormState["itinerario"][number]["actividades"][number],
@@ -369,6 +390,44 @@ const validateTravelPackageForm = (
         focusSelector: 'input[name^="nh-movilidadprecio-"]',
       };
     }
+  }
+
+  const paquetesViaje = Array.isArray(form.paquetesViaje)
+    ? form.paquetesViaje
+    : [];
+  const hasHotelPackage = paquetesViaje.some(
+    (item) => !normalizeComparableText(item.paquete).includes("SIN HOTEL"),
+  );
+  const onlySinHotelPackageSelected =
+    paquetesViaje.length > 0 &&
+    paquetesViaje.every((item) =>
+      normalizeComparableText(item.paquete).includes("SIN HOTEL"),
+    );
+  const incluyeHotelSeleccion = normalizeUpperText(form.incluyeHotelSeleccion);
+  const incluyeAlimentacionEstadoSeleccion = normalizeUpperText(
+    form.incluyeAlimentacionEstadoSeleccion,
+  );
+
+  if (
+    !hasHotelPackage &&
+    !onlySinHotelPackageSelected &&
+    incluyeHotelSeleccion !== "SI" &&
+    incluyeHotelSeleccion !== "NO"
+  ) {
+    return {
+      message: "SELECCIONE SI EL PAQUETE INCLUYE HOTEL.",
+      focusSelector: '[name="incluyeHotel"]',
+    };
+  }
+
+  if (
+    incluyeAlimentacionEstadoSeleccion !== "SI" &&
+    incluyeAlimentacionEstadoSeleccion !== "NO"
+  ) {
+    return {
+      message: "SELECCIONE SI INCLUYE ALIMENTACIÓN.",
+      focusSelector: '[name="incluyeAlimentacionEstado"]',
+    };
   }
 
   const pasajeros = Array.isArray(form.pasajeros) ? form.pasajeros : [];
@@ -626,6 +685,7 @@ const buildPackageInvoiceData = (
   ...form,
   agencia: form.agencia ?? undefined,
   liquidacionNumero: packageId ? String(packageId) : undefined,
+  notaId: form.notaId,
 });
 
 const buildTravelPackageBoletaData = (
@@ -689,6 +749,9 @@ const TravelPackageForm = () => {
   const isEditMode = Boolean(id);
   const openDialog = useDialogStore((state) => state.openDialog);
   const authUser = useAuthStore((state) => state.user);
+  const canDeleteTravelPackage = useModulePermissionsStore((state) =>
+    state.canAccessAction("paquete_viaje", "delete"),
+  );
   const { form, handlers } = useTravelPackageForm();
   const { replaceForm } = handlers;
   const [isSaving, setIsSaving] = useState(false);
@@ -711,7 +774,6 @@ const TravelPackageForm = () => {
 
   useEffect(() => {
     if (!routeState?.listItem) return;
-    console.log("travelPackageForm listItem:", routeState.listItem);
   }, [routeState?.listItem]);
 
   useEffect(() => {
@@ -916,7 +978,12 @@ const TravelPackageForm = () => {
     setIsSaving(true);
 
     try {
-      const payload = buildTravelPackageLegacyPayload(form);
+      const payload = buildTravelPackageLegacyPayload({
+        ...form,
+        fechaEmision: buildFechaRegistroDateTime(
+          normalizeText(form.fechaEmision),
+        ),
+      });
       const splitIndex = payload.indexOf("[");
       const telPaxToken = normalizeLegacyToken(form.telPax);
       const payloadWithUsuario =
@@ -964,8 +1031,10 @@ const TravelPackageForm = () => {
       const responseId = responseMeta.id ?? resolveSavedPackageId(response);
       const editId = parsePositiveId(id);
       const packageId = responseId ?? (isEditMode ? editId : null);
+      const resolvedNotaId = normalizeText(form.notaId) || routeNotaId;
       const formForInvoice: TravelPackageFormState = {
         ...form,
+        notaId: resolvedNotaId,
         nserie: responseMeta.nserie ?? form.nserie,
         ndocumento: responseMeta.ndocumento ?? form.ndocumento,
       };
@@ -988,6 +1057,8 @@ const TravelPackageForm = () => {
         state: {
           invoiceData,
           packageId: packageId ?? undefined,
+          notaId: resolvedNotaId || undefined,
+          fromNewTravelPackage: !isEditMode,
         },
       });
     } catch (error) {
@@ -1013,6 +1084,7 @@ const TravelPackageForm = () => {
     isLoadingDetail,
     isSaving,
     navigate,
+    routeNotaId,
   ]);
 
   const handleFormSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
@@ -1111,7 +1183,12 @@ const TravelPackageForm = () => {
   const handlePrint = useCallback(() => {
     const editId = parsePositiveId(id);
     const packageId = isEditMode ? editId : null;
-    const invoiceData = buildPackageInvoiceData(form, packageId);
+    const resolvedNotaId = normalizeText(form.notaId) || routeNotaId;
+    const formForInvoice: TravelPackageFormState = {
+      ...form,
+      notaId: resolvedNotaId,
+    };
+    const invoiceData = buildPackageInvoiceData(formForInvoice, packageId);
 
     try {
       localStorage.setItem(
@@ -1130,9 +1207,11 @@ const TravelPackageForm = () => {
       state: {
         invoiceData,
         packageId: packageId ?? undefined,
+        notaId: resolvedNotaId || undefined,
+        fromNewTravelPackage: false,
       },
     });
-  }, [form, id, isEditMode, navigate]);
+  }, [form, id, isEditMode, navigate, routeNotaId]);
 
   const handleOpenBoleta = useCallback(() => {
     if (!isEditMode) return;
@@ -1152,6 +1231,121 @@ const TravelPackageForm = () => {
       state: { boletaData },
     });
   }, [form, id, isEditMode, navigate]);
+
+  const handleDeleteTravelPackage = useCallback(async () => {
+    if (!isEditMode || !id) return;
+    if (!canDeleteTravelPackage) {
+      showToast({
+        title: "Sin permiso",
+        description: "No tienes permiso para eliminar en este módulo.",
+        type: "error",
+      });
+      return;
+    }
+
+    const packageId = parsePositiveId(id);
+    if (!packageId) {
+      showToast({
+        title: "Error",
+        description: "No se pudo resolver el identificador del paquete.",
+        type: "error",
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const response = await eliminarPaqueteViaje(packageId);
+      const responseText =
+        typeof response === "string"
+          ? response.trim()
+          : response && typeof response === "object"
+            ? String(
+                (response as Record<string, unknown>).Resultado ??
+                  (response as Record<string, unknown>).resultado ??
+                  (response as Record<string, unknown>).Mensaje ??
+                  (response as Record<string, unknown>).mensaje ??
+                  "",
+              ).trim()
+            : String(response ?? "").trim();
+      const normalized = responseText.toUpperCase();
+      const deleted =
+        response === true ||
+        normalized === "TRUE" ||
+        normalized === "OK" ||
+        normalized === "1";
+
+      if (!deleted) {
+        showToast({
+          title: "Error",
+          description:
+            responseText ||
+            "No se pudo eliminar el paquete de viaje seleccionado.",
+          type: "error",
+        });
+        return;
+      }
+
+      showToast({
+        title: "Eliminado",
+        description: "El paquete de viaje se eliminó correctamente.",
+        type: "success",
+      });
+      markLiquidacionesAsStale();
+      if (fromLiquidaciones) {
+        navigate("/fullday/programacion/liquidaciones", {
+          state: { refresh: Date.now() },
+        });
+        return;
+      }
+      navigate("/paquete-viaje/new");
+    } catch (error) {
+      showToast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Algo salió mal al intentar eliminar.",
+        type: "error",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [canDeleteTravelPackage, fromLiquidaciones, id, isEditMode, navigate]);
+
+  const handleConfirmDeleteTravelPackage = useCallback(() => {
+    if (!isEditMode || !id) return;
+    if (!canDeleteTravelPackage) {
+      showToast({
+        title: "Sin permiso",
+        description: "No tienes permiso para eliminar en este módulo.",
+        type: "error",
+      });
+      return;
+    }
+
+    openDialog({
+      title: "¿Eliminar paquete de viaje?",
+      size: "sm",
+      confirmLabel: "Eliminar",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        await handleDeleteTravelPackage();
+      },
+      content: () => (
+        <p className="text-sm text-slate-700">
+          Esta acción no se puede deshacer. ¿Estás seguro de eliminar este
+          paquete de viaje?
+        </p>
+      ),
+    });
+  }, [
+    canDeleteTravelPackage,
+    handleDeleteTravelPackage,
+    id,
+    isEditMode,
+    openDialog,
+  ]);
 
   const handleNew = useCallback(() => {
     if (isSaving || isLoadingDetail || isUpdatingVerificado) return;
@@ -1183,7 +1377,6 @@ const TravelPackageForm = () => {
     replaceForm,
     setIsEditing,
   ]);
-  console.log("form", form);
   return (
     <form
       className="w-full space-y-6 pb-12"
@@ -1296,6 +1489,56 @@ const TravelPackageForm = () => {
               />
             </div>
 
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void saveTravelPackage()}
+                  disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
+                  className="inline-flex items-center gap-1
+                    rounded-lg bg-emerald-600 px-3 py-2
+                    text-white shadow-sm
+                    ring-1 ring-emerald-600/30
+                    hover:bg-emerald-700 transition
+                    disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  <Save className="h-4 w-4" />
+                  {isLoadingDetail
+                    ? "Cargando..."
+                    : isSaving
+                      ? "Guardando..."
+                      : "Guardar"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNew}
+                  disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
+                  className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nuevo
+                </button>
+              </>
+            ) : null}
+
+            {isEditing && isEditMode && (
+              <button
+                type="button"
+                onClick={handleConfirmDeleteTravelPackage}
+                disabled={
+                  isSaving ||
+                  isLoadingDetail ||
+                  isUpdatingVerificado ||
+                  !canDeleteTravelPackage
+                }
+                className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 text-white text-sm font-semibold shadow-sm ring-1 ring-red-600/30 hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash className="h-4 w-4" />
+                Eliminar
+              </button>
+            )}
+
             {isEditMode && !isEditing && (
               <button
                 type="button"
@@ -1304,17 +1547,6 @@ const TravelPackageForm = () => {
                 className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Printer className="h-4 w-4" />
-              </button>
-            )}
-
-            {isEditMode && !isEditing && (
-              <button
-                type="button"
-                onClick={handleOpenBoleta}
-                disabled={isLoadingDetail || isSaving}
-                className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 text-white text-sm font-semibold shadow-sm ring-1 ring-rose-600/30 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <FileText className="h-4 w-4" />
               </button>
             )}
 
@@ -1344,44 +1576,27 @@ const TravelPackageForm = () => {
               </button>
             )}
 
-            {isEditing ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleNew}
-                  disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
-                  className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nuevo
-                </button>
+            {isEditMode && !isEditing && (
+              <button
+                type="button"
+                onClick={handleOpenBoleta}
+                disabled={isLoadingDetail || isSaving}
+                className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 text-white text-sm font-semibold shadow-sm ring-1 ring-rose-600/30 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FileText className="h-4 w-4" />
+              </button>
+            )}
 
-                <button
-                  type="button"
-                  onClick={() => void saveTravelPackage()}
-                  disabled={isSaving || isLoadingDetail || isUpdatingVerificado}
-                  className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 text-white text-sm font-semibold shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Save className="h-4 w-4" />
-                  {isLoadingDetail
-                    ? "Cargando..."
-                    : isSaving
-                      ? "Guardando..."
-                      : "Guardar"}
-                </button>
-              </>
-            ) : (
-              isEditMode && (
-                <button
-                  type="button"
-                  onClick={handleUnlockEditing}
-                  disabled={isLoadingDetail || isSaving || isUpdatingVerificado}
-                  title="Desbloquear edición"
-                  className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Lock className="h-4 w-4" />
-                </button>
-              )
+            {!isEditing && isEditMode && (
+              <button
+                type="button"
+                onClick={handleUnlockEditing}
+                disabled={isLoadingDetail || isSaving || isUpdatingVerificado}
+                title="Desbloquear edición"
+                className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Lock className="h-4 w-4" />
+              </button>
             )}
           </div>
         </div>
