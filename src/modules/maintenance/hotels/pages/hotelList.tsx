@@ -157,13 +157,23 @@ const HotelList = () => {
     ];
   }, [access.delete, access.edit, openDialog, deleteHotel, openHotelModal]);
 
+  const sortedHotels = useMemo(
+    () =>
+      [...hotels].sort((a, b) =>
+        (a.hotel ?? "").localeCompare(b.hotel ?? "", "es", {
+          sensitivity: "base",
+        }),
+      ),
+    [hotels],
+  );
+
   return (
     <MaintenancePageFrame
       title="Hoteles"
       description="Consulta y actualiza horarios y direccion de hoteles registrados."
     >
       <DndTable
-        data={hotels}
+        data={sortedHotels}
         columns={columns}
         enableDateFilter={false}
         headerAction={

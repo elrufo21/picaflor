@@ -86,11 +86,7 @@ export const buildActividadPayload = (
   entradaDol: parseNumber(values.entradaDol),
   region: selectedProduct?.region ?? initialData?.region ?? "",
   idProducto: resolveProductId(values, initialData),
-  descripcion:
-    values.descripcion?.trim() ||
-    selectedProduct?.descripcion ||
-    initialData?.descripcion ||
-    "",
+  descripcion: values.descripcion?.trim() ?? "",
 });
 
 export default function ActividadFormDialog({

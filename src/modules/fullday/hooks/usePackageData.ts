@@ -8,7 +8,12 @@ import type {
   DireccionHotel,
 } from "@/app/db/serviciosDB";
 
-type Option = { value: string; label: string };
+type Option = {
+  value: string;
+  label: string;
+  id?: string;
+  estado?: string | null;
+};
 
 export const usePackageData = (
   id: string | undefined,
@@ -96,12 +101,11 @@ export const usePackageData = (
         const partidasSource =
           partidasByProduct.length > 0 ? partidasByProduct : dataPartidas;
         setPartidas(
-          partidasSource
-            .map((p) => ({
-              value: p.partida,
-              label: p.partida,
-              id: p.id,
-            })),
+          partidasSource.map((p) => ({
+            value: p.partida,
+            label: p.partida,
+            id: p.id,
+          })),
         );
 
         // HOTELES
@@ -123,12 +127,12 @@ export const usePackageData = (
             ? actividadesByProduct
             : dataActividades;
         setActividades(
-          actividadesSource
-            .map((a) => ({
-              value: a.actividad,
-              label: a.actividad,
-              id: String(a.id),
-            })),
+          actividadesSource.map((a) => ({
+            value: a.actividad,
+            label: a.actividad,
+            id: String(a.id),
+            estado: a.estado ?? "",
+          })),
         );
 
         // ALMUERZOS
@@ -186,7 +190,10 @@ export const usePackageData = (
 
   useEffect(() => {
     if (!precioProducto) return;
-    const isUsd = String(currency ?? "").trim().toUpperCase() === "USD";
+    const isUsd =
+      String(currency ?? "")
+        .trim()
+        .toUpperCase() === "USD";
     const nextPrice = isUsd
       ? Number(
           precioProducto?.precioDol ??

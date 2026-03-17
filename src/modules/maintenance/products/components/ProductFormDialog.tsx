@@ -1,10 +1,4 @@
-import {
-  type MutableRefObject,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 
 import { SelectControlled, TextControlled } from "@/components/ui/inputs";
@@ -21,11 +15,10 @@ export type ProductFormValues = {
   categoria: string;
   region: string;
   codigo: string;
-  descripcion: string;
+  productoNombre: string;
   preCosto: string;
   ventaSoles: string;
   ventaDolar: string;
-  aplicaINV: string;
   cantidad: string;
   cantMaxPax: string;
   visitasExCur: string;
@@ -45,11 +38,10 @@ const buildDefaults = (
   categoria: data?.categoria ?? "",
   region: data?.region ?? "",
   codigo: data?.codigo ?? "",
-  descripcion: data?.descripcion ?? "",
+  productoNombre: data?.descripcion ?? "",
   preCosto: data?.preCosto?.toString() ?? "",
   ventaSoles: data?.ventaSoles?.toString() ?? "",
   ventaDolar: data?.ventaDolar?.toString() ?? "",
-  aplicaINV: data?.aplicaINV ?? "SERVICIO",
   cantidad: data?.cantidad?.toString() ?? "",
   cantMaxPax: data?.cantMaxPax?.toString() ?? "",
   visitasExCur: data?.visitasExCur ?? "",
@@ -60,11 +52,6 @@ const buildDefaults = (
 const estadoOptions = [
   { value: "BUENO", label: "Bueno" },
   { value: "DESCONTINUADO", label: "Descontinuado" },
-];
-
-const aplicaInvOptions = [
-  { value: "SERVICIO", label: "Servicio" },
-  { value: "BIEN", label: "Bien" },
 ];
 
 export default function ProductFormDialog({
@@ -89,10 +76,6 @@ export default function ProductFormDialog({
   });
 
   const { control, reset, setValue } = form;
-  const [codeEditable, setCodeEditable] = useState(
-    Boolean(initialData?.codigo),
-  );
-
   useEffect(() => {
     formRef.current = form;
     return () => {
@@ -106,10 +89,6 @@ export default function ProductFormDialog({
     reset(defaults);
     focusFirstInput(containerRef.current);
   }, [defaults, reset]);
-
-  useEffect(() => {
-    setCodeEditable(Boolean(initialData?.codigo));
-  }, [initialData?.codigo]);
 
   const categoryOptions = useMemo(() => {
     const mapped = sublineas.map((item) => {
@@ -178,18 +157,19 @@ export default function ProductFormDialog({
           helperText={loadingRegions ? "Cargando regiones..." : undefined}
           disabled={loadingRegions && !regionOptions.length}
           autoAdvance
-          data-focus-next="input[name='descripcion']"
+          data-focus-next='input[data-focus-target="producto-nombre"]'
         />
       </div>
 
       {/* 📝 DESCRIPCIÓN */}
       <TextControlled
         transform={(value) => value.toUpperCase()}
-        name="descripcion"
+        name="productoNombre"
         control={control}
         label="Producto"
         placeholder="Descripción del producto"
         size="small"
+        inputProps={{ "data-focus-target": "producto-nombre" }}
         disableHistory
       />
 
@@ -283,24 +263,22 @@ export const buildProductPayload = (
   const computedRegion = values.region || initialData?.region || "";
   const resolvedLabel = values.categoria || initialData?.categoria || "";
   return {
-    idProducto: initialData?.id ?? 0,
-    idSubLinea: resolveSublineaId(resolvedLabel, sublineas),
+    IdProducto: initialData?.id ?? 0,
+    IdSubLinea: resolveSublineaId(resolvedLabel, sublineas),
     ProductoCodigo: values.codigo || initialData?.codigo || "",
-    ProductoNombre: values.descripcion || initialData?.descripcion || "",
-    ProductoTipoCambio: 0,
-    ProductoCostoDolar: 0,
-    ProductoUM: "UNIDAD",
-    ProductoCosto: parseNumber(values.preCosto || initialData?.precio),
+    ProductoNombre: values.productoNombre || initialData?.descripcion || "",
+    ProductoTipoCambio: parseNumber(initialData?.tipoCambio),
+    ProductoCostoDolar: parseNumber(initialData?.costoDolar),
+    ProductoUM: initialData?.unidadM || initialData?.unidad || "UNIDAD",
+    ProductoCosto: parseNumber(
+      values.preCosto || initialData?.preCosto || initialData?.precio,
+    ),
     ProductoVenta: parseNumber(values.ventaSoles || initialData?.ventaSoles),
     ProductoVentaB: parseNumber(values.ventaDolar),
     ProductoCantidad: parseNumber(values.cantidad || initialData?.cantidad),
     ProductoEstado: values.estado || initialData?.estado || "BUENO",
     ProductoUsuario: popularUsuario,
-    ProductoFecha: new Date().toISOString(),
     ProductoImagen: "-",
-    ValorCritico: 1,
-    AplicaTC: "N",
-    AplicaINV: values.aplicaINV === "BIEN" ? "S" : "N",
     CompaniaId: 1,
     VisitasExCur: values.visitasExCur || initialData?.visitasExCur || "",
     CantMaxPAX: parseNumber(values.cantMaxPax || initialData?.cantMaxPax),
