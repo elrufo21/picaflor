@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 
@@ -26,6 +26,8 @@ type RequiredProductField = {
   label: string;
 };
 
+type ProductEstadoFilter = "BUENO" | "TODOS" | "INACTIVOS";
+
 const getMissingRequiredFields = (
   values: ProductFormValues,
 ): RequiredProductField[] => {
@@ -39,8 +41,8 @@ const getMissingRequiredFields = (
     missing.push({ key: "region", label: "Región" });
   }
 
-  if (!String(values.descripcion ?? "").trim()) {
-    missing.push({ key: "descripcion", label: "Producto" });
+  if (!String(values.productoNombre ?? "").trim()) {
+    missing.push({ key: "productoNombre", label: "Producto" });
   }
 
   return missing;
@@ -56,6 +58,8 @@ const ProductList = () => {
   const resolveAccess = useMaintenanceAccessResolver();
   const access = resolveAccess("maintenance.products");
   const formRef = useRef<UseFormReturn<ProductFormValues> | null>(null);
+  const [productEstadoFilter, setProductEstadoFilter] =
+    useState<ProductEstadoFilter>("BUENO");
 
   useEffect(() => {
     if (products.length) return;
@@ -89,7 +93,7 @@ const ProductList = () => {
             formRef.current?.clearErrors([
               "categoria",
               "region",
-              "descripcion",
+              "productoNombre",
             ]);
             const missingFields = getMissingRequiredFields(values);
             if (missingFields.length > 0) {
@@ -154,7 +158,14 @@ const ProductList = () => {
         },
       });
     },
-    [access.create, access.edit, openDialog, username, fetchProducts, sublineas],
+    [
+      access.create,
+      access.edit,
+      openDialog,
+      username,
+      fetchProducts,
+      sublineas,
+    ],
   );
 
   const handleDeleteProduct = useCallback(
@@ -190,6 +201,22 @@ const ProductList = () => {
 
   const columnHelper = createColumnHelper<Product>();
 
+  const filteredProducts = useMemo(() => {
+    if (productEstadoFilter === "TODOS") return products;
+
+    return products.filter((product) => {
+      const estado = String(product.estado ?? "")
+        .trim()
+        .toUpperCase();
+
+      if (productEstadoFilter === "BUENO") {
+        return estado === "BUENO";
+      }
+
+      return estado === "DESCONTINUADO";
+    });
+  }, [products, productEstadoFilter]);
+
   const columns = useMemo(
     () => [
       columnHelper.accessor("codigo", {
@@ -204,6 +231,10 @@ const ProductList = () => {
         header: "Categoría",
         cell: (info) => info.getValue(),
       }),
+      columnHelper.accessor("region", {
+        header: "Región",
+        cell: (info) => info.getValue() || "-",
+      }),
       columnHelper.accessor("precio", {
         header: "Precio base",
         cell: (info) => formatCurrency(info.getValue()),
@@ -216,18 +247,12 @@ const ProductList = () => {
         header: "Venta USD",
         cell: (info) => formatCurrency(info.getValue()),
       }),
-      columnHelper.accessor("cantidad", {
-        header: "Cantidad",
-        cell: (info) => info.getValue().toString(),
-      }),
+
       columnHelper.accessor("cantMaxPax", {
         header: "Máx. pax",
         cell: (info) => info.getValue().toString(),
       }),
-      columnHelper.accessor("estado", {
-        header: "Estado",
-        cell: (info) => info.getValue(),
-      }),
+
       columnHelper.display({
         id: "acciones",
         header: "Acciones",
@@ -258,15 +283,34 @@ const ProductList = () => {
         ),
       }),
     ],
-    [access.delete, access.edit, columnHelper, openProductModal, handleDeleteProduct],
+    [
+      access.delete,
+      access.edit,
+      columnHelper,
+      openProductModal,
+      handleDeleteProduct,
+    ],
   );
 
   return (
     <MaintenancePageFrame title="Productos">
       <DndTable
-        data={products}
+        data={filteredProducts}
         columns={columns}
         enableDateFilter={false}
+        dateFilterComponent={() => (
+          <select
+            value={productEstadoFilter}
+            onChange={(event) =>
+              setProductEstadoFilter(event.target.value as ProductEstadoFilter)
+            }
+            className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          >
+            <option value="BUENO">BUENO</option>
+            <option value="TODOS">TODOS</option>
+            <option value="INACTIVOS">INACTIVOS</option>
+          </select>
+        )}
         headerAction={
           <button
             type="button"

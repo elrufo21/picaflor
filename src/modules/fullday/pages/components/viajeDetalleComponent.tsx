@@ -23,6 +23,12 @@ import { serviciosDB, type DireccionHotel } from "@/app/db/serviciosDB";
 import { refreshServiciosData } from "@/app/db/serviciosSync";
 
 const HOTEL_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const sortHotelOptions = (options: { value: string; label: string }[] = []) =>
+  [...options].sort((a, b) =>
+    String(a.label ?? "").localeCompare(String(b.label ?? ""), "es", {
+      sensitivity: "base",
+    }),
+  );
 
 const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const { liquidacionId } = useParams();
@@ -61,7 +67,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
     ],
   });
   useEffect(() => {
-    setHotelesOptions(hoteles ?? []);
+    setHotelesOptions(sortHotelOptions(hoteles ?? []));
   }, [hoteles]);
   useEffect(() => {
     setDireccionesHotelOptions(direccionesHotel ?? []);
@@ -176,7 +182,9 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
               precioProducto?.precioBase ??
               0,
           )
-        : Number(precioProducto?.precioVenta ?? precioProducto?.precioBase ?? 0),
+        : Number(
+            precioProducto?.precioVenta ?? precioProducto?.precioBase ?? 0,
+          ),
     );
     const currentPrecio = roundCurrency(
       getValues("detalle.tarifa.precio") ?? 0,
@@ -294,7 +302,7 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
         (item) =>
           normalizeHotelName(item.label) !== normalizeHotelName(option.label),
       );
-      return [...next, option];
+      return sortHotelOptions([...next, option]);
     });
   };
   const handleAddHotel = () => {

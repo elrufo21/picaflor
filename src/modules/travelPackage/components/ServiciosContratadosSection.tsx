@@ -91,6 +91,12 @@ const normalizeHotelName = (value?: string) =>
   String(value ?? "")
     .trim()
     .toUpperCase();
+const sortHotelCatalog = (hoteles: Hotel[] = []) =>
+  [...hoteles].sort((a, b) =>
+    String(a.nombre ?? "").localeCompare(String(b.nombre ?? ""), "es", {
+      sensitivity: "base",
+    }),
+  );
 const MOVILIDAD_EMPRESAS_PERU = {
   BUS: [
     "Cruz del Sur",
@@ -206,7 +212,7 @@ const ServiciosContratadosSection = ({
 
       if (!active) return;
       setRegiones(ubigeosRows);
-      setHotelesCatalogo(hotelesRows);
+      setHotelesCatalogo(sortHotelCatalog(hotelesRows));
       setEmpresasMovilidad(
         Array.from(
           new Set(
@@ -632,7 +638,7 @@ const ServiciosContratadosSection = ({
             serviciosDB.hoteles.toArray(),
           ]);
           setRegiones(ubigeosRows);
-          setHotelesCatalogo(hotelesRows);
+          setHotelesCatalogo(sortHotelCatalog(hotelesRows));
         })();
       },
     });

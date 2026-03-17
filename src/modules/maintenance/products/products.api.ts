@@ -8,8 +8,8 @@ const PRODUCT_REGISTER_ENDPOINT = `${API_BASE_URL}/Productos/register`;
 export const productsQueryKey = ["products"] as const;
 
 export type ProductPayload = {
-  idProducto: number;
-  idSubLinea: number;
+  IdProducto: number;
+  IdSubLinea: number;
   ProductoCodigo: string;
   ProductoNombre: string;
   ProductoTipoCambio: number;
@@ -21,11 +21,7 @@ export type ProductPayload = {
   ProductoCantidad: number;
   ProductoEstado: string;
   ProductoUsuario: string;
-  ProductoFecha: string;
   ProductoImagen: string;
-  ValorCritico: number;
-  AplicaTC: string;
-  AplicaINV: string;
   CompaniaId: number;
   VisitasExCur: string;
   CantMaxPAX: number;
@@ -52,24 +48,36 @@ const toNullableNumber = (value: unknown) => {
 };
 
 const mapProduct = (item: any): Product => ({
-  id: Number(item?.id ?? 0) || 0,
-  categoria: toString(item?.categoria),
-  codigo: toString(item?.codigo),
-  descripcion: toString(item?.descripcion ?? item?.productoNombre),
-  precio: toNumber(item?.precio),
-  ventaSoles: toNumber(item?.ventaSoles),
-  ventaDolar: toNumber(item?.ventaDolar),
-  preCosto: toNumber(item?.preCosto),
+  id: Number(item?.id ?? item?.idProducto ?? item?.IdProducto ?? 0) || 0,
+  categoria: toString(
+    item?.categoria ?? item?.nombreSublinea ?? item?.sublinea ?? "",
+  ),
+  codigo: toString(item?.codigo ?? item?.productoCodigo ?? item?.ProductoCodigo),
+  descripcion: toString(
+    item?.descripcion ?? item?.productoNombre ?? item?.ProductoNombre,
+  ),
+  precio: toNumber(item?.precio ?? item?.productoCosto ?? item?.ProductoCosto),
+  ventaSoles: toNumber(
+    item?.ventaSoles ?? item?.productoVenta ?? item?.ProductoVenta,
+  ),
+  ventaDolar: toNumber(
+    item?.ventaDolar ?? item?.productoVentaB ?? item?.ProductoVentaB,
+  ),
+  preCosto: toNumber(item?.preCosto ?? item?.productoCosto ?? item?.ProductoCosto),
   vencimiento: toString(item?.vencimiento),
   aplicaFV: toString(item?.aplicaFV),
-  estado: toString(item?.estado),
-  usuario: toString(item?.usuario),
+  estado: toString(item?.estado ?? item?.productoEstado ?? item?.ProductoEstado),
+  usuario: toString(
+    item?.usuario ?? item?.productoUsuario ?? item?.ProductoUsuario,
+  ),
   registro: toNumber(item?.registro),
   stock: toNumber(item?.stock),
-  cantidad: toNumber(item?.cantidad),
-  cantMaxPax: toNumber(item?.cantMaxPax),
+  cantidad: toNumber(
+    item?.cantidad ?? item?.productoCantidad ?? item?.ProductoCantidad,
+  ),
+  cantMaxPax: toNumber(item?.cantMaxPax ?? item?.cantMaxPAX ?? item?.CantMaxPAX),
   cantFIS: toNullableNumber(item?.cantFIS),
-  imagen: toString(item?.imagen),
+  imagen: toString(item?.imagen ?? item?.productoImagen ?? item?.ProductoImagen),
   cantANT: toNumber(item?.cantANT),
   fechaEdicion: toString(item?.fechaEdicion),
   inversion: toNullableNumber(item?.inversion),
@@ -77,12 +85,22 @@ const mapProduct = (item: any): Product => ({
   margenUtilidad: toNumber(item?.margenUtilidad),
   valorCritico: toNullableNumber(item?.valorCritico),
   aplicaTC: toString(item?.aplicaTC),
-  costoDolar: toNullableNumber(item?.costoDolar),
-  tipoCambio: toNullableNumber(item?.tipoCambio),
+  costoDolar: toNullableNumber(
+    item?.costoDolar ?? item?.productoCostoDolar ?? item?.ProductoCostoDolar,
+  ),
+  tipoCambio: toNullableNumber(
+    item?.tipoCambio ?? item?.productoTipoCambio ?? item?.ProductoTipoCambio,
+  ),
   aplicaINV: toNullableString(item?.aplicaINV),
-  unidadM: toNullableString(item?.unidadM),
-  visitasExCur: toNullableString(item?.visitasExCur),
-  region: toNullableString(item?.region),
+  unidadM: toNullableString(item?.unidadM ?? item?.productoUM ?? item?.ProductoUM),
+  visitasExCur: toNullableString(
+    item?.visitasExCur ??
+      item?.VisitasExCur ??
+      item?.visitasExcur ??
+      item?.actividad ??
+      item?.Actividad,
+  ),
+  region: toNullableString(item?.region ?? item?.Region),
   unidad: toNullableString(item?.unidad),
   valorUM: toNumber(item?.valorUM),
 });
@@ -135,7 +153,7 @@ export const saveProductApi = async (payload: ProductPayload) => {
 
 export const updateProductApi = async (payload: ProductPayload) => {
   return apiRequest({
-    url: `${API_BASE_URL}/Productos/${payload.idProducto}`,
+    url: `${API_BASE_URL}/Productos/${payload.IdProducto}`,
     method: "PUT",
     data: payload,
     config: {

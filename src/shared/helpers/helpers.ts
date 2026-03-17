@@ -100,11 +100,12 @@ export function transformServiciosData(raw: string) {
 
     actividades:
       b[3]
-        ?.map(([id, actividad, descripcion, idProducto]) => ({
+        ?.map(([id, actividad, descripcion, idProducto, estado]) => ({
           id: Number(id),
           actividad,
           descripcion: descripcion ?? "",
           idProducto: Number(idProducto),
+          estado: estado ?? "",
         }))
         .filter((x) => Number.isFinite(x.id)) ?? [],
 
@@ -282,7 +283,8 @@ export function handleNumberInputArrowNavigation(
 
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return false;
-  if (target.type !== "number" || target.disabled || target.readOnly) return false;
+  if (target.type !== "number" || target.disabled || target.readOnly)
+    return false;
 
   const scope =
     target.form ??
@@ -299,7 +301,8 @@ export function handleNumberInputArrowNavigation(
   if (currentIndex === -1) return false;
 
   event.preventDefault();
-  const nextIndex = event.key === "ArrowDown" ? currentIndex + 1 : currentIndex - 1;
+  const nextIndex =
+    event.key === "ArrowDown" ? currentIndex + 1 : currentIndex - 1;
   numericInputs[nextIndex]?.focus();
   return true;
 }

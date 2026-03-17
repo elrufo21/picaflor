@@ -32,6 +32,7 @@ export type Actividad = {
   actividad: string;
   idProducto: number;
   descripcion?: string | null;
+  estado?: string | null;
 };
 export type Partida = { id: number; partida: string; idProducto: number };
 export type Auxiliar = {
@@ -138,8 +139,9 @@ export async function hasServiciosData() {
     return false;
   }
 
-  const sampleCityTourProducto =
-    await serviciosDB.productosCityTourOrdena.orderBy("id").first();
+  const sampleCityTourProducto = await serviciosDB.productosCityTourOrdena
+    .orderBy("id")
+    .first();
   if (
     sampleCityTourProducto &&
     (sampleCityTourProducto as ProductoCityTourOrdena).region === undefined
@@ -152,7 +154,9 @@ export async function hasServiciosData() {
     return false;
   }
 
-  const sampleProductoResto = await serviciosDB.productosResto.orderBy("id").first();
+  const sampleProductoResto = await serviciosDB.productosResto
+    .orderBy("id")
+    .first();
   if (
     sampleProductoResto &&
     ((sampleProductoResto as ProductoResto).precioVenta === undefined ||

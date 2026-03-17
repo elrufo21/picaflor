@@ -21,6 +21,7 @@ export type ServiciosData = {
     actividad: string;
     descripcion?: string | null;
     idProducto: number;
+    estado?: string | null;
   }[];
   partidas: { id: number; partida: string; idProducto: number }[];
   auxiliares: {
@@ -122,7 +123,11 @@ async function persistServiciosData(data: ServiciosData): Promise<void> {
         data.productosCityTourOrdena,
         "id",
       );
-      await fullSyncTable(serviciosDB.productosResto, data.productosResto, "id");
+      await fullSyncTable(
+        serviciosDB.productosResto,
+        data.productosResto,
+        "id",
+      );
 
       await serviciosDB.preciosProducto.bulkPut(data.preciosProducto);
       await serviciosDB.canales.bulkPut(data.canales);
