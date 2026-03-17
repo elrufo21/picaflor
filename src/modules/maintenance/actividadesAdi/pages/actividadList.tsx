@@ -139,7 +139,14 @@ const ActividadAdiList = () => {
         },
       });
     },
-    [access.create, access.edit, openDialog, products, addActividadAdi, updateActividadAdi],
+    [
+      access.create,
+      access.edit,
+      openDialog,
+      products,
+      addActividadAdi,
+      updateActividadAdi,
+    ],
   );
 
   const handleDeleteActividad = useCallback(
@@ -182,7 +189,10 @@ const ActividadAdiList = () => {
         header: "Destino",
         cell: (info) => info.getValue(),
       }),
-
+      columnHelper.accessor("region", {
+        header: "Región",
+        cell: (info) => info.getValue() || "-",
+      }),
       columnHelper.accessor("precioSol", {
         header: "Precio S/",
         cell: (info) => info.getValue().toString(),
