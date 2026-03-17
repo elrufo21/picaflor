@@ -236,7 +236,7 @@ const ProductList = () => {
         cell: (info) => info.getValue() || "-",
       }),
       columnHelper.accessor("precio", {
-        header: "Precio base",
+        header: "Costo",
         cell: (info) => formatCurrency(info.getValue()),
       }),
       columnHelper.accessor("ventaSoles", {
