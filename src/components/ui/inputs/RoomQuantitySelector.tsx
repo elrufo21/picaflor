@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   Box,
   Button,
@@ -108,9 +108,13 @@ const RoomQuantitySelector = ({
   disabled = false,
   currencySymbol = "USD$",
 }: Props) => {
+  const inputNamespaceRef = useRef(
+    `room-selector-${Math.random().toString(36).slice(2, 10)}`,
+  );
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const quantityInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const priceInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const pendingPriceFocusOptionRef = useRef<string | null>(null);
 
   const summary = useMemo(
     () => toSummary(value, options, currencySymbol),
@@ -165,6 +169,7 @@ const RoomQuantitySelector = ({
 
   const toggleOption = (optionValue: string, checked: boolean) => {
     if (checked) {
+      pendingPriceFocusOptionRef.current = optionValue;
       const current = getCurrentQuantity(optionValue);
       const currentPrice = getCurrentPrice(optionValue);
       setRoomValue(optionValue, {
@@ -173,10 +178,26 @@ const RoomQuantitySelector = ({
       });
       return;
     }
+    if (pendingPriceFocusOptionRef.current === optionValue) {
+      pendingPriceFocusOptionRef.current = null;
+    }
     setRoomValue(optionValue, { quantity: 0 });
   };
 
   const clearAll = () => onChange([]);
+
+  useEffect(() => {
+    const optionValue = pendingPriceFocusOptionRef.current;
+    if (!optionValue) return;
+    if (getCurrentQuantity(optionValue) <= 0) return;
+
+    const priceInput = priceInputRefs.current[optionValue];
+    if (!priceInput) return;
+
+    priceInput.focus();
+    priceInput.select();
+    pendingPriceFocusOptionRef.current = null;
+  }, [value]);
 
   const focusColumnInput = (
     optionValue: string,
@@ -220,12 +241,21 @@ const RoomQuantitySelector = ({
       <TextField
         fullWidth
         size="small"
+        id={`${inputNamespaceRef.current}-summary`}
         value={summary}
+        autoComplete="new-password"
         onClick={(event) => {
           if (!disabled) setAnchorEl(event.currentTarget);
         }}
         placeholder={placeholder}
-        inputProps={{ readOnly: true }}
+        inputProps={{
+          readOnly: true,
+          autoComplete: "new-password",
+          name: `${inputNamespaceRef.current}-summary`,
+          "data-lpignore": "true",
+          "data-1p-ignore": "true",
+          "data-form-type": "other",
+        }}
         disabled={disabled}
         InputProps={{
           endAdornment: (
@@ -243,7 +273,12 @@ const RoomQuantitySelector = ({
         anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
         transformOrigin={{ vertical: "top", horizontal: "left" }}
       >
-        <Box className="w-[530px] max-h-[70vh] overflow-y-auto p-3 space-y-2">
+        <Box
+          component="form"
+          autoComplete="new-password"
+          noValidate
+          className="w-[530px] max-h-[70vh] overflow-y-auto p-3 space-y-2"
+        >
           <Box className="flex items-center justify-between">
             <Typography variant="subtitle2" className="font-semibold">
               Tipos de habitacion
@@ -297,6 +332,10 @@ const RoomQuantitySelector = ({
                   <TextField
                     size="small"
                     type="number"
+                    id={`${inputNamespaceRef.current}-${normalizeRoomKey(
+                      option.value,
+                    )}-quantity`}
+                    autoComplete="new-password"
                     value={checked ? quantity : ""}
                     onChange={(event) =>
                       setRoomValue(option.value, {
@@ -311,7 +350,16 @@ const RoomQuantitySelector = ({
                     inputRef={(element: HTMLInputElement | null) => {
                       quantityInputRefs.current[option.value] = element;
                     }}
-                    inputProps={{ min: 0 }}
+                    inputProps={{
+                      min: 0,
+                      autoComplete: "new-password",
+                      name: `${inputNamespaceRef.current}-${normalizeRoomKey(
+                        option.value,
+                      )}-quantity`,
+                      "data-lpignore": "true",
+                      "data-1p-ignore": "true",
+                      "data-form-type": "other",
+                    }}
                   />
                   <IconButton
                     size="small"
@@ -327,6 +375,10 @@ const RoomQuantitySelector = ({
                 <TextField
                   size="small"
                   type="number"
+                  id={`${inputNamespaceRef.current}-${normalizeRoomKey(
+                    option.value,
+                  )}-price`}
+                  autoComplete="new-password"
                   value={checked && price > 0 ? price : ""}
                   onChange={(event) =>
                     setRoomValue(option.value, {
@@ -344,6 +396,13 @@ const RoomQuantitySelector = ({
                   inputProps={{
                     min: 0,
                     step: "0.01",
+                    autoComplete: "new-password",
+                    name: `${inputNamespaceRef.current}-${normalizeRoomKey(
+                      option.value,
+                    )}-price`,
+                    "data-lpignore": "true",
+                    "data-1p-ignore": "true",
+                    "data-form-type": "other",
                   }}
                 />
                 <Typography

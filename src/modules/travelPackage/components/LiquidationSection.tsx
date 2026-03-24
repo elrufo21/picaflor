@@ -128,7 +128,8 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
     () =>
       (form.itinerario ?? []).map((day, index) => {
         const porcentajeInput =
-          day.comisionPorcentaje === null || day.comisionPorcentaje === undefined
+          day.comisionPorcentaje === null ||
+          day.comisionPorcentaje === undefined
             ? ""
             : Number.isFinite(Number(day.comisionPorcentaje))
               ? String(day.comisionPorcentaje)
@@ -447,40 +448,6 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
               </tbody>
             </table>
           </div>
-
-          {hasRows && (
-            <div className="rounded-xl border border-slate-200 bg-slate-50">
-              <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                <span>Concepto</span>
-                <span className="text-right">Importe</span>
-              </div>
-              {liquidationSummaryRows.map((row, index) => {
-                const isLast = index === liquidationSummaryRows.length - 1;
-                return (
-                  <div
-                    key={row.label}
-                    className={`grid grid-cols-2 px-3 py-2 text-sm ${
-                      isLast ? "" : "border-b border-slate-200"
-                    }`}
-                  >
-                    <span
-                      className={
-                        row.strong
-                          ? "font-semibold text-slate-900"
-                          : "text-slate-700"
-                      }
-                    >
-                      {row.label}
-                    </span>
-                    <span className="text-right font-semibold text-slate-900">
-                      {`${currencySymbol} ${formatCurrency(row.value)}`}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           {showCommissionSection && (
             <div className="rounded-xl border border-slate-200 bg-white">
               <div className="border-b border-slate-200 bg-slate-50 px-3 py-2">
@@ -572,7 +539,11 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                                 )
                               }
                               onKeyDown={(event) =>
-                                handleArrowNavigation(event, rowIndex, "incentive")
+                                handleArrowNavigation(
+                                  event,
+                                  rowIndex,
+                                  "incentive",
+                                )
                               }
                               className="h-8 w-full border-0 bg-transparent text-right text-sm text-slate-800 focus:outline-none"
                             />
@@ -605,6 +576,40 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+          {hasRows && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50">
+              <div className="grid grid-cols-2 border-b border-emerald-200 bg-emerald-100/80 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                <span>Concepto</span>
+                <span className="text-right">Importe</span>
+              </div>
+              {liquidationSummaryRows.map((row, index) => {
+                const isLast = index === liquidationSummaryRows.length - 1;
+                return (
+                  <div
+                    key={row.label}
+                    className={`grid grid-cols-2 px-3 py-2 text-sm ${
+                      isLast
+                        ? "bg-emerald-100/70"
+                        : "border-b border-emerald-200/80"
+                    }`}
+                  >
+                    <span
+                      className={
+                        row.strong
+                          ? "font-semibold text-emerald-950"
+                          : "text-emerald-800"
+                      }
+                    >
+                      {row.label}
+                    </span>
+                    <span className="text-right font-semibold text-emerald-950">
+                      {`${currencySymbol} ${formatCurrency(row.value)}`}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
