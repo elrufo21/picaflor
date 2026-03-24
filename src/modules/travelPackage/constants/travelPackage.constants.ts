@@ -216,6 +216,8 @@ export const createItineraryDayRow = (
   fecha: "",
   titulo: "",
   precioUnitario: 0,
+  comisionPorcentaje: 0,
+  incentivoValor: 0,
   observacion: "",
   origen: "",
   destino: "",

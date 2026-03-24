@@ -56,6 +56,8 @@ type ItineraryDay = {
   fecha: string; // ISO
   titulo: string;
   precioUnitario?: number;
+  comisionPorcentaje?: number;
+  incentivoValor?: number;
   observacion?: string;
   origen?: string;
   destino?: string;

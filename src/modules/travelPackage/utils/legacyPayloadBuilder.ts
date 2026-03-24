@@ -162,7 +162,7 @@ export const buildTravelPackageLegacyPayload = (
     if (!date) return;
 
     detailRows.push(
-      `DAY|${dayKey}|${dayIndex + 1}|${date}|${cleanText(day.titulo)}|${cleanText(day.origen)}|${cleanText(day.destino)}|${cleanText(day.observacion)}|${toDecimal(day.precioUnitario)}`,
+      `DAY|${dayKey}|${dayIndex + 1}|${date}|${cleanText(day.titulo)}|${cleanText(day.origen)}|${cleanText(day.destino)}|${cleanText(day.observacion)}|${toDecimal(day.precioUnitario)}|${toDecimal(day.comisionPorcentaje ?? 0)}|${toDecimal(day.incentivoValor ?? 0)}`,
     );
 
     day.actividades.forEach((row, rowIndex) => {

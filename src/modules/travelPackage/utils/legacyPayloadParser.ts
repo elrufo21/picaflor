@@ -37,6 +37,8 @@ type ParsedDay = {
   destino: string;
   observacion: string;
   precioUnitario: number;
+  comisionPorcentaje: number;
+  incentivoValor: number;
   actividades: Array<{
     orden: number;
     tipo: ItineraryActivityRow["tipo"];
@@ -308,6 +310,8 @@ export const parseTravelPackageLegacyPayload = (
         destino: cols[6] ?? "",
         observacion: cols[7] ?? "",
         precioUnitario: parseNumeric(cols[8]),
+        comisionPorcentaje: parseNumeric(cols[9]),
+        incentivoValor: parseNumeric(cols[10]),
         actividades: [],
       });
       continue;
@@ -327,6 +331,8 @@ export const parseTravelPackageLegacyPayload = (
           destino: "",
           observacion: "",
           precioUnitario: 0,
+          comisionPorcentaje: 0,
+          incentivoValor: 0,
           actividades: [],
         });
       }
@@ -443,6 +449,8 @@ export const parseTravelPackageLegacyPayload = (
         fecha: day.fecha,
         titulo: day.titulo,
         precioUnitario: day.precioUnitario,
+        comisionPorcentaje: day.comisionPorcentaje,
+        incentivoValor: day.incentivoValor,
         observacion: day.observacion,
         origen: day.origen,
         destino: day.destino,
