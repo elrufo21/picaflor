@@ -272,7 +272,7 @@ export const useTravelPackageForm = () => {
                             origen: "",
                             destino: "",
                             precioUnitario: 0,
-                            comisionPorcentaje: 0,
+                            comisionPorcentaje: undefined,
                             incentivoValor: 0,
                             observacion: "",
                             actividades: createDefaultItineraryRows(),

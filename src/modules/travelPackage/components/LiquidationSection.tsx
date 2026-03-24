@@ -39,6 +39,24 @@ type DayCommissionRow = {
   incentivoInput: string;
 };
 
+const formatDayDate = (value: string) => {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return "";
+
+  const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return normalized;
+
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const year = String(parsed.getFullYear());
+  return `${day}/${month}/${year}`;
+};
+
 const LiquidationSection = ({ form, onUpdateField }: Props) => {
   const currencySymbol = getTravelCurrencySymbol(form.moneda);
   const paxCount = Math.max(0, Number(form.cantPax || 0));
@@ -160,7 +178,7 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
         return {
           id: day.id,
           label: String(day.titulo ?? "").trim() || `Dia ${index + 1}`,
-          fecha: String(day.fecha ?? "").trim(),
+          fecha: formatDayDate(String(day.fecha ?? "").trim()),
           totalDia,
           porcentaje,
           comision,
@@ -349,11 +367,14 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,1fr)]">
         <div className="min-w-0 space-y-4">
           <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="min-w-[860px] w-full table-fixed text-xs sm:text-sm">
+            <table className="min-w-[920px] w-full table-fixed text-xs sm:text-sm">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium w-[58%]">
+                  <th className="px-3 py-2 text-left font-medium w-[50%]">
                     Paquete
+                  </th>
+                  <th className="px-3 py-2 text-center font-medium w-[8%]">
+                    Moneda
                   </th>
                   <th className="px-3 py-2 text-right font-medium w-[16%]">
                     P. Unitario
@@ -369,7 +390,7 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
               <tbody>
                 {!hasRows ? (
                   <tr className="border-t border-slate-200">
-                    <td className="px-3 py-3 text-slate-500" colSpan={4}>
+                    <td className="px-3 py-3 text-slate-500" colSpan={5}>
                       No hay habitaciones con cantidad para liquidar.
                     </td>
                   </tr>
@@ -383,14 +404,17 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                           <td className="px-3 py-2 text-slate-700">
                             {`Paquete ${destinosLabel} / Hab ${row.roomType}`}
                           </td>
+                          <td className="px-3 py-2 text-center font-medium text-slate-700">
+                            {currencySymbol}
+                          </td>
                           <td className="px-3 py-2 text-right font-medium text-slate-700">
-                            {`${currencySymbol} ${formatCurrency(unitAmount)}`}
+                            {formatCurrency(unitAmount)}
                           </td>
                           <td className="px-3 py-2 text-center text-slate-700">
                             {row.quantity}
                           </td>
                           <td className="px-3 py-2 text-right font-semibold text-slate-800">
-                            {`${currencySymbol} ${formatCurrency(total)}`}
+                            {formatCurrency(total)}
                           </td>
                         </tr>
                       );
@@ -400,14 +424,17 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                         <td className="px-3 py-2 text-slate-700">
                           {`Paquete ${destinosLabel} / ${movilidadLabel}`}
                         </td>
+                        <td className="px-3 py-2 text-center font-medium text-slate-700">
+                          {currencySymbol}
+                        </td>
                         <td className="px-3 py-2 text-right font-medium text-slate-700">
-                          {`${currencySymbol} ${formatCurrency(movilidadUnit)}`}
+                          {formatCurrency(movilidadUnit)}
                         </td>
                         <td className="px-3 py-2 text-center text-slate-700">
                           {movilidadQuantity}
                         </td>
                         <td className="px-3 py-2 text-right font-semibold text-slate-800">
-                          {`${currencySymbol} ${formatCurrency(movilidadTotal)}`}
+                          {formatCurrency(movilidadTotal)}
                         </td>
                       </tr>
                     )}
@@ -416,14 +443,17 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                         <td className="px-3 py-2 text-slate-700">
                           {`Paquete ${destinosLabel} / Paquete`}
                         </td>
+                        <td className="px-3 py-2 text-center font-medium text-slate-700">
+                          {currencySymbol}
+                        </td>
                         <td className="px-3 py-2 text-right font-medium text-slate-700">
-                          {`${currencySymbol} ${formatCurrency(activitiesUnit)}`}
+                          {formatCurrency(activitiesUnit)}
                         </td>
                         <td className="px-3 py-2 text-center text-slate-700">
                           {paxCount}
                         </td>
                         <td className="px-3 py-2 text-right font-semibold text-slate-800">
-                          {`${currencySymbol} ${formatCurrency(activitiesTotal)}`}
+                          {formatCurrency(activitiesTotal)}
                         </td>
                       </tr>
                     )}
@@ -432,14 +462,17 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                         <td className="px-3 py-2 text-slate-700">
                           {`Paquete ${destinosLabel} / Alimentacion`}
                         </td>
+                        <td className="px-3 py-2 text-center font-medium text-slate-700">
+                          {currencySymbol}
+                        </td>
                         <td className="px-3 py-2 text-right font-medium text-slate-700">
-                          {`${currencySymbol} ${formatCurrency(foodUnit)}`}
+                          {formatCurrency(foodUnit)}
                         </td>
                         <td className="px-3 py-2 text-center text-slate-700">
                           {paxCount}
                         </td>
                         <td className="px-3 py-2 text-right font-semibold text-slate-800">
-                          {`${currencySymbol} ${formatCurrency(foodTotal)}`}
+                          {formatCurrency(foodTotal)}
                         </td>
                       </tr>
                     )}
@@ -579,8 +612,8 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
             </div>
           )}
           {hasRows && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50">
-              <div className="grid grid-cols-2 border-b border-emerald-200 bg-emerald-100/80 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+            <div className="rounded-xl border border-orange-200 bg-orange-50">
+              <div className="grid grid-cols-2 border-b border-orange-200 bg-orange-100/80 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-orange-800">
                 <span>Concepto</span>
                 <span className="text-right">Importe</span>
               </div>
@@ -591,20 +624,20 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                     key={row.label}
                     className={`grid grid-cols-2 px-3 py-2 text-sm ${
                       isLast
-                        ? "bg-emerald-100/70"
-                        : "border-b border-emerald-200/80"
+                        ? "bg-orange-100/70"
+                        : "border-b border-orange-200/80"
                     }`}
                   >
                     <span
                       className={
                         row.strong
-                          ? "font-semibold text-emerald-950"
-                          : "text-emerald-800"
+                          ? "font-semibold text-orange-950"
+                          : "text-orange-800"
                       }
                     >
                       {row.label}
                     </span>
-                    <span className="text-right font-semibold text-emerald-950">
+                    <span className="text-right font-semibold text-orange-950">
                       {`${currencySymbol} ${formatCurrency(row.value)}`}
                     </span>
                   </div>

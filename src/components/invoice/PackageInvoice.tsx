@@ -587,7 +587,8 @@ export default function PackageInvoicePdf({
       return acc + dayImporteTotal;
     }, 0),
   );
-  const activitiesUnit = paxCount > 0 ? roundMoney(activitiesTotal / paxCount) : 0;
+  const activitiesUnit =
+    paxCount > 0 ? roundMoney(activitiesTotal / paxCount) : 0;
   const showActivitiesRow = activitiesTotal > 0 && paxCount > 0;
 
   const foodUnit = roundMoney(
@@ -597,7 +598,9 @@ export default function PackageInvoicePdf({
     }, 0),
   );
   const foodTotal = roundMoney(foodUnit * paxCount);
-  const showFoodRow = Boolean(data.incluyeHotel && foodUnit > 0 && paxCount > 0);
+  const showFoodRow = Boolean(
+    data.incluyeHotel && foodUnit > 0 && paxCount > 0,
+  );
 
   const movilidadUnit = roundMoney(Number(data.movilidadPrecio || 0));
   const movilidadQuantity = Math.max(0, paxCount);
@@ -605,9 +608,9 @@ export default function PackageInvoicePdf({
   const movilidadTipo = safeText(data.movilidadTipo).toUpperCase();
   const showMovilidadRow = Boolean(
     movilidadTipo &&
-      movilidadTipo !== "NO INCLUYE" &&
-      movilidadUnit > 0 &&
-      movilidadQuantity > 0,
+    movilidadTipo !== "NO INCLUYE" &&
+    movilidadUnit > 0 &&
+    movilidadQuantity > 0,
   );
   const movilidadLabel = movilidadTipo === "AEREO" ? "Vuelo" : "Movilidad";
 
@@ -756,7 +759,7 @@ export default function PackageInvoicePdf({
                 key={p.id ?? idx}
                 style={idx % 2 === 0 ? S.tdRow : S.tdRowAlt}
               >
-                <Text style={[S.td, { width: "8%" }]}>
+                <Text style={[S.td, { width: "8%", textAlign: "center" }]}>
                   {String(idx + 1).padStart(3, "0")}
                 </Text>
                 <Text style={[S.td, { width: "44%" }]}>
@@ -875,15 +878,18 @@ export default function PackageInvoicePdf({
           <View style={S.priceBox}>
             <Text style={S.sectionTitle}>LIQUIDACIÓN</Text>
 
-            <View style={S.priceTable}>
-              <View style={[S.priceRow, S.priceHeader]}>
-                <Text style={[S.priceCell, { width: "58%" }]}>PAQUETE</Text>
-                <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
-                  P. UNITARIO
-                </Text>
-                <Text style={[S.priceCell, { width: "10%" }, S.alignCenter]}>
-                  CANT
-                </Text>
+	            <View style={S.priceTable}>
+	              <View style={[S.priceRow, S.priceHeader]}>
+	                <Text style={[S.priceCell, { width: "50%" }]}>PAQUETE</Text>
+	                <Text style={[S.priceCell, { width: "8%" }, S.alignCenter]}>
+	                  MONEDA
+	                </Text>
+	                <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
+	                  P. UNITARIO
+	                </Text>
+	                <Text style={[S.priceCell, { width: "10%" }, S.alignCenter]}>
+	                  CANT
+	                </Text>
                 <Text
                   style={[
                     S.priceCell,
@@ -903,29 +909,36 @@ export default function PackageInvoicePdf({
                   </Text>
                 </View>
               ) : (
-                pricingRows.map((r) => (
-                  <View key={r.key} style={S.priceRow}>
-                    <Text style={[S.priceCell, { width: "58%" }]}>{r.desc}</Text>
-                    <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
-                      {`${curr} ${formatMoney(r.unit)}`}
-                    </Text>
-                    <Text style={[S.priceCell, { width: "10%" }, S.alignCenter]}>
-                      {r.qty}
+	                pricingRows.map((r) => (
+	                  <View key={r.key} style={S.priceRow}>
+	                    <Text style={[S.priceCell, { width: "50%" }]}>
+	                      {r.desc}
+	                    </Text>
+	                    <Text style={[S.priceCell, { width: "8%" }, S.alignCenter]}>
+	                      {curr}
+	                    </Text>
+	                    <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
+	                      {formatMoney(r.unit)}
+	                    </Text>
+	                    <Text
+	                      style={[S.priceCell, { width: "10%" }, S.alignCenter]}
+	                    >
+	                      {r.qty}
                     </Text>
                     <Text
                       style={[
                         S.priceCell,
                         S.lastCell,
-                        { width: "16%" },
-                        S.alignRight,
-                      ]}
-                    >
-                      {`${curr} ${formatMoney(r.total)}`}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </View>
+	                        { width: "16%" },
+	                        S.alignRight,
+	                      ]}
+	                    >
+	                      {formatMoney(r.total)}
+	                    </Text>
+	                  </View>
+	                ))
+	              )}
+	            </View>
 
             <View style={S.footerTwo}>
               {/* LEFT TOTALS */}
