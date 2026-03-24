@@ -109,9 +109,9 @@ export const HABITACION_OPTIONS = [
 ];
 
 export const ALIMENTACION_OPTIONS = [
-  "Desayuno",
-  "Media pension",
-  "Pension completa",
+  "DESAYUNO",
+  "ALMUERZO",
+  "CENA",
 ];
 
 export const EVENTO_OPTIONS = [
