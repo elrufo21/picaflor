@@ -142,7 +142,8 @@ const ServiciosContratadosSection = ({
       movilidadEmpresa: form.movilidadEmpresa ?? "",
       movilidadPrecio: String(form.movilidadPrecio ?? ""),
       incluyeHotel:
-        form.incluyeHotelSeleccion || (form.incluyeHotel ? "SI" : isEditMode ? "NO" : ""),
+        form.incluyeHotelSeleccion ||
+        (form.incluyeHotel ? "SI" : isEditMode ? "NO" : ""),
       incluyeAlimentacionEstado:
         form.incluyeAlimentacionEstadoSeleccion ||
         (initialIncluyeAlimentacion ? "SI" : isEditMode ? "NO" : ""),
@@ -171,11 +172,14 @@ const ServiciosContratadosSection = ({
   const selectedAlimentacionGlobal = String(
     watch("incluyeAlimentacionGlobal") ?? "",
   );
+  const selectedAlimentacionPrecioGlobal = String(
+    watch("precioAlimentacionGlobal") ?? "",
+  );
   const selectedIncluyeHotel = String(watch("incluyeHotel") ?? "");
   const showAlimentacionPrice = Boolean(
     selectedAlimentacionEstado === "SI" &&
-      selectedAlimentacionGlobal &&
-      selectedAlimentacionGlobal !== "-",
+    selectedAlimentacionGlobal &&
+    selectedAlimentacionGlobal !== "-",
   );
   const hasHotelPackage = useMemo(
     () =>
@@ -191,7 +195,9 @@ const ServiciosContratadosSection = ({
     const paquetes = form.paquetesViaje ?? [];
     if (!paquetes.length) return false;
     return paquetes.every((item) =>
-      String(item.paquete ?? "").toLowerCase().includes("sin hotel"),
+      String(item.paquete ?? "")
+        .toLowerCase()
+        .includes("sin hotel"),
     );
   }, [form.paquetesViaje]);
   const hotelesContratados = useMemo(
@@ -355,7 +361,11 @@ const ServiciosContratadosSection = ({
   ]);
 
   useEffect(() => {
-    const firstWithFood = hotelesContratados.find((row) => row.incluyeAlimentacion);
+    const firstWithFood = hotelesContratados.find(
+      (row) =>
+        row.incluyeAlimentacion &&
+        String(row.alimentacionTipo ?? "").trim() !== "-",
+    );
     const nextEstado = firstWithFood
       ? "SI"
       : form.incluyeAlimentacionEstadoSeleccion
@@ -382,19 +392,53 @@ const ServiciosContratadosSection = ({
       });
     }
 
-    if (selectedAlimentacionGlobal !== nextTipo) {
-      setValue("incluyeAlimentacionGlobal", nextTipo, {
+    if (firstWithFood) {
+      if (selectedAlimentacionGlobal !== nextTipo) {
+        setValue("incluyeAlimentacionGlobal", nextTipo, {
+          shouldDirty: false,
+          shouldTouch: false,
+          shouldValidate: false,
+        });
+      }
+
+      setValue("precioAlimentacionGlobal", nextPrecio, {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+      return;
+    }
+
+    if (nextEstado === "NO") {
+      if (selectedAlimentacionGlobal !== "-") {
+        setValue("incluyeAlimentacionGlobal", "-", {
+          shouldDirty: false,
+          shouldTouch: false,
+          shouldValidate: false,
+        });
+      }
+      setValue("precioAlimentacionGlobal", "", {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+      return;
+    }
+
+    if (nextEstado === "") {
+      if (selectedAlimentacionGlobal !== "") {
+        setValue("incluyeAlimentacionGlobal", "", {
+          shouldDirty: false,
+          shouldTouch: false,
+          shouldValidate: false,
+        });
+      }
+      setValue("precioAlimentacionGlobal", "", {
         shouldDirty: false,
         shouldTouch: false,
         shouldValidate: false,
       });
     }
-
-    setValue("precioAlimentacionGlobal", nextPrecio, {
-      shouldDirty: false,
-      shouldTouch: false,
-      shouldValidate: false,
-    });
   }, [
     form.incluyeAlimentacionEstadoSeleccion,
     hotelesContratados,
@@ -403,20 +447,6 @@ const ServiciosContratadosSection = ({
     selectedAlimentacionGlobal,
     setValue,
   ]);
-
-  useEffect(() => {
-    hotelesContratados.forEach((row) => {
-      setValue(
-        `incluyeAlimentacion_${row.id}`,
-        row.alimentacionTipo || (row.incluyeAlimentacion ? "Desayuno" : ""),
-        {
-          shouldDirty: false,
-          shouldTouch: false,
-          shouldValidate: false,
-        },
-      );
-    });
-  }, [hotelesContratados, setValue]);
 
   useEffect(() => {
     if (!hotelesContratados.length) return;
@@ -450,6 +480,18 @@ const ServiciosContratadosSection = ({
 
     if (!destinos.length) return;
 
+    const normalizedGlobalFoodType =
+      selectedAlimentacionEstado === "SI"
+        ? selectedAlimentacionGlobal.trim() === "-"
+          ? ""
+          : selectedAlimentacionGlobal.trim()
+        : selectedAlimentacionEstado === "NO"
+          ? "-"
+          : "";
+    const globalFoodPrice = Math.max(0, Number(selectedAlimentacionPrecioGlobal || 0));
+    const includeFoodForNewRow =
+      selectedAlimentacionEstado === "SI" && Boolean(normalizedGlobalFoodType);
+
     const rowsByRegion = new Map<string, HotelServicioRow>();
     hotelesContratados.forEach((row) => {
       const key = normalizeRegionName(String(row.region ?? ""));
@@ -468,9 +510,9 @@ const ServiciosContratadosSection = ({
         hotel: "",
         habitaciones: [],
         entradaSalida: "",
-        incluyeAlimentacion: false,
-        alimentacionTipo: "",
-        alimentacionPrecio: 0,
+        incluyeAlimentacion: includeFoodForNewRow,
+        alimentacionTipo: normalizedGlobalFoodType,
+        alimentacionPrecio: includeFoodForNewRow ? globalFoodPrice : 0,
         importeTotal: 0,
       } as HotelServicioRow;
     });
@@ -491,7 +533,15 @@ const ServiciosContratadosSection = ({
     if (!sameOrderAndRegion) {
       onUpdateField("hotelesContratados", nextRows);
     }
-  }, [form.incluyeHotel, form.destinos, hotelesContratados, onUpdateField]);
+  }, [
+    form.incluyeHotel,
+    form.destinos,
+    hotelesContratados,
+    onUpdateField,
+    selectedAlimentacionEstado,
+    selectedAlimentacionGlobal,
+    selectedAlimentacionPrecioGlobal,
+  ]);
 
   useEffect(() => {
     if (!form.incluyeHotel) return;
@@ -565,11 +615,7 @@ const ServiciosContratadosSection = ({
     if (hasChanged) {
       onUpdateField("hotelesContratados", nextRows);
     }
-  }, [
-    form.incluyeHotel,
-    hotelesContratados,
-    onUpdateField,
-  ]);
+  }, [form.incluyeHotel, hotelesContratados, onUpdateField]);
 
   const handleAddHotelCatalog = useCallback(() => {
     openDialog({
@@ -758,7 +804,8 @@ const ServiciosContratadosSection = ({
                   );
                   const include = nextEstado === "SI";
                   const selectedTipo = selectedAlimentacionGlobal.trim();
-                  const normalizedTipo = selectedTipo === "-" ? "" : selectedTipo;
+                  const normalizedTipo =
+                    selectedTipo === "-" ? "" : selectedTipo;
                   const nextTipo = include
                     ? normalizedTipo
                     : nextEstado === "NO"
@@ -1049,7 +1096,8 @@ const ServiciosContratadosSection = ({
                           value={mapToSelectorValue(row.habitaciones)}
                           currencySymbol={currencySymbol}
                           onChange={(value) => {
-                            const nextHabitaciones = mapFromSelectorValue(value);
+                            const nextHabitaciones =
+                              mapFromSelectorValue(value);
                             onUpdateHotelServicioField(
                               row.id,
                               "habitaciones",
@@ -1058,7 +1106,9 @@ const ServiciosContratadosSection = ({
                             onUpdateHotelServicioField(
                               row.id,
                               "importeTotal",
-                              calculateHabitacionesImporteTotal(nextHabitaciones),
+                              calculateHabitacionesImporteTotal(
+                                nextHabitaciones,
+                              ),
                             );
                           }}
                         />
@@ -1080,12 +1130,16 @@ const ServiciosContratadosSection = ({
                       </td>
                       <td className="px-2 py-1.5">
                         <div className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1">
-                          <span className="text-slate-500">{currencySymbol}</span>
+                          <span className="text-slate-500">
+                            {currencySymbol}
+                          </span>
                           <input
                             type="number"
                             min={0}
                             step="0.01"
-                            value={calculateHabitacionesImporteTotal(row.habitaciones)}
+                            value={calculateHabitacionesImporteTotal(
+                              row.habitaciones,
+                            )}
                             placeholder="0.00"
                             readOnly
                             disabled
