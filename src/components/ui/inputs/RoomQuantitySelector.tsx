@@ -38,6 +38,43 @@ const formatPrice = (price: number) => {
     : normalized.toFixed(2);
 };
 
+const ROOM_ASCENDING_ORDER = [
+  "simple",
+  "doble",
+  "triple",
+  "cuadruple",
+  "quintuple",
+  "matrimonial",
+  "familiar",
+  "suite",
+  "junior suite",
+];
+
+const ROOM_ORDER_INDEX = new Map(
+  ROOM_ASCENDING_ORDER.map((value, index) => [value, index]),
+);
+
+const normalizeRoomKey = (value: string) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+const sortRoomOptions = (options: RoomOption[]) =>
+  [...options].sort((a, b) => {
+    const aOrder =
+      ROOM_ORDER_INDEX.get(normalizeRoomKey(a.value)) ??
+      ROOM_ORDER_INDEX.get(normalizeRoomKey(a.label)) ??
+      9999;
+    const bOrder =
+      ROOM_ORDER_INDEX.get(normalizeRoomKey(b.value)) ??
+      ROOM_ORDER_INDEX.get(normalizeRoomKey(b.label)) ??
+      9999;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return a.label.localeCompare(b.label);
+  });
+
 const toSummary = (
   value: RoomQuantityValue[],
   options: RoomOption[],
@@ -54,7 +91,10 @@ const toSummary = (
 };
 
 const sortByOptions = (value: RoomQuantityValue[], options: RoomOption[]) => {
-  const order = new Map(options.map((option, index) => [option.value, index]));
+  const orderedOptions = sortRoomOptions(options);
+  const order = new Map(
+    orderedOptions.map((option, index) => [option.value, index]),
+  );
   return [...value].sort(
     (a, b) => (order.get(a.value) ?? 9999) - (order.get(b.value) ?? 9999),
   );
@@ -89,13 +129,15 @@ const RoomQuantitySelector = ({
     [selected],
   );
   const displayOptions = useMemo(() => {
+    const orderedOptions = sortRoomOptions(options);
     const selectedSet = new Set(selected.map((item) => item.value));
-    return [...options].sort((a, b) => {
-      const aSel = selectedSet.has(a.value) ? 0 : 1;
-      const bSel = selectedSet.has(b.value) ? 0 : 1;
-      if (aSel !== bSel) return aSel - bSel;
-      return a.label.localeCompare(b.label);
-    });
+    const selectedOptions = orderedOptions.filter((option) =>
+      selectedSet.has(option.value),
+    );
+    const unselectedOptions = orderedOptions.filter(
+      (option) => !selectedSet.has(option.value),
+    );
+    return [...selectedOptions, ...unselectedOptions];
   }, [options, selected]);
 
   const getCurrentQuantity = (optionValue: string) =>
