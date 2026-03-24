@@ -93,6 +93,35 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
 
   next.itinerario = (next.itinerario ?? []).map((day) => ({
     ...day,
+    comisionPorcentaje:
+      day.comisionPorcentaje === undefined ||
+      day.comisionPorcentaje === null ||
+      String(day.comisionPorcentaje).trim() === ""
+        ? undefined
+        : roundCurrency(
+            Math.max(
+              0,
+              Math.min(
+                100,
+                Number.isFinite(Number(day.comisionPorcentaje))
+                  ? Number(day.comisionPorcentaje)
+                  : 0,
+              ),
+            ),
+          ),
+    incentivoValor:
+      day.incentivoValor === undefined ||
+      day.incentivoValor === null ||
+      String(day.incentivoValor).trim() === ""
+        ? undefined
+        : roundCurrency(
+            Math.max(
+              0,
+              Number.isFinite(Number(day.incentivoValor))
+                ? Number(day.incentivoValor)
+                : 0,
+            ),
+          ),
     actividades: (day.actividades ?? []).map((row) => {
       if (!isActiveItineraryRow(row)) {
         if (
@@ -243,6 +272,8 @@ export const useTravelPackageForm = () => {
                             origen: "",
                             destino: "",
                             precioUnitario: 0,
+                            comisionPorcentaje: 0,
+                            incentivoValor: 0,
                             observacion: "",
                             actividades: createDefaultItineraryRows(),
                         });

@@ -26,6 +26,8 @@ export type ItineraryDayRow = {
   fecha: string;
   titulo: string;
   precioUnitario: number;
+  comisionPorcentaje?: number;
+  incentivoValor?: number;
   observacion: string;
   origen: string;
   destino: string;

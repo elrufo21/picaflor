@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+import type { KeyboardEvent } from "react";
 import { Calculator } from "lucide-react";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import {
@@ -26,9 +27,27 @@ type LiquidationRow = {
   quantity: number;
 };
 
+type DayCommissionRow = {
+  id: number;
+  label: string;
+  fecha: string;
+  totalDia: number;
+  porcentaje: number;
+  comision: number;
+  incentivo: number;
+  porcentajeInput: string;
+  incentivoInput: string;
+};
+
 const LiquidationSection = ({ form, onUpdateField }: Props) => {
   const currencySymbol = getTravelCurrencySymbol(form.moneda);
   const paxCount = Math.max(0, Number(form.cantPax || 0));
+  const commissionInputRefs = useRef<Record<number, HTMLInputElement | null>>(
+    {},
+  );
+  const incentiveInputRefs = useRef<Record<number, HTMLInputElement | null>>(
+    {},
+  );
 
   const liquidationRows = useMemo<LiquidationRow[]>(() => {
     if (form.incluyeHotel) {
@@ -105,6 +124,67 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
     [activitiesTotal, paxCount],
   );
   const showActivitiesRow = activitiesTotal > 0 && paxCount > 0;
+  const dayCommissionRows = useMemo<DayCommissionRow[]>(
+    () =>
+      (form.itinerario ?? []).map((day, index) => {
+        const porcentajeInput =
+          day.comisionPorcentaje === null || day.comisionPorcentaje === undefined
+            ? ""
+            : Number.isFinite(Number(day.comisionPorcentaje))
+              ? String(day.comisionPorcentaje)
+              : "";
+        const incentivoInput =
+          day.incentivoValor === null || day.incentivoValor === undefined
+            ? ""
+            : Number.isFinite(Number(day.incentivoValor))
+              ? String(day.incentivoValor)
+              : "";
+        const dayActivitiesSubtotal = roundCurrency(
+          (day.actividades ?? []).reduce(
+            (sum, activity) => sum + Number(activity.subtotal || 0),
+            0,
+          ),
+        );
+        const totalDia = roundCurrency(
+          Number(day.precioUnitario || 0) * paxCount + dayActivitiesSubtotal,
+        );
+        const porcentaje = roundCurrency(
+          Math.max(0, Math.min(100, Number(day.comisionPorcentaje || 0))),
+        );
+        const comision = roundCurrency((totalDia * porcentaje) / 100);
+        const incentivo = roundCurrency(
+          Math.max(0, Number(day.incentivoValor || 0)),
+        );
+
+        return {
+          id: day.id,
+          label: String(day.titulo ?? "").trim() || `Dia ${index + 1}`,
+          fecha: String(day.fecha ?? "").trim(),
+          totalDia,
+          porcentaje,
+          comision,
+          incentivo,
+          porcentajeInput,
+          incentivoInput,
+        };
+      }),
+    [form.itinerario, paxCount],
+  );
+  const totalComision = useMemo(
+    () =>
+      roundCurrency(
+        dayCommissionRows.reduce((sum, row) => sum + row.comision, 0),
+      ),
+    [dayCommissionRows],
+  );
+  const totalIncentivo = useMemo(
+    () =>
+      roundCurrency(
+        dayCommissionRows.reduce((sum, row) => sum + row.incentivo, 0),
+      ),
+    [dayCommissionRows],
+  );
+  const showCommissionSection = dayCommissionRows.length > 0;
 
   const foodUnit = useMemo(
     () =>
@@ -206,6 +286,58 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
     { label: "Cargo extra (Tarjeta 5%)", value: cargosExtra, strong: false },
     { label: "Total general", value: totalGeneral, strong: true },
   ];
+  const handleCommissionPercentChange = (dayId: number, rawValue: string) => {
+    const parsed = Number(rawValue);
+    const porcentaje =
+      rawValue.trim() === ""
+        ? undefined
+        : roundCurrency(
+            Math.max(0, Math.min(100, Number.isFinite(parsed) ? parsed : 0)),
+          );
+    onUpdateField(
+      "itinerario",
+      (form.itinerario ?? []).map((day) =>
+        day.id === dayId ? { ...day, comisionPorcentaje: porcentaje } : day,
+      ),
+    );
+  };
+  const handleIncentiveValueChange = (dayId: number, rawValue: string) => {
+    const parsed = Number(rawValue);
+    const incentivo =
+      rawValue.trim() === ""
+        ? undefined
+        : roundCurrency(Math.max(0, Number.isFinite(parsed) ? parsed : 0));
+    onUpdateField(
+      "itinerario",
+      (form.itinerario ?? []).map((day) =>
+        day.id === dayId ? { ...day, incentivoValor: incentivo } : day,
+      ),
+    );
+  };
+  const handleArrowNavigation = (
+    event: KeyboardEvent<HTMLInputElement>,
+    rowIndex: number,
+    column: "commission" | "incentive",
+  ) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+
+    event.preventDefault();
+    const nextIndex = event.key === "ArrowDown" ? rowIndex + 1 : rowIndex - 1;
+    if (nextIndex < 0 || nextIndex >= dayCommissionRows.length) return;
+
+    const targetRow = dayCommissionRows[nextIndex];
+    if (!targetRow) return;
+
+    const targetInput =
+      column === "commission"
+        ? commissionInputRefs.current[targetRow.id]
+        : incentiveInputRefs.current[targetRow.id];
+
+    if (targetInput) {
+      targetInput.focus();
+      targetInput.select();
+    }
+  };
 
   return (
     <SectionCard
@@ -346,6 +478,133 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {showCommissionSection && (
+            <div className="rounded-xl border border-slate-200 bg-white">
+              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Comision e incentivo por dia
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-[900px] w-full table-fixed text-xs sm:text-sm">
+                  <thead className="bg-slate-50 text-slate-600">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium w-[20%]">
+                        Dia
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium w-[18%]">
+                        Fecha
+                      </th>
+                      <th className="px-3 py-2 text-center font-medium w-[15%]">
+                        % Comision
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium w-[16%]">
+                        Comision
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium w-[16%]">
+                        Incentivo
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayCommissionRows.map((row, rowIndex) => (
+                      <tr key={row.id} className="border-t border-slate-200">
+                        <td className="px-3 py-2 text-slate-700">
+                          {row.label}
+                        </td>
+                        <td className="px-3 py-2 text-slate-700">
+                          {row.fecha || "-"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="mx-auto flex w-[120px] items-center rounded-md border border-slate-300 bg-white px-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step="0.01"
+                              value={row.porcentajeInput}
+                              ref={(node) => {
+                                commissionInputRefs.current[row.id] = node;
+                              }}
+                              onChange={(event) =>
+                                handleCommissionPercentChange(
+                                  row.id,
+                                  event.target.value,
+                                )
+                              }
+                              onKeyDown={(event) =>
+                                handleArrowNavigation(
+                                  event,
+                                  rowIndex,
+                                  "commission",
+                                )
+                              }
+                              className="h-8 w-full border-0 bg-transparent text-right text-sm text-slate-800 focus:outline-none"
+                            />
+                            <span className="ml-1 text-xs font-medium text-slate-500">
+                              %
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-slate-900">
+                          {`${currencySymbol} ${formatCurrency(row.comision)}`}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="mx-auto flex w-[140px] items-center rounded-md border border-slate-300 bg-white px-2">
+                            <span className="mr-2 text-xs font-medium text-slate-500">
+                              {currencySymbol}
+                            </span>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={row.incentivoInput}
+                              ref={(node) => {
+                                incentiveInputRefs.current[row.id] = node;
+                              }}
+                              onChange={(event) =>
+                                handleIncentiveValueChange(
+                                  row.id,
+                                  event.target.value,
+                                )
+                              }
+                              onKeyDown={(event) =>
+                                handleArrowNavigation(event, rowIndex, "incentive")
+                              }
+                              className="h-8 w-full border-0 bg-transparent text-right text-sm text-slate-800 focus:outline-none"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-slate-200 bg-slate-50">
+                      <td
+                        className="px-3 py-2 text-right font-semibold text-slate-700"
+                        colSpan={4}
+                      >
+                        Total comision
+                      </td>
+                      <td className="px-3 py-2 text-right font-bold text-slate-900">
+                        {`${currencySymbol} ${formatCurrency(totalComision)}`}
+                      </td>
+                    </tr>
+                    <tr className="border-t border-slate-200 bg-slate-50">
+                      <td
+                        className="px-3 py-2 text-right font-semibold text-slate-700"
+                        colSpan={4}
+                      >
+                        Total incentivo
+                      </td>
+                      <td className="px-3 py-2 text-right font-bold text-slate-900">
+                        {`${currencySymbol} ${formatCurrency(totalIncentivo)}`}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
