@@ -52,6 +52,9 @@ function AutocompleteTable<Option>({
   ...rest
 }: Props<Option>) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const inputNamespaceRef = useRef(
+    `autocomplete-${Math.random().toString(36).slice(2, 10)}`,
+  );
   const gridTemplateColumns = columns
     .map((column) => resolveColumnWidth(column.width))
     .join(" ");
@@ -152,11 +155,14 @@ function AutocompleteTable<Option>({
       renderInput={(params) => (
         <TextField
           {...params}
+          id={`${inputNamespaceRef.current}-text`}
           label={label}
           placeholder={placeholder}
+          autoComplete="new-password"
           inputProps={{
             ...params.inputProps,
             autoComplete: "new-password",
+            name: `${inputNamespaceRef.current}-input`,
             autoCorrect: "off",
             spellCheck: false,
             autoCapitalize: "none",
