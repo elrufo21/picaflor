@@ -10,6 +10,8 @@ export type PassengerRow = {
   nacionalidad: string;
   telefono: string;
   fechaNacimiento: string;
+  tipoPasajero: string;
+  totalTipoPasajero: string;
 };
 
 export type ItineraryActivityRow = {

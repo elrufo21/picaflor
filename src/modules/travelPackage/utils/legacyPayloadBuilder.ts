@@ -133,7 +133,7 @@ export const buildTravelPackageLegacyPayload = (
     const fechaNacimiento = cleanText(row.fechaNacimiento);
     const fechaNacimientoToken = fechaNacimiento || "null";
     detailRows.push(
-      `PAX|${index + 1}|${nombres}|${cleanText(row.pasaporte)}|${cleanText(row.nacionalidad)}|${cleanText(row.telefono)}|${fechaNacimientoToken}`,
+      `PAX|${index + 1}|${nombres}|${cleanText(row.pasaporte)}|${cleanText(row.nacionalidad)}|${cleanText(row.telefono)}|${fechaNacimientoToken}|${cleanText(row.tipoPasajero)}|${toInt(row.totalTipoPasajero)}`,
     );
   });
 

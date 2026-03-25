@@ -222,6 +222,7 @@ export const parseTravelPackageLegacyPayload = (
     }
 
     if (type === "PAX") {
+      const totalTipoPasajeroToken = normalizeCell(cols[8]);
       pasajeros.push({
         orden: parsePositiveInt(cols[1], pasajeros.length + 1),
         row: {
@@ -230,6 +231,11 @@ export const parseTravelPackageLegacyPayload = (
           nacionalidad: cols[4] ?? "",
           telefono: cols[5] ?? "",
           fechaNacimiento: toIsoDate(cols[6]),
+          tipoPasajero: cols[7] || "GENERAL",
+          totalTipoPasajero:
+            totalTipoPasajeroToken === ""
+              ? ""
+              : String(parsePositiveInt(totalTipoPasajeroToken)),
         },
       });
       continue;

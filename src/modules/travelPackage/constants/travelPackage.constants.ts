@@ -174,6 +174,8 @@ export const createPassengerRow = (id: number): PassengerRow => ({
   nacionalidad: "",
   telefono: "",
   fechaNacimiento: "",
+  tipoPasajero: "GENERAL",
+  totalTipoPasajero: "",
 });
 
 export const createActivityRow = (id: number): ItineraryActivityRow => ({

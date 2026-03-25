@@ -321,7 +321,7 @@ export const useTravelPackageForm = () => {
   const updatePassengerField = useCallback((
     id: number,
     field: keyof Omit<PassengerRow, "id">,
-    value: string,
+    value: string | number,
   ) => {
     setForm((prev) =>
       applyDerivedRules({
