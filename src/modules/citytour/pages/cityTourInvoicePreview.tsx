@@ -12,6 +12,8 @@ type LocationState = {
   backendPayload?: string;
 };
 
+const LIQUIDACIONES_STALE_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:stale:v1";
 const INVOICE_HEIGHT = 760;
 
 const CityInvoicePreview = () => {
@@ -98,7 +100,12 @@ const CityInvoicePreview = () => {
 
   const handleRegisterAnother = () => {
     if (!id) return;
-    navigate(`/fullday`);
+    try {
+      window.sessionStorage.setItem(LIQUIDACIONES_STALE_STORAGE_KEY, "1");
+    } catch {
+      // ignorar errores de almacenamiento para no afectar la navegación
+    }
+    navigate(`/fullday`, { state: { refresh: Date.now() } });
   };
   const handleSendWhatsApp = async () => {
     try {
@@ -138,7 +145,17 @@ const CityInvoicePreview = () => {
           <ChevronLeft
             className="cursor-pointer mr-8"
             onClick={() => {
-              navigate("/fullday/programacion/liquidaciones");
+              try {
+                window.sessionStorage.setItem(
+                  LIQUIDACIONES_STALE_STORAGE_KEY,
+                  "1",
+                );
+              } catch {
+                // ignorar errores de almacenamiento para no afectar la navegación
+              }
+              navigate("/fullday/programacion/liquidaciones", {
+                state: { refresh: Date.now() },
+              });
             }}
           />
           {backendInfo.orden ? (

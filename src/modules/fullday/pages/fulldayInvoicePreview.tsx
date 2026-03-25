@@ -11,6 +11,8 @@ type LocationState = {
   backendPayload?: string;
 };
 
+const LIQUIDACIONES_STALE_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:stale:v1";
 const INVOICE_HEIGHT = 760;
 
 const InvoicePreview = () => {
@@ -94,7 +96,12 @@ const InvoicePreview = () => {
 
   const handleRegisterAnother = () => {
     if (!id) return;
-    navigate(`/fullday`);
+    try {
+      window.sessionStorage.setItem(LIQUIDACIONES_STALE_STORAGE_KEY, "1");
+    } catch {
+      // ignorar errores de almacenamiento para no afectar la navegación
+    }
+    navigate(`/fullday`, { state: { refresh: Date.now() } });
   };
 
   const handleSendWhatsApp = async () => {
