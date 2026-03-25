@@ -16,6 +16,8 @@ type LocationState = {
 };
 
 const STORAGE_KEY = "travel-package:invoice-preview:data:v1";
+const LIQUIDACIONES_STALE_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:stale:v1";
 const INVOICE_HEIGHT = 760;
 
 const readStoredInvoiceData = (): PackageInvoiceData | null => {
@@ -121,6 +123,32 @@ const TravelPackageInvoicePreview = () => {
   const backTitle = fromNewTravelPackage
     ? "Volver al formulario"
     : "Volver a programaciones";
+  const markLiquidacionesAsStale = () => {
+    if (typeof window === "undefined") return;
+
+    try {
+      window.sessionStorage.setItem(LIQUIDACIONES_STALE_STORAGE_KEY, "1");
+    } catch {
+      // ignorar errores de almacenamiento para no afectar la navegación
+    }
+  };
+  const handleNavigateBack = () => {
+    if (fromNewTravelPackage) {
+      navigate(backPath);
+      return;
+    }
+
+    markLiquidacionesAsStale();
+    navigate(backPath, {
+      state: { refresh: Date.now() },
+    });
+  };
+  const handleNavigateToLiquidaciones = () => {
+    markLiquidacionesAsStale();
+    navigate("/fullday/programacion/liquidaciones", {
+      state: { refresh: Date.now() },
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -128,7 +156,7 @@ const TravelPackageInvoicePreview = () => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => navigate(backPath)}
+            onClick={handleNavigateBack}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50"
             title={backTitle}
             aria-label={backTitle}
@@ -145,7 +173,7 @@ const TravelPackageInvoicePreview = () => {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => navigate("/fullday/programacion/liquidaciones")}
+            onClick={handleNavigateToLiquidaciones}
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
           >
             Ver listado
@@ -209,7 +237,7 @@ const TravelPackageInvoicePreview = () => {
             <p>No hay datos para mostrar.</p>
             <button
               type="button"
-              onClick={() => navigate("/fullday/programacion/liquidaciones")}
+              onClick={handleNavigateToLiquidaciones}
               className="rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400"
             >
               Ver listado

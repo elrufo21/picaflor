@@ -147,6 +147,10 @@ const PackageList = () => {
   const openDialog = useDialogStore((state) => state.openDialog);
 
   const location = useLocation();
+  const refreshKey =
+    location.state && typeof location.state === "object"
+      ? (location.state as { refresh?: unknown }).refresh
+      : undefined;
 
   useEffect(() => {
     let canceled = false;
@@ -174,6 +178,11 @@ const PackageList = () => {
   useEffect(() => {
     loadPackages(date);
   }, [date, loadPackages]);
+
+  useEffect(() => {
+    if (!refreshKey) return;
+    loadPackages(date);
+  }, [date, loadPackages, refreshKey]);
 
   useEffect(() => {
     setCantMaxChanges([]);
