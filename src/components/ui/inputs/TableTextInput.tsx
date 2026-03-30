@@ -12,6 +12,7 @@ type Props = {
   className?: string;
   navColumn?: string;
   navRow?: number;
+  textSize?: "xs" | "sm" | "base" | "lg";
 };
 
 const TableTextInput = forwardRef<HTMLInputElement, Props>(
@@ -27,6 +28,7 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
       className,
       navColumn,
       navRow,
+      textSize = "sm",
     },
     ref,
   ) {
@@ -53,7 +55,8 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
       const nextRow = direction === "down" ? navRow + 1 : navRow - 1;
       if (nextRow < 0) return false;
 
-      const scope = target.closest("table") ?? target.closest("form") ?? document;
+      const scope =
+        target.closest("table") ?? target.closest("form") ?? document;
       const selector = `input[data-nav-col="${navColumn}"][data-nav-row="${String(nextRow)}"]`;
       const next = scope.querySelector(selector) as HTMLInputElement | null;
       if (!next || next.disabled) return false;
@@ -67,8 +70,16 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
         : textAlign === "center"
           ? "text-center"
           : "text-left";
+    const textSizeClass =
+      textSize === "xs"
+        ? "text-xs"
+        : textSize === "base"
+          ? "text-base"
+          : textSize === "lg"
+            ? "text-lg"
+            : "text-sm";
     const baseClassName =
-      "w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-emerald-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400 h-10";
+      `w-full rounded border border-slate-300 px-2 py-1 ${textSizeClass} focus:border-emerald-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400 h-10`;
     const resolvedClassName = className
       ? `${baseClassName} ${className} ${textAlignClass}`
       : `${baseClassName} ${textAlignClass}`;

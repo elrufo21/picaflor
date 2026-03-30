@@ -1,3 +1,6 @@
+import { normalizeLegacyXmlPayload } from "@/shared/helpers/normalizeLegacyXmlPayload";
+import { toPlainText } from "@/shared/helpers/safeText";
+
 export type SelectOption = { value: string; label: string };
 export type CanalOption = SelectOption & {
   contacto?: string;
@@ -5,19 +8,23 @@ export type CanalOption = SelectOption & {
   email?: string;
   auxiliar?: string;
 };
-const cleanText = (value?: string) =>
-  value
-    ? value
-        .replace(/&#x0D;/gi, "")
-        .replace(/&amp;/gi, "&")
-        .replace(/\s+/g, " ")
-        .trim()
-    : undefined;
+
+export const normalizeCanalText = (value: unknown): string =>
+  toPlainText(normalizeLegacyXmlPayload(String(value ?? "")))
+    .replace(/\u00C2(?=¬)/g, "")
+    .replace(/\u00A0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const cleanText = (value?: string) => {
+  const cleaned = normalizeCanalText(value);
+  return cleaned || undefined;
+};
 
 export const parseCanalPayload = (payload: unknown): CanalOption[] => {
   const parseBlock = (block: string) =>
     block
-      .split("¬")
+      .split(/(?:\u00C2)?¬/)
       .map((item) => item.trim())
       .filter(Boolean)
       .map((item) => {
@@ -65,7 +72,7 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
   if (!payload) return [];
 
   if (typeof payload === "string") {
-    const trimmed = payload.trim();
+    const trimmed = normalizeCanalText(payload);
     if (!trimmed) return [];
 
     if (trimmed.includes("[") && trimmed.includes("¬")) {
@@ -96,7 +103,7 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
     }
 
     const rows = trimmed
-      .split(/¬|\r?\n/)
+      .split(/(?:\u00C2)?¬|\r?\n/)
       .map((r) => r.trim())
       .filter(Boolean);
     return rows
@@ -109,7 +116,7 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
       .map((it, i) => {
         if (typeof it === "string") return normalizeRow(it, i);
         if (it && typeof it === "object") {
-          const o: any = it;
+          const o = it as Record<string, unknown>;
           const valueCandidate = cleanText(
             o.value ??
               o.IdCanal ??
@@ -140,8 +147,7 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
             contacto: cleanText(o.Contacto ?? o.contacto),
             telefono: cleanText(o.Telefono ?? o.telefono),
             email: cleanText(o.Email ?? o.email),
-
-            auxiliar: o.auxiliar ?? undefined,
+            auxiliar: cleanText(o.auxiliar),
           } as CanalOption;
         }
         return null;
@@ -150,7 +156,7 @@ export const parseCanalPayload = (payload: unknown): CanalOption[] => {
   }
 
   if (typeof payload === "object") {
-    const d: any = (payload as any).data ?? payload;
+    const d = (payload as Record<string, unknown>).data ?? payload;
     return parseCanalPayload(d);
   }
 

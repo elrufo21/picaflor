@@ -276,6 +276,7 @@ const PassengersSection = ({
                           toPositiveIntegerText(value),
                         )
                       }
+                      textSize="lg"
                       placeholder="0"
                     />
                   </td>

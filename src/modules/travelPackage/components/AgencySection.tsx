@@ -8,7 +8,10 @@ import SectionCard from "./SectionCard";
 import { AutocompleteControlled, TextControlled } from "@/components/ui/inputs";
 import { useCanalVenta } from "@/modules/fullday/hooks/useCanalVenta";
 import { useForm } from "react-hook-form";
-import type { CanalOption } from "@/modules/fullday/hooks/canalUtils";
+import {
+  normalizeCanalText,
+  type CanalOption,
+} from "@/modules/fullday/hooks/canalUtils";
 import { serviciosDB } from "@/app/db/serviciosDB";
 
 type Props = {
@@ -58,26 +61,26 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
 
       const auxById = new Map(
         auxiliaresRows.map((aux) => [
-          String(aux.id),
+          normalizeCanalText(aux.id),
           {
-            telefono: String(aux.telefono ?? "").trim(),
-            contacto: String(aux.contacto ?? "").trim(),
-            email: String(aux.email ?? "").trim(),
+            telefono: normalizeCanalText(aux.telefono),
+            contacto: normalizeCanalText(aux.contacto),
+            email: normalizeCanalText(aux.email),
           },
         ]),
       );
 
       const mapped: CanalOption[] = canalesRows
         .map((row) => {
-          const id = String(row.id ?? "").trim();
-          const label = String(row.nombre ?? "").trim();
+          const id = normalizeCanalText(row.id);
+          const label = normalizeCanalText(row.nombre);
           if (!id && !label) return null;
 
           const aux = auxById.get(id);
           const contacto =
-            String(row.contacto ?? "").trim() || aux?.contacto || "";
-          const email = String(row.email ?? "").trim() || aux?.email || "";
-          const telefono = String(aux?.telefono ?? "").trim();
+            normalizeCanalText(row.contacto) || aux?.contacto || "";
+          const email = normalizeCanalText(row.email) || aux?.email || "";
+          const telefono = normalizeCanalText(aux?.telefono);
 
           return {
             value: id || label,
