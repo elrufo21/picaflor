@@ -117,8 +117,7 @@ const PassengersSection = ({
               const isLiberadoPassenger = passengerTypeValue === "LIBERADO";
               const selectedPassengerType =
                 PASSENGER_TYPE_OPTIONS.find(
-                  (option) =>
-                    option.value === passengerTypeValue,
+                  (option) => option.value === passengerTypeValue,
                 ) ?? PASSENGER_TYPE_OPTIONS[0];
 
               return (
@@ -268,6 +267,7 @@ const PassengersSection = ({
                       navColumn="totalTipoPasajero"
                       navRow={index}
                       type="number"
+                      textAlign="right"
                       disabled={isLiberadoPassenger}
                       onChange={(value) =>
                         onUpdateField(

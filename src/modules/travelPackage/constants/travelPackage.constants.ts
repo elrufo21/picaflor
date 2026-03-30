@@ -182,6 +182,7 @@ export const createActivityRow = (id: number): ItineraryActivityRow => ({
   id,
   tipo: "ACT1",
   detalle: "-",
+  viajeExcursiones: "",
   precio: 0,
   cant: 0,
   subtotal: 0,
@@ -194,46 +195,35 @@ export const createActivityRowByType = (
   id,
   tipo,
   detalle: tipo === "ENTRADA" ? "N/A" : "-",
+  viajeExcursiones: "",
   precio: 0,
   cant: 0,
   subtotal: 0,
 });
 
 export const createDefaultItineraryRows = (): ItineraryActivityRow[] => {
-  const baseId = Date.now() + Math.random();
-  return [
-    createActivityRowByType(baseId + 1, "ACT1"),
-    createActivityRowByType(baseId + 2, "ACT2"),
-    createActivityRowByType(baseId + 3, "ACT3"),
-    createActivityRowByType(baseId + 4, "TRASLADO"),
-    createActivityRowByType(baseId + 5, "ENTRADA"),
-  ];
+  return [];
 };
 
 export const createItineraryDayRow = (
   dayId: number,
   activityId: number,
-): ItineraryDayRow => ({
-  id: dayId,
-  fecha: "",
-  titulo: "",
-  precioUnitario: 0,
-  comisionPorcentaje: undefined,
-  incentivoValor: 0,
-  observacion: "",
-  origen: "",
-  destino: "",
-  actividades:
-    activityId > 0
-      ? [
-          createActivityRowByType(activityId + 1, "ACT1"),
-          createActivityRowByType(activityId + 2, "ACT2"),
-          createActivityRowByType(activityId + 3, "ACT3"),
-          createActivityRowByType(activityId + 4, "TRASLADO"),
-          createActivityRowByType(activityId + 5, "ENTRADA"),
-        ]
-      : createDefaultItineraryRows(),
-});
+): ItineraryDayRow => {
+  void activityId;
+  return {
+    id: dayId,
+    fecha: "",
+    titulo: "",
+    precioUnitario: 0,
+    comisionPorcentaje: undefined,
+    incentivoValor: 0,
+    viajeExcursiones: "",
+    observacion: "",
+    origen: "",
+    destino: "",
+    actividades: createDefaultItineraryRows(),
+  };
+};
 
 export const createHotelServicioRow = (id: number): HotelServicioRow => ({
   id,

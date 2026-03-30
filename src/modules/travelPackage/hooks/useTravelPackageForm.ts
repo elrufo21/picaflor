@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/auth/auth.store";
 import {
   calculateTravelPackageCharges,
   calculateTravelPackageLiquidationBase,
+  getBillablePassengerCount,
 } from "../utils/liquidationCalculator";
 import type {
   HotelServicioRow,
@@ -21,7 +22,6 @@ import {
   createEmptyActivity,
   createEmptyItineraryDay,
   createEmptyHotelServicio,
-  createDefaultItineraryRows,
   getTravelCurrencySymbol,
 } from "../constants/travelPackage.constants";
 
@@ -90,6 +90,7 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
   } else if (pax < currentPassengers.length) {
     next.pasajeros = currentPassengers.slice(0, pax);
   }
+  const billablePax = getBillablePassengerCount(next);
 
   next.itinerario = (next.itinerario ?? []).map((day) => ({
     ...day,
@@ -134,7 +135,7 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
         return { ...row, precio: 0, cant: 0, subtotal: 0 };
       }
       const precio = Number(row.precio || 0);
-      const cant = pax;
+      const cant = billablePax;
       return { ...row, cant, subtotal: roundCurrency(precio * cant) };
     }),
   }));
@@ -274,8 +275,9 @@ export const useTravelPackageForm = () => {
                             precioUnitario: 0,
                             comisionPorcentaje: undefined,
                             incentivoValor: 0,
+                            viajeExcursiones: "",
                             observacion: "",
-                            actividades: createDefaultItineraryRows(),
+                            actividades: [],
                         });
                     }
                 }

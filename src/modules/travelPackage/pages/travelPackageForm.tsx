@@ -381,12 +381,12 @@ const validateTravelPackageForm = (
       };
     }
 
-    if (movilidadPrecio <= 0) {
+    if (movilidadPrecio < 0) {
       return {
         message:
           movilidadTipo === "BUS"
-            ? "SI SELECCIONA MOVILIDAD BUS, DEBE INGRESAR UN PRECIO MAYOR A 0."
-            : "EL PRECIO DE MOVILIDAD DEBE SER MAYOR A 0.",
+            ? "SI SELECCIONA MOVILIDAD BUS, EL PRECIO NO PUEDE SER NEGATIVO."
+            : "EL PRECIO DE MOVILIDAD NO PUEDE SER NEGATIVO.",
         focusSelector: 'input[name^="nh-movilidadprecio-"]',
       };
     }
@@ -582,9 +582,9 @@ const validateTravelPackageForm = (
         normalizeComparableText(row.detalle) === "EXCURSION ISLAS BALLESTAS";
       if (isBallestasActivity) continue;
 
-      if (parseSafeNumber(row.precio) <= 0) {
+      if (parseSafeNumber(row.precio) < 0) {
         return {
-          message: `EL ${getItineraryRowLabel(row.tipo)} DEL DÍA #${dayIndex + 1} DEBE TENER PRECIO MAYOR A 0.`,
+          message: `EL ${getItineraryRowLabel(row.tipo)} DEL DÍA #${dayIndex + 1} NO PUEDE TENER PRECIO NEGATIVO.`,
           focusSelector:
             day?.id && row?.id
               ? `input[data-row-price-day="${String(day.id)}"][data-row-price-row="${String(row.id)}"]`
@@ -592,28 +592,6 @@ const validateTravelPackageForm = (
         };
       }
     }
-  }
-
-  const invalidDayPricingIndex = itinerario.findIndex((day) => {
-    const title = normalizeUpperText(day.titulo);
-    if (!title || title === "SIN ACTIVIDAD") return false;
-    const unitPrice = parseSafeNumber(day.precioUnitario);
-    const hasActivitySubtotal = (day.actividades ?? []).some((row) =>
-      isActiveItineraryActivity(row)
-        ? parseSafeNumber(row.subtotal) > 0 ||
-          (parseSafeNumber(row.precio) > 0 && parseSafeNumber(row.cant) > 0)
-        : false,
-    );
-    return unitPrice <= 0 && !hasActivitySubtotal;
-  });
-  if (invalidDayPricingIndex >= 0) {
-    const invalidDay = itinerario[invalidDayPricingIndex];
-    return {
-      message: `EL DÍA #${invalidDayPricingIndex + 1} DEBE TENER PRECIO UNITARIO O ACTIVIDADES VALORIZADAS.`,
-      focusSelector: invalidDay?.id
-        ? `input[data-unit-price-day="${String(invalidDay.id)}"]`
-        : undefined,
-    };
   }
 
   const medioPago = normalizeUpperText(form.medioPago);
@@ -1648,6 +1626,7 @@ const TravelPackageForm = () => {
                 itinerario={form.itinerario}
                 destinos={form.destinos}
                 cantPax={form.cantPax}
+                pasajeros={form.pasajeros}
                 moneda={form.moneda}
                 onUpdateDayField={handlers.updateItineraryDayField}
                 onAddDay={handlers.addItineraryDay}

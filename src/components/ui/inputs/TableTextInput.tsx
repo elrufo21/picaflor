@@ -7,6 +7,7 @@ type Props = {
   onChange: (value: string) => void;
   placeholder?: string;
   type?: React.HTMLInputTypeAttribute;
+  textAlign?: "left" | "center" | "right";
   disabled?: boolean;
   className?: string;
   navColumn?: string;
@@ -21,6 +22,7 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
       onChange,
       placeholder,
       type = "text",
+      textAlign = "left",
       disabled = false,
       className,
       navColumn,
@@ -58,6 +60,18 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
       next.focus();
       return true;
     };
+
+    const textAlignClass =
+      textAlign === "right"
+        ? "text-right"
+        : textAlign === "center"
+          ? "text-center"
+          : "text-left";
+    const baseClassName =
+      "w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-emerald-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400 h-10";
+    const resolvedClassName = className
+      ? `${baseClassName} ${className} ${textAlignClass}`
+      : `${baseClassName} ${textAlignClass}`;
 
     return (
       <input
@@ -129,10 +143,7 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
         data-bwignore="true"
         data-form-type="other"
         data-autocomplete="off"
-        className={
-          className ??
-          "w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-emerald-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400 h-10 "
-        }
+        className={resolvedClassName}
       />
     );
   },
