@@ -111,8 +111,7 @@ function TextControlled<T extends FieldValues>({
         const shouldUppercase = inputType === "text" && !disableAutoUppercase;
 
         const shouldHideZero =
-          (displayZeroAsEmpty || inputType === "number") &&
-          (value === 0 || value === "0");
+          Boolean(displayZeroAsEmpty) && (value === 0 || value === "0");
         const rawDisplayValue = shouldHideZero ? "" : (value ?? "");
         const displayValue =
           formatter && rawDisplayValue !== "" && rawDisplayValue !== null

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Users } from "lucide-react";
 import {
   AutocompleteTable,
@@ -12,6 +12,7 @@ import SectionCard from "./SectionCard";
 
 type Props = {
   pasajeros: PassengerRow[];
+  precioPaxGeneral: string;
   onUpdateField: (
     id: number,
     key: keyof Omit<PassengerRow, "id">,
@@ -38,6 +39,7 @@ const PASSENGER_TYPE_OPTIONS = [
 
 const PassengersSection = ({
   pasajeros,
+  precioPaxGeneral,
   onUpdateField,
   onAdd,
   onRemove,
@@ -46,6 +48,56 @@ const PassengersSection = ({
   void onRemove;
   const { paises, loading, error } = usePaises();
   const maxBirthDate = useMemo(() => getTodayIso(), []);
+  const hasInitializedGeneralPriceRef = useRef(false);
+  const lastAppliedGeneralPriceRef = useRef<string>("");
+  const defaultGeneralTotal = useMemo(
+    () => toPositiveIntegerText(precioPaxGeneral),
+    [precioPaxGeneral],
+  );
+
+  useEffect(() => {
+    if (!hasInitializedGeneralPriceRef.current) {
+      hasInitializedGeneralPriceRef.current = true;
+      lastAppliedGeneralPriceRef.current = defaultGeneralTotal;
+      return;
+    }
+
+    if (lastAppliedGeneralPriceRef.current === defaultGeneralTotal) return;
+    lastAppliedGeneralPriceRef.current = defaultGeneralTotal;
+
+    pasajeros.forEach((passenger) => {
+      const passengerType = String(passenger.tipoPasajero ?? "")
+        .trim()
+        .toUpperCase();
+      const currentTotalTipo = toPositiveIntegerText(
+        String(passenger.totalTipoPasajero ?? ""),
+      );
+
+      if (
+        passengerType === "GENERAL" &&
+        currentTotalTipo !== defaultGeneralTotal
+      ) {
+        onUpdateField(passenger.id, "totalTipoPasajero", defaultGeneralTotal);
+      }
+    });
+  }, [defaultGeneralTotal, onUpdateField, pasajeros]);
+
+  useEffect(() => {
+    if (!defaultGeneralTotal) return;
+
+    pasajeros.forEach((passenger) => {
+      const passengerType = String(passenger.tipoPasajero ?? "")
+        .trim()
+        .toUpperCase();
+      const currentTotalTipo = toPositiveIntegerText(
+        String(passenger.totalTipoPasajero ?? ""),
+      );
+      if (passengerType === "GENERAL" && !currentTotalTipo) {
+        onUpdateField(passenger.id, "totalTipoPasajero", defaultGeneralTotal);
+      }
+    });
+  }, [defaultGeneralTotal, onUpdateField, pasajeros]);
+
   const focusTotalTipoInput = (passengerId: number) => {
     setTimeout(() => {
       const totalTipoInput = document.getElementById(
@@ -244,6 +296,14 @@ const PassengersSection = ({
                           onUpdateField(passenger.id, "totalTipoPasajero", "");
                           return;
                         }
+
+                        if (nextPassengerType === "GENERAL") {
+                          onUpdateField(
+                            passenger.id,
+                            "totalTipoPasajero",
+                            defaultGeneralTotal,
+                          );
+                        }
                         focusTotalTipoInput(passenger.id);
                       }}
                       getOptionKey={(option) => option.id}
@@ -274,8 +334,7 @@ const PassengersSection = ({
                           passenger.id,
                           "totalTipoPasajero",
                           toPositiveIntegerText(value),
-                        )
-                      }
+                        )}
                       textSize="lg"
                       placeholder="0"
                     />

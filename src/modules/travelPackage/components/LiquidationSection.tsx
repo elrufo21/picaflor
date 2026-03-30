@@ -558,27 +558,24 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                       </td>
                     </tr>
                     <tr className="border-t border-slate-200 bg-slate-50">
+                      <td className="px-3 py-2" />
+                      <td className="px-3 py-2" />
+                      <td className="px-3 py-2" />
                       <td className="px-3 py-2 text-right font-semibold text-slate-700">
                         Total comision
                       </td>
-                      <td className="px-3 py-2 text-center font-semibold text-slate-700">
-                        {currencySymbol}
-                      </td>
-                      <td className="px-3 py-2" />
                       <td className="px-3 py-2 text-right font-bold text-slate-900">
                         {formatCurrency(totalComision)}
                       </td>
                       <td className="px-3 py-2" />
                     </tr>
                     <tr className="border-t border-slate-200 bg-slate-50">
+                      <td className="px-3 py-2 text-center font-semibold text-slate-700"></td>
+                      <td className="px-3 py-2" />
+                      <td className="px-3 py-2" />
                       <td className="px-3 py-2 text-right font-semibold text-slate-700">
                         Total incentivo
                       </td>
-                      <td className="px-3 py-2 text-center font-semibold text-slate-700">
-                        {currencySymbol}
-                      </td>
-                      <td className="px-3 py-2" />
-                      <td className="px-3 py-2" />
                       <td className="px-3 py-2 text-right font-bold text-slate-900">
                         {formatCurrency(totalIncentivo)}
                       </td>
@@ -729,7 +726,7 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                       Deposito
                     </p>
                     <p className="text-right text-sm font-semibold text-slate-800">
-                      {`${currencySymbol} ${formatCurrency(form.deposito || 0)}`}
+                      {` ${formatCurrency(form.deposito || 0)}`}
                     </p>
                   </div>
                   <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
@@ -737,7 +734,7 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                       Efectivo
                     </p>
                     <p className="text-right text-sm font-semibold text-slate-800">
-                      {`${currencySymbol} ${formatCurrency(form.efectivo || 0)}`}
+                      {` ${formatCurrency(form.efectivo || 0)}`}
                     </p>
                   </div>
                 </div>
@@ -745,7 +742,7 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                 <div className="grid grid-cols-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
                   <span className="font-medium text-slate-600">Saldo</span>
                   <span className="text-right font-semibold text-slate-900">
-                    {`${currencySymbol} ${formatCurrency(form.saldo || 0)}`}
+                    {` ${formatCurrency(form.saldo || 0)}`}
                   </span>
                 </div>
               </div>

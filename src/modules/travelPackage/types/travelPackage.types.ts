@@ -110,5 +110,6 @@ export type TravelPackageFormState = {
   impuestosAdicionales: string;
   observaciones: string;
   cantPax: string;
+  precioPaxGeneral: string;
   flagVerificado: "0" | "1";
 };

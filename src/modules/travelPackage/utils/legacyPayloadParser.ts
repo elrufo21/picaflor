@@ -469,6 +469,12 @@ export const parseTravelPackageLegacyPayload = (
   )
     ? "SI"
     : "NO";
+  const precioPaxGeneral =
+    pasajerosState.find(
+      (passenger) =>
+        normalizeCell(passenger.tipoPasajero).toUpperCase() === "GENERAL" &&
+        normalizeCell(passenger.totalTipoPasajero),
+    )?.totalTipoPasajero ?? "";
 
   const nextState: TravelPackageFormState = {
     ...INITIAL_FORM_STATE,
@@ -514,6 +520,7 @@ export const parseTravelPackageLegacyPayload = (
     impuestosAdicionales: header[36] ?? "",
     observaciones: header[37] ?? "",
     flagVerificado: parseFlagVerificado(header[39]),
+    precioPaxGeneral,
     destinos: destinosState,
     paquetesViaje: paquetesState,
     pasajeros: pasajerosState,

@@ -3,9 +3,7 @@ import { ClipboardList } from "lucide-react";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import {
-  TRAVEL_PACKAGE_SELECTOR_OPTIONS,
-} from "../constants/travelPackage.constants";
+import { TRAVEL_PACKAGE_SELECTOR_OPTIONS } from "../constants/travelPackage.constants";
 import type { TravelPackageFormState } from "../types/travelPackage.types";
 import SectionCard from "./SectionCard";
 import TravelDateRangePicker from "./TravelDateRangePicker";
@@ -34,6 +32,7 @@ type GeneralDataFormValues = {
   moneda: "SOLES" | "DOLARES";
   programa: string;
   cantPax: string;
+  precioPaxGeneral: string;
   condicionPago: EstadoPagoOption | null;
 };
 
@@ -93,6 +92,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
       moneda: form.moneda,
       programa: form.programa,
       cantPax: form.cantPax,
+      precioPaxGeneral: form.precioPaxGeneral,
       condicionPago: null,
     },
   });
@@ -130,9 +130,18 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
   }, [form.cantPax, setValue]);
 
   useEffect(() => {
+    setValue("precioPaxGeneral", form.precioPaxGeneral, {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+  }, [form.precioPaxGeneral, setValue]);
+
+  useEffect(() => {
     const selectedCondition =
       ESTADO_PAGO_OPTIONS.find(
-        (option) => option.value === String(form.condicionPago ?? "").toUpperCase(),
+        (option) =>
+          option.value === String(form.condicionPago ?? "").toUpperCase(),
       ) ?? null;
     setValue("condicionPago", selectedCondition, {
       shouldDirty: false,
@@ -442,7 +451,7 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
           />
         </div>
 
-        <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <TextControlled<GeneralDataFormValues>
             name="cantPax"
             control={control}
@@ -452,6 +461,19 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             displayZeroAsEmpty
             label="Cantidad Pax"
             onChange={(event) => onUpdateField("cantPax", event.target.value)}
+            inputProps={{ style: { textAlign: "center" } }}
+          />
+
+          <TextControlled<GeneralDataFormValues>
+            name="precioPaxGeneral"
+            control={control}
+            fullWidth
+            size="small"
+            type="number"
+            label="Precio Pax General"
+            onChange={(event) =>
+              onUpdateField("precioPaxGeneral", event.target.value)
+            }
             inputProps={{ style: { textAlign: "center" } }}
           />
         </div>
@@ -465,7 +487,9 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             size="small"
             label="Condición"
             getOptionLabel={(option) => option.label}
-            isOptionEqualToValue={(option, value) => option.value === value.value}
+            isOptionEqualToValue={(option, value) =>
+              option.value === value.value
+            }
             onValueChange={(option) =>
               onUpdateField("condicionPago", option?.value ?? "")
             }

@@ -151,6 +151,9 @@ function AutocompleteTable<Option>({
         "& .MuiAutocomplete-input": {
           textTransform: "uppercase",
         },
+        "& .MuiAutocomplete-clearIndicator": {
+          display: "none",
+        },
       }}
       renderInput={(params) => (
         <TextField
