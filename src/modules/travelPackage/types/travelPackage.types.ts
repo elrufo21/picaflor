@@ -10,12 +10,15 @@ export type PassengerRow = {
   nacionalidad: string;
   telefono: string;
   fechaNacimiento: string;
+  tipoPasajero: string;
+  totalTipoPasajero: string;
 };
 
 export type ItineraryActivityRow = {
   id: number;
   tipo: "ACT1" | "ACT2" | "ACT3" | "TRASLADO" | "ENTRADA";
   detalle: string;
+  viajeExcursiones: string;
   precio: number;
   cant: number;
   subtotal: number;
@@ -28,6 +31,7 @@ export type ItineraryDayRow = {
   precioUnitario: number;
   comisionPorcentaje?: number;
   incentivoValor?: number;
+  viajeExcursiones: string;
   observacion: string;
   origen: string;
   destino: string;

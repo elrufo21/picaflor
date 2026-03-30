@@ -11,6 +11,24 @@ const shouldApplyIgv = (documentoCobranza: string) => {
 const shouldApplyCardCharge = (medioPago: string) =>
   normalizeText(medioPago) === "TARJETA";
 
+const isLiberadoPassengerType = (value: string) =>
+  normalizeText(value) === "LIBERADO";
+
+export const getBillablePassengerCount = (form: TravelPackageFormState) => {
+  const passengers = form.pasajeros ?? [];
+  if (!passengers.length) {
+    return Math.max(0, Number(form.cantPax || 0));
+  }
+
+  return Math.max(
+    0,
+    passengers.filter(
+      (passenger) =>
+        !isLiberadoPassengerType(String(passenger.tipoPasajero ?? "GENERAL")),
+    ).length,
+  );
+};
+
 export const calculateTravelPackageCharges = ({
   baseAmount,
   documentoCobranza,
@@ -37,7 +55,20 @@ export const calculateTravelPackageCharges = ({
 export const calculateTravelPackageLiquidationBase = (
   form: TravelPackageFormState,
 ) => {
-  const paxCount = Math.max(0, Number(form.cantPax || 0));
+  const paxCount = getBillablePassengerCount(form);
+  const passengerBaseTotal = roundCurrency(
+    (form.pasajeros ?? []).reduce((sum, passenger) => {
+      const passengerType =
+        normalizeText(String(passenger.tipoPasajero ?? "")) || "GENERAL";
+      if (passengerType === "LIBERADO") return sum;
+
+      const passengerTotal = Math.max(
+        0,
+        Number(String(passenger.totalTipoPasajero ?? "").trim() || 0),
+      );
+      return roundCurrency(sum + passengerTotal);
+    }, 0),
+  );
 
   const hotelRowsTotal = (() => {
     if (!form.incluyeHotel) return 0;
@@ -110,7 +141,8 @@ export const calculateTravelPackageLiquidationBase = (
     movilidadQuantity > 0;
 
   return roundCurrency(
-    hotelRowsTotal +
+    passengerBaseTotal +
+      hotelRowsTotal +
       (showMovilidadRow ? movilidadTotal : 0) +
       (showActivitiesRow ? activitiesTotal : 0) +
       (showFoodRow ? foodTotal : 0),

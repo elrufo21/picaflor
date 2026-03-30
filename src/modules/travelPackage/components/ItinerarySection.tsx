@@ -27,6 +27,7 @@ import { getTravelCurrencySymbol } from "../constants/travelPackage.constants";
 import type {
   ItineraryDayRow,
   ItineraryActivityRow,
+  PassengerRow,
   TravelPackageFormState,
 } from "../types/travelPackage.types";
 import SectionCard from "./SectionCard";
@@ -37,6 +38,7 @@ type Props = {
   itinerario: ItineraryDayRow[];
   destinos: string[];
   cantPax: string;
+  pasajeros: PassengerRow[];
   moneda: TravelPackageFormState["moneda"];
   onUpdateDayField: <
     K extends keyof Omit<ItineraryDayRow, "id" | "actividades">,
@@ -57,22 +59,15 @@ type Props = {
   ) => void;
 };
 
-const ROW_TYPES: ItineraryActivityRow["tipo"][] = [
-  "ACT1",
-  "ACT2",
-  "ACT3",
-  "TRASLADO",
-  "ENTRADA",
-];
 const NO_ACTIVITY_OPTION = "SIN ACTIVIDAD";
 const BALLESTAS_LABEL = "EXCURSION ISLAS BALLESTAS";
 const BALLESTAS_ENTRADA_DETAIL = "IMPTOS DE ISLAS + MUELLE";
 const BALLESTAS_ENTRADA_PRICE = 16;
 
-const ROW_LABELS: Record<ItineraryActivityRow["tipo"], string> = {
-  ACT1: "Actividad 1",
-  ACT2: "Actividad 2",
-  ACT3: "Actividad 3",
+const ROW_LABELS: Record<
+  Exclude<ItineraryActivityRow["tipo"], "ACT1" | "ACT2" | "ACT3">,
+  string
+> = {
   TRASLADO: "Traslados",
   ENTRADA: "Entradas",
 };
@@ -100,6 +95,8 @@ const normalizeText = (value: string) =>
     .toUpperCase();
 const isBallestasText = (value: string) =>
   normalizeText(value) === BALLESTAS_LABEL;
+const isActivityType = (tipo: ItineraryActivityRow["tipo"]) =>
+  tipo === "ACT1" || tipo === "ACT2" || tipo === "ACT3";
 const ENTRADA_PRODUCT_ID = 4;
 const preventNumberArrowStep = (event: KeyboardEvent<HTMLInputElement>) => {
   if (event.key === "ArrowUp" || event.key === "ArrowDown") {
@@ -111,6 +108,7 @@ const ItinerarySection = ({
   itinerario,
   destinos,
   cantPax,
+  pasajeros,
   moneda,
   onUpdateDayField,
   onAddDay,
@@ -136,7 +134,21 @@ const ItinerarySection = ({
     defaultValues: {},
   });
 
-  const paxCount = Math.max(0, Number(cantPax || 0));
+  const totalPaxCount = Math.max(0, Number(cantPax || 0));
+  const paxCount = useMemo(() => {
+    const passengerRows = pasajeros ?? [];
+    if (!passengerRows.length) return totalPaxCount;
+
+    return Math.max(
+      0,
+      passengerRows.filter(
+        (passenger) =>
+          String(passenger.tipoPasajero ?? "")
+            .trim()
+            .toUpperCase() !== "LIBERADO",
+      ).length,
+    );
+  }, [pasajeros, totalPaxCount]);
   const currencySymbol = getTravelCurrencySymbol(moneda);
   const isDolCurrency = String(moneda ?? "").toUpperCase() === "DOLARES";
 
@@ -293,6 +305,34 @@ const ItinerarySection = ({
           .trim()
           .toLowerCase(),
     );
+  const getCatalogActivityNamesByProduct = (productId?: number) =>
+    actividades
+      .filter((item) =>
+        productId ? Number(item.idProducto) === Number(productId) : false,
+      )
+      .map((item) => String(item.actividad ?? "").trim())
+      .filter(Boolean);
+  const getProductActivityNames = (pool: ItineraryProducto[]) =>
+    Array.from(
+      new Set(
+        pool
+          .map((producto) => String(producto.nombre ?? "").trim())
+          .filter(Boolean),
+      ),
+    );
+  const resolveActivityMode = (productId?: number, pool: ItineraryProducto[] = productos) => {
+    const catalogActivityNames = getCatalogActivityNamesByProduct(productId);
+    if (catalogActivityNames.length > 0) {
+      return {
+        useProductActivities: false,
+        options: catalogActivityNames,
+      };
+    }
+    return {
+      useProductActivities: Boolean(productId),
+      options: getProductActivityNames(pool),
+    };
+  };
   const getProductBasePrice = (productId?: number) => {
     if (!productId) return 0;
     const productData = productos.find(
@@ -324,6 +364,13 @@ const ItinerarySection = ({
         );
     return round2(price);
   };
+  const getProductVisits = (productId?: number) => {
+    if (!productId) return "";
+    const priceRow = preciosProducto.find(
+      (price) => Number(price.idProducto) === Number(productId),
+    );
+    return String(priceRow?.visitas ?? "").trim();
+  };
   const getActivityUnitPrice = (activityId?: number) => {
     if (!activityId) return 0;
     const priceRow = preciosActividades.find(
@@ -346,6 +393,16 @@ const ItinerarySection = ({
   };
 
   const getObservationFieldName = (dayId: number) => `observacion_${dayId}`;
+  const getViajeExcursionesFieldName = (dayId: number) =>
+    `viaje_excursiones_${dayId}`;
+  const setDayViajeExcursiones = (
+    dayId: number,
+    currentValue: string,
+    nextValue: string,
+  ) => {
+    if (String(currentValue ?? "") === nextValue) return;
+    onUpdateDayField(dayId, "viajeExcursiones", nextValue);
+  };
   const focusObservationField = (dayId: number) => {
     setTimeout(() => {
       const observationField = document.querySelector<HTMLElement>(
@@ -367,6 +424,10 @@ const ItinerarySection = ({
   useEffect(() => {
     itinerario.forEach((day) => {
       setValue(getObservationFieldName(day.id), day.observacion ?? "");
+      setValue(
+        getViajeExcursionesFieldName(day.id),
+        day.viajeExcursiones ?? "",
+      );
     });
   }, [itinerario, setValue]);
 
@@ -418,14 +479,9 @@ const ItinerarySection = ({
 
     itinerario.forEach((day) => {
       const selectedProduct = getProductByTitle(day.titulo ?? "");
+      const { options } = resolveActivityMode(selectedProduct?.id, productos);
       const allowedActivities = new Set(
-        actividades
-          .filter((actividad) =>
-            selectedProduct
-              ? actividad.idProducto === selectedProduct.id
-              : false,
-          )
-          .map((actividad) => actividad.actividad.trim().toLowerCase()),
+        options.map((option) => String(option ?? "").trim().toLowerCase()),
       );
 
       day.actividades.forEach((row) => {
@@ -570,16 +626,29 @@ const ItinerarySection = ({
           const detalle = String(row.detalle ?? "").trim();
           if (!detalle || detalle === "-") return;
 
-          const actividadSeleccionada = actividades.find(
-            (item) =>
-              item.actividad.toLowerCase() === detalle.toLowerCase() &&
-              (selectedProduct ? item.idProducto === selectedProduct.id : true),
+          const { useProductActivities } = resolveActivityMode(
+            selectedProduct?.id,
+            productos,
           );
-          const nextPrice = actividadSeleccionada
-            ? isBallestasText(detalle)
-              ? 0
-              : getActivityUnitPrice(actividadSeleccionada.id)
-            : 0;
+          const actividadSeleccionada = useProductActivities
+            ? null
+            : actividades.find(
+                (item) =>
+                  item.actividad.toLowerCase() === detalle.toLowerCase() &&
+                  (selectedProduct
+                    ? item.idProducto === selectedProduct.id
+                    : true),
+              );
+          const actividadProductoSeleccionada = useProductActivities
+            ? getProductByTitle(detalle)
+            : null;
+          const nextPrice = isBallestasText(detalle)
+            ? 0
+            : useProductActivities
+              ? getProductBasePrice(actividadProductoSeleccionada?.id)
+              : actividadSeleccionada
+                ? getActivityUnitPrice(actividadSeleccionada.id)
+                : 0;
           const nextSubtotal = round2(nextPrice * Number(row.cant || 0));
 
           if (round2(Number(row.precio || 0)) !== nextPrice) {
@@ -609,18 +678,6 @@ const ItinerarySection = ({
       });
     }
   }, [itinerario, actividades, onUpdateDayField, onUpdateEventField]);
-
-  const getRowFallback = (
-    rowType: ItineraryActivityRow["tipo"],
-    idSeed: number,
-  ): ItineraryActivityRow => ({
-    id: idSeed,
-    tipo: rowType,
-    detalle: rowType === "ENTRADA" ? "N/A" : "-",
-    precio: 0,
-    cant: 0,
-    subtotal: 0,
-  });
 
   return (
     <SectionCard
@@ -658,59 +715,34 @@ const ItinerarySection = ({
             return !selectedProductsInOtherDays.has(normalizedName);
           });
 
-          const activityOptions = actividades
-            .filter((item) =>
-              selectedProduct ? item.idProducto === selectedProduct.id : false,
-            )
-            .map((item) => item.actividad);
+          const { useProductActivities, options: activityOptions } =
+            resolveActivityMode(
+              selectedProduct?.id,
+              productosFiltradosPorRegion,
+            );
 
-          const rowTypesToRender = shouldShowEntrada
-            ? ROW_TYPES
-            : ROW_TYPES.filter((rowType) => rowType !== "ENTRADA");
-          const normalizedRows = rowTypesToRender.map((rowType, index) => {
-            const byType = day.actividades.find((row) => row.tipo === rowType);
-            if (byType) return byType;
-
-            const legacyRow = day.actividades[index];
-            if (legacyRow) {
-              return {
-                ...legacyRow,
-                tipo: rowType,
-                detalle:
-                  typeof legacyRow.detalle === "string"
-                    ? legacyRow.detalle
-                    : rowType === "ENTRADA"
-                      ? "N/A"
-                      : "-",
-                precio: Number(legacyRow.precio || 0),
-                cant: Number(legacyRow.cant || 0),
-                subtotal: Number(legacyRow.subtotal || 0),
-              };
-            }
-
-            return getRowFallback(rowType, -1 * (dayIndex + 1) * 10 - index);
-          });
-          const normalizedRowIds = new Set(
-            normalizedRows.map((row) => Number(row.id)),
-          );
-          const extraActivityRows = (day.actividades ?? [])
-            .filter(
-              (row) =>
-                (row.tipo === "ACT1" ||
-                  row.tipo === "ACT2" ||
-                  row.tipo === "ACT3") &&
-                !normalizedRowIds.has(Number(row.id)),
-            )
+          const renderedRows = (day.actividades ?? [])
+            .filter((row) => shouldShowEntrada || row.tipo !== "ENTRADA")
             .map((row) => ({
               ...row,
-              detalle: typeof row.detalle === "string" ? row.detalle : "-",
+              detalle:
+                typeof row.detalle === "string"
+                  ? row.detalle
+                  : row.tipo === "ENTRADA"
+                    ? "N/A"
+                    : "-",
+              viajeExcursiones:
+                typeof row.viajeExcursiones === "string"
+                  ? row.viajeExcursiones
+                  : "",
               precio: Number(row.precio || 0),
               cant: Number(row.cant || 0),
               subtotal: Number(row.subtotal || 0),
             }));
-          const renderedRows = [...normalizedRows, ...extraActivityRows];
-          const extraActivityLabelIndexById = new Map(
-            extraActivityRows.map((row, index) => [Number(row.id), index + 4]),
+          const activityLabelIndexById = new Map(
+            renderedRows
+              .filter((row) => isActivityType(row.tipo))
+              .map((row, index) => [Number(row.id), index + 1]),
           );
 
           const selectedActivityDetails = renderedRows
@@ -758,7 +790,7 @@ const ItinerarySection = ({
                     const currentTitle = String(day.titulo ?? "");
                     const isChangingSelection = nextTitle !== currentTitle;
 
-                    if (isChangingSelection && paxCount <= 0) {
+                    if (isChangingSelection && totalPaxCount <= 0) {
                       showToast({
                         title: "Alerta",
                         description: "Anade un pasajero por lo menos.",
@@ -772,6 +804,9 @@ const ItinerarySection = ({
                     }
                     const nextSelectedProduct = getProductByTitle(nextTitle);
                     const nextBasePrice = getProductBasePrice(
+                      nextSelectedProduct?.id,
+                    );
+                    const nextProductVisits = getProductVisits(
                       nextSelectedProduct?.id,
                     );
                     if (
@@ -796,9 +831,19 @@ const ItinerarySection = ({
                           onUpdateEventField(day.id, row.id, "subtotal", 0);
                         }
                       });
+                      setDayViajeExcursiones(
+                        day.id,
+                        day.viajeExcursiones ?? "",
+                        "",
+                      );
                       focusObservationField(day.id);
                       return;
                     }
+                    setDayViajeExcursiones(
+                      day.id,
+                      day.viajeExcursiones ?? "",
+                      nextProductVisits,
+                    );
                     if (nextTitle) focusUnitPriceField(day.id);
                   }}
                   renderInput={(params) => (
@@ -887,38 +932,43 @@ const ItinerarySection = ({
                       Agregar actividad
                     </button>
                   </div>
-                  <div className="border border-slate-300 rounded-xl text-sm overflow-x-auto bg-white shadow-sm">
-                    <div className="grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-300 font-bold bg-slate-100 text-slate-800">
-                      <div />
-                      <div className="border-l border-slate-300 p-2.5">
-                        Detalle
-                      </div>
-                      <div className="border-l border-slate-300 p-2.5 text-center">
-                        Precio
-                      </div>
-                      <div className="border-l border-slate-300 p-2.5 text-center">
-                        Cant
-                      </div>
-                      <div className="border-l border-slate-300 p-2.5 text-center">
-                        SubTotal
-                      </div>
+                  {renderedRows.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">
+                      Sin actividades. Usa "Agregar actividad" para crear una.
                     </div>
+                  ) : (
+                    <div className="border border-slate-300 rounded-xl text-sm overflow-x-auto bg-white shadow-sm">
+                      <div className="grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-300 font-bold bg-slate-100 text-slate-800">
+                        <div />
+                        <div className="border-l border-slate-300 p-2.5">
+                          Detalle
+                        </div>
+                        <div className="border-l border-slate-300 p-2.5 text-center">
+                          Precio
+                        </div>
+                        <div className="border-l border-slate-300 p-2.5 text-center">
+                          Cant
+                        </div>
+                        <div className="border-l border-slate-300 p-2.5 text-center">
+                          SubTotal
+                        </div>
+                      </div>
 
-                    {renderedRows.map((row, rowIndex) => {
+                      {renderedRows.map((row, rowIndex) => {
                       const canPersist = row.id > 0;
-                      const isExtraActivityRow =
-                        extraActivityLabelIndexById.has(Number(row.id));
+                      const activityLabelNumber = activityLabelIndexById.get(
+                        Number(row.id),
+                      );
+                      const rowLabel = isActivityType(row.tipo)
+                        ? `Actividad ${activityLabelNumber ?? 1}`
+                        : ROW_LABELS[row.tipo];
                       const detalle = String(row.detalle ?? "").trim();
                       const isBallestasRowSelected =
-                        (row.tipo === "ACT1" ||
-                          row.tipo === "ACT2" ||
-                          row.tipo === "ACT3") &&
+                        isActivityType(row.tipo) &&
                         isBallestasText(detalle);
                       const isBallestasSelectedInDay = renderedRows.some(
                         (activityRow) =>
-                          (activityRow.tipo === "ACT1" ||
-                            activityRow.tipo === "ACT2" ||
-                            activityRow.tipo === "ACT3") &&
+                          isActivityType(activityRow.tipo) &&
                           isBallestasText(String(activityRow.detalle ?? "")),
                       );
                       const isRowActive =
@@ -962,26 +1012,50 @@ const ItinerarySection = ({
                           return;
                         }
 
-                        if (
-                          row.tipo === "ACT1" ||
-                          row.tipo === "ACT2" ||
-                          row.tipo === "ACT3"
-                        ) {
-                          const actividadSeleccionada = actividades.find(
-                            (item) =>
-                              item.actividad.toLowerCase() ===
-                                nextDetalle.toLowerCase() &&
-                              (selectedProduct
-                                ? item.idProducto === selectedProduct.id
-                                : true),
-                          );
+                        if (isActivityType(row.tipo)) {
+                          const actividadSeleccionada = useProductActivities
+                            ? null
+                            : actividades.find(
+                                (item) =>
+                                  item.actividad.toLowerCase() ===
+                                    nextDetalle.toLowerCase() &&
+                                  (selectedProduct
+                                    ? item.idProducto === selectedProduct.id
+                                    : true),
+                              );
+                          const actividadProductoSeleccionada =
+                            useProductActivities
+                              ? getProductByTitle(nextDetalle)
+                              : null;
+                          const precioActividad = isBallestasText(nextDetalle)
+                            ? 0
+                            : useProductActivities
+                              ? getProductBasePrice(
+                                  actividadProductoSeleccionada?.id,
+                                )
+                              : actividadSeleccionada
+                                ? getActivityUnitPrice(actividadSeleccionada.id)
+                                : 0;
+                          const defaultViajeExcursiones = useProductActivities
+                            ? getProductVisits(actividadProductoSeleccionada?.id)
+                            : actividadSeleccionada
+                              ? String(actividadSeleccionada.descripcion ?? "")
+                                  .trim()
+                              : "";
+                          const visitasProducto = getProductVisits(selectedProduct?.id);
+                          const nextViajeExcursiones =
+                            defaultViajeExcursiones || visitasProducto;
 
-                          const precioActividad = actividadSeleccionada
-                            ? isBallestasText(nextDetalle)
-                              ? 0
-                              : getActivityUnitPrice(actividadSeleccionada.id)
-                            : 0;
-
+                          if (
+                            String(day.viajeExcursiones ?? "").trim() === "" &&
+                            nextViajeExcursiones !== ""
+                          ) {
+                            setDayViajeExcursiones(
+                              day.id,
+                              day.viajeExcursiones ?? "",
+                              nextViajeExcursiones,
+                            );
+                          }
                           updateRow("precio", round2(precioActividad));
                           updateRow("cant", paxCount);
                           updateRow(
@@ -1033,11 +1107,9 @@ const ItinerarySection = ({
                         >
                           <div className="flex items-center justify-between gap-2 px-2 py-1.5">
                             <span className="inline-flex items-center rounded-md bg-orange-500 text-white text-xs px-2.5 py-1 font-semibold tracking-wide">
-                              {isExtraActivityRow
-                                ? `Actividad ${extraActivityLabelIndexById.get(Number(row.id))}`
-                                : ROW_LABELS[row.tipo]}
+                              {rowLabel}
                             </span>
-                            {isExtraActivityRow && canPersist && (
+                            {canPersist && (
                               <button
                                 type="button"
                                 onClick={() => onRemoveEvent(day.id, row.id)}
@@ -1049,9 +1121,7 @@ const ItinerarySection = ({
                           </div>
 
                           <div className="border-l border-slate-200 p-1.5">
-                            {(row.tipo === "ACT1" ||
-                              row.tipo === "ACT2" ||
-                              row.tipo === "ACT3") && (
+                            {isActivityType(row.tipo) && (
                               <select
                                 className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
                                 value={row.detalle}
@@ -1157,9 +1227,35 @@ const ItinerarySection = ({
                         </div>
                       );
                     })}
-                  </div>
+                    </div>
+                  )}
                 </>
               )}
+
+              <div className="mt-3">
+                <TextControlled<ItinerarySectionFormValues>
+                  name={getViajeExcursionesFieldName(day.id)}
+                  control={control}
+                  label="Viaje / excursiones"
+                  placeholder="Escribe el detalle de viaje / excursiones del día"
+                  disableKeyboardNavigation
+                  multiline
+                  rows={3}
+                  size="small"
+                  disabled={isNoActivitySelected}
+                  inputProps={{
+                    "data-disable-form-arrow-nav": "true",
+                    "data-viaje-excursiones-day": String(day.id),
+                  }}
+                  onChange={(e) =>
+                    onUpdateDayField(day.id, "viajeExcursiones", e.target.value)
+                  }
+                  sx={{
+                    backgroundColor: "white",
+                    "& .MuiOutlinedInput-root": { borderRadius: "10px" },
+                  }}
+                />
+              </div>
 
               <div className="mt-3">
                 <TextControlled<ItinerarySectionFormValues>

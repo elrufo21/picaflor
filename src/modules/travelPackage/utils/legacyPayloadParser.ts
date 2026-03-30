@@ -36,6 +36,7 @@ type ParsedDay = {
   origen: string;
   destino: string;
   observacion: string;
+  viajeExcursiones: string;
   precioUnitario: number;
   comisionPorcentaje: number;
   incentivoValor: number;
@@ -43,6 +44,7 @@ type ParsedDay = {
     orden: number;
     tipo: ItineraryActivityRow["tipo"];
     detalle: string;
+    viajeExcursiones: string;
     precio: number;
     cant: number;
     subtotal: number;
@@ -56,6 +58,11 @@ const parseNumeric = (value: unknown, fallback = 0) => {
   const normalized = normalizeCell(value).replace(/,/g, "");
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+const isNumericToken = (value: unknown) => {
+  const normalized = normalizeCell(value).replace(/,/g, "");
+  if (!normalized) return false;
+  return Number.isFinite(Number(normalized));
 };
 
 const parsePositiveInt = (value: unknown, fallback = 0) =>
@@ -151,18 +158,6 @@ const mapActivityType = (
   return "ACT1";
 };
 
-const createActivityBase = (
-  nextId: () => number,
-  tipo: ItineraryActivityRow["tipo"],
-): ItineraryActivityRow => ({
-  id: nextId(),
-  tipo,
-  detalle: tipo === "ENTRADA" ? "N/A" : "-",
-  precio: 0,
-  cant: 0,
-  subtotal: 0,
-});
-
 export const parseTravelPackageLegacyPayload = (
   raw: unknown,
 ): TravelPackageFormState | null => {
@@ -222,6 +217,7 @@ export const parseTravelPackageLegacyPayload = (
     }
 
     if (type === "PAX") {
+      const totalTipoPasajeroToken = normalizeCell(cols[8]);
       pasajeros.push({
         orden: parsePositiveInt(cols[1], pasajeros.length + 1),
         row: {
@@ -230,6 +226,11 @@ export const parseTravelPackageLegacyPayload = (
           nacionalidad: cols[4] ?? "",
           telefono: cols[5] ?? "",
           fechaNacimiento: toIsoDate(cols[6]),
+          tipoPasajero: cols[7] || "GENERAL",
+          totalTipoPasajero:
+            totalTipoPasajeroToken === ""
+              ? ""
+              : String(parsePositiveInt(totalTipoPasajeroToken)),
         },
       });
       continue;
@@ -309,6 +310,7 @@ export const parseTravelPackageLegacyPayload = (
         origen: cols[5] ?? "",
         destino: cols[6] ?? "",
         observacion: cols[7] ?? "",
+        viajeExcursiones: cols[11] ?? "",
         precioUnitario: parseNumeric(cols[8]),
         comisionPorcentaje: parseNumeric(cols[9]),
         incentivoValor: parseNumeric(cols[10]),
@@ -330,6 +332,7 @@ export const parseTravelPackageLegacyPayload = (
           origen: "",
           destino: "",
           observacion: "",
+          viajeExcursiones: "",
           precioUnitario: 0,
           comisionPorcentaje: 0,
           incentivoValor: 0,
@@ -341,13 +344,22 @@ export const parseTravelPackageLegacyPayload = (
       if (!day) continue;
 
       const orden = parsePositiveInt(cols[2], day.actividades.length + 1);
+      const hasNewLayout =
+        cols.length >= 9 && !isNumericToken(cols[5]);
+      const viajeExcursiones = hasNewLayout
+        ? (cols[5] ?? "")
+        : (cols[8] ?? "");
+      const precio = parseNumeric(hasNewLayout ? cols[6] : cols[5]);
+      const cant = parsePositiveInt(hasNewLayout ? cols[7] : cols[6]);
+      const subtotal = parseNumeric(hasNewLayout ? cols[8] : cols[7]);
       day.actividades.push({
         orden,
         tipo: mapActivityType(cols[3], orden),
         detalle: cols[4] ?? "",
-        precio: parseNumeric(cols[5]),
-        cant: parsePositiveInt(cols[6]),
-        subtotal: parseNumeric(cols[7]),
+        viajeExcursiones,
+        precio,
+        cant,
+        subtotal,
       });
     }
   }
@@ -404,14 +416,6 @@ export const parseTravelPackageLegacyPayload = (
       };
     });
 
-  const orderedRowTypes: ItineraryActivityRow["tipo"][] = [
-    "ACT1",
-    "ACT2",
-    "ACT3",
-    "TRASLADO",
-    "ENTRADA",
-  ];
-
   const itinerarioState: ItineraryDayRow[] = Array.from(diasMap.values())
     .sort((a, b) => a.orden - b.orden || a.dayKey - b.dayKey)
     .map((day) => {
@@ -421,28 +425,16 @@ export const parseTravelPackageLegacyPayload = (
           id: nextId(),
           tipo: item.tipo,
           detalle: item.detalle,
+          viajeExcursiones: item.viajeExcursiones,
           precio: item.precio,
           cant: item.cant,
           subtotal: item.subtotal,
         }));
-
-      const firstByType = new Map<ItineraryActivityRow["tipo"], ItineraryActivityRow>();
-      for (const row of existingRows) {
-        if (!firstByType.has(row.tipo)) {
-          firstByType.set(row.tipo, row);
-        }
-      }
-
-      const baseRows = orderedRowTypes.map(
-        (tipo) => firstByType.get(tipo) ?? createActivityBase(nextId, tipo),
-      );
-      const baseIds = new Set(baseRows.map((row) => row.id));
-
-      const extraRows = existingRows.filter(
-        (row) =>
-          !baseIds.has(row.id) &&
-          (row.tipo === "ACT1" || row.tipo === "ACT2" || row.tipo === "ACT3"),
-      );
+      const dayViajeExcursiones =
+        String(day.viajeExcursiones ?? "").trim() ||
+        existingRows.find((row) => String(row.viajeExcursiones ?? "").trim())
+          ?.viajeExcursiones ||
+        "";
 
       return {
         id: nextId(),
@@ -451,10 +443,11 @@ export const parseTravelPackageLegacyPayload = (
         precioUnitario: day.precioUnitario,
         comisionPorcentaje: day.comisionPorcentaje,
         incentivoValor: day.incentivoValor,
+        viajeExcursiones: dayViajeExcursiones,
         observacion: day.observacion,
         origen: day.origen,
         destino: day.destino,
-        actividades: [...baseRows, ...extraRows],
+        actividades: existingRows,
       };
     });
 

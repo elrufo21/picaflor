@@ -5,7 +5,6 @@ import {
   TableDateInput,
   TableTextInput,
 } from "@/components/ui/inputs";
-import { focusNextElement } from "@/shared/helpers/formFocus";
 import { getTodayIso } from "../constants/travelPackage.constants";
 import { usePaises } from "../hooks/usePaises";
 import type { PassengerRow } from "../types/travelPackage.types";
@@ -16,11 +15,26 @@ type Props = {
   onUpdateField: (
     id: number,
     key: keyof Omit<PassengerRow, "id">,
-    value: string,
+    value: string | number,
   ) => void;
   onAdd: () => void;
   onRemove: (id: number) => void;
 };
+
+const toPositiveIntegerText = (value: string): string => {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return "";
+  return String(Math.max(0, Math.floor(parsed)));
+};
+
+const PASSENGER_TYPE_OPTIONS = [
+  { id: "GENERAL", value: "GENERAL", label: "GENERAL" },
+  { id: "LIBERADO", value: "LIBERADO", label: "LIBERADO" },
+  { id: "NIÑO", value: "NIÑO", label: "NIÑO" },
+  { id: "ADULTO", value: "ADULTO", label: "ADULTO" },
+] as const;
 
 const PassengersSection = ({
   pasajeros,
@@ -32,6 +46,15 @@ const PassengersSection = ({
   void onRemove;
   const { paises, loading, error } = usePaises();
   const maxBirthDate = useMemo(() => getTodayIso(), []);
+  const focusTotalTipoInput = (passengerId: number) => {
+    setTimeout(() => {
+      const totalTipoInput = document.getElementById(
+        `total-tipo-${passengerId}`,
+      ) as HTMLInputElement | null;
+      totalTipoInput?.focus();
+      totalTipoInput?.select();
+    }, 0);
+  };
   const paisesByValue = useMemo(() => {
     const map = new Map<string, (typeof paises)[number]>();
     paises.forEach((pais) => {
@@ -54,22 +77,28 @@ const PassengersSection = ({
       description="Lista de pasajeros."
     >
       <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <table className=" w-full table-fixed text-xs sm:text-sm">
+        <table className="w-full min-w-[980px] table-auto text-xs sm:text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="px-2 py-1.5 text-left font-medium ">#</th>
-              <th className="px-2 py-1.5 text-left font-medium w-[33%]">
+              <th className="w-10 px-2 py-1.5 text-left font-medium">#</th>
+              <th className="min-w-[220px] px-2 py-1.5 text-left font-medium">
                 Nombres y apellidos
               </th>
-              <th className="px-2 py-1.5 text-left font-medium w-[16%]">
-                Pasaporte
+              <th className="min-w-[140px] px-2 py-1.5 text-left font-medium">
+                Pasaporte/DNI
               </th>
 
-              <th className="px-2 py-1.5 text-left font-medium w-[16%]">
+              <th className="min-w-[140px] px-2 py-1.5 text-left font-medium">
                 Fecha de Nac.
               </th>
-              <th className="px-2 py-1.5 text-left font-medium w-[33%]">
+              <th className="min-w-[220px] px-2 py-1.5 text-left font-medium">
                 Nacionalidad
+              </th>
+              <th className="min-w-[170px] px-2 py-1.5 text-left font-medium">
+                Tipo pasajero
+              </th>
+              <th className="min-w-[110px] px-2 py-1.5 text-left font-medium">
+                Total tipo
               </th>
             </tr>
           </thead>
@@ -81,6 +110,15 @@ const PassengersSection = ({
                     .trim()
                     .toLowerCase(),
                 ) ?? null;
+              const passengerTypeValue =
+                String(passenger.tipoPasajero ?? "")
+                  .trim()
+                  .toUpperCase() || "GENERAL";
+              const isLiberadoPassenger = passengerTypeValue === "LIBERADO";
+              const selectedPassengerType =
+                PASSENGER_TYPE_OPTIONS.find(
+                  (option) => option.value === passengerTypeValue,
+                ) ?? PASSENGER_TYPE_OPTIONS[0];
 
               return (
                 <tr key={passenger.id} className="border-t border-slate-200">
@@ -167,27 +205,9 @@ const PassengersSection = ({
                             );
                           });
                         }
-
-                        setTimeout(() => {
-                          const nextRowNombres = document.querySelector(
-                            `input[data-nav-col="nombres"][data-nav-row="${String(index + 1)}"]`,
-                          ) as HTMLInputElement | null;
-
-                          if (nextRowNombres) {
-                            nextRowNombres.focus();
-                            return;
-                          }
-
-                          const currentNacionalidadInput =
-                            document.getElementById(
-                              `nacionalidad-${passenger.id}`,
-                            );
-                          if (!currentNacionalidadInput) return;
-                          focusNextElement(
-                            currentNacionalidadInput,
-                            currentNacionalidadInput.closest("form"),
-                          );
-                        }, 0);
+                        if (!isLiberadoPassenger) {
+                          focusTotalTipoInput(passenger.id);
+                        }
                       }}
                       getOptionKey={(pais) => pais.id}
                       getOptionLabel={(pais) => pais.nombre}
@@ -203,6 +223,60 @@ const PassengersSection = ({
                       }
                       placeholder="Seleccionar"
                       size="small"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 align-middle">
+                    <AutocompleteTable
+                      id={`tipo-pasajero-${passenger.id}`}
+                      options={[...PASSENGER_TYPE_OPTIONS]}
+                      value={selectedPassengerType}
+                      autoAdvanceOnSelect={false}
+                      onChange={(option) => {
+                        const nextPassengerType = String(
+                          option?.value ?? "GENERAL",
+                        );
+                        onUpdateField(
+                          passenger.id,
+                          "tipoPasajero",
+                          nextPassengerType,
+                        );
+                        if (nextPassengerType === "LIBERADO") {
+                          onUpdateField(passenger.id, "totalTipoPasajero", "");
+                          return;
+                        }
+                        focusTotalTipoInput(passenger.id);
+                      }}
+                      getOptionKey={(option) => option.id}
+                      getOptionLabel={(option) => option.label}
+                      columns={[
+                        {
+                          key: "label",
+                          header: "Tipo",
+                          render: (option) => option.label,
+                        },
+                      ]}
+                      noOptionsText="Sin tipos"
+                      placeholder="Seleccionar"
+                      size="small"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 align-middle">
+                    <TableTextInput
+                      id={`total-tipo-${passenger.id}`}
+                      value={String(passenger.totalTipoPasajero ?? "")}
+                      navColumn="totalTipoPasajero"
+                      navRow={index}
+                      type="number"
+                      textAlign="right"
+                      disabled={isLiberadoPassenger}
+                      onChange={(value) =>
+                        onUpdateField(
+                          passenger.id,
+                          "totalTipoPasajero",
+                          toPositiveIntegerText(value),
+                        )
+                      }
+                      placeholder="0"
                     />
                   </td>
                 </tr>

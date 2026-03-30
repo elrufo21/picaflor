@@ -133,7 +133,7 @@ export const buildTravelPackageLegacyPayload = (
     const fechaNacimiento = cleanText(row.fechaNacimiento);
     const fechaNacimientoToken = fechaNacimiento || "null";
     detailRows.push(
-      `PAX|${index + 1}|${nombres}|${cleanText(row.pasaporte)}|${cleanText(row.nacionalidad)}|${cleanText(row.telefono)}|${fechaNacimientoToken}`,
+      `PAX|${index + 1}|${nombres}|${cleanText(row.pasaporte)}|${cleanText(row.nacionalidad)}|${cleanText(row.telefono)}|${fechaNacimientoToken}|${cleanText(row.tipoPasajero)}|${toInt(row.totalTipoPasajero)}`,
     );
   });
 
@@ -162,13 +162,13 @@ export const buildTravelPackageLegacyPayload = (
     if (!date) return;
 
     detailRows.push(
-      `DAY|${dayKey}|${dayIndex + 1}|${date}|${cleanText(day.titulo)}|${cleanText(day.origen)}|${cleanText(day.destino)}|${cleanText(day.observacion)}|${toDecimal(day.precioUnitario)}|${toDecimal(day.comisionPorcentaje ?? 0)}|${toDecimal(day.incentivoValor ?? 0)}`,
+      `DAY|${dayKey}|${dayIndex + 1}|${date}|${cleanText(day.titulo)}|${cleanText(day.origen)}|${cleanText(day.destino)}|${cleanText(day.observacion)}|${toDecimal(day.precioUnitario)}|${toDecimal(day.comisionPorcentaje ?? 0)}|${toDecimal(day.incentivoValor ?? 0)}|${cleanText(day.viajeExcursiones)}`,
     );
 
     day.actividades.forEach((row, rowIndex) => {
       if (!shouldPersistActivity(row)) return;
       detailRows.push(
-        `ACT|${dayKey}|${rowIndex + 1}|${cleanText(row.tipo)}|${cleanText(row.detalle)}|${toDecimal(row.precio)}|${toInt(row.cant)}|${toDecimal(row.subtotal)}`,
+        `ACT|${dayKey}|${rowIndex + 1}|${cleanText(row.tipo)}|${cleanText(row.detalle)}|${toDecimal(row.precio)}|${toInt(row.cant)}|${toDecimal(row.subtotal)}|`,
       );
     });
   });

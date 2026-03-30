@@ -273,7 +273,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             <div className="px-3 py-2">
               <TextControlled
                 name="acuenta"
-                type="number"
+                type={condicion == "ACUENTA" ? "number" : "text"}
                 control={control}
                 disabled={condicion != "ACUENTA"}
                 disableHistory
@@ -326,7 +326,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
                 displayZeroAsEmpty={isEditing}
                 inputProps={{ style: { textAlign: "right" } }}
                 control={control}
-                type="number"
+                type={isEditing ? "number" : "text"}
                 disabled={!isEditing || moneda !== "SOLES"}
                 size="small"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -341,7 +341,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
               <TextControlled
                 formatter={!isEditing ? formatCurrency : undefined}
                 displayZeroAsEmpty={isEditing}
-                type="number"
+                type={isEditing ? "number" : "text"}
                 inputProps={{ style: { textAlign: "right" } }}
                 name="precioExtraDolares"
                 control={control}
