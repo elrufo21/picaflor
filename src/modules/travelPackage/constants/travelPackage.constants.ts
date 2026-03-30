@@ -300,5 +300,6 @@ export const INITIAL_FORM_STATE: TravelPackageFormState = {
   impuestosAdicionales: "",
   observaciones: "",
   cantPax: "",
+  precioPaxGeneral: "",
   flagVerificado: "0",
 };

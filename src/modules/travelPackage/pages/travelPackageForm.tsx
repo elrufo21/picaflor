@@ -458,6 +458,22 @@ const validateTravelPackageForm = (
     };
   }
 
+  const invalidPassengerPriceIndex = pasajeros.findIndex((passenger) => {
+    const passengerType = normalizeUpperText(passenger.tipoPasajero);
+    if (passengerType === "LIBERADO") return false;
+    const totalTipo = parseSafeNumber(passenger.totalTipoPasajero);
+    return totalTipo <= 0;
+  });
+  if (invalidPassengerPriceIndex >= 0) {
+    const passenger = pasajeros[invalidPassengerPriceIndex];
+    return {
+      message: `EL TOTAL TIPO DEL PASAJERO #${invalidPassengerPriceIndex + 1} DEBE SER MAYOR A 0 (EXCEPTO LIBERADO).`,
+      focusSelector: passenger?.id
+        ? `#total-tipo-${String(passenger.id)}`
+        : undefined,
+    };
+  }
+
   if (form.incluyeHotel) {
     const hoteles = Array.isArray(form.hotelesContratados)
       ? form.hotelesContratados
@@ -1604,6 +1620,7 @@ const TravelPackageForm = () => {
             <div className="grid grid-cols-1 gap-6 h-full md:col-span-2">
               <PassengersSection
                 pasajeros={form.pasajeros}
+                precioPaxGeneral={form.precioPaxGeneral}
                 onUpdateField={handlers.updatePassengerField}
                 onAdd={handlers.addPassenger}
                 onRemove={handlers.removePassenger}
