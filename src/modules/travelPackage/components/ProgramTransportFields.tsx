@@ -16,6 +16,12 @@ type Props = {
   onChange: (field: keyof ProgramTransportFieldsValues, value: string) => void;
 };
 
+const MAX_PASSENGERS = 99;
+
+const sanitizePaxInput = (value: string): string =>
+  String(value ?? "")
+    .replace(/\D/g, "");
+
 const ProgramTransportFields = ({ programa, cantPax, condicionPago, onChange }: Props) => {
   const { control, setValue } = useForm<ProgramTransportFieldsValues>({
     defaultValues: {
@@ -67,11 +73,16 @@ const ProgramTransportFields = ({ programa, cantPax, condicionPago, onChange }: 
           <TextControlled<ProgramTransportFieldsValues>
             fullWidth
             size="small"
+            type="number"
             label="Cantidad de pasajeros"
             name="cantPax"
             control={control}
             disableAutoUppercase
-            onChange={(event) => onChange("cantPax", event.target.value)}
+            onChange={(event) => {
+              const nextValue = sanitizePaxInput(event.target.value);
+              onChange("cantPax", nextValue);
+            }}
+            inputProps={{ min: 0, max: MAX_PASSENGERS }}
           />
         </div>
         <div className="col-span-1">

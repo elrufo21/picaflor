@@ -168,7 +168,17 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
     [activitiesTotal, paxCount],
   );
   const showActivitiesRow = activitiesTotal > 0 && paxCount > 0;
-  const showCommissionSection = (form.itinerario ?? []).length > 0;
+  const isDirectAgency = useMemo(() => {
+    const agenciaValue = String(form.agencia?.value ?? "")
+      .trim()
+      .toUpperCase();
+    const agenciaLabel = String(form.agencia?.label ?? "")
+      .trim()
+      .toUpperCase();
+    return agenciaValue.includes("DIRECTO") || agenciaLabel.includes("DIRECTO");
+  }, [form.agencia?.label, form.agencia?.value]);
+  const showCommissionSection =
+    (form.itinerario ?? []).length > 0 && !isDirectAgency;
   const commissionPercentInput = useMemo(() => {
     const firstDay = (form.itinerario ?? [])[0];
     if (!firstDay) return "";
@@ -191,9 +201,9 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
     ) {
       return "";
     }
-    return Number.isFinite(Number(firstDay.incentivoValor))
-      ? String(firstDay.incentivoValor)
-      : "";
+    const numericValue = Number(firstDay.incentivoValor);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) return "";
+    return String(firstDay.incentivoValor);
   }, [form.itinerario]);
   const commissionPercent = useMemo(
     () =>
