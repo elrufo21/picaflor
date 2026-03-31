@@ -37,7 +37,10 @@ import {
   actualizarVerificadoPaqueteViaje,
   obtenerPaqueteViaje,
 } from "../api/travelPackageApi";
-import { parseTravelPackageLegacyPayload } from "../utils/legacyPayloadParser";
+import {
+  parseTravelPackageLegacyEstado,
+  parseTravelPackageLegacyPayload,
+} from "../utils/legacyPayloadParser";
 import { showToast } from "@/components/ui/AppToast";
 import {
   createEmptyPassenger,
@@ -753,6 +756,16 @@ const resolveRouteNotaId = (routeState: TravelPackageRouteState | null) => {
   return "";
 };
 
+const resolveRouteEstado = (routeState: TravelPackageRouteState | null) => {
+  if (!(routeState?.listItem && typeof routeState.listItem === "object")) {
+    return "";
+  }
+  const listItem = routeState.listItem as Record<string, unknown>;
+  return normalizeText(
+    listItem.estado ?? listItem.Estado ?? listItem.status ?? listItem.Status,
+  );
+};
+
 const TravelPackageForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -763,6 +776,7 @@ const TravelPackageForm = () => {
       : null;
   const fromLiquidaciones = routeState?.fromLiquidaciones === true;
   const routeNotaId = resolveRouteNotaId(routeState);
+  const routeEstado = resolveRouteEstado(routeState);
   const isEditMode = Boolean(id);
   const openDialog = useDialogStore((state) => state.openDialog);
   const authUser = useAuthStore((state) => state.user);
@@ -775,7 +789,9 @@ const TravelPackageForm = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isUpdatingVerificado, setIsUpdatingVerificado] = useState(false);
   const [isEditing, setIsEditing] = useState(!isEditMode);
+  const [packageEstado, setPackageEstado] = useState(routeEstado);
   const isVerificado = form.flagVerificado === "1";
+  const isTravelPackageAnulado = normalizeUpperText(packageEstado) === "ANULADO";
   const canToggleVerificado =
     String(authUser?.areaId ?? authUser?.area ?? "") === "6";
   const isFormLocked = isEditMode && !isEditing;
@@ -790,8 +806,13 @@ const TravelPackageForm = () => {
   }, [isEditMode, id]);
 
   useEffect(() => {
-    if (!routeState?.listItem) return;
-  }, [routeState?.listItem]);
+    if (!isEditMode) {
+      setPackageEstado("");
+      return;
+    }
+    if (!routeEstado) return;
+    setPackageEstado(routeEstado);
+  }, [isEditMode, routeEstado]);
 
   useEffect(() => {
     if (!isEditMode || !id) return;
@@ -811,10 +832,12 @@ const TravelPackageForm = () => {
 
         if (isCancelled) return;
         const parsedNotaId = parsePositiveId(parsedForm.notaId);
+        const parsedEstado = parseTravelPackageLegacyEstado(response);
         replaceForm({
           ...parsedForm,
           notaId: parsedNotaId ? String(parsedNotaId) : routeNotaId,
         });
+        setPackageEstado(parsedEstado);
       } catch (error) {
         if (isCancelled) return;
         showToast({
@@ -1214,6 +1237,15 @@ const TravelPackageForm = () => {
     setIsEditing(true);
   }, [isEditMode]);
   const handlePrint = useCallback(() => {
+    if (isTravelPackageAnulado) {
+      showToast({
+        title: "Imprimir",
+        description:
+          "Este paquete está anulado, no se puede imprimir boleta ni invoice.",
+        type: "error",
+      });
+      return;
+    }
     const editId = parsePositiveId(id);
     const packageId = isEditMode ? editId : null;
     const resolvedNotaId = normalizeText(form.notaId) || routeNotaId;
@@ -1244,9 +1276,18 @@ const TravelPackageForm = () => {
         fromNewTravelPackage: false,
       },
     });
-  }, [form, id, isEditMode, navigate, routeNotaId]);
+  }, [form, id, isEditMode, isTravelPackageAnulado, navigate, routeNotaId]);
 
   const handleOpenBoleta = useCallback(() => {
+    if (isTravelPackageAnulado) {
+      showToast({
+        title: "Imprimir",
+        description:
+          "Este paquete está anulado, no se puede imprimir boleta ni invoice.",
+        type: "error",
+      });
+      return;
+    }
     if (!isEditMode) return;
 
     const packageId = parsePositiveId(id);
@@ -1263,7 +1304,7 @@ const TravelPackageForm = () => {
     navigate(`/paquete-viaje/${packageId}/boleta`, {
       state: { boletaData },
     });
-  }, [form, id, isEditMode, navigate]);
+  }, [form, id, isEditMode, isTravelPackageAnulado, navigate]);
 
   const handleDeleteTravelPackage = useCallback(async () => {
     if (!isEditMode || !id) return;
@@ -1271,6 +1312,14 @@ const TravelPackageForm = () => {
       showToast({
         title: "Sin permiso",
         description: "No tienes permiso para eliminar en este módulo.",
+        type: "error",
+      });
+      return;
+    }
+    if (isVerificado) {
+      showToast({
+        title: "No permitido",
+        description: "No se puede eliminar un paquete verificado.",
         type: "error",
       });
       return;
@@ -1344,7 +1393,14 @@ const TravelPackageForm = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [canDeleteTravelPackage, fromLiquidaciones, id, isEditMode, navigate]);
+  }, [
+    canDeleteTravelPackage,
+    fromLiquidaciones,
+    id,
+    isEditMode,
+    isVerificado,
+    navigate,
+  ]);
 
   const handleConfirmDeleteTravelPackage = useCallback(() => {
     if (!isEditMode || !id) return;
@@ -1352,6 +1408,14 @@ const TravelPackageForm = () => {
       showToast({
         title: "Sin permiso",
         description: "No tienes permiso para eliminar en este módulo.",
+        type: "error",
+      });
+      return;
+    }
+    if (isVerificado) {
+      showToast({
+        title: "No permitido",
+        description: "No se puede eliminar un paquete verificado.",
         type: "error",
       });
       return;
@@ -1377,6 +1441,7 @@ const TravelPackageForm = () => {
     handleDeleteTravelPackage,
     id,
     isEditMode,
+    isVerificado,
     openDialog,
   ]);
 
@@ -1563,7 +1628,8 @@ const TravelPackageForm = () => {
                   isSaving ||
                   isLoadingDetail ||
                   isUpdatingVerificado ||
-                  !canDeleteTravelPackage
+                  !canDeleteTravelPackage ||
+                  isVerificado
                 }
                 className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 text-white text-sm font-semibold shadow-sm ring-1 ring-red-600/30 hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -1576,7 +1642,7 @@ const TravelPackageForm = () => {
               <button
                 type="button"
                 onClick={handlePrint}
-                disabled={isLoadingDetail || isSaving}
+                disabled={isLoadingDetail || isSaving || isTravelPackageAnulado}
                 className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-white px-4 text-slate-700 text-sm font-semibold shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Printer className="h-4 w-4" />
@@ -1613,7 +1679,7 @@ const TravelPackageForm = () => {
               <button
                 type="button"
                 onClick={handleOpenBoleta}
-                disabled={isLoadingDetail || isSaving}
+                disabled={isLoadingDetail || isSaving || isTravelPackageAnulado}
                 className="h-full min-h-[42px] inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 text-white text-sm font-semibold shadow-sm ring-1 ring-rose-600/30 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <FileText className="h-4 w-4" />

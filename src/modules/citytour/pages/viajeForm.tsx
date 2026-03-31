@@ -1328,6 +1328,15 @@ const ViajeForm = () => {
   }
 
   const handlePrint = () => {
+    if (isLiquidacionAnulada) {
+      showToast({
+        title: "Imprimir",
+        description:
+          "Esta liquidación está anulada, no se puede imprimir boleta ni invoice.",
+        type: "error",
+      });
+      return;
+    }
     try {
       const formValues = getValues();
       const invoiceData = adaptViajeJsonToInvoice(
@@ -1448,6 +1457,15 @@ const ViajeForm = () => {
   };
 
   const handleOpenBoleta = () => {
+    if (isLiquidacionAnulada) {
+      showToast({
+        title: "Imprimir",
+        description:
+          "Esta liquidación está anulada, no se puede imprimir boleta ni invoice.",
+        type: "error",
+      });
+      return;
+    }
     if (!idProduct) {
       showToast({
         title: "Error",
@@ -1469,6 +1487,14 @@ const ViajeForm = () => {
       showToast({
         title: "Sin permiso",
         description: "No tienes permiso para eliminar en este módulo.",
+        type: "error",
+      });
+      return;
+    }
+    if (isVerificado) {
+      showToast({
+        title: "No permitido",
+        description: "No se puede eliminar una liquidación verificada.",
         type: "error",
       });
       return;
@@ -1526,6 +1552,14 @@ const ViajeForm = () => {
       showToast({
         title: "Sin permiso",
         description: "No tienes permiso para eliminar en este módulo.",
+        type: "error",
+      });
+      return;
+    }
+    if (isVerificado) {
+      showToast({
+        title: "No permitido",
+        description: "No se puede eliminar una liquidación verificada.",
         type: "error",
       });
       return;
@@ -1698,7 +1732,7 @@ const ViajeForm = () => {
                   <button
                     type="button"
                     onClick={openDeleteDialog}
-                    disabled={isSaving || !canDeleteLiquidacion}
+                    disabled={isSaving || !canDeleteLiquidacion || isVerificado}
                     className="
                     inline-flex items-center gap-1
                     rounded-lg bg-red-600 px-3 py-2
@@ -1714,19 +1748,11 @@ const ViajeForm = () => {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    if (watch("estado") === "ANULADO") {
-                      showToast({
-                        title: "Imprimir",
-                        description:
-                          "Esta liquidación está anulada, por favor modificar y volver a imprimir.",
-                        type: "error",
-                      });
-                      return;
-                    }
-                    handlePrint();
-                  }}
-                  disabled={isEditing && (fieldsetDisabled || !liquidacionId)}
+                  onClick={handlePrint}
+                  disabled={
+                    (isEditing && (fieldsetDisabled || !liquidacionId)) ||
+                    isLiquidacionAnulada
+                  }
                   className="
                     inline-flex items-center gap-1
                     rounded-lg bg-white px-3 py-2
@@ -1778,23 +1804,14 @@ const ViajeForm = () => {
                 {!isEditing && liquidacionId && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (watch("estado") === "ANULADO") {
-                        showToast({
-                          title: "Imprimir",
-                          description:
-                            "Esta liquidación está anulada, por favor modificar y volver a intentar.",
-                          type: "error",
-                        });
-                        return;
-                      }
-                      handleOpenBoleta();
-                    }}
+                    onClick={handleOpenBoleta}
+                    disabled={isLiquidacionAnulada}
                     className="
                     inline-flex items-center gap-1
                     rounded-lg bg-rose-600 px-3 py-2
                     text-white ring-1 ring-rose-600/30
                     hover:bg-rose-700 transition
+                    disabled:opacity-50 disabled:cursor-not-allowed
                   "
                   >
                     <FileText size={16} />

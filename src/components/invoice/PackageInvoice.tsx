@@ -46,6 +46,7 @@ type ItineraryActivity = {
   id?: number;
   tipo: "ACT1" | "ACT2" | "ACT3" | "TRASLADO" | "ENTRADA" | string;
   detalle: string;
+  viajeExcursiones?: string;
   precio: number;
   cant: number;
   subtotal: number;
@@ -58,6 +59,7 @@ type ItineraryDay = {
   precioUnitario?: number;
   comisionPorcentaje?: number;
   incentivoValor?: number;
+  viajeExcursiones?: string;
   observacion?: string;
   origen?: string;
   destino?: string;
@@ -505,6 +507,10 @@ export default function PackageInvoicePdf({
       .filter((a) => nonEmptyLine(a.detalle))
       .map((a) => a.detalle.trim())
       .filter(Boolean);
+    const viajeExcursionesFromActivities = (d.actividades ?? [])
+      .map((a) => safeText(a.viajeExcursiones))
+      .filter((value, index, self) => nonEmptyLine(value) && self.indexOf(value) === index)
+      .join(" / ");
 
     // Si todo viene vacío, al menos pone el título
     const bullets = acts.length
@@ -515,6 +521,8 @@ export default function PackageInvoicePdf({
       key: `${d.fecha}-${d.id ?? ""}`,
       header: `${formatFechaTitulo(d.fecha)} : ${safeText(d.titulo).toUpperCase()}`,
       bullets,
+      viajeExcursiones:
+        safeText(d.viajeExcursiones) || viajeExcursionesFromActivities,
       observacion: safeText(d.observacion),
     };
   });
@@ -864,6 +872,11 @@ export default function PackageInvoicePdf({
                       {i === 0 ? "" : ""}- {b}
                     </Text>
                   ))}
+                  {nonEmptyLine(d.viajeExcursiones) ? (
+                    <Text style={S.dayObservation}>
+                      {`Viaje / excursiones: ${d.viajeExcursiones}`}
+                    </Text>
+                  ) : null}
                   {nonEmptyLine(d.observacion) ? (
                     <Text style={S.dayObservation}>
                       {`Observación: ${d.observacion}`}
@@ -965,7 +978,7 @@ export default function PackageInvoicePdf({
                           isEmphasized && { fontWeight: "bold" },
                         ]}
                       >
-                        {`${showCurrencySymbol ? `${curr} ` : ""}${formatMoney(val)}`}
+                        {`${showCurrencySymbol ? ` ` : ""}${formatMoney(val)}`}
                       </Text>
                     </View>
                   );
