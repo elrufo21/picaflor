@@ -1168,9 +1168,6 @@ const ServiciosContratadosSection = ({
                       </td>
                       <td className="px-2 py-1.5">
                         <div className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1">
-                          <span className="text-slate-500">
-                            {currencySymbol}
-                          </span>
                           <input
                             type={isViewMode ? "text" : "number"}
                             min={0}

@@ -158,6 +158,17 @@ const mapActivityType = (
   return "ACT1";
 };
 
+export const parseTravelPackageLegacyEstado = (raw: unknown): string => {
+  const payload = getPayloadText(raw);
+  if (!payload || payload === "~" || payload === "FORMATO_INVALIDO") return "";
+
+  const splitIndex = payload.indexOf("[");
+  const headerText =
+    splitIndex >= 0 ? payload.slice(0, splitIndex) : payload;
+  const header = headerText.split("|").map((item) => normalizeCell(item));
+  return normalizeCell(header[38] ?? "").toUpperCase();
+};
+
 export const parseTravelPackageLegacyPayload = (
   raw: unknown,
 ): TravelPackageFormState | null => {

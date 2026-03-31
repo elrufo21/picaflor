@@ -701,6 +701,8 @@ const LiquidationSection = ({
                 <input
                   name="nroOperacion"
                   value={form.nroOperacion}
+                  autoComplete="off"
+                  spellCheck={false}
                   disabled={!canEditOperation}
                   onChange={(event) =>
                     onUpdateField("nroOperacion", event.target.value)
@@ -718,10 +720,10 @@ const LiquidationSection = ({
                   min={0}
                   step="0.01"
                   value={
-                    form.acuenta === 0
-                      ? ""
-                      : isViewMode
-                        ? formatCurrency(form.acuenta)
+                    isViewMode
+                      ? formatCurrency(form.acuenta || 0)
+                      : form.acuenta === 0
+                        ? ""
                         : form.acuenta
                   }
                   disabled={form.condicionPago !== "ACUENTA"}
