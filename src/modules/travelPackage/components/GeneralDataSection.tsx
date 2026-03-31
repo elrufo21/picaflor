@@ -48,11 +48,11 @@ const ESTADO_PAGO_OPTIONS: EstadoPagoOption[] = [
   { value: "ACUENTA", label: "A Cuenta" },
   { value: "CREDITO", label: "Crédito" },
 ];
-const MAX_PASSENGERS = 99;
 
-const sanitizePaxInput = (value: string): string =>
-  String(value ?? "")
-    .replace(/\D/g, "");
+const sanitizePaxInput = (value: string): string => {
+  const digitsOnly = String(value ?? "").replace(/\D/g, "");
+  return digitsOnly.slice(0, 2);
+};
 
 const buildProgramaFromForm = (
   destinos: string[],
@@ -468,17 +468,18 @@ const GeneralDataSection = ({
             control={control}
             fullWidth
             size="small"
-            type="number"
+            type="text"
             displayZeroAsEmpty
             label="Cantidad Pax"
+            transform={sanitizePaxInput}
             onChange={(event) => {
-              const nextValue = sanitizePaxInput(event.target.value);
-              onUpdateField("cantPax", nextValue);
+              onUpdateField("cantPax", event.target.value);
             }}
             inputProps={{
               style: { textAlign: "center" },
-              min: 0,
-              max: MAX_PASSENGERS,
+              inputMode: "numeric",
+              pattern: "[0-9]*",
+              maxLength: 2,
             }}
           />
 
