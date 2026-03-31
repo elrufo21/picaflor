@@ -46,6 +46,11 @@ const ESTADO_PAGO_OPTIONS: EstadoPagoOption[] = [
   { value: "ACUENTA", label: "A Cuenta" },
   { value: "CREDITO", label: "Crédito" },
 ];
+const MAX_PASSENGERS = 99;
+
+const sanitizePaxInput = (value: string): string =>
+  String(value ?? "")
+    .replace(/\D/g, "");
 
 const buildProgramaFromForm = (
   destinos: string[],
@@ -460,8 +465,15 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             type="number"
             displayZeroAsEmpty
             label="Cantidad Pax"
-            onChange={(event) => onUpdateField("cantPax", event.target.value)}
-            inputProps={{ style: { textAlign: "center" } }}
+            onChange={(event) => {
+              const nextValue = sanitizePaxInput(event.target.value);
+              onUpdateField("cantPax", nextValue);
+            }}
+            inputProps={{
+              style: { textAlign: "center" },
+              min: 0,
+              max: MAX_PASSENGERS,
+            }}
           />
 
           <TextControlled<GeneralDataFormValues>

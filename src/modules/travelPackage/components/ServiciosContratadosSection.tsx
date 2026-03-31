@@ -114,6 +114,10 @@ const MOVILIDAD_EMPRESAS_PERU = {
     "ATSA Airlines",
   ],
 } as const;
+const MOVILIDAD_PRIVADA = "MOVILIDAD PRIVADA";
+const MOVILIDAD_LABEL_BY_VALUE: Record<string, string> = {
+  BUS: "MOVILIDAD COMPARTIDO",
+};
 
 const ServiciosContratadosSection = ({
   form,
@@ -160,11 +164,13 @@ const ServiciosContratadosSection = ({
   const currencySymbol = getTravelCurrencySymbol(form.moneda);
   const selectedMovilidadTipo = String(watch("movilidadTipo") ?? "");
   const selectedMovilidadEmpresa = String(watch("movilidadEmpresa") ?? "");
+  const isMovilidadPrivadaSelected =
+    selectedMovilidadTipo.toUpperCase() === MOVILIDAD_PRIVADA;
   const showMovilidadPrice = Boolean(
     selectedMovilidadTipo &&
     selectedMovilidadTipo !== "NO INCLUYE" &&
-    selectedMovilidadEmpresa &&
-    selectedMovilidadEmpresa !== "-",
+    (isMovilidadPrivadaSelected ||
+      (selectedMovilidadEmpresa && selectedMovilidadEmpresa !== "-")),
   );
   const selectedAlimentacionEstado = String(
     watch("incluyeAlimentacionEstado") ?? "",
@@ -253,6 +259,10 @@ const ServiciosContratadosSection = ({
 
   const movilidadEmpresaOptions = useMemo(() => {
     const tipo = selectedMovilidadTipo.toUpperCase();
+    if (tipo === MOVILIDAD_PRIVADA) {
+      return [{ value: "-", label: "-" }];
+    }
+
     const baseValues =
       tipo === "BUS" || tipo === "AEREO"
         ? [...MOVILIDAD_EMPRESAS_PERU[tipo]]
@@ -284,6 +294,17 @@ const ServiciosContratadosSection = ({
 
   useEffect(() => {
     const tipo = selectedMovilidadTipo.toUpperCase();
+    if (tipo === MOVILIDAD_PRIVADA) {
+      if (String(form.movilidadEmpresa ?? "").trim() === "-") return;
+      onUpdateField("movilidadEmpresa", "-");
+      setValue("movilidadEmpresa", "-", {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+      return;
+    }
+
     if (tipo !== "BUS" && tipo !== "AEREO") return;
 
     const currentEmpresa = String(form.movilidadEmpresa ?? "").trim();
@@ -712,7 +733,7 @@ const ServiciosContratadosSection = ({
                   { value: "NO INCLUYE", label: "NO INCLUYE" },
                   ...MOVILIDAD_OPTIONS.map((option) => ({
                     value: option,
-                    label: option,
+                    label: MOVILIDAD_LABEL_BY_VALUE[option] ?? option,
                   })),
                 ]}
                 size="small"
@@ -723,6 +744,10 @@ const ServiciosContratadosSection = ({
                     onUpdateField("movilidadEmpresa", "-");
                     onUpdateField("movilidadPrecio", 0);
                     setValue("movilidadPrecio", "0");
+                    return;
+                  }
+                  if (nextValue.toUpperCase() === MOVILIDAD_PRIVADA) {
+                    onUpdateField("movilidadEmpresa", "-");
                     return;
                   }
                   if (!nextValue) {
@@ -748,7 +773,11 @@ const ServiciosContratadosSection = ({
                 data-focus-next='input[data-focus-target="movilidad-precio"]'
                 options={movilidadEmpresaOptions}
                 size="small"
-                disabled={String(form.movilidadTipo ?? "") === "NO INCLUYE"}
+                disabled={
+                  String(form.movilidadTipo ?? "") === "NO INCLUYE" ||
+                  String(form.movilidadTipo ?? "").toUpperCase() ===
+                    MOVILIDAD_PRIVADA
+                }
                 onChange={(e) => {
                   const nextEmpresa = String(e.target.value);
                   onUpdateField("movilidadEmpresa", nextEmpresa);

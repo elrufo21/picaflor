@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { useAuthStore } from "@/store/auth/auth.store";
 import {
@@ -34,7 +35,16 @@ const isActiveItineraryRow = (row: ItineraryActivityRow) => {
   return detail !== "" && detail !== "-";
 };
 
-const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormState => {
+const MAX_PASSENGERS = 99;
+
+const clonePassenger = (passenger: PassengerRow): PassengerRow => ({
+  ...passenger,
+});
+
+const applyDerivedRules = (
+  state: TravelPackageFormState,
+  passengerCacheRef?: { current: PassengerRow[] },
+): TravelPackageFormState => {
   const next = { ...state };
 
   next.paquetesViaje = (next.paquetesViaje ?? []).map((item) => ({
@@ -78,17 +88,37 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
     next.cantPax = String(paxFromPackages);
   }
 
-  const pax = Math.max(0, Math.floor(Number(String(next.cantPax ?? "").trim()) || 0));
+  const pax = Math.min(
+    MAX_PASSENGERS,
+    Math.max(0, Math.floor(Number(String(next.cantPax ?? "").trim()) || 0)),
+  );
   next.cantPax = String(pax);
 
-  const currentPassengers = next.pasajeros ?? [];
-  if (pax > currentPassengers.length) {
-    next.pasajeros = [
-      ...currentPassengers,
-      ...Array.from({ length: pax - currentPassengers.length }, () => createEmptyPassenger()),
-    ];
-  } else if (pax < currentPassengers.length) {
+  const currentPassengers = (next.pasajeros ?? []).map(clonePassenger);
+  const cachedPassengers = passengerCacheRef?.current ?? [];
+
+  currentPassengers.forEach((passenger, index) => {
+    cachedPassengers[index] = clonePassenger(passenger);
+  });
+
+  if (pax <= currentPassengers.length) {
     next.pasajeros = currentPassengers.slice(0, pax);
+  } else {
+    const restoredPassengers = [...currentPassengers];
+    for (let index = currentPassengers.length; index < pax; index++) {
+      const cachedPassenger = cachedPassengers[index];
+      restoredPassengers.push(
+        cachedPassenger ? clonePassenger(cachedPassenger) : createEmptyPassenger(),
+      );
+    }
+    next.pasajeros = restoredPassengers;
+  }
+
+  if (passengerCacheRef) {
+    passengerCacheRef.current = [
+      ...next.pasajeros.map(clonePassenger),
+      ...cachedPassengers.slice(next.pasajeros.length).map(clonePassenger),
+    ];
   }
   const billablePax = getBillablePassengerCount(next);
 
@@ -219,7 +249,14 @@ const applyDerivedRules = (state: TravelPackageFormState): TravelPackageFormStat
 
 export const useTravelPackageForm = () => {
   const [form, setForm] = useState<TravelPackageFormState>(INITIAL_FORM_STATE);
+  const passengerCacheRef = useRef<PassengerRow[]>(
+    INITIAL_FORM_STATE.pasajeros.map(clonePassenger),
+  );
   const userDisplayName = useAuthStore((state) => state.user?.displayName ?? "");
+  const applyRules = useCallback(
+    (state: TravelPackageFormState) => applyDerivedRules(state, passengerCacheRef),
+    [],
+  );
 
   useEffect(() => {
     const normalizedDisplayName = String(userDisplayName ?? "").trim();
@@ -240,6 +277,20 @@ export const useTravelPackageForm = () => {
   ) => {
     setForm((prev) => {
       const newState = { ...prev, [key]: value };
+
+      if (key === "cantPax") {
+        const rawCantPax = String(value ?? "").replace(/\D/g, "");
+        const parsedCantPax = rawCantPax
+          ? Math.max(0, Math.floor(Number(rawCantPax)))
+          : 0;
+
+        if (parsedCantPax > MAX_PASSENGERS) {
+          toast.error("El limite es 99", { id: "travel-package-max-pax" });
+          newState.cantPax = String(MAX_PASSENGERS);
+        } else {
+          newState.cantPax = rawCantPax ? String(parsedCantPax) : "";
+        }
+      }
 
       // Synchronization logic: Date Range -> Itinerary
       if (key === "fechaInicioViaje" || key === "fechaFinViaje") {
@@ -289,9 +340,9 @@ export const useTravelPackageForm = () => {
       if (key === "incluyeHotel" && !value) {
         newState.hotelesContratados = [];
       }
-      return applyDerivedRules(newState);
+      return applyRules(newState);
     });
-  }, []);
+  }, [applyRules]);
 
   // ─── Agencia ─────────────────────────────────────────────────────────────────
 
@@ -303,8 +354,8 @@ export const useTravelPackageForm = () => {
 
   const addPassenger = () => {
     setForm((prev) => {
-      const base = applyDerivedRules(prev);
-      return applyDerivedRules({
+      const base = applyRules(prev);
+      return applyRules({
         ...base,
         pasajeros: [...base.pasajeros, createEmptyPassenger()],
       });
@@ -313,7 +364,7 @@ export const useTravelPackageForm = () => {
 
   const removePassenger = (id: number) => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         pasajeros: prev.pasajeros.filter((p) => p.id !== id),
       }),
@@ -326,20 +377,20 @@ export const useTravelPackageForm = () => {
     value: string | number,
   ) => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         pasajeros: prev.pasajeros.map((p) =>
           p.id === id ? { ...p, [field]: value } : p,
         ),
       }),
     );
-  }, []);
+  }, [applyRules]);
 
   // ─── Servicios contratados (Hoteles) ───────────────────────────────────────
 
   const addHotelServicio = () => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         hotelesContratados: [...prev.hotelesContratados, createEmptyHotelServicio()],
       }),
@@ -348,7 +399,7 @@ export const useTravelPackageForm = () => {
 
   const removeHotelServicio = (id: number) => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         hotelesContratados: prev.hotelesContratados.filter((h) => h.id !== id),
       }),
@@ -363,7 +414,7 @@ export const useTravelPackageForm = () => {
     value: HotelServicioRow[K],
   ) => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         hotelesContratados: prev.hotelesContratados.map((h) =>
           h.id === id ? { ...h, [field]: value } : h,
@@ -376,7 +427,7 @@ export const useTravelPackageForm = () => {
 
   const addItineraryDay = () => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         itinerario: [...prev.itinerario, createEmptyItineraryDay()],
       }),
@@ -385,7 +436,7 @@ export const useTravelPackageForm = () => {
 
   const removeItineraryDay = (id: number) => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         itinerario: prev.itinerario.filter((d) => d.id !== id),
       }),
@@ -399,7 +450,7 @@ export const useTravelPackageForm = () => {
       value: ItineraryDayRow[K],
     ) => {
       setForm((prev) =>
-        applyDerivedRules({
+        applyRules({
           ...prev,
           itinerario: prev.itinerario.map((d) =>
             d.id === id ? { ...d, [field]: value } : d,
@@ -407,14 +458,14 @@ export const useTravelPackageForm = () => {
         }),
       );
     },
-    [],
+    [applyRules],
   );
 
   // ─── Eventos del día ─────────────────────────────────────────────────────────
 
   const addDayEvent = (dayId: number) => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         itinerario: prev.itinerario.map((day) =>
           day.id === dayId
@@ -427,7 +478,7 @@ export const useTravelPackageForm = () => {
 
   const removeDayEvent = (dayId: number, eventId: number) => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         itinerario: prev.itinerario.map((day) =>
           day.id === dayId
@@ -448,7 +499,7 @@ export const useTravelPackageForm = () => {
     value: string | number,
   ) => {
     setForm((prev) =>
-      applyDerivedRules({
+      applyRules({
         ...prev,
         itinerario: prev.itinerario.map((day) =>
           day.id === dayId
@@ -462,9 +513,10 @@ export const useTravelPackageForm = () => {
         ),
       }),
     );
-  }, []);
+  }, [applyRules]);
 
   const replaceForm = useCallback((nextState: TravelPackageFormState) => {
+    passengerCacheRef.current = (nextState.pasajeros ?? []).map(clonePassenger);
     setForm(nextState);
   }, []);
 

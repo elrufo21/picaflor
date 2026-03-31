@@ -320,7 +320,10 @@ const ItinerarySection = ({
           .filter(Boolean),
       ),
     );
-  const resolveActivityMode = (productId?: number, pool: ItineraryProducto[] = productos) => {
+  const resolveActivityMode = (
+    productId?: number,
+    pool: ItineraryProducto[] = productos,
+  ) => {
     const catalogActivityNames = getCatalogActivityNamesByProduct(productId);
     if (catalogActivityNames.length > 0) {
       return {
@@ -340,7 +343,8 @@ const ItinerarySection = ({
     );
     if (
       productData &&
-      (productData.precioVenta !== undefined || productData.precioDol !== undefined)
+      (productData.precioVenta !== undefined ||
+        productData.precioDol !== undefined)
     ) {
       const embeddedPrice = isDolCurrency
         ? pickFirstPositive(productData.precioDol, productData.precioVenta)
@@ -481,7 +485,11 @@ const ItinerarySection = ({
       const selectedProduct = getProductByTitle(day.titulo ?? "");
       const { options } = resolveActivityMode(selectedProduct?.id, productos);
       const allowedActivities = new Set(
-        options.map((option) => String(option ?? "").trim().toLowerCase()),
+        options.map((option) =>
+          String(option ?? "")
+            .trim()
+            .toLowerCase(),
+        ),
       );
 
       day.actividades.forEach((row) => {
@@ -599,7 +607,9 @@ const ItinerarySection = ({
     if (!itinerario.length) return;
     let changed = false;
     const seenDayIds = new Set<number>();
-    const nextSyncedProductTitleByDay = { ...syncedProductTitleByDayRef.current };
+    const nextSyncedProductTitleByDay = {
+      ...syncedProductTitleByDayRef.current,
+    };
 
     itinerario.forEach((day) => {
       const dayId = Number(day.id);
@@ -955,189 +965,216 @@ const ItinerarySection = ({
                       </div>
 
                       {renderedRows.map((row, rowIndex) => {
-                      const canPersist = row.id > 0;
-                      const activityLabelNumber = activityLabelIndexById.get(
-                        Number(row.id),
-                      );
-                      const rowLabel = isActivityType(row.tipo)
-                        ? `Actividad ${activityLabelNumber ?? 1}`
-                        : ROW_LABELS[row.tipo];
-                      const detalle = String(row.detalle ?? "").trim();
-                      const isBallestasRowSelected =
-                        isActivityType(row.tipo) &&
-                        isBallestasText(detalle);
-                      const isBallestasSelectedInDay = renderedRows.some(
-                        (activityRow) =>
-                          isActivityType(activityRow.tipo) &&
-                          isBallestasText(String(activityRow.detalle ?? "")),
-                      );
-                      const isRowActive =
-                        row.tipo === "ENTRADA"
-                          ? detalle !== ""
-                          : detalle !== "" && detalle !== "-";
-
-                      const updateRow = (
-                        field: keyof Omit<ItineraryActivityRow, "id">,
-                        value: string | number,
-                      ) => {
-                        if (!canPersist) return;
-                        onUpdateEventField(day.id, row.id, field, value);
-                      };
-
-                      const handlePrecioChange = (precioRaw: string) => {
-                        const precio = round2(Number(precioRaw || 0));
-                        const cant = Number(row.cant || 0);
-                        updateRow("precio", precio);
-                        updateRow("subtotal", round2(precio * cant));
-                      };
-
-                      const handleCantChange = (cantRaw: string) => {
-                        let cant = Math.max(
-                          0,
-                          Math.floor(Number(cantRaw || 0)),
+                        const canPersist = row.id > 0;
+                        const activityLabelNumber = activityLabelIndexById.get(
+                          Number(row.id),
                         );
-                        if (paxCount > 0) cant = Math.min(cant, paxCount);
-                        const precio = Number(row.precio || 0);
-                        updateRow("cant", cant);
-                        updateRow("subtotal", round2(precio * cant));
-                      };
+                        const rowLabel = isActivityType(row.tipo)
+                          ? `Actividad ${activityLabelNumber ?? 1}`
+                          : ROW_LABELS[row.tipo];
+                        const detalle = String(row.detalle ?? "").trim();
+                        const isBallestasRowSelected =
+                          isActivityType(row.tipo) && isBallestasText(detalle);
+                        const isBallestasSelectedInDay = renderedRows.some(
+                          (activityRow) =>
+                            isActivityType(activityRow.tipo) &&
+                            isBallestasText(String(activityRow.detalle ?? "")),
+                        );
+                        const isRowActive =
+                          row.tipo === "ENTRADA"
+                            ? detalle !== ""
+                            : detalle !== "" && detalle !== "-";
 
-                      const handleDetalleChange = (nextDetalle: string) => {
-                        updateRow("detalle", nextDetalle);
+                        const updateRow = (
+                          field: keyof Omit<ItineraryActivityRow, "id">,
+                          value: string | number,
+                        ) => {
+                          if (!canPersist) return;
+                          onUpdateEventField(day.id, row.id, field, value);
+                        };
 
-                        if (nextDetalle === "-" || nextDetalle === "") {
-                          updateRow("precio", 0);
-                          updateRow("cant", 0);
-                          updateRow("subtotal", 0);
-                          return;
-                        }
+                        const handlePrecioChange = (precioRaw: string) => {
+                          const precio = round2(Number(precioRaw || 0));
+                          const cant = Number(row.cant || 0);
+                          updateRow("precio", precio);
+                          updateRow("subtotal", round2(precio * cant));
+                        };
 
-                        if (isActivityType(row.tipo)) {
-                          const actividadSeleccionada = useProductActivities
-                            ? null
-                            : actividades.find(
-                                (item) =>
-                                  item.actividad.toLowerCase() ===
-                                    nextDetalle.toLowerCase() &&
-                                  (selectedProduct
-                                    ? item.idProducto === selectedProduct.id
-                                    : true),
-                              );
-                          const actividadProductoSeleccionada =
-                            useProductActivities
-                              ? getProductByTitle(nextDetalle)
-                              : null;
-                          const precioActividad = isBallestasText(nextDetalle)
-                            ? 0
-                            : useProductActivities
-                              ? getProductBasePrice(
+                        const handleCantChange = (cantRaw: string) => {
+                          let cant = Math.max(
+                            0,
+                            Math.floor(Number(cantRaw || 0)),
+                          );
+                          if (paxCount > 0) cant = Math.min(cant, paxCount);
+                          const precio = Number(row.precio || 0);
+                          updateRow("cant", cant);
+                          updateRow("subtotal", round2(precio * cant));
+                        };
+
+                        const handleDetalleChange = (nextDetalle: string) => {
+                          updateRow("detalle", nextDetalle);
+
+                          if (nextDetalle === "-" || nextDetalle === "") {
+                            updateRow("precio", 0);
+                            updateRow("cant", 0);
+                            updateRow("subtotal", 0);
+                            return;
+                          }
+
+                          if (isActivityType(row.tipo)) {
+                            const actividadSeleccionada = useProductActivities
+                              ? null
+                              : actividades.find(
+                                  (item) =>
+                                    item.actividad.toLowerCase() ===
+                                      nextDetalle.toLowerCase() &&
+                                    (selectedProduct
+                                      ? item.idProducto === selectedProduct.id
+                                      : true),
+                                );
+                            const actividadProductoSeleccionada =
+                              useProductActivities
+                                ? getProductByTitle(nextDetalle)
+                                : null;
+                            const precioActividad = isBallestasText(nextDetalle)
+                              ? 0
+                              : useProductActivities
+                                ? getProductBasePrice(
+                                    actividadProductoSeleccionada?.id,
+                                  )
+                                : actividadSeleccionada
+                                  ? getActivityUnitPrice(
+                                      actividadSeleccionada.id,
+                                    )
+                                  : 0;
+                            const defaultViajeExcursiones = useProductActivities
+                              ? getProductVisits(
                                   actividadProductoSeleccionada?.id,
                                 )
                               : actividadSeleccionada
-                                ? getActivityUnitPrice(actividadSeleccionada.id)
-                                : 0;
-                          const defaultViajeExcursiones = useProductActivities
-                            ? getProductVisits(actividadProductoSeleccionada?.id)
-                            : actividadSeleccionada
-                              ? String(actividadSeleccionada.descripcion ?? "")
-                                  .trim()
-                              : "";
-                          const visitasProducto = getProductVisits(selectedProduct?.id);
-                          const nextViajeExcursiones =
-                            defaultViajeExcursiones || visitasProducto;
+                                ? String(
+                                    actividadSeleccionada.descripcion ?? "",
+                                  ).trim()
+                                : "";
+                            const visitasProducto = getProductVisits(
+                              selectedProduct?.id,
+                            );
+                            const nextViajeExcursiones =
+                              defaultViajeExcursiones || visitasProducto;
+
+                            if (
+                              String(day.viajeExcursiones ?? "").trim() ===
+                                "" &&
+                              nextViajeExcursiones !== ""
+                            ) {
+                              setDayViajeExcursiones(
+                                day.id,
+                                day.viajeExcursiones ?? "",
+                                nextViajeExcursiones,
+                              );
+                            }
+                            updateRow("precio", round2(precioActividad));
+                            updateRow("cant", paxCount);
+                            updateRow(
+                              "subtotal",
+                              round2(precioActividad * paxCount),
+                            );
+                            return;
+                          }
+
+                          if (row.tipo === "TRASLADO") {
+                            const trasladoSeleccionado = traslados.find(
+                              (item) =>
+                                item.nombre.toLowerCase() ===
+                                nextDetalle.toLowerCase(),
+                            );
+
+                            const precioTrasladoItem = trasladoSeleccionado
+                              ? getTrasladoUnitPrice(trasladoSeleccionado.id)
+                              : 0;
+
+                            updateRow("precio", round2(precioTrasladoItem));
+                            updateRow("cant", paxCount);
+                            updateRow(
+                              "subtotal",
+                              round2(precioTrasladoItem * paxCount),
+                            );
+                            return;
+                          }
 
                           if (
-                            String(day.viajeExcursiones ?? "").trim() === "" &&
-                            nextViajeExcursiones !== ""
+                            row.tipo === "ENTRADA" &&
+                            paxCount > 0 &&
+                            Number(row.cant || 0) === 0
                           ) {
-                            setDayViajeExcursiones(
-                              day.id,
-                              day.viajeExcursiones ?? "",
-                              nextViajeExcursiones,
+                            updateRow("cant", paxCount);
+                            updateRow(
+                              "subtotal",
+                              round2(Number(row.precio || 0) * paxCount),
                             );
                           }
-                          updateRow("precio", round2(precioActividad));
-                          updateRow("cant", paxCount);
-                          updateRow(
-                            "subtotal",
-                            round2(precioActividad * paxCount),
-                          );
-                          return;
-                        }
+                        };
 
-                        if (row.tipo === "TRASLADO") {
-                          const trasladoSeleccionado = traslados.find(
-                            (item) =>
-                              item.nombre.toLowerCase() ===
-                              nextDetalle.toLowerCase(),
-                          );
+                        return (
+                          <div
+                            key={`${day.id}-${row.id}-${row.tipo}`}
+                            className={`grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-200 last:border-b-0 ${
+                              rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/50"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                              <span className="inline-flex items-center rounded-md bg-orange-500 text-white text-xs px-2.5 py-1 font-semibold tracking-wide">
+                                {rowLabel}
+                              </span>
+                              {canPersist && (
+                                <button
+                                  type="button"
+                                  onClick={() => onRemoveEvent(day.id, row.id)}
+                                  className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 hover:border-red-200 hover:text-red-600"
+                                >
+                                  Quitar
+                                </button>
+                              )}
+                            </div>
 
-                          const precioTrasladoItem = trasladoSeleccionado
-                            ? getTrasladoUnitPrice(trasladoSeleccionado.id)
-                            : 0;
+                            <div className="border-l border-slate-200 p-1.5">
+                              {isActivityType(row.tipo) && (
+                                <select
+                                  className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                                  value={row.detalle}
+                                  onChange={(e) =>
+                                    handleDetalleChange(e.target.value)
+                                  }
+                                >
+                                  <option value="-">-</option>
+                                  {activityOptions
+                                    .filter(
+                                      (option) =>
+                                        !selectedActivityDetails.includes(
+                                          option,
+                                        ) || row.detalle === option,
+                                    )
+                                    .map((option) => (
+                                      <option
+                                        key={`${row.tipo}-${option}`}
+                                        value={option}
+                                      >
+                                        {option}
+                                      </option>
+                                    ))}
+                                </select>
+                              )}
 
-                          updateRow("precio", round2(precioTrasladoItem));
-                          updateRow("cant", paxCount);
-                          updateRow(
-                            "subtotal",
-                            round2(precioTrasladoItem * paxCount),
-                          );
-                          return;
-                        }
-
-                        if (
-                          row.tipo === "ENTRADA" &&
-                          paxCount > 0 &&
-                          Number(row.cant || 0) === 0
-                        ) {
-                          updateRow("cant", paxCount);
-                          updateRow(
-                            "subtotal",
-                            round2(Number(row.precio || 0) * paxCount),
-                          );
-                        }
-                      };
-
-                      return (
-                        <div
-                          key={`${day.id}-${row.id}-${row.tipo}`}
-                          className={`grid grid-cols-[160px_1fr_120px_120px_120px] border-b border-slate-200 last:border-b-0 ${
-                            rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/50"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                            <span className="inline-flex items-center rounded-md bg-orange-500 text-white text-xs px-2.5 py-1 font-semibold tracking-wide">
-                              {rowLabel}
-                            </span>
-                            {canPersist && (
-                              <button
-                                type="button"
-                                onClick={() => onRemoveEvent(day.id, row.id)}
-                                className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 hover:border-red-200 hover:text-red-600"
-                              >
-                                Quitar
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="border-l border-slate-200 p-1.5">
-                            {isActivityType(row.tipo) && (
-                              <select
-                                className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                                value={row.detalle}
-                                onChange={(e) =>
-                                  handleDetalleChange(e.target.value)
-                                }
-                              >
-                                <option value="-">-</option>
-                                {activityOptions
-                                  .filter(
-                                    (option) =>
-                                      !selectedActivityDetails.includes(
-                                        option,
-                                      ) || row.detalle === option,
-                                  )
-                                  .map((option) => (
+                              {row.tipo === "TRASLADO" && (
+                                <select
+                                  className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                                  value={row.detalle}
+                                  onChange={(e) =>
+                                    handleDetalleChange(e.target.value)
+                                  }
+                                >
+                                  <option value="-">-</option>
+                                  {trasladoNames.map((option) => (
                                     <option
                                       key={`${row.tipo}-${option}`}
                                       value={option}
@@ -1145,94 +1182,76 @@ const ItinerarySection = ({
                                       {option}
                                     </option>
                                   ))}
-                              </select>
-                            )}
+                                </select>
+                              )}
 
-                            {row.tipo === "TRASLADO" && (
-                              <select
-                                className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                                value={row.detalle}
-                                onChange={(e) =>
-                                  handleDetalleChange(e.target.value)
-                                }
-                              >
-                                <option value="-">-</option>
-                                {trasladoNames.map((option) => (
-                                  <option
-                                    key={`${row.tipo}-${option}`}
-                                    value={option}
-                                  >
-                                    {option}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
+                              {row.tipo === "ENTRADA" && (
+                                <input
+                                  className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                                  value={row.detalle}
+                                  onChange={(e) =>
+                                    handleDetalleChange(e.target.value)
+                                  }
+                                  disabled={isBallestasSelectedInDay}
+                                />
+                              )}
+                            </div>
 
-                            {row.tipo === "ENTRADA" && (
+                            <div className="border-l border-slate-200 p-1.5">
                               <input
-                                className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                                value={row.detalle}
+                                type="number"
+                                step="0.01"
+                                min={0}
+                                className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
+                                data-row-price-day={String(day.id)}
+                                data-row-price-row={String(row.id)}
+                                value={row.precio === 0 ? "" : row.precio}
                                 onChange={(e) =>
-                                  handleDetalleChange(e.target.value)
+                                  handlePrecioChange(e.target.value)
                                 }
-                                disabled={isBallestasSelectedInDay}
+                                onKeyDown={preventNumberArrowStep}
+                                disabled={
+                                  !isRowActive ||
+                                  row.tipo === "ENTRADA" ||
+                                  isBallestasRowSelected
+                                }
                               />
-                            )}
-                          </div>
+                            </div>
 
-                          <div className="border-l border-slate-200 p-1.5">
-                            <input
-                              type="number"
-                              step="0.01"
-                              min={0}
-                              className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
-                              data-row-price-day={String(day.id)}
-                              data-row-price-row={String(row.id)}
-                              value={row.precio === 0 ? "" : row.precio}
-                              onChange={(e) =>
-                                handlePrecioChange(e.target.value)
-                              }
-                              onKeyDown={preventNumberArrowStep}
-                              disabled={
-                                !isRowActive ||
-                                row.tipo === "ENTRADA" ||
-                                isBallestasRowSelected
-                              }
-                            />
-                          </div>
+                            <div className="border-l border-slate-200 p-1.5">
+                              <input
+                                type="number"
+                                step="1"
+                                min={0}
+                                max={paxCount || undefined}
+                                className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
+                                value={row.cant === 0 ? "" : row.cant}
+                                onChange={(e) =>
+                                  handleCantChange(e.target.value)
+                                }
+                                onKeyDown={preventNumberArrowStep}
+                                disabled={
+                                  !isRowActive ||
+                                  row.tipo === "ENTRADA" ||
+                                  isBallestasSelectedInDay
+                                }
+                              />
+                            </div>
 
-                          <div className="border-l border-slate-200 p-1.5">
-                            <input
-                              type="number"
-                              step="1"
-                              min={0}
-                              max={paxCount || undefined}
-                              className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
-                              value={row.cant === 0 ? "" : row.cant}
-                              onChange={(e) => handleCantChange(e.target.value)}
-                              onKeyDown={preventNumberArrowStep}
-                              disabled={
-                                !isRowActive ||
-                                row.tipo === "ENTRADA" ||
-                                isBallestasSelectedInDay
-                              }
-                            />
+                            <div className="border-l border-slate-200 p-2.5 text-right font-semibold text-slate-800 bg-white">
+                              {row.subtotal
+                                ? `${currencySymbol} ${row.subtotal.toFixed(2)}`
+                                : ""}
+                            </div>
                           </div>
-
-                          <div className="border-l border-slate-200 p-2.5 text-right font-semibold text-slate-800 bg-white">
-                            {row.subtotal
-                              ? `${currencySymbol} ${row.subtotal.toFixed(2)}`
-                              : ""}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                     </div>
                   )}
                 </>
               )}
 
-              <div className="mt-3">
+              <div className="mt-6">
                 <TextControlled<ItinerarySectionFormValues>
                   name={getViajeExcursionesFieldName(day.id)}
                   control={control}

@@ -878,18 +878,18 @@ export default function PackageInvoicePdf({
           <View style={S.priceBox}>
             <Text style={S.sectionTitle}>LIQUIDACIÓN</Text>
 
-	            <View style={S.priceTable}>
-	              <View style={[S.priceRow, S.priceHeader]}>
-	                <Text style={[S.priceCell, { width: "50%" }]}>PAQUETE</Text>
-	                <Text style={[S.priceCell, { width: "8%" }, S.alignCenter]}>
-	                  MONEDA
-	                </Text>
-	                <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
-	                  P. UNITARIO
-	                </Text>
-	                <Text style={[S.priceCell, { width: "10%" }, S.alignCenter]}>
-	                  CANT
-	                </Text>
+            <View style={S.priceTable}>
+              <View style={[S.priceRow, S.priceHeader]}>
+                <Text style={[S.priceCell, { width: "50%" }]}>PAQUETE</Text>
+                <Text style={[S.priceCell, { width: "8%" }, S.alignCenter]}>
+                  MONEDA
+                </Text>
+                <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
+                  P. UNITARIO
+                </Text>
+                <Text style={[S.priceCell, { width: "10%" }, S.alignCenter]}>
+                  CANT
+                </Text>
                 <Text
                   style={[
                     S.priceCell,
@@ -909,36 +909,36 @@ export default function PackageInvoicePdf({
                   </Text>
                 </View>
               ) : (
-	                pricingRows.map((r) => (
-	                  <View key={r.key} style={S.priceRow}>
-	                    <Text style={[S.priceCell, { width: "50%" }]}>
-	                      {r.desc}
-	                    </Text>
-	                    <Text style={[S.priceCell, { width: "8%" }, S.alignCenter]}>
-	                      {curr}
-	                    </Text>
-	                    <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
-	                      {formatMoney(r.unit)}
-	                    </Text>
-	                    <Text
-	                      style={[S.priceCell, { width: "10%" }, S.alignCenter]}
-	                    >
-	                      {r.qty}
+                pricingRows.map((r) => (
+                  <View key={r.key} style={S.priceRow}>
+                    <Text style={[S.priceCell, { width: "50%" }]}>
+                      {r.desc}
+                    </Text>
+                    <Text style={[S.priceCell, { width: "8%" }, S.alignCenter]}>
+                      {curr}
+                    </Text>
+                    <Text style={[S.priceCell, { width: "16%" }, S.alignRight]}>
+                      {formatMoney(r.unit)}
+                    </Text>
+                    <Text
+                      style={[S.priceCell, { width: "10%" }, S.alignCenter]}
+                    >
+                      {r.qty}
                     </Text>
                     <Text
                       style={[
                         S.priceCell,
                         S.lastCell,
-	                        { width: "16%" },
-	                        S.alignRight,
-	                      ]}
-	                    >
-	                      {formatMoney(r.total)}
-	                    </Text>
-	                  </View>
-	                ))
-	              )}
-	            </View>
+                        { width: "16%" },
+                        S.alignRight,
+                      ]}
+                    >
+                      {formatMoney(r.total)}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
 
             <View style={S.footerTwo}>
               {/* LEFT TOTALS */}
@@ -955,6 +955,7 @@ export default function PackageInvoicePdf({
                 ].map(([label, val]) => {
                   const isEmphasized =
                     label === "TOTAL A PAGAR" || label === "SALDO";
+                  const showCurrencySymbol = label === "TOTAL A PAGAR";
                   return (
                     <View key={String(label)} style={S.payLine}>
                       <Text style={S.payLabel}>{label}:</Text>
@@ -964,7 +965,7 @@ export default function PackageInvoicePdf({
                           isEmphasized && { fontWeight: "bold" },
                         ]}
                       >
-                        {`${curr} ${formatMoney(val)}`}
+                        {`${showCurrencySymbol ? `${curr} ` : ""}${formatMoney(val)}`}
                       </Text>
                     </View>
                   );
@@ -995,8 +996,8 @@ export default function PackageInvoicePdf({
                   ["NRO OPERACIÓN", data.nroOperacion],
                   ["DOCUMENTO", data.documentoCobranza],
                   ["NRO DOCUMENTO", nroDoc || "-"],
-                  ["DEPÓSITO", `${curr} ${formatMoney(data.deposito)}`],
-                  ["EFECTIVO", `${curr} ${formatMoney(data.efectivo)}`],
+                  ["DEPÓSITO", `${formatMoney(data.deposito)}`],
+                  ["EFECTIVO", `${formatMoney(data.efectivo)}`],
                 ].map(([label, value]) => (
                   <View key={label} style={S.kvRow}>
                     <Text

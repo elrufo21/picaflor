@@ -28,7 +28,7 @@ export const AGENCIA_OPTIONS: SelectOption[] = [
   { label: "Counter Interno", value: "COUNTER_INTERNO" },
 ];
 
-export const MOVILIDAD_OPTIONS = ["BUS", "AEREO", "CRUCERO"];
+export const MOVILIDAD_OPTIONS = ["BUS", "MOVILIDAD PRIVADA", "AEREO", "CRUCERO"];
 export const TRAVEL_PACKAGE_SELECTOR_OPTIONS: TravelPackageSelectionRow[] = [
   { id: 1, paquete: "Paquete matrimonial", cantPax: 2, cantidad: 1 },
   { id: 2, paquete: "Paquete simple", cantPax: 1, cantidad: 1 },

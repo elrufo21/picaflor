@@ -215,6 +215,20 @@ const parseSafeNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+const toNonNegativeInt = (value: unknown) =>
+  Math.max(0, Math.floor(parseSafeNumber(value)));
+const normalizePassengersForSubmit = (
+  form: TravelPackageFormState,
+): TravelPackageFormState => {
+  const cantPax = toNonNegativeInt(form.cantPax);
+  const pasajeros = Array.isArray(form.pasajeros) ? form.pasajeros : [];
+
+  return {
+    ...form,
+    cantPax: String(cantPax),
+    pasajeros: pasajeros.slice(0, cantPax),
+  };
+};
 const isValidIsoDate = (value: string) => {
   if (!ISO_DATE_PATTERN.test(value)) return false;
   return !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
@@ -286,7 +300,7 @@ const validateTravelPackageForm = (
     };
   }
 
-  const cantPax = Math.max(0, Math.floor(parseSafeNumber(form.cantPax)));
+  const cantPax = toNonNegativeInt(form.cantPax);
   if (!cantPax) {
     return {
       message: "INGRESE LA CANTIDAD DE PASAJEROS.",
@@ -364,6 +378,7 @@ const validateTravelPackageForm = (
   const movilidadTipo = normalizeUpperText(form.movilidadTipo);
   const movilidadEmpresa = normalizeText(form.movilidadEmpresa);
   const movilidadPrecio = parseSafeNumber(form.movilidadPrecio);
+  const isMovilidadPrivada = movilidadTipo === "MOVILIDAD PRIVADA";
   if (!movilidadTipo) {
     return {
       message: "SELECCIONE EL TIPO DE MOVILIDAD.",
@@ -371,11 +386,19 @@ const validateTravelPackageForm = (
     };
   }
   if (movilidadTipo !== "NO INCLUYE") {
-    if (!movilidadEmpresa || movilidadEmpresa === "-") {
+    if (isMovilidadPrivada) {
+      if (movilidadEmpresa !== "-") {
+        return {
+          message:
+            "SI SELECCIONA MOVILIDAD PRIVADA, LA EMPRESA DEBE SER '-'.",
+          focusSelector: '[name="movilidadEmpresa"]',
+        };
+      }
+    } else if (!movilidadEmpresa || movilidadEmpresa === "-") {
       return {
         message:
           movilidadTipo === "BUS"
-            ? "SI SELECCIONA MOVILIDAD BUS, DEBE ELEGIR UNA EMPRESA."
+            ? "SI SELECCIONA MOVILIDAD COMPARTIDO, DEBE ELEGIR UNA EMPRESA."
             : "DEBE SELECCIONAR LA EMPRESA DE MOVILIDAD.",
         focusSelector: '[name="movilidadEmpresa"]',
       };
@@ -385,7 +408,7 @@ const validateTravelPackageForm = (
       return {
         message:
           movilidadTipo === "BUS"
-            ? "SI SELECCIONA MOVILIDAD BUS, EL PRECIO NO PUEDE SER NEGATIVO."
+            ? "SI SELECCIONA MOVILIDAD COMPARTIDO, EL PRECIO NO PUEDE SER NEGATIVO."
             : "EL PRECIO DE MOVILIDAD NO PUEDE SER NEGATIVO.",
         focusSelector: 'input[name^="nh-movilidadprecio-"]',
       };
@@ -958,7 +981,8 @@ const TravelPackageForm = () => {
       return;
     }
 
-    const validationError = validateTravelPackageForm(form);
+    const formForSave = normalizePassengersForSubmit(form);
+    const validationError = validateTravelPackageForm(formForSave);
     if (validationError) {
       showToast({
         title: "Validación",
@@ -973,13 +997,13 @@ const TravelPackageForm = () => {
 
     try {
       const payload = buildTravelPackageLegacyPayload({
-        ...form,
+        ...formForSave,
         fechaEmision: buildFechaRegistroDateTime(
-          normalizeText(form.fechaEmision),
+          normalizeText(formForSave.fechaEmision),
         ),
       });
       const splitIndex = payload.indexOf("[");
-      const telPaxToken = normalizeLegacyToken(form.telPax);
+      const telPaxToken = normalizeLegacyToken(formForSave.telPax);
       const payloadWithUsuario =
         splitIndex >= 0
           ? `${payload.slice(0, splitIndex)}|${usuarioId}|${telPaxToken}${payload.slice(splitIndex)}`
@@ -1025,12 +1049,12 @@ const TravelPackageForm = () => {
       const responseId = responseMeta.id ?? resolveSavedPackageId(response);
       const editId = parsePositiveId(id);
       const packageId = responseId ?? (isEditMode ? editId : null);
-      const resolvedNotaId = normalizeText(form.notaId) || routeNotaId;
+      const resolvedNotaId = normalizeText(formForSave.notaId) || routeNotaId;
       const formForInvoice: TravelPackageFormState = {
-        ...form,
+        ...formForSave,
         notaId: resolvedNotaId,
-        nserie: responseMeta.nserie ?? form.nserie,
-        ndocumento: responseMeta.ndocumento ?? form.ndocumento,
+        nserie: responseMeta.nserie ?? formForSave.nserie,
+        ndocumento: responseMeta.ndocumento ?? formForSave.ndocumento,
       };
       const invoiceData = buildPackageInvoiceData(formForInvoice, packageId);
 
