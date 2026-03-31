@@ -12,6 +12,7 @@ import {
   SelectControlled,
   TextControlled,
 } from "@/components/ui/inputs";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 import { refreshServiciosData } from "@/app/db/serviciosSync";
 import {
   serviciosDB,
@@ -25,6 +26,7 @@ type Props = {
     key: K,
     value: TravelPackageFormState[K],
   ) => void;
+  isViewMode?: boolean;
 };
 
 type GeneralDataFormValues = {
@@ -86,7 +88,11 @@ const buildProgramaFromForm = (
   return [destinoText, durationText].filter(Boolean).join(" ").trim();
 };
 
-const GeneralDataSection = ({ form, onUpdateField }: Props) => {
+const GeneralDataSection = ({
+  form,
+  onUpdateField,
+  isViewMode = false,
+}: Props) => {
   const [regiones, setRegiones] = useState<Ubigeo[]>([]);
   const [regionesCityTour, setRegionesCityTour] = useState<
     ProductoCityTourOrdena[]
@@ -481,8 +487,9 @@ const GeneralDataSection = ({ form, onUpdateField }: Props) => {
             control={control}
             fullWidth
             size="small"
-            type="number"
+            type={isViewMode ? "text" : "number"}
             label="Precio Pax General"
+            formatter={isViewMode ? formatCurrency : undefined}
             onChange={(event) =>
               onUpdateField("precioPaxGeneral", event.target.value)
             }

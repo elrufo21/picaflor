@@ -20,6 +20,7 @@ type Props = {
     key: K,
     value: TravelPackageFormState[K],
   ) => void;
+  isViewMode?: boolean;
 };
 
 type LiquidationRow = {
@@ -37,7 +38,11 @@ type PassengerLiquidationRow = {
   unit: number;
 };
 
-const LiquidationSection = ({ form, onUpdateField }: Props) => {
+const LiquidationSection = ({
+  form,
+  onUpdateField,
+  isViewMode = false,
+}: Props) => {
   const currencySymbol = getTravelCurrencySymbol(form.moneda);
   const paxCount = useMemo(() => getBillablePassengerCount(form), [form]);
 
@@ -555,10 +560,14 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                       <td className="px-3 py-2">
                         <div className="ml-auto flex w-[160px] items-center rounded-md border border-slate-300 bg-white px-2">
                           <input
-                            type="number"
+                            type={isViewMode ? "text" : "number"}
                             min={0}
                             step="0.01"
-                            value={incentiveInput}
+                            value={
+                              isViewMode
+                                ? formatCurrency(incentiveInput)
+                                : incentiveInput
+                            }
                             onChange={(event) =>
                               handleIncentiveValueChange(event.target.value)
                             }
@@ -705,10 +714,16 @@ const LiquidationSection = ({ form, onUpdateField }: Props) => {
                 </label>
                 <input
                   name="acuenta"
-                  type="number"
+                  type={isViewMode ? "text" : "number"}
                   min={0}
                   step="0.01"
-                  value={form.acuenta === 0 ? "" : form.acuenta}
+                  value={
+                    form.acuenta === 0
+                      ? ""
+                      : isViewMode
+                        ? formatCurrency(form.acuenta)
+                        : form.acuenta
+                  }
                   disabled={form.condicionPago !== "ACUENTA"}
                   onChange={(event) => {
                     const value = Number(event.target.value || 0);

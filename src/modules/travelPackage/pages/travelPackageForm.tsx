@@ -1150,7 +1150,14 @@ const TravelPackageForm = () => {
           : "El paquete fue marcado como no verificado.",
         type: "success",
       });
-      navigate("/paquete-viaje", { state: { refresh: true } });
+      markLiquidacionesAsStale();
+      if (fromLiquidaciones) {
+        navigate("/fullday/programacion/liquidaciones", {
+          state: { refresh: Date.now() },
+        });
+        return;
+      }
+      navigate("/paquete-viaje", { state: { refresh: Date.now() } });
     } catch (error) {
       showToast({
         title: "Verificación",
@@ -1163,7 +1170,15 @@ const TravelPackageForm = () => {
     } finally {
       setIsUpdatingVerificado(false);
     }
-  }, [canToggleVerificado, handlers, id, isEditMode, isVerificado, navigate]);
+  }, [
+    canToggleVerificado,
+    fromLiquidaciones,
+    handlers,
+    id,
+    isEditMode,
+    isVerificado,
+    navigate,
+  ]);
 
   const handleConfirmToggleVerificado = useCallback(() => {
     if (!canToggleVerificado || !isEditMode || !id) return;
@@ -1630,6 +1645,7 @@ const TravelPackageForm = () => {
               <GeneralDataSection
                 form={form}
                 onUpdateField={handlers.updateField}
+                isViewMode={isFormLocked}
               />
             </div>
 
@@ -1648,6 +1664,7 @@ const TravelPackageForm = () => {
                 onUpdateField={handlers.updatePassengerField}
                 onAdd={handlers.addPassenger}
                 onRemove={handlers.removePassenger}
+                isViewMode={isFormLocked}
               />
             </div>
 
@@ -1658,6 +1675,7 @@ const TravelPackageForm = () => {
                 onAddHotelServicio={handlers.addHotelServicio}
                 onRemoveHotelServicio={handlers.removeHotelServicio}
                 onUpdateHotelServicioField={handlers.updateHotelServicioField}
+                isViewMode={isFormLocked}
               />
             </div>
 
@@ -1675,6 +1693,7 @@ const TravelPackageForm = () => {
                 onAddEvent={handlers.addDayEvent}
                 onRemoveEvent={handlers.removeDayEvent}
                 onUpdateEventField={handlers.updateDayEventField}
+                isViewMode={isFormLocked}
               />
             </div>
 
@@ -1682,6 +1701,7 @@ const TravelPackageForm = () => {
               <LiquidationSection
                 form={form}
                 onUpdateField={handlers.updateField}
+                isViewMode={isFormLocked}
               />
             </div>
           </div>

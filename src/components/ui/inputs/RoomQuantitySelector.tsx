@@ -29,13 +29,20 @@ type Props = {
   placeholder?: string;
   disabled?: boolean;
   currencySymbol?: string;
+  formatMoney?: boolean;
 };
 
-const formatPrice = (price: number) => {
+const formatPrice = (price: number, formatMoney = false) => {
   const normalized = Number.isFinite(price) ? Math.max(0, price) : 0;
-  return Number.isInteger(normalized)
-    ? String(normalized)
-    : normalized.toFixed(2);
+  if (!formatMoney) {
+    return Number.isInteger(normalized)
+      ? String(normalized)
+      : normalized.toFixed(2);
+  }
+  return normalized.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 };
 
 const ROOM_ASCENDING_ORDER = [
@@ -79,6 +86,7 @@ const toSummary = (
   value: RoomQuantityValue[],
   options: RoomOption[],
   currencySymbol: string,
+  formatMoney: boolean,
 ) => {
   const selected = value.filter((item) => item.quantity > 0);
   if (!selected.length) return "";
@@ -87,7 +95,7 @@ const toSummary = (
     (acc, item) => acc + item.quantity * Number(item.price || 0),
     0,
   );
-  return `${currencySymbol} ${formatPrice(totalAmount)} | ${selected.length} tipos | ${totalRooms} hab |`;
+  return `${currencySymbol} ${formatPrice(totalAmount, formatMoney)} | ${selected.length} tipos | ${totalRooms} hab |`;
 };
 
 const sortByOptions = (value: RoomQuantityValue[], options: RoomOption[]) => {
@@ -107,6 +115,7 @@ const RoomQuantitySelector = ({
   placeholder = "Selecciona habitaciones",
   disabled = false,
   currencySymbol = "USD$",
+  formatMoney = false,
 }: Props) => {
   const inputNamespaceRef = useRef(
     `room-selector-${Math.random().toString(36).slice(2, 10)}`,
@@ -117,8 +126,8 @@ const RoomQuantitySelector = ({
   const pendingPriceFocusOptionRef = useRef<string | null>(null);
 
   const summary = useMemo(
-    () => toSummary(value, options, currencySymbol),
-    [value, options, currencySymbol],
+    () => toSummary(value, options, currencySymbol, formatMoney),
+    [value, options, currencySymbol, formatMoney],
   );
   const open = Boolean(anchorEl);
   const selected = value.filter((item) => item.quantity > 0);
@@ -295,6 +304,7 @@ const RoomQuantitySelector = ({
           <Typography variant="caption" className="text-slate-600">
             {`${totals.rooms} habitaciones seleccionadas | ${currencySymbol} ${formatPrice(
               totals.amount,
+              formatMoney,
             )}`}
           </Typography>
 
@@ -409,7 +419,7 @@ const RoomQuantitySelector = ({
                   variant="caption"
                   className="text-right text-slate-700 font-medium min-w-[84px]"
                 >
-                  {`${currencySymbol} ${formatPrice(subtotal)}`}
+                  {`${currencySymbol} ${formatPrice(subtotal, formatMoney)}`}
                 </Typography>
               </Box>
             );
