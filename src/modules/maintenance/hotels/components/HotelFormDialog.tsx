@@ -104,6 +104,7 @@ export default function HotelFormDialog({
           label="Región"
           size="small"
           required
+          data-focus-next='[data-focus-hotel="true"]'
           options={regionOptions}
           helperText={isLoading ? "Cargando regiones..." : undefined}
           disabled={isLoading && !regionOptions.length}
@@ -116,7 +117,10 @@ export default function HotelFormDialog({
         placeholder="Ingrese nombre del hotel"
         size="small"
         required
-        inputProps={{ "data-focus-first": "true" }}
+        inputProps={{
+          "data-focus-first": "true",
+          "data-focus-hotel": "true",
+        }}
         transform={(v) => v.toUpperCase()}
         disableHistory
       />
@@ -141,10 +145,9 @@ export default function HotelFormDialog({
         placeholder="Ingrese dirección"
         size="small"
         multiline
-        rows={3}
         transform={(v) => v.toUpperCase()}
       />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
         <TextControlled<HotelFormValues>
           name="telefono"
           control={control}
@@ -161,17 +164,17 @@ export default function HotelFormDialog({
           size="small"
           transform={(v) => v.toUpperCase()}
         />
-        <TextControlled<HotelFormValues>
-          name="email"
-          control={control}
-          label="Email"
-          placeholder="correo@dominio.com"
-          size="small"
-          disableAutoUppercase
-          disableHistory={false}
-        />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <TextControlled<HotelFormValues>
+        name="email"
+        control={control}
+        label="Email"
+        placeholder="correo@dominio.com"
+        size="small"
+        disableAutoUppercase
+        disableHistory={false}
+      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
         <TextControlled<HotelFormValues>
           name="clasificacion"
           control={control}
@@ -188,14 +191,14 @@ export default function HotelFormDialog({
           size="small"
           transform={(v) => v.toUpperCase()}
         />
-        <TextControlled<HotelFormValues>
+        {/** <TextControlled<HotelFormValues>
           name="tiposHabitaciones"
           control={control}
           label="Tipos habitaciones"
           placeholder="Simple,Doble,Matrimonial"
           size="small"
           transform={(v) => v.toUpperCase()}
-        />
+        /> */}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TextControlled<HotelFormValues>
