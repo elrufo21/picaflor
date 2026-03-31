@@ -23,6 +23,7 @@ import {
 } from "@/app/db/serviciosDB";
 import { showToast } from "@/components/ui/AppToast";
 import { TextControlled } from "@/components/ui/inputs";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 import { getTravelCurrencySymbol } from "../constants/travelPackage.constants";
 import type {
   ItineraryDayRow,
@@ -40,6 +41,7 @@ type Props = {
   cantPax: string;
   pasajeros: PassengerRow[];
   moneda: TravelPackageFormState["moneda"];
+  isViewMode?: boolean;
   onUpdateDayField: <
     K extends keyof Omit<ItineraryDayRow, "id" | "actividades">,
   >(
@@ -110,6 +112,7 @@ const ItinerarySection = ({
   cantPax,
   pasajeros,
   moneda,
+  isViewMode = false,
   onUpdateDayField,
   onAddDay,
   onRemoveDay,
@@ -892,9 +895,11 @@ const ItinerarySection = ({
                   value={
                     Number(day.precioUnitario || 0) === 0
                       ? ""
-                      : String(day.precioUnitario)
+                      : isViewMode
+                        ? formatCurrency(day.precioUnitario)
+                        : String(day.precioUnitario)
                   }
-                  type="number"
+                  type={isViewMode ? "text" : "number"}
                   size="small"
                   inputProps={{
                     min: 0,
@@ -921,7 +926,13 @@ const ItinerarySection = ({
 
                 <TextField
                   label="Importe Total"
-                  value={dayTotal === 0 ? "" : ` ${dayTotal.toFixed(2)}`}
+                  value={
+                    dayTotal === 0
+                      ? ""
+                      : isViewMode
+                        ? formatCurrency(dayTotal)
+                        : ` ${dayTotal.toFixed(2)}`
+                  }
                   size="small"
                   InputProps={{ readOnly: true }}
                   sx={{
@@ -1199,13 +1210,19 @@ const ItinerarySection = ({
 
                             <div className="border-l border-slate-200 p-1.5">
                               <input
-                                type="number"
+                                type={isViewMode ? "text" : "number"}
                                 step="0.01"
                                 min={0}
                                 className="w-full h-9 border border-slate-300 rounded-md px-2 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100"
                                 data-row-price-day={String(day.id)}
                                 data-row-price-row={String(row.id)}
-                                value={row.precio === 0 ? "" : row.precio}
+                                value={
+                                  row.precio === 0
+                                    ? ""
+                                    : isViewMode
+                                      ? formatCurrency(row.precio)
+                                      : row.precio
+                                }
                                 onChange={(e) =>
                                   handlePrecioChange(e.target.value)
                                 }
@@ -1240,7 +1257,11 @@ const ItinerarySection = ({
 
                             <div className="border-l border-slate-200 p-2.5 text-right font-semibold text-slate-800 bg-white">
                               {row.subtotal
-                                ? `${currencySymbol} ${row.subtotal.toFixed(2)}`
+                                ? `${currencySymbol} ${
+                                    isViewMode
+                                      ? formatCurrency(row.subtotal)
+                                      : row.subtotal.toFixed(2)
+                                  }`
                                 : ""}
                             </div>
                           </div>

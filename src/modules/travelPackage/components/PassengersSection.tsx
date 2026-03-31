@@ -9,6 +9,7 @@ import { getTodayIso } from "../constants/travelPackage.constants";
 import { usePaises } from "../hooks/usePaises";
 import type { PassengerRow } from "../types/travelPackage.types";
 import SectionCard from "./SectionCard";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
 type Props = {
   pasajeros: PassengerRow[];
@@ -20,6 +21,7 @@ type Props = {
   ) => void;
   onAdd: () => void;
   onRemove: (id: number) => void;
+  isViewMode?: boolean;
 };
 
 const toPositiveIntegerText = (value: string): string => {
@@ -43,6 +45,7 @@ const PassengersSection = ({
   onUpdateField,
   onAdd,
   onRemove,
+  isViewMode = false,
 }: Props) => {
   void onAdd;
   void onRemove;
@@ -323,10 +326,16 @@ const PassengersSection = ({
                   <td className="px-2 py-1.5 align-middle">
                     <TableTextInput
                       id={`total-tipo-${passenger.id}`}
-                      value={String(passenger.totalTipoPasajero ?? "")}
+                      value={
+                        isViewMode
+                          ? formatCurrency(
+                              String(passenger.totalTipoPasajero ?? ""),
+                            )
+                          : String(passenger.totalTipoPasajero ?? "")
+                      }
                       navColumn="totalTipoPasajero"
                       navRow={index}
-                      type="number"
+                      type={isViewMode ? "text" : "number"}
                       textAlign="right"
                       disabled={isLiberadoPassenger}
                       onChange={(value) =>
@@ -334,7 +343,8 @@ const PassengersSection = ({
                           passenger.id,
                           "totalTipoPasajero",
                           toPositiveIntegerText(value),
-                        )}
+                        )
+                      }
                       textSize="lg"
                       placeholder="0"
                     />

@@ -31,6 +31,7 @@ import HotelFormDialog, {
 import { refreshServiciosData } from "@/app/db/serviciosSync";
 import { serviciosDB, type Hotel, type Ubigeo } from "@/app/db/serviciosDB";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
 type Props = {
   form: TravelPackageFormState;
@@ -45,6 +46,7 @@ type Props = {
     field: K,
     value: HotelServicioRow[K],
   ) => void;
+  isViewMode?: boolean;
 };
 
 const roomOptions = HABITACION_OPTIONS.map((tipo) => ({
@@ -125,6 +127,7 @@ const ServiciosContratadosSection = ({
   onAddHotelServicio,
   onRemoveHotelServicio,
   onUpdateHotelServicioField,
+  isViewMode = false,
 }: Props) => {
   const { id } = useParams<{ id?: string }>();
   const isEditMode = Boolean(id);
@@ -509,7 +512,10 @@ const ServiciosContratadosSection = ({
         : selectedAlimentacionEstado === "NO"
           ? "-"
           : "";
-    const globalFoodPrice = Math.max(0, Number(selectedAlimentacionPrecioGlobal || 0));
+    const globalFoodPrice = Math.max(
+      0,
+      Number(selectedAlimentacionPrecioGlobal || 0),
+    );
     const includeFoodForNewRow =
       selectedAlimentacionEstado === "SI" && Boolean(normalizedGlobalFoodType);
 
@@ -796,8 +802,9 @@ const ServiciosContratadosSection = ({
                 name="movilidadPrecio"
                 control={control}
                 size="small"
-                type="number"
-                displayZeroAsEmpty
+                type={isViewMode ? "text" : "number"}
+                formatter={isViewMode ? formatCurrency : undefined}
+                displayZeroAsEmpty={!isViewMode}
                 disabled={!showMovilidadPrice}
                 inputProps={{ "data-focus-target": "movilidad-precio" }}
                 onChange={(e) =>
@@ -934,8 +941,9 @@ const ServiciosContratadosSection = ({
                 name="precioAlimentacionGlobal"
                 control={control}
                 size="small"
-                type="number"
-                displayZeroAsEmpty
+                type={isViewMode ? "text" : "number"}
+                formatter={isViewMode ? formatCurrency : undefined}
+                displayZeroAsEmpty={!isViewMode}
                 disabled={!showAlimentacionPrice}
                 inputProps={{ "data-focus-target": "alimentacion-precio" }}
                 onChange={(e) => {
@@ -1124,6 +1132,7 @@ const ServiciosContratadosSection = ({
                           options={roomOptions}
                           value={mapToSelectorValue(row.habitaciones)}
                           currencySymbol={currencySymbol}
+                          formatMoney={isViewMode}
                           onChange={(value) => {
                             const nextHabitaciones =
                               mapFromSelectorValue(value);
@@ -1163,16 +1172,24 @@ const ServiciosContratadosSection = ({
                             {currencySymbol}
                           </span>
                           <input
-                            type="number"
+                            type={isViewMode ? "text" : "number"}
                             min={0}
                             step="0.01"
-                            value={calculateHabitacionesImporteTotal(
-                              row.habitaciones,
-                            )}
+                            value={
+                              isViewMode
+                                ? formatCurrency(
+                                    calculateHabitacionesImporteTotal(
+                                      row.habitaciones,
+                                    ),
+                                  )
+                                : calculateHabitacionesImporteTotal(
+                                    row.habitaciones,
+                                  )
+                            }
                             placeholder="0.00"
                             readOnly
                             disabled
-                            className="w-full border-0 bg-transparent p-0 text-xs text-slate-700 sm:text-sm focus:outline-none disabled:opacity-100"
+                            className="w-full border-0 bg-transparent p-0 text-xs text-slate-700 sm:text-sm focus:outline-none disabled:opacity-100 text-right"
                           />
                         </div>
                       </td>
