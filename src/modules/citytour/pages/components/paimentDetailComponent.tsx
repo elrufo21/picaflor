@@ -1,5 +1,5 @@
 import { SelectControlled, TextControlled } from "@/components/ui/inputs";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller } from "react-hook-form";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import { usePackageStore } from "../../store/cityTourStore";
@@ -7,8 +7,28 @@ import { usePackageStore } from "../../store/cityTourStore";
 const CARD_ONLY_BANK_VALUES = new Set(["POS", "PAGOLINK"]);
 const BASE_BANK_VALUES = new Set(["", "-"]);
 
+const normalizeMoneyInput = (value: string) => {
+  const raw = String(value ?? "")
+    .replace(/,/g, "")
+    .replace(/[^0-9.]/g, "");
+
+  if (!raw) return "";
+
+  const [integerPartRaw = "", ...decimalChunks] = raw.split(".");
+  const integerPart = integerPartRaw.replace(/^0+(?=\d)/, "");
+  const decimalPart = decimalChunks.join("").slice(0, 2);
+
+  if (raw.includes(".")) {
+    return `${integerPart || "0"}.${decimalPart}`;
+  }
+
+  return integerPart || "0";
+};
+
 const PaimentDetailComponent = ({ control, setValue, watch }) => {
   const { isEditing } = usePackageStore();
+  const [isTypingExtraSoles, setIsTypingExtraSoles] = useState(false);
+  const [isTypingExtraDolares, setIsTypingExtraDolares] = useState(false);
   const documentoCobranzaOptions = [
     {
       label: "Documento de Cobranza",
@@ -273,15 +293,16 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             <div className="px-3 py-2">
               <TextControlled
                 name="acuenta"
-                type={condicion == "ACUENTA" ? "number" : "text"}
+                type="text"
                 control={control}
                 disabled={condicion != "ACUENTA"}
                 disableHistory
-                formatter={condicion != "ACUENTA" ? formatCurrency : undefined}
+                formatter={formatCurrency}
                 displayZeroAsEmpty={condicion == "ACUENTA"}
+                transform={normalizeMoneyInput}
                 inputProps={{ style: { textAlign: "right" } }}
                 onChange={(e) => {
-                  const ingresado = Number(e.target.value || 0);
+                  const ingresado = roundCurrency(e.target.value);
                   if (totalFinal > 0 && ingresado > totalFinal) {
                     setValue("acuenta", roundCurrency(totalFinal));
                   }
@@ -322,12 +343,15 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             <div className="px-3 py-2">
               <TextControlled
                 name="precioExtraSoles"
-                formatter={!isEditing ? formatCurrency : undefined}
+                formatter={isTypingExtraSoles ? undefined : formatCurrency}
                 displayZeroAsEmpty={isEditing}
+                transform={normalizeMoneyInput}
                 inputProps={{ style: { textAlign: "right" } }}
                 control={control}
-                type={isEditing ? "number" : "text"}
+                type="text"
                 disabled={!isEditing || moneda !== "SOLES"}
+                onFocus={() => setIsTypingExtraSoles(true)}
+                onBlur={() => setIsTypingExtraSoles(false)}
                 size="small"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
@@ -339,13 +363,16 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             </div>
             <div className="px-3 py-2">
               <TextControlled
-                formatter={!isEditing ? formatCurrency : undefined}
+                formatter={isTypingExtraDolares ? undefined : formatCurrency}
                 displayZeroAsEmpty={isEditing}
-                type={isEditing ? "number" : "text"}
+                type="text"
+                transform={normalizeMoneyInput}
                 inputProps={{ style: { textAlign: "right" } }}
                 name="precioExtraDolares"
                 control={control}
                 disabled={!isEditing || moneda !== "DOLARES"}
+                onFocus={() => setIsTypingExtraDolares(true)}
+                onBlur={() => setIsTypingExtraDolares(false)}
                 size="small"
                 className="w-full rounded border border-slate-200 px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
