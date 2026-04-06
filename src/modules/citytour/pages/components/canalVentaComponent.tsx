@@ -14,10 +14,31 @@ const CanalVentaComponent = ({
   watch,
   isEditMode = false,
 }) => {
-  const { isEditing } = usePackageStore();
+  const { isEditing, formData } = usePackageStore();
   const canEditFechaViaje = isEditing && isEditMode;
   const { openDialog } = useDialogStore();
   const { canalVentaList, addCanalToList } = useCanalVenta();
+
+  const normalizeDateInputValue = (value?: unknown): string => {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) return raw.slice(0, 10);
+
+    const slashDate = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (slashDate) {
+      const [, day, month, year] = slashDate;
+      return `${year}-${month}-${day}`;
+    }
+
+    return "";
+  };
+
+  const initialFechaViajeFromForm = normalizeDateInputValue(formData?.fechaViaje);
+  const minFechaViajeEdicion =
+    canEditFechaViaje && isEditMode ? initialFechaViajeFromForm : "";
+
   const handleAddCanalVenta = () => {
     openDialog({
       title: "Nuevo canal de venta",
@@ -350,9 +371,30 @@ const CanalVentaComponent = ({
           type="date"
           size="small"
           disabled={!canEditFechaViaje}
+          onChange={(event) => {
+            if (!canEditFechaViaje) return;
+
+            const minFechaViaje = minFechaViajeEdicion;
+            const nextFechaViaje = normalizeDateInputValue(event.target.value);
+
+            if (minFechaViaje && nextFechaViaje && nextFechaViaje < minFechaViaje) {
+              setValue("fechaViaje", minFechaViaje, {
+                shouldDirty: true,
+                shouldTouch: true,
+                shouldValidate: true,
+              });
+              showToast({
+                title: "Validación",
+                description:
+                  "En modo edición, la fecha de viaje solo puede moverse desde la fecha actual hacia adelante.",
+                type: "warning",
+              });
+            }
+          }}
           InputLabelProps={{ shrink: true }}
           inputProps={{
             "data-focus-next": 'input[name="nombreCompleto"]',
+            min: minFechaViajeEdicion || undefined,
           }}
         />
         </div>
