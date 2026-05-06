@@ -13,6 +13,39 @@ import {
   type CanalOption,
 } from "@/modules/fullday/hooks/canalUtils";
 import { serviciosDB } from "@/app/db/serviciosDB";
+import { useAuthStore } from "@/store/auth/auth.store";
+import type { AuthUser } from "@/store/auth/auth.store";
+
+const AUTH_SESSION_STORAGE_KEY = "picaflor.auth.session";
+
+const normalizeSessionText = (value: unknown): string =>
+  String(value ?? "").trim();
+
+const resolveSessionLockedCanalVenta = (authUser: AuthUser | null) => {
+  const currentId = normalizeSessionText(authUser?.canalVentaId);
+  const currentName = normalizeSessionText(authUser?.canalVentaNombre);
+  if (currentId && currentName) {
+    return { canalVentaId: currentId, canalVentaNombre: currentName };
+  }
+
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawSession = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+    if (!rawSession) return null;
+
+    const parsed = JSON.parse(rawSession) as {
+      user?: { canalVentaId?: unknown; canalVentaNombre?: unknown };
+    };
+    const storedId = normalizeSessionText(parsed?.user?.canalVentaId);
+    const storedName = normalizeSessionText(parsed?.user?.canalVentaNombre);
+    if (!storedId || !storedName) return null;
+
+    return { canalVentaId: storedId, canalVentaNombre: storedName };
+  } catch {
+    return null;
+  }
+};
 
 type Props = {
   form: TravelPackageFormState;
@@ -45,6 +78,12 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
       condicionPago: form.condicionPago,
     },
   });
+  const authUser = useAuthStore((state) => state.user);
+  const lockedCanalVenta = useMemo(
+    () => resolveSessionLockedCanalVenta(authUser),
+    [authUser],
+  );
+  const isCanalVentaLocked = Boolean(lockedCanalVenta);
   const { canalVentaList } = useCanalVenta();
   const [localCanales, setLocalCanales] = useState<CanalOption[]>([]);
 
@@ -116,8 +155,52 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
       byValue.set(key, item);
     });
 
+    if (lockedCanalVenta) {
+      const lockedKey = String(lockedCanalVenta.canalVentaId).toLowerCase();
+      if (!byValue.has(lockedKey)) {
+        byValue.set(lockedKey, {
+          value: lockedCanalVenta.canalVentaId,
+          label: lockedCanalVenta.canalVentaNombre,
+          auxiliar: lockedCanalVenta.canalVentaNombre,
+        });
+      }
+    }
+
     return Array.from(byValue.values());
-  }, [localCanales, canalVentaList]);
+  }, [localCanales, canalVentaList, lockedCanalVenta]);
+
+  const lockedCanalVentaOption = useMemo(() => {
+    if (!lockedCanalVenta) return null;
+
+    const canalVentaId = normalizeSessionText(lockedCanalVenta.canalVentaId);
+    const canalVentaNombre = normalizeSessionText(
+      lockedCanalVenta.canalVentaNombre,
+    );
+
+    const selectedOption =
+      mergedCanalVentaList.find(
+        (option) =>
+          normalizeSessionText(option.value).toLowerCase() ===
+            canalVentaId.toLowerCase() ||
+          normalizeSessionText(option.label).toLowerCase() ===
+            canalVentaNombre.toLowerCase() ||
+          normalizeSessionText(option.auxiliar).toLowerCase() ===
+            canalVentaNombre.toLowerCase(),
+      ) ?? null;
+
+    if (selectedOption) {
+      return {
+        ...selectedOption,
+        auxiliar: selectedOption.auxiliar ?? canalVentaNombre,
+      };
+    }
+
+    return {
+      value: canalVentaId,
+      label: canalVentaNombre,
+      auxiliar: canalVentaNombre,
+    };
+  }, [lockedCanalVenta, mergedCanalVentaList]);
 
   useEffect(() => {
     setValue("telefono", form.telefono);
@@ -144,6 +227,21 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
   }, [form.condicionPago, setValue]);
 
   useEffect(() => {
+    if (!lockedCanalVentaOption) return;
+
+    setValue("canalDeVenta", lockedCanalVentaOption);
+    onUpdateAgencia({
+      label: lockedCanalVentaOption.label,
+      value: lockedCanalVentaOption.value,
+    });
+    onUpdateField("telefono", lockedCanalVentaOption.telefono ?? "");
+    onUpdateField("email", lockedCanalVentaOption.email ?? "");
+    onUpdateField("contacto", lockedCanalVentaOption.contacto ?? "");
+  }, [lockedCanalVentaOption, setValue, onUpdateAgencia, onUpdateField]);
+
+  useEffect(() => {
+    if (isCanalVentaLocked) return;
+
     const selected =
       mergedCanalVentaList.find(
         (option) =>
@@ -151,7 +249,7 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
           option.label === form.agencia?.label,
       ) ?? null;
     setValue("canalDeVenta", selected);
-  }, [mergedCanalVentaList, form.agencia, setValue]);
+  }, [mergedCanalVentaList, form.agencia, setValue, isCanalVentaLocked]);
 
   return (
     <SectionCard
@@ -175,13 +273,16 @@ const AgencySection = ({ form, onUpdateField, onUpdateAgencia }: Props) => {
             options={mergedCanalVentaList}
             control={control}
             label="Canal de venta"
+            disabled={isCanalVentaLocked}
             inputEndAdornment={
-              <button
-                type="button"
-                className="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
-              >
-                Nuevo
-              </button>
+              isCanalVentaLocked ? null : (
+                <button
+                  type="button"
+                  className="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
+                >
+                  Nuevo
+                </button>
+              )
             }
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(option, value) =>

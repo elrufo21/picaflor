@@ -27,6 +27,7 @@ type Props = {
     value: TravelPackageFormState[K],
   ) => void;
   isViewMode?: boolean;
+  allowCreditCondition?: boolean;
 };
 
 type GeneralDataFormValues = {
@@ -92,6 +93,7 @@ const GeneralDataSection = ({
   form,
   onUpdateField,
   isViewMode = false,
+  allowCreditCondition = true,
 }: Props) => {
   const [regiones, setRegiones] = useState<Ubigeo[]>([]);
   const [regionesCityTour, setRegionesCityTour] = useState<
@@ -107,6 +109,14 @@ const GeneralDataSection = ({
       condicionPago: null,
     },
   });
+
+  const estadoPagoOptions = useMemo<EstadoPagoOption[]>(
+    () =>
+      ESTADO_PAGO_OPTIONS.filter(
+        (option) => allowCreditCondition || option.value !== "CREDITO",
+      ),
+    [allowCreditCondition],
+  );
 
   useEffect(() => {
     setValue("destinos", form.destinos, {
@@ -150,7 +160,7 @@ const GeneralDataSection = ({
 
   useEffect(() => {
     const selectedCondition =
-      ESTADO_PAGO_OPTIONS.find(
+      estadoPagoOptions.find(
         (option) =>
           option.value === String(form.condicionPago ?? "").toUpperCase(),
       ) ?? null;
@@ -159,7 +169,7 @@ const GeneralDataSection = ({
       shouldTouch: false,
       shouldValidate: false,
     });
-  }, [form.condicionPago, setValue]);
+  }, [estadoPagoOptions, form.condicionPago, setValue]);
 
   useEffect(() => {
     const nextPrograma = buildProgramaFromForm(
@@ -503,7 +513,7 @@ const GeneralDataSection = ({
             id="condicion"
             name="condicionPago"
             control={control}
-            options={ESTADO_PAGO_OPTIONS}
+            options={estadoPagoOptions}
             size="small"
             label="Condición"
             getOptionLabel={(option) => option.label}

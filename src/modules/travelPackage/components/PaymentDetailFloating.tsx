@@ -3,6 +3,7 @@ import { useEffect, useMemo } from "react";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import type { TravelPackageFormState } from "../types/travelPackage.types";
 import { getTravelCurrencySymbol } from "../constants/travelPackage.constants";
+import { useAuthStore } from "@/store/auth/auth.store";
 
 type Props = {
   form: TravelPackageFormState;
@@ -43,6 +44,14 @@ const PaymentDetailFloating = ({
   onClose,
   onUpdateField,
 }: Props) => {
+  const authUser = useAuthStore((state) => state.user);
+  const canUseCredit =
+    authUser?.permiteLiquidacionCredito === true ||
+    String(authUser?.permiteLiquidacionCredito ?? "")
+      .trim()
+      .toLowerCase() === "true" ||
+    String(authUser?.permiteLiquidacionCredito ?? "").trim() === "1";
+
   const setIfChanged = <K extends keyof TravelPackageFormState>(
     key: K,
     value: TravelPackageFormState[K],
@@ -330,7 +339,9 @@ const PaymentDetailFloating = ({
                       >
                         <option value="CANCELADO">CANCELADO</option>
                         <option value="ACUENTA">ACUENTA</option>
-                        <option value="CREDITO">CREDITO</option>
+                        {canUseCredit ? (
+                          <option value="CREDITO">CREDITO</option>
+                        ) : null}
                       </select>
                     </div>
                   </div>

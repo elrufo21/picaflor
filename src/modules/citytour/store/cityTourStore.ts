@@ -13,6 +13,7 @@ import {
   type ServiciosData,
 } from "@/app/db/serviciosSync";
 import { getTodayDateInputValue } from "@/shared/helpers/formatDate";
+import { useAuthStore } from "@/store/auth/auth.store";
 
 const pendingLoadPackagesRef = {
   date: "",
@@ -259,7 +260,12 @@ export const usePackageStore = create<PackageState>()(
         const promise = (async () => {
           try {
             set({ listadoLoading: true, error: null });
-            const response = await fetchListadoByProducto(targetFecha, idProducto);
+            const usuarioId = Number(useAuthStore.getState().user?.id ?? 0);
+            const response = await fetchListadoByProducto(
+              targetFecha,
+              idProducto,
+              usuarioId,
+            );
             set({
               listado: response ?? [],
               listadoLoading: false,

@@ -22,6 +22,7 @@ export type SalesChannelDetail = {
   representanteLegal?: string;
   fechaNacimiento?: string;
   nota?: string;
+  PermiteLiquidacionCredito?: boolean;
 };
 
 export type SaveSalesChannelPayload = {
@@ -43,6 +44,7 @@ export type SaveSalesChannelPayload = {
   representanteLegal: string;
   fechaNacimiento: string;
   nota: string;
+  PermiteLiquidacionCredito: boolean;
 };
 
 const SALES_CHANNEL_LIST_ENDPOINT = `${API_BASE_URL}/Canal/list`;
@@ -64,6 +66,21 @@ const normalizeText = (value: unknown) => {
   const normalized = String(value ?? "").trim();
   if (!normalized) return "";
   return normalized.toLowerCase() === "null" ? "" : normalized;
+};
+
+const normalizeBoolean = (value: unknown): boolean => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return Number.isFinite(value) && value > 0;
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "si" ||
+    normalized === "sí" ||
+    normalized === "s" ||
+    normalized === "yes"
+  );
 };
 
 const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] => {
@@ -119,6 +136,12 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
             normalizeText(row.fechaNacimiento ?? row.FechaNacimiento) ||
             undefined,
           nota: normalizeText(row.nota ?? row.Nota) || undefined,
+          PermiteLiquidacionCredito: normalizeBoolean(
+            row.permiteLiquidacionCredito ??
+              row.PermiteLiquidacionCredito ??
+              row.permiteCredito ??
+              row.PermiteCredito,
+          ),
         } as SalesChannelDetail;
       })
       .filter((item): item is SalesChannelDetail => Boolean(item));
@@ -176,6 +199,9 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
         : normalizeText(parts[15]);
       const contacto02 = isLegacyFormat ? "" : normalizeText(parts[16]);
       const nota = isLegacyFormat ? "" : normalizeText(parts[17]);
+      const permiteLiquidacionCredito = isLegacyFormat
+        ? false
+        : normalizeBoolean(parts[18]);
 
       return {
         id: idCanal > 0 ? idCanal : index + 1,
@@ -198,6 +224,7 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
         representanteLegal: representanteLegal || undefined,
         fechaNacimiento: fechaNacimiento || undefined,
         nota: nota || undefined,
+        PermiteLiquidacionCredito: permiteLiquidacionCredito,
       } as SalesChannelDetail;
     })
     .filter((item): item is SalesChannelDetail => Boolean(item));

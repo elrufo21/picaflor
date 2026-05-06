@@ -896,6 +896,19 @@ function parseFechaBackend(value?: string) {
 
 const LiquidacionesPage = () => {
   const { user } = useAuthStore();
+  const isExternalUser = useMemo(() => {
+    const tipoUsuario = String(user?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase();
+    const externalFlag = user?.isExternal === true;
+    const canalVentaId = Number(user?.canalVentaId ?? 0);
+
+    return (
+      tipoUsuario === "EXTERNO" ||
+      externalFlag ||
+      (Number.isFinite(canalVentaId) && canalVentaId > 0)
+    );
+  }, [user]);
   const navigate = useNavigate();
   const location = useLocation();
   const refreshKey =
@@ -1154,6 +1167,14 @@ const LiquidacionesPage = () => {
     reload(pendingStartDateRef.current, pendingEndDateRef.current, checked);
     focusSearchInput(searchMode);
   };
+
+  useEffect(() => {
+    if (!isExternalUser) return;
+    if (searchMode !== "canal") return;
+
+    setSearchMode("none");
+    stopCanalSearch();
+  }, [isExternalUser, searchMode, stopCanalSearch]);
 
   useEffect(() => {
     const persistedCanal =
@@ -2051,32 +2072,44 @@ const LiquidacionesPage = () => {
             }}
           />
         </div>
-        <label className="inline-flex min-w-0 flex-1 items-center gap-2">
-          <input
-            type="checkbox"
-            checked={searchMode === "canal"}
-            onChange={(e) => handleToggleSearchByCanal(e.target.checked)}
-            className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-          />
-          <span className="truncate">Canal de venta</span>
-        </label>
-        <label className="inline-flex min-w-0 flex-1 items-center gap-2">
+        {!isExternalUser && (
+          <label
+            className={`inline-flex items-center gap-2 ${isExternalUser ? "shrink-0" : "min-w-0 flex-1"}`}
+          >
+            <input
+              type="checkbox"
+              checked={searchMode === "canal"}
+              onChange={(e) => handleToggleSearchByCanal(e.target.checked)}
+              className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            <span className={isExternalUser ? "" : "truncate"}>
+              Canal de venta
+            </span>
+          </label>
+        )}
+        <label
+          className={`inline-flex items-center gap-2 ${isExternalUser ? "shrink-0" : "min-w-0 flex-1"}`}
+        >
           <input
             type="checkbox"
             checked={searchMode === "numero"}
             onChange={(e) => handleToggleSearchByNumero(e.target.checked)}
             className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
           />
-          <span className="truncate">Numero de pedido</span>
+          <span className={isExternalUser ? "" : "truncate"}>
+            Numero de pedido
+          </span>
         </label>
-        <label className="inline-flex min-w-0 flex-1 items-center gap-2">
+        <label
+          className={`inline-flex items-center gap-2 ${isExternalUser ? "shrink-0" : "min-w-0 flex-1"}`}
+        >
           <input
             type="checkbox"
             checked={searchByFechaViaje}
             onChange={(e) => handleToggleSearchByFechaViaje(e.target.checked)}
             className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
           />
-          <span className="truncate">Fecha viaje</span>
+          <span className={isExternalUser ? "" : "truncate"}>Fecha viaje</span>
         </label>
       </div>
 
@@ -2582,6 +2615,7 @@ const LiquidacionesPage = () => {
         </div>
 
         {/* BOTONES */}
+
         <div className="flex shrink-0 flex-row gap-3">
           {/* BUSCAR */}
           <button
@@ -2594,18 +2628,19 @@ const LiquidacionesPage = () => {
           >
             <Search size={16} />
           </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              handleExcelExport();
-            }}
-            title="Exportar a Excel"
-            aria-label="Exportar a Excel"
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shadow transition hover:bg-emerald-700"
-          >
-            <FileSpreadsheet size={16} />
-          </button>
+          {!isExternalUser && (
+            <button
+              type="button"
+              onClick={() => {
+                handleExcelExport();
+              }}
+              title="Exportar a Excel"
+              aria-label="Exportar a Excel"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shadow transition hover:bg-emerald-700"
+            >
+              <FileSpreadsheet size={16} />
+            </button>
+          )}
         </div>
       </div>
     </div>

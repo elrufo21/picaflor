@@ -388,7 +388,20 @@ const PackageList = () => {
       showToast({ title: "Error", description: e.message, type: "error" });
     }
   };
+  const { user } = useAuthStore();
+  const isExternalUser = useMemo(() => {
+    const tipoUsuario = String(user?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase();
+    const externalFlag = user?.isExternal === true;
+    const canalVentaId = Number(user?.canalVentaId ?? 0);
 
+    return (
+      tipoUsuario === "EXTERNO" ||
+      externalFlag ||
+      (Number.isFinite(canalVentaId) && canalVentaId > 0)
+    );
+  }, [user]);
   const columns = useMemo(
     () => [
       { accessorKey: "destino", header: "Destino" },
@@ -413,12 +426,19 @@ const PackageList = () => {
               }}
               type="number"
               min={0}
+              disabled={!canEditProgramacion}
+              readOnly={!canEditProgramacion}
+              tabIndex={canEditProgramacion ? 0 : -1}
               defaultValue={
                 row.original.cantMaxPax === 0 ? "" : row.original.cantMaxPax
               }
               onClick={(e) => e.stopPropagation()}
-              onBlur={(e) => handleCantMaxChange(Number(e.target.value), row)}
+              onBlur={(e) => {
+                if (!canEditProgramacion) return;
+                handleCantMaxChange(Number(e.target.value), row);
+              }}
               onKeyDown={(e) => {
+                if (!canEditProgramacion) return;
                 if (e.key === "ArrowDown" || e.key === "Enter") {
                   e.preventDefault();
                   const next = inputRefs.current[rowIndex + 1];
@@ -431,8 +451,12 @@ const PackageList = () => {
                   prev?.focus();
                 }
               }}
-              className="w-20 text-center border border-slate-300 rounded-md px-2 py-1 text-sm
-          focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className={`w-20 text-center border border-slate-300 rounded-md px-2 py-1 text-sm
+          focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+            canEditProgramacion
+              ? ""
+              : "bg-slate-100 text-slate-500 cursor-not-allowed"
+          }`}
             />
           );
         },
@@ -521,7 +545,7 @@ const PackageList = () => {
         ),
       },
     ],
-    [handleRowClick, handleListadoClick],
+    [canEditProgramacion, handleRowClick, handleListadoClick],
   );
 
   const confirmDeleteSelected = useCallback(() => {
@@ -603,28 +627,29 @@ const PackageList = () => {
           </div>
 
           {/* DESTINO */}
-          <div className="w-full md:max-w-xs">
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Destino
-            </label>
-            <select
-              value={productId}
-              onChange={(e) => {
-                const i = e.target.selectedIndex;
-                setDestino(e.target.options[i].text);
-                setProductId(e.target.value);
-              }}
-              className="w-full px-3 py-2 text-sm border rounded-lg"
-            >
-              <option value="">Seleccione</option>
-              {productos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
+          {!isExternalUser && (
+            <div className="w-full md:max-w-xs">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Destino
+              </label>
+              <select
+                value={productId}
+                onChange={(e) => {
+                  const i = e.target.selectedIndex;
+                  setDestino(e.target.options[i].text);
+                  setProductId(e.target.value);
+                }}
+                className="w-full px-3 py-2 text-sm border rounded-lg"
+              >
+                <option value="">Seleccione</option>
+                {productos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {/* AGREGAR */}
           {canCreateProgramacion && (
             <button

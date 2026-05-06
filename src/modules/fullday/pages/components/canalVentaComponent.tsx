@@ -4,10 +4,44 @@ import {
   TextControlled,
 } from "@/components/ui/inputs";
 import { useForm } from "react-hook-form";
+import { useEffect, useMemo } from "react";
 import { useCanalVenta } from "../../hooks/useCanalVenta";
 import { showToast } from "@/components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { usePackageStore } from "../../store/fulldayStore";
+import { useAuthStore } from "@/store/auth/auth.store";
+import type { AuthUser } from "@/store/auth/auth.store";
+
+const AUTH_SESSION_STORAGE_KEY = "picaflor.auth.session";
+
+const normalizeSessionText = (value: unknown): string =>
+  String(value ?? "").trim();
+
+const resolveSessionLockedCanalVenta = (authUser: AuthUser | null) => {
+  const currentId = normalizeSessionText(authUser?.canalVentaId);
+  const currentName = normalizeSessionText(authUser?.canalVentaNombre);
+  if (currentId && currentName) {
+    return { canalVentaId: currentId, canalVentaNombre: currentName };
+  }
+
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawSession = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+    if (!rawSession) return null;
+
+    const parsed = JSON.parse(rawSession) as {
+      user?: { canalVentaId?: unknown; canalVentaNombre?: unknown };
+    };
+    const storedId = normalizeSessionText(parsed?.user?.canalVentaId);
+    const storedName = normalizeSessionText(parsed?.user?.canalVentaNombre);
+    if (!storedId || !storedName) return null;
+
+    return { canalVentaId: storedId, canalVentaNombre: storedName };
+  } catch {
+    return null;
+  }
+};
 
 type CanalVentaDialogValues = {
   label: string;
@@ -105,9 +139,78 @@ const CanalVentaComponent = ({
   isEditMode = false,
 }) => {
   const { isEditing, formData } = usePackageStore();
+  const authUser = useAuthStore((state) => state.user);
+  const lockedCanalVenta = useMemo(
+    () => resolveSessionLockedCanalVenta(authUser),
+    [authUser],
+  );
+  const isCanalVentaLocked = Boolean(lockedCanalVenta);
+  const canUseCredit =
+    authUser?.permiteLiquidacionCredito === true ||
+    String(authUser?.permiteLiquidacionCredito ?? "")
+      .trim()
+      .toLowerCase() === "true" ||
+    String(authUser?.permiteLiquidacionCredito ?? "").trim() === "1";
+  const showCreditOption = canUseCredit || isEditMode;
   const canEditFechaViaje = isEditing && isEditMode;
   const { openDialog } = useDialogStore();
   const { canalVentaList, addCanalToList, saveCanalVenta } = useCanalVenta();
+  const lockedCanalVentaOption = useMemo(() => {
+    if (!lockedCanalVenta) return null;
+
+    const canalVentaId = normalizeSessionText(lockedCanalVenta.canalVentaId);
+    const canalVentaNombre = normalizeSessionText(
+      lockedCanalVenta.canalVentaNombre,
+    );
+
+    const foundOption =
+      canalVentaList.find(
+        (option) =>
+          normalizeSessionText(option.value).toLowerCase() ===
+            canalVentaId.toLowerCase() ||
+          normalizeSessionText(option.label).toLowerCase() ===
+            canalVentaNombre.toLowerCase() ||
+          normalizeSessionText(option.auxiliar).toLowerCase() ===
+            canalVentaNombre.toLowerCase(),
+      ) ?? null;
+
+    if (foundOption) {
+      return {
+        ...foundOption,
+        auxiliar: foundOption.auxiliar ?? canalVentaNombre,
+      };
+    }
+
+    return {
+      value: canalVentaId,
+      label: canalVentaNombre,
+      auxiliar: canalVentaNombre,
+    };
+  }, [lockedCanalVenta, canalVentaList]);
+
+  useEffect(() => {
+    if (!lockedCanalVentaOption) return;
+
+    setValue("canalDeVenta", lockedCanalVentaOption, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue(
+      "canalVenta",
+      lockedCanalVentaOption.auxiliar ?? lockedCanalVentaOption.label,
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
+    );
+    setValue("canalDeVentaTelefono", lockedCanalVentaOption.telefono ?? "", {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  }, [lockedCanalVentaOption, setValue]);
 
   const parseCanalId = (value: string) => {
     const parsed = Number(value);
@@ -136,6 +239,8 @@ const CanalVentaComponent = ({
     canEditFechaViaje && isEditMode ? initialFechaViajeFromForm : "";
 
   const handleAddCanalVenta = () => {
+    if (isCanalVentaLocked) return;
+
     openDialog({
       title: "Nuevo canal de venta",
       description: "Crea un canal de venta sin salir del formulario.",
@@ -245,7 +350,7 @@ const CanalVentaComponent = ({
   const estadoPagoOptions = [
     { value: "CANCELADO", label: "Cancelado" },
     { value: "ACUENTA", label: "A Cuenta" },
-    { value: "CREDITO", label: "Crédito" },
+    ...(showCreditOption ? [{ value: "CREDITO", label: "Crédito" }] : []),
   ];
   const monedaOptions = [
     { value: "SOLES", label: "Soles" },
@@ -273,7 +378,9 @@ const CanalVentaComponent = ({
             options={canalVentaList}
             control={control}
             label="Canal de venta"
+            disabled={isCanalVentaLocked}
             inputEndAdornment={
+              isCanalVentaLocked ? null :
               <button
                 type="button"
                 className="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"

@@ -3,7 +3,12 @@ import { useForm } from "react-hook-form";
 import { Save, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { toast } from "sonner";
-import { IconButton, InputAdornment } from "@mui/material";
+import {
+  IconButton,
+  InputAdornment,
+  Checkbox,
+  FormControlLabel,
+} from "@mui/material";
 
 import DataTable from "./DataTable";
 import {
@@ -16,6 +21,7 @@ import { handleEnterFocus } from "@/shared/helpers/formFocus";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useDialogStore } from "@/app/store/dialogStore"; // óY'^ SOLO ESTO SE AGREGA
+import { useCanalVenta } from "@/modules/fullday/hooks/useCanalVenta";
 
 interface UserFormBaseProps {
   initialData?: Partial<any>;
@@ -31,9 +37,14 @@ interface UserFormBaseProps {
 }
 
 type Option = { label: string; value: number | string; data?: any };
+type UserType = "INTERNO" | "EXTERNO";
 
 type UserFormValues = {
+  TipoUsuario: UserType;
   PersonalId: Option | null;
+  CanalVenta: Option | null;
+  Nombres: string;
+  Apellidos: string;
   UsuarioAlias: string;
   UsuarioClave: string;
   ConfirmClave: string;
@@ -73,6 +84,7 @@ export default function UserFormBase({
   const containerRef = useRef<HTMLDivElement>(null);
   const { users, fetchUsers } = useUsersStore();
   const { employees, fetchEmployees } = useEmployeesStore();
+  const { canalVentaList } = useCanalVenta();
 
   const openDialog = useDialogStore((s) => s.openDialog); // óY'^ SOLO ESTO
 
@@ -85,7 +97,11 @@ export default function UserFormBase({
   const lockIdentityFields = passwordChangeOnly;
 
   const emptyValues: UserFormValues = {
+    TipoUsuario: "INTERNO",
     PersonalId: null,
+    CanalVenta: null,
+    Nombres: "",
+    Apellidos: "",
     UsuarioAlias: "",
     UsuarioClave: "",
     ConfirmClave: "",
@@ -111,6 +127,16 @@ export default function UserFormBase({
     [employees],
   );
 
+  const canalVentaOptions = useMemo<Option[]>(
+    () =>
+      canalVentaList.map((item) => ({
+        value: item.value,
+        label: item.label,
+        data: item,
+      })),
+    [canalVentaList],
+  );
+
   const form = useForm<UserFormValues>({
     defaultValues: emptyValues,
   });
@@ -124,10 +150,43 @@ export default function UserFormBase({
     setError,
     clearErrors,
     setFocus,
+    setValue,
+    watch,
   } = form;
+
+  const selectedUserType = watch("TipoUsuario");
+  const isExternalUser = !passwordChangeOnly && selectedUserType === "EXTERNO";
+  const disableUserTypeSelect = lockIdentityFields;
+
+  const handleExternalUserToggle = (checked: boolean) => {
+    const nextType: UserType = checked ? "EXTERNO" : "INTERNO";
+    setValue("TipoUsuario", nextType, { shouldDirty: true, shouldValidate: true });
+    clearErrors(["PersonalId", "CanalVenta", "Nombres", "Apellidos"]);
+
+    if (checked) {
+      setValue("PersonalId", null, { shouldDirty: true });
+      return;
+    }
+
+    setValue("CanalVenta", null, { shouldDirty: true });
+    setValue("Nombres", "", { shouldDirty: true });
+    setValue("Apellidos", "", { shouldDirty: true });
+  };
 
   const mapInitialData = (data?: Partial<any>): UserFormValues => {
     if (!data) return emptyValues;
+    const tipoUsuarioRaw = String(
+      data.TipoUsuario ?? data.tipoUsuario ?? data.UsuarioTipo ?? "INTERNO",
+    )
+      .trim()
+      .toUpperCase();
+    const tipoUsuario: UserType =
+      tipoUsuarioRaw === "EXTERNO" || tipoUsuarioRaw === "USUARIO EXTERNO"
+        ? "EXTERNO"
+        : "INTERNO";
+    const usuarioExternoRaw = Number(
+      data.UsuarioExterno ?? data.usuarioExterno ?? 0,
+    );
     const personalId = data.PersonalId ?? data.personalId ?? null;
     const personalOpt =
       employeeOptions.find((opt) => Number(opt.value) === Number(personalId)) ??
@@ -138,8 +197,49 @@ export default function UserFormBase({
           }
         : null) ??
       null;
+    const canalVentaId =
+      data.CanalVentaId ??
+      data.canalVentaId ??
+      data.IdCanal ??
+      data.idCanal ??
+      data.canalId ??
+      data.CanalVenta ??
+      data.canalVenta ??
+      null;
+    const canalVentaNombre = String(
+      data.CanalVentaNombre ??
+        data.canalVentaNombre ??
+        data.CanalNombre ??
+        data.canalNombre ??
+        "",
+    ).trim();
+    const canalOpt =
+      canalVentaOptions.find(
+        (opt) => String(opt.value) === String(canalVentaId),
+      ) ??
+      (canalVentaId
+        ? {
+            value: canalVentaId,
+            label: canalVentaNombre || `Canal ${canalVentaId}`,
+          }
+        : null);
+    const tipoUsuarioResolved: UserType =
+      tipoUsuario === "EXTERNO" ||
+      usuarioExternoRaw === 1 ||
+      Number(canalVentaId ?? 0) > 0
+        ? "EXTERNO"
+        : "INTERNO";
+
     return {
+      TipoUsuario: tipoUsuarioResolved,
       PersonalId: personalOpt,
+      CanalVenta: canalOpt,
+      Nombres: String(
+        data.Nombres ?? data.nombres ?? data.PersonalNombres ?? "",
+      ).trim(),
+      Apellidos: String(
+        data.Apellidos ?? data.apellidos ?? data.PersonalApellidos ?? "",
+      ).trim(),
       UsuarioAlias: data.UsuarioAlias ?? "",
       UsuarioClave: data.UsuarioClave ?? "",
       ConfirmClave: data.UsuarioClave ?? "",
@@ -167,19 +267,29 @@ export default function UserFormBase({
   useEffect(() => {
     reset(mapInitialData(mode === "create" ? undefined : initialData));
     focusFirstInput(containerRef.current);
-  }, [initialData, mode, reset, employeeOptions]);
+  }, [initialData, mode, reset, employeeOptions, canalVentaOptions]);
 
   const onSubmit = useCallback(
     async (values: UserFormValues): Promise<boolean> => {
       clearErrors([
+        "TipoUsuario",
         "PersonalId",
+        "CanalVenta",
+        "Nombres",
+        "Apellidos",
         "UsuarioAlias",
         "UsuarioClave",
         "ConfirmClave",
       ]);
+
+      const isExternal = values.TipoUsuario === "EXTERNO";
       const personalId = values.PersonalId
         ? Number(values.PersonalId.value)
         : 0;
+      const canalVentaValue = values.CanalVenta?.value ?? "";
+      const canalVentaId = Number(canalVentaValue);
+      const nombres = String(values.Nombres ?? "").trim();
+      const apellidos = String(values.Apellidos ?? "").trim();
       const alias = String(values.UsuarioAlias ?? "")
         .replace(/\s+/g, "")
         .trim();
@@ -187,14 +297,46 @@ export default function UserFormBase({
       const confirmPassword = values.ConfirmClave ?? "";
       const initialPassword = String(initialData?.UsuarioClave ?? "");
 
-      if (!passwordChangeOnly && personalId <= 0) {
-        setError("PersonalId", {
-          type: "required",
-          message: "Selecciona un personal.",
-        });
-        setFocus("PersonalId");
-        toast.error("Selecciona un personal");
-        return false;
+      if (!passwordChangeOnly) {
+        if (isExternal) {
+          if (!Number.isFinite(canalVentaId) || canalVentaId <= 0) {
+            setError("CanalVenta", {
+              type: "required",
+              message: "Selecciona un canal de venta valido.",
+            });
+            setFocus("CanalVenta");
+            toast.error("Selecciona un canal de venta valido");
+            return false;
+          }
+
+          if (!nombres) {
+            setError("Nombres", {
+              type: "required",
+              message: "Nombres es obligatorio.",
+            });
+            setFocus("Nombres");
+            toast.error("Ingrese nombres");
+            return false;
+          }
+
+          if (!apellidos) {
+            setError("Apellidos", {
+              type: "required",
+              message: "Apellidos es obligatorio.",
+            });
+            setFocus("Apellidos");
+            toast.error("Ingrese apellidos");
+            return false;
+          }
+        } else if (personalId <= 0) {
+          setError("PersonalId", {
+            type: "required",
+            message: "Selecciona un personal.",
+          });
+          setFocus("PersonalId");
+          toast.error("Selecciona un personal");
+          return false;
+        }
       }
 
       if (!alias) {
@@ -248,7 +390,13 @@ export default function UserFormBase({
       }
 
       const payload = {
-        PersonalId: personalId,
+        TipoUsuario: values.TipoUsuario,
+        PersonalId: isExternal ? 0 : personalId,
+        AreaId: isExternal ? 14 : "",
+        CanalVentaId: isExternal ? canalVentaId : "",
+        CanalVentaNombre: isExternal ? values.CanalVenta?.label ?? "" : "",
+        Nombres: isExternal ? nombres : "",
+        Apellidos: isExternal ? apellidos : "",
         UsuarioAlias: alias,
         UsuarioClave: values.UsuarioClave ?? "",
         UsuarioEstado: values.UsuarioEstado ?? "ACTIVO",
@@ -279,6 +427,7 @@ export default function UserFormBase({
       passwordChangeOnly,
       initialData?.UsuarioClave,
       mode,
+      emptyValues,
     ],
   );
 
@@ -313,7 +462,33 @@ export default function UserFormBase({
       ) ?? null;
 
     reset({
+      TipoUsuario:
+        row.TipoUsuario === "EXTERNO" || row.tipoUsuario === "EXTERNO"
+          ? "EXTERNO"
+          : "INTERNO",
       PersonalId: personalOpt,
+      CanalVenta:
+        canalVentaOptions.find(
+          (opt) =>
+            String(opt.value) ===
+            String(
+              row.CanalVentaId ??
+                row.canalVentaId ??
+                row.IdCanal ??
+                row.idCanal ??
+                row.canalId ??
+                row.CanalVenta ??
+                row.canalVenta ??
+                "",
+            ),
+        ) ??
+        null,
+      Nombres: String(
+        row.Nombres ?? row.nombres ?? row.PersonalNombres ?? "",
+      ).trim(),
+      Apellidos: String(
+        row.Apellidos ?? row.apellidos ?? row.PersonalApellidos ?? "",
+      ).trim(),
       UsuarioAlias: row.UsuarioAlias ?? "",
       UsuarioClave: row.UsuarioClave ?? "",
       ConfirmClave: row.UsuarioClave ?? "",
@@ -373,6 +548,76 @@ export default function UserFormBase({
               <div
                 className={`w-full ${showUsersTable ? "md:w-[40%]" : ""} space-y-4`}
               >
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={isExternalUser}
+                        onChange={(_, checked) =>
+                          handleExternalUserToggle(checked)
+                        }
+                        disabled={disableUserTypeSelect}
+                        size="small"
+                      />
+                    }
+                    label="Usuario externo"
+                    sx={{
+                      margin: 0,
+                      width: "100%",
+                      ".MuiFormControlLabel-label": {
+                        fontSize: "0.9rem",
+                        fontWeight: 500,
+                      },
+                    }}
+                  />
+                </div>
+
+                {isExternalUser && (
+                  <>
+                    <div className="mt-4">
+                      <AutocompleteControlled
+                        name="CanalVenta"
+                        control={control}
+                        label="Canal de venta"
+                        placeholder="Seleccionar canal de venta"
+                        options={canalVentaOptions}
+                        getOptionLabel={(option) => option.label}
+                        isOptionEqualToValue={(opt, val) =>
+                          String(opt.value) === String(val.value)
+                        }
+                        disabled={lockIdentityFields}
+                        size="small"
+                      />
+                    </div>
+
+                    <div className="mt-4">
+                      <TextControlled
+                        name="Nombres"
+                        control={control}
+                        label="Nombres"
+                        autoComplete="off"
+                        placeholder="Ingrese nombres"
+                        disabled={lockIdentityFields}
+                        size="small"
+                        disableHistory
+                      />
+                    </div>
+
+                    <div className="mt-4">
+                      <TextControlled
+                        name="Apellidos"
+                        control={control}
+                        label="Apellidos"
+                        autoComplete="off"
+                        placeholder="Ingrese apellidos"
+                        disabled={lockIdentityFields}
+                        size="small"
+                        disableHistory
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div className="mt-4">
                   <AutocompleteControlled
                     name="PersonalId"
@@ -387,8 +632,8 @@ export default function UserFormBase({
                     onValueChange={() => {
                       setTimeout(() => setFocus("UsuarioAlias"), 0);
                     }}
-                    required
-                    disabled={lockIdentityFields}
+                    required={!isExternalUser}
+                    disabled={lockIdentityFields || isExternalUser}
                     size="small"
                     data-focus-next="input[name='usr_alias_new']"
                   />

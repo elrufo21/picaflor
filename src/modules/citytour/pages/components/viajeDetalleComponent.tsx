@@ -10,6 +10,7 @@ import { usePackageStore } from "../../store/cityTourStore";
 import { useParams } from "react-router";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
+import { useAuthStore } from "@/store/auth/auth.store";
 import HotelFormDialog, {
   type HotelFormValues,
 } from "@/modules/maintenance/hotels/components/HotelFormDialog";
@@ -47,6 +48,13 @@ const sortHotelOptions = (options: { value: string; label: string }[] = []) =>
 const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
   const { idProduct } = useParams();
   const { isEditing } = usePackageStore();
+  const authUser = useAuthStore((state) => state.user);
+  const isExternalUser =
+    String(authUser?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase() === "EXTERNO" ||
+    authUser?.isExternal === true ||
+    Number(authUser?.canalVentaId ?? 0) > 0;
   const { openDialog } = useDialogStore();
   const addHotel = useMaintenanceStore((state) => state.addHotel);
   const {
@@ -773,15 +781,17 @@ const ViajeDetalleComponent = ({ control, setValue, getValues, watch }) => {
                       ...params.InputProps,
                       endAdornment: (
                         <>
-                          <button
-                            type="button"
-                            className="mr-2 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={handleAddHotel}
-                            disabled={!isEditing}
-                          >
-                            Nuevo
-                          </button>
+                          {!isExternalUser && (
+                            <button
+                              type="button"
+                              className="mr-2 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={handleAddHotel}
+                              disabled={!isEditing}
+                            >
+                              Nuevo
+                            </button>
+                          )}
                           {params.InputProps.endAdornment}
                         </>
                       ),

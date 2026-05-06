@@ -212,6 +212,14 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
 export interface User {
   UsuarioID: number;
   PersonalId: number;
+  AreaId?: number | string;
+  areaId?: number | string;
+  TipoUsuario?: "INTERNO" | "EXTERNO" | string;
+  UsuarioExterno?: number | boolean;
+  CanalVentaId?: number | string;
+  CanalVentaNombre?: string;
+  Nombres?: string;
+  Apellidos?: string;
   UsuarioAlias: string;
   UsuarioClave: string;
   UsuarioFechaReg: string;

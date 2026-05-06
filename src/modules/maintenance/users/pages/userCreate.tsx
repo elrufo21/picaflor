@@ -12,6 +12,11 @@ const UserCreate = () => {
 
   const [form, setForm] = useState<Omit<User, "UsuarioID">>({
     PersonalId: 0,
+    TipoUsuario: "INTERNO",
+    CanalVentaId: "",
+    CanalVentaNombre: "",
+    Nombres: "",
+    Apellidos: "",
     UsuarioAlias: "",
     UsuarioClave: "",
     UsuarioFechaReg: new Date().toISOString(),
@@ -35,6 +40,11 @@ const UserCreate = () => {
     toast.success("Usuario creado correctamente");
     setForm({
       PersonalId: 0,
+      TipoUsuario: "INTERNO",
+      CanalVentaId: "",
+      CanalVentaNombre: "",
+      Nombres: "",
+      Apellidos: "",
       UsuarioAlias: "",
       UsuarioClave: "",
       UsuarioFechaReg: new Date().toISOString(),
@@ -52,6 +62,11 @@ const UserCreate = () => {
   const handleNew = () => {
     setForm({
       PersonalId: 0,
+      TipoUsuario: "INTERNO",
+      CanalVentaId: "",
+      CanalVentaNombre: "",
+      Nombres: "",
+      Apellidos: "",
       UsuarioAlias: "",
       UsuarioClave: "",
       UsuarioFechaReg: new Date().toISOString(),

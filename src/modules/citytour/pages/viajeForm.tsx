@@ -159,11 +159,29 @@ const validarTurnoActividad = (
 const getDetailField = (values: any, key: string) =>
   values?.detalle?.[key] ?? {};
 
-const validateViajeValues = (values: any): ValidationError | null => {
-  const canalSeleccionado = values.canalVenta ?? values.canalDeVenta;
-  const canalVentaSelected = Boolean(
-    canalSeleccionado && (canalSeleccionado.value || canalSeleccionado.label),
-  );
+const hasCanalVentaSelection = (values: any): boolean => {
+  const canalPrincipal = values?.canalDeVenta;
+  if (canalPrincipal && typeof canalPrincipal === "object") {
+    const value = String(canalPrincipal.value ?? "").trim();
+    const label = String(canalPrincipal.label ?? "").trim();
+    if (value || label) return true;
+  }
+
+  const canalSecundario = values?.canalVenta;
+  if (canalSecundario && typeof canalSecundario === "object") {
+    const value = String(canalSecundario.value ?? "").trim();
+    const label = String(canalSecundario.label ?? "").trim();
+    return Boolean(value || label);
+  }
+
+  return String(canalSecundario ?? "").trim().length > 0;
+};
+
+const validateViajeValues = (
+  values: any,
+  canUseCreditInCreate: boolean,
+): ValidationError | null => {
+  const canalVentaSelected = hasCanalVentaSelection(values);
 
   if (!canalVentaSelected) {
     return { message: "SELECCIONE UN CANAL DE VENTA", focus: "canalVenta" };
@@ -176,6 +194,13 @@ const validateViajeValues = (values: any): ValidationError | null => {
   if (!condicionValue) {
     return {
       message: "SELECCIONE LA CONDICION DEL SERVICIO DE VIAJE",
+      focus: "condicion",
+    };
+  }
+  if (!canUseCreditInCreate && condicionValue === "CREDITO") {
+    return {
+      message:
+        "TU CANAL NO TIENE HABILITADA LA OPCION CREDITO PARA CREAR LIQUIDACIONES.",
       focus: "condicion",
     };
   }
@@ -1066,7 +1091,15 @@ const ViajeForm = () => {
   //sesion
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const canUseCreditInCreate =
+    session?.user?.permiteLiquidacionCredito === true ||
+    String(session?.user?.permiteLiquidacionCredito ?? "")
+      .trim()
+      .toLowerCase() === "true" ||
+    String(session?.user?.permiteLiquidacionCredito ?? "").trim() === "1";
   const { idProduct, liquidacionId } = useParams();
+  const canUseCreditForCurrentSubmit =
+    Boolean(liquidacionId) || canUseCreditInCreate;
   const { packages, date, loadPackages } = usePackageStore();
   useEffect(() => {
     if (!incomingFormData || formData) return;
@@ -1164,7 +1197,10 @@ const ViajeForm = () => {
       return;
     }
 
-    const validationError = validateViajeValues(data);
+    const validationError = validateViajeValues(
+      data,
+      canUseCreditForCurrentSubmit,
+    );
     if (validationError) {
       showToast({
         title: "Validación",

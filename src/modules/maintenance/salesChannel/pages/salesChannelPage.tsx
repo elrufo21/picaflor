@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Checkbox, FormControlLabel } from "@mui/material";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -36,6 +37,7 @@ type CanalVentaDialogValues = {
   representanteLegal: string;
   fechaNacimiento: string;
   nota: string;
+  permiteLiquidacionCredito: boolean;
 };
 
 type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
@@ -70,6 +72,7 @@ const CanalVentaDialogForm = ({
       representanteLegal: String(payload.representanteLegal ?? ""),
       fechaNacimiento: String(payload.fechaNacimiento ?? ""),
       nota: String(payload.nota ?? ""),
+      permiteLiquidacionCredito: Boolean(payload.permiteLiquidacionCredito),
     },
   });
 
@@ -264,6 +267,36 @@ const CanalVentaDialogForm = ({
           />
         </div>
         <div className="md:col-span-2">
+          <Controller
+            name="permiteLiquidacionCredito"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={Boolean(field.value)}
+                    onChange={(_, checked) => {
+                      field.onChange(checked);
+                      setPayload({
+                        ...payload,
+                        permiteLiquidacionCredito: checked,
+                      });
+                    }}
+                    size="small"
+                  />
+                }
+                label="Permite liquidación crédito"
+                sx={{
+                  margin: 0,
+                  ".MuiFormControlLabel-label": {
+                    fontSize: "0.9rem",
+                  },
+                }}
+              />
+            )}
+          />
+        </div>
+        <div className="md:col-span-2">
           <TextControlled<CanalVentaDialogValues>
             name="nota"
             control={control}
@@ -316,6 +349,7 @@ const buildPayload = (
   representanteLegal: String(values.representanteLegal ?? "").trim(),
   fechaNacimiento: String(values.fechaNacimiento ?? "").trim(),
   nota: String(values.nota ?? "").trim(),
+  PermiteLiquidacionCredito: Boolean(values.permiteLiquidacionCredito),
 });
 
 const SalesChannelPage = () => {
@@ -418,6 +452,9 @@ const SalesChannelPage = () => {
           representanteLegal: channel?.representanteLegal ?? "",
           fechaNacimiento: channel?.fechaNacimiento ?? "",
           nota: channel?.nota ?? "",
+          permiteLiquidacionCredito: Boolean(
+            channel?.PermiteLiquidacionCredito,
+          ),
           search: "",
           editingValue,
         },
@@ -458,6 +495,9 @@ const SalesChannelPage = () => {
           ).trim();
           const fechaNacimiento = String(data.fechaNacimiento ?? "").trim();
           const nota = String(data.nota ?? "").trim();
+          const permiteLiquidacionCredito = Boolean(
+            data.permiteLiquidacionCredito,
+          );
           const idAuxiliar = parseCanalId(
             String(data.editingValue ?? editingValue),
           );
@@ -519,6 +559,7 @@ const SalesChannelPage = () => {
                 representanteLegal,
                 fechaNacimiento,
                 nota,
+                permiteLiquidacionCredito,
               },
               idAuxiliar,
             );
@@ -594,6 +635,10 @@ const SalesChannelPage = () => {
       columnHelper.accessor("email", {
         header: "Email",
         cell: (info) => info.getValue() ?? "-",
+      }),
+      columnHelper.accessor("PermiteLiquidacionCredito", {
+        header: "Crédito",
+        cell: (info) => (info.getValue() ? "Sí" : "No"),
       }),
       columnHelper.display({
         id: "acciones",

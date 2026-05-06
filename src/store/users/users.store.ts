@@ -23,6 +23,20 @@ type UserPayloadInput = Partial<User> & {
 const mapApiToUser = (item: any): User => ({
   UsuarioID: item?.usuarioID ?? item?.UsuarioID ?? item?.id ?? 0,
   PersonalId: item?.personalId ?? item?.PersonalId ?? item?.personalID ?? 0,
+  AreaId: item?.areaId ?? item?.AreaId ?? "",
+  TipoUsuario: item?.tipoUsuario ?? item?.TipoUsuario ?? "INTERNO",
+  UsuarioExterno:
+    item?.usuarioExterno ?? item?.UsuarioExterno ?? item?.esExterno ?? 0,
+  CanalVentaId:
+    item?.canalVentaId ?? item?.CanalVentaId ?? item?.idCanal ?? item?.IdCanal,
+  CanalVentaNombre:
+    item?.canalVentaNombre ??
+    item?.CanalVentaNombre ??
+    item?.canalNombre ??
+    item?.CanalNombre ??
+    "",
+  Nombres: item?.nombres ?? item?.Nombres ?? "",
+  Apellidos: item?.apellidos ?? item?.Apellidos ?? "",
   UsuarioAlias: item?.usuarioAlias ?? item?.UsuarioAlias ?? "",
   UsuarioClave: item?.usuarioClave ?? item?.UsuarioClave ?? "",
   UsuarioFechaReg: item?.usuarioFechaReg ?? item?.UsuarioFechaReg ?? "",
@@ -59,9 +73,39 @@ const isAliasDuplicateResponse = (result: unknown) => {
   return message.includes("alias de usuario ya existe");
 };
 
+const extractApiMessage = (error: unknown) => {
+  const payload =
+    (error as any)?.response?.data ??
+    (error as any)?.data ??
+    (error as any)?.message ??
+    error;
+
+  if (typeof payload === "string") {
+    const message = payload.trim();
+    return message || null;
+  }
+
+  if (payload && typeof payload === "object") {
+    const objectPayload = payload as Record<string, unknown>;
+    const messageCandidate =
+      objectPayload.message ?? objectPayload.error ?? objectPayload.title;
+    if (typeof messageCandidate === "string" && messageCandidate.trim()) {
+      return messageCandidate.trim();
+    }
+  }
+
+  return null;
+};
+
 const mapUserToApiPayload = (user: UserPayloadInput) => ({
   usuarioID: user.UsuarioID ?? 0,
   personalId: user.PersonalId ?? 0,
+  areaId: user.AreaId ?? user.areaId ?? "",
+  tipoUsuario: user.TipoUsuario ?? "",
+  canalVentaId: user.CanalVentaId ?? "",
+  canalVentaNombre: user.CanalVentaNombre ?? "",
+  nombres: user.Nombres ?? "",
+  apellidos: user.Apellidos ?? "",
   usuarioAlias: user.UsuarioAlias ?? "",
   usuarioClave: user.UsuarioClave ?? "",
   usuarioFechaReg: user.UsuarioFechaReg ?? new Date().toISOString(),
@@ -128,6 +172,10 @@ export const useUsersStore = create<UsersState>((set, get) => ({
         toast.error("El alias de usuario ya existe.");
         return false;
       }
+      const message = extractApiMessage(err);
+      if (message) {
+        toast.error(message);
+      }
       console.error("Error creating user", err);
       return false;
     }
@@ -164,6 +212,10 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       if (isAliasDuplicateResponse(err)) {
         toast.error("El alias de usuario ya existe.");
         return false;
+      }
+      const message = extractApiMessage(err);
+      if (message) {
+        toast.error(message);
       }
       console.error("Error updating user", err);
       return false;

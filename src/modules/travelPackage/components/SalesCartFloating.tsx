@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import type { TravelPackageFormState } from "../types/travelPackage.types";
 import { getTravelCurrencySymbol } from "../constants/travelPackage.constants";
+import { useAuthStore } from "@/store/auth/auth.store";
 
 type Props = {
   form: TravelPackageFormState;
@@ -37,6 +38,13 @@ const bancoOptions = [
 
 const SalesCartFloating = ({ form, onUpdateField }: Props) => {
   const [open, setOpen] = useState(true);
+  const authUser = useAuthStore((state) => state.user);
+  const canUseCredit =
+    authUser?.permiteLiquidacionCredito === true ||
+    String(authUser?.permiteLiquidacionCredito ?? "")
+      .trim()
+      .toLowerCase() === "true" ||
+    String(authUser?.permiteLiquidacionCredito ?? "").trim() === "1";
 
   const paxCount = Math.max(0, Number(form.cantPax || 0));
 
@@ -195,7 +203,7 @@ const SalesCartFloating = ({ form, onUpdateField }: Props) => {
               >
                 <option value="CANCELADO">Cancelado</option>
                 <option value="ACUENTA">A Cuenta</option>
-                <option value="CREDITO">Credito</option>
+                {canUseCredit ? <option value="CREDITO">Credito</option> : null}
               </select>
             </div>
 
