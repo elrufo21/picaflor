@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router";
 import { X, LogOutIcon, MenuIcon } from "lucide-react";
 import { useLayoutStore } from "../app/store/layoutStore";
@@ -100,7 +100,9 @@ const MainLayout = () => {
     event: React.MouseEvent<HTMLElement>,
     targetPath: string,
   ) => {
-    const normalizedTargetPath = String(targetPath || "").toLowerCase().trim();
+    const normalizedTargetPath = String(targetPath || "")
+      .toLowerCase()
+      .trim();
     const normalizedCurrentPath = String(location.pathname || "")
       .toLowerCase()
       .trim();
@@ -109,7 +111,10 @@ const MainLayout = () => {
       typeof window !== "undefined" &&
       normalizedTargetPath === FULLDAY_PROGRAMACION_ROUTE
     ) {
-      window.sessionStorage.setItem(FULLDAY_PROGRAMACION_STALE_STORAGE_KEY, "1");
+      window.sessionStorage.setItem(
+        FULLDAY_PROGRAMACION_STALE_STORAGE_KEY,
+        "1",
+      );
 
       // Si el usuario vuelve a hacer click en la misma ruta, forzamos navegación
       // con un evento para que la pantalla recargue los datos.
@@ -129,7 +134,9 @@ const MainLayout = () => {
 
       if (normalizedCurrentPath === TRAVEL_PACKAGE_ROUTE) {
         event.preventDefault();
-        window.dispatchEvent(new CustomEvent(TRAVEL_PACKAGE_MANUAL_REFRESH_EVENT));
+        window.dispatchEvent(
+          new CustomEvent(TRAVEL_PACKAGE_MANUAL_REFRESH_EVENT),
+        );
       }
     }
 
@@ -168,7 +175,19 @@ const MainLayout = () => {
       return null;
     })
     .filter((item): item is NavigationItem => Boolean(item));
+  const isExternalUser = useMemo(() => {
+    const tipoUsuario = String(user?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase();
+    const externalFlag = user?.isExternal === true;
+    const canalVentaId = Number(user?.canalVentaId ?? 0);
 
+    return (
+      tipoUsuario === "EXTERNO" ||
+      externalFlag ||
+      (Number.isFinite(canalVentaId) && canalVentaId > 0)
+    );
+  }, [user]);
   const desktopNav = (
     <aside
       className={`hidden md:flex sticky top-0 h-screen  flex-col
@@ -182,7 +201,7 @@ const MainLayout = () => {
             isSidebarOpen ? "opacity-100" : "opacity-0"
           }`}
         >
-          Picaflor
+          SISTEMA
         </div>
 
         <button
@@ -407,7 +426,10 @@ const MainLayout = () => {
             >
               <MenuIcon size={18} className="text-white" />
             </button>
-            <h1 className="text-lg font-semibold text-white">Picaflor</h1>
+            <h1 className="text-lg font-semibold text-white">
+              {" "}
+              {isExternalUser ? user?.canalVentaNombre : "Picaflor"}
+            </h1>
           </div>
 
           <div className="flex items-center gap-2">

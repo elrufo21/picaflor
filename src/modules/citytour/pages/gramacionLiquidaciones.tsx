@@ -158,6 +158,7 @@ const LIQUIDACION_FIELDS = [
   { key: "flagServicio", label: "FlagServicio", sourceIndex: 52 },
   { key: "flagVerificado", label: "FlagVerificado", sourceIndex: 53 },
   { key: "idPaqueteViaje", label: "IdPaqueteViaje", sourceIndex: 54 },
+  { key: "grupo", label: "Grupo", sourceIndex: 55 },
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
@@ -429,6 +430,7 @@ const LiquidacionesPage = () => {
 
       destino: data.productoNombre,
       region: data.regionProducto,
+      grupo: data.grupo,
 
       fechaViaje: parseFechaBackend(data.fechaViaje),
       fechaEmision: parseFechaBackend(data.fechaRegistro?.split(" ")[0]),

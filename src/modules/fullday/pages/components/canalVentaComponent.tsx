@@ -151,6 +151,12 @@ const CanalVentaComponent = ({
       .trim()
       .toLowerCase() === "true" ||
     String(authUser?.permiteLiquidacionCredito ?? "").trim() === "1";
+  const isExternalUser =
+    String(authUser?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase() === "EXTERNO" ||
+    authUser?.isExternal === true ||
+    Number(authUser?.canalVentaId ?? 0) > 0;
   const showCreditOption = canUseCredit || isEditMode;
   const canEditFechaViaje = isEditing && isEditMode;
   const { openDialog } = useDialogStore();
@@ -356,6 +362,11 @@ const CanalVentaComponent = ({
     { value: "SOLES", label: "Soles" },
     { value: "DOLARES", label: "Dólares" },
   ];
+  const grupoOptions = [
+    { value: "", label: "SELECCIONE" },
+    { value: "COMPARTIDO", label: "COMPARTIDO" },
+    { value: "PRIVADO", label: "PRIVADO" },
+  ];
 
   const handleCanalDeVentaChange = (e: any) => {
     setValue("canalDeVentaTelefono", e.telefono);
@@ -364,35 +375,46 @@ const CanalVentaComponent = ({
     <div className="p-3 space-y-2">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <div className="col-span-2">
-          <AutocompleteControlled
-            onValueChange={(value) => {
-              handleCanalDeVentaChange(value);
+          {isExternalUser ? (
+            <SelectControlled
+              name="grupo"
+              control={control}
+              label="Grupo"
+              options={grupoOptions}
+              disabled={!isEditing}
+              size="small"
+            />
+          ) : (
+            <AutocompleteControlled
+              onValueChange={(value) => {
+                handleCanalDeVentaChange(value);
 
-              setTimeout(() => {
-                document
-                  .querySelector<HTMLInputElement>("#canalDeVentaTelefono")
-                  ?.focus();
-              }, 0);
-            }}
-            name="canalDeVenta"
-            options={canalVentaList}
-            control={control}
-            label="Canal de venta"
-            disabled={isCanalVentaLocked}
-            inputEndAdornment={
-              isCanalVentaLocked ? null :
-              <button
-                type="button"
-                className="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
-                onClick={handleAddCanalVenta}
-              >
-                Nuevo
-              </button>
-            }
-            getOptionLabel={(option: any) => option.label}
-            size="small"
-            className="w-full"
-          />
+                setTimeout(() => {
+                  document
+                    .querySelector<HTMLInputElement>("#canalDeVentaTelefono")
+                    ?.focus();
+                }, 0);
+              }}
+              name="canalDeVenta"
+              options={canalVentaList}
+              control={control}
+              label="Canal de venta"
+              disabled={isCanalVentaLocked}
+              inputEndAdornment={
+                isCanalVentaLocked ? null :
+                <button
+                  type="button"
+                  className="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
+                  onClick={handleAddCanalVenta}
+                >
+                  Nuevo
+                </button>
+              }
+              getOptionLabel={(option: any) => option.label}
+              size="small"
+              className="w-full"
+            />
+          )}
         </div>
         <TextControlled
           name="counter"

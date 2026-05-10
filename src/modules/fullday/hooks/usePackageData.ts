@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { usePackageStore } from "../store/fulldayStore";
 import { hasServiciosData, serviciosDB } from "@/app/db/serviciosDB";
+import { API_BASE_URL } from "@/config";
+import { useAuthStore } from "@/store/auth/auth.store";
 import type {
   PrecioActividad,
   PrecioAlmuerzo,
@@ -13,6 +15,52 @@ type Option = {
   label: string;
   id?: string;
   estado?: string | null;
+};
+
+const parseRawPayload = (rawText: string): unknown => {
+  const trimmed = String(rawText ?? "").trim();
+  if (!trimmed) return null;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+};
+
+const normalizeNumber = (value: unknown) => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseAuxiliarProductPrice = (
+  payload: unknown,
+): { precioDolares: number; precioSoles: number } | null => {
+  if (!payload) return null;
+  if (Array.isArray(payload)) {
+    return parseAuxiliarProductPrice(payload[0]);
+  }
+  if (typeof payload !== "object") return null;
+
+  const row = payload as Record<string, unknown>;
+  return {
+    precioDolares: normalizeNumber(
+      row.precioDolares ??
+        row.PrecioDolares ??
+        row.precioDol ??
+        row.PrecioDol ??
+        row.ventaDolar ??
+        row.VentaDolar,
+    ),
+    precioSoles: normalizeNumber(
+      row.precioSoles ??
+        row.PrecioSoles ??
+        row.precioSol ??
+        row.PrecioSol ??
+        row.ventaSoles ??
+        row.VentaSoles,
+    ),
+  };
 };
 
 export const usePackageData = (
@@ -38,6 +86,14 @@ export const usePackageData = (
   const [preciosTraslado, setPreciosTraslado] = useState<PrecioTraslado[]>();
 
   const [precioProducto, setPrecioProducto] = useState<any>();
+  const authUser = useAuthStore((state) => state.user);
+  const isExternalUser =
+    String(authUser?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase() === "EXTERNO" ||
+    authUser?.isExternal === true ||
+    Number(authUser?.canalVentaId ?? 0) > 0;
+  const canalVentaId = Number(authUser?.canalVentaId ?? 0);
 
   /* =========================
      STORE
@@ -166,11 +222,52 @@ export const usePackageData = (
         setPreciosAlmuerzo(dataPreciosAlmuerzo);
         setPreciosTraslado(dataPreciosTraslado);
 
-        // PRECIO PRODUCTO
-        setPrecioProducto(precioProductoFromDB);
+        let resolvedPrecioProducto = precioProductoFromDB;
 
-        if (precioProductoFromDB?.visitas) {
-          setValue("visitas", precioProductoFromDB.visitas, {
+        // Si el usuario es externo y tiene canal de venta, intentamos usar
+        // la tarifa del auxiliar para este producto.
+        if (
+          isExternalUser &&
+          canalVentaId > 0 &&
+          Number(id) > 0 &&
+          precioProductoFromDB
+        ) {
+          try {
+            const priceResponse = await fetch(
+              `${API_BASE_URL}/Productos/${Number(id)}/auxiliar/${canalVentaId}/precio`,
+              {
+                method: "GET",
+                headers: { accept: "application/json, text/plain" },
+              },
+            );
+
+            if (priceResponse.ok) {
+              const rawPriceText = await priceResponse.text();
+              const parsedPrice = parseRawPayload(rawPriceText);
+              const auxiliarPrice = parseAuxiliarProductPrice(parsedPrice);
+
+              if (auxiliarPrice) {
+                resolvedPrecioProducto = {
+                  ...precioProductoFromDB,
+                  precioDol: auxiliarPrice.precioDolares,
+                  precioVenta: auxiliarPrice.precioSoles,
+                  precioBase:
+                    auxiliarPrice.precioSoles ||
+                    precioProductoFromDB?.precioBase ||
+                    0,
+                };
+              }
+            }
+          } catch (error) {
+            console.error("No se pudo resolver precio por canal de venta", error);
+          }
+        }
+
+        // PRECIO PRODUCTO
+        setPrecioProducto(resolvedPrecioProducto);
+
+        if (resolvedPrecioProducto?.visitas) {
+          setValue("visitas", resolvedPrecioProducto.visitas, {
             shouldDirty: false,
             shouldTouch: false,
           });
@@ -186,7 +283,15 @@ export const usePackageData = (
     return () => {
       cancelled = true;
     };
-  }, [id, pkg?.region, loadServicios, loadServiciosFromDB, setValue]);
+  }, [
+    canalVentaId,
+    id,
+    isExternalUser,
+    pkg?.region,
+    loadServicios,
+    loadServiciosFromDB,
+    setValue,
+  ]);
 
   useEffect(() => {
     if (!precioProducto) return;

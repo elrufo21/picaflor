@@ -1,6 +1,6 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Checkbox, FormControlLabel } from "@mui/material";
 
@@ -8,7 +8,8 @@ import DndTable from "@/components/dataTabla/DndTable";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { showToast } from "@/components/ui/AppToast";
 import { queueServiciosRefresh } from "@/app/db/serviciosSync";
-import { TextControlled } from "@/components/ui/inputs";
+import { serviciosDB } from "@/app/db/serviciosDB";
+import { AutocompleteControlled, TextControlled } from "@/components/ui/inputs";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 import {
   type SalesChannelDetail,
@@ -38,6 +39,11 @@ type CanalVentaDialogValues = {
   fechaNacimiento: string;
   nota: string;
   permiteLiquidacionCredito: boolean;
+  logo: string;
+  fechaLimiteCredito: string;
+  productoId: string;
+  precioDolares: string;
+  precioSoles: string;
 };
 
 type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
@@ -46,14 +52,47 @@ type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
   editingValue?: string;
 };
 
+const parsePriceValue = (value: unknown) => {
+  const normalized = String(value ?? "").trim().replace(",", ".");
+  if (!normalized) return 0;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseCreditDaysValue = (value: unknown) => {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return 0;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, Math.floor(parsed));
+};
+
 const CanalVentaDialogForm = ({
   payload,
   setPayload,
+  fetchAuxiliarProductPrice,
+  fetchAuxiliarProductPrices,
 }: {
   payload: CanalVentaDialogPayload;
-  setPayload: (next: Record<string, unknown>) => void;
+  setPayload: (
+    next:
+      | Record<string, unknown>
+      | ((prev: Record<string, unknown>) => Record<string, unknown>)
+  ) => void;
+  fetchAuxiliarProductPrice: (
+    idProducto: number,
+    idAuxiliar: number,
+  ) => Promise<{ precioDolares: number; precioSoles: number } | null>;
+  fetchAuxiliarProductPrices: (idProducto: number) => Promise<
+    {
+      idAuxiliar: number;
+      precioDolares: number;
+      precioSoles: number;
+      estado?: string;
+    }[]
+  >;
 }) => {
-  const { control } = useForm<CanalVentaDialogValues>({
+  const { control, setValue } = useForm<CanalVentaDialogValues>({
     defaultValues: {
       ruc: String(payload.ruc ?? ""),
       razonSocial: String(payload.razonSocial ?? ""),
@@ -73,8 +112,147 @@ const CanalVentaDialogForm = ({
       fechaNacimiento: String(payload.fechaNacimiento ?? ""),
       nota: String(payload.nota ?? ""),
       permiteLiquidacionCredito: Boolean(payload.permiteLiquidacionCredito),
+      logo: String(payload.logo ?? ""),
+      fechaLimiteCredito: String(payload.fechaLimiteCredito ?? ""),
+      productoId: String(payload.productoId ?? ""),
+      precioDolares: String(payload.precioDolares ?? ""),
+      precioSoles: String(payload.precioSoles ?? ""),
     },
   });
+  const [productOptions, setProductOptions] = useState<
+    { id: number; nombre: string }[]
+  >([]);
+  const [productPrices, setProductPrices] = useState<
+    {
+      idAuxiliar: number;
+      precioDolares: number;
+      precioSoles: number;
+      estado?: string;
+    }[]
+  >([]);
+  const [isLoadingProductPrices, setIsLoadingProductPrices] = useState(false);
+  const selectedProductId = useWatch({
+    control,
+    name: "productoId",
+  });
+  const editingAuxiliarId = Number(payload.editingValue ?? payload.value ?? 0);
+
+  useEffect(() => {
+    let canceled = false;
+    serviciosDB.productos
+      .toArray()
+      .then((items) => {
+        if (canceled) return;
+        setProductOptions(items);
+      })
+      .catch((error) => {
+        console.error("Error loading products for sales channel form", error);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  const productIds = useMemo(
+    () => productOptions.map((product) => String(product.id)),
+    [productOptions],
+  );
+  const productLabelsById = useMemo(() => {
+    const labels = new Map<string, string>();
+    productOptions.forEach((product) => {
+      labels.set(
+        String(product.id),
+        String(product.nombre ?? "").trim() || `Producto ${product.id}`,
+      );
+    });
+    return labels;
+  }, [productOptions]);
+
+  useEffect(() => {
+    const productId = Number(selectedProductId);
+    if (!Number.isFinite(productId) || productId <= 0) {
+      setValue("precioDolares", "");
+      setValue("precioSoles", "");
+      return;
+    }
+
+    if (!Number.isFinite(editingAuxiliarId) || editingAuxiliarId <= 0) {
+      return;
+    }
+
+    let canceled = false;
+    fetchAuxiliarProductPrice(productId, editingAuxiliarId)
+      .then((price) => {
+        if (canceled) return;
+        const nextPrecioDolares =
+          price && Number.isFinite(price.precioDolares)
+            ? String(price.precioDolares)
+            : "";
+        const nextPrecioSoles =
+          price && Number.isFinite(price.precioSoles)
+            ? String(price.precioSoles)
+            : "";
+
+        setValue("precioDolares", nextPrecioDolares, {
+          shouldDirty: false,
+          shouldValidate: false,
+        });
+        setValue("precioSoles", nextPrecioSoles, {
+          shouldDirty: false,
+          shouldValidate: false,
+        });
+        setPayload((prev) => ({
+          ...prev,
+          precioDolares: nextPrecioDolares,
+          precioSoles: nextPrecioSoles,
+        }));
+      })
+      .catch((error) => {
+        if (canceled) return;
+        console.error("Error loading auxiliar product price", error);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [
+    editingAuxiliarId,
+    fetchAuxiliarProductPrice,
+    selectedProductId,
+    setPayload,
+    setValue,
+  ]);
+
+  useEffect(() => {
+    const productId = Number(selectedProductId);
+    if (!Number.isFinite(productId) || productId <= 0) {
+      setProductPrices([]);
+      setIsLoadingProductPrices(false);
+      return;
+    }
+
+    let canceled = false;
+    setIsLoadingProductPrices(true);
+    fetchAuxiliarProductPrices(productId)
+      .then((rows) => {
+        if (canceled) return;
+        setProductPrices(rows);
+      })
+      .catch((error) => {
+        if (canceled) return;
+        console.error("Error loading auxiliar prices by product", error);
+        setProductPrices([]);
+      })
+      .finally(() => {
+        if (canceled) return;
+        setIsLoadingProductPrices(false);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [fetchAuxiliarProductPrices, selectedProductId]);
 
   return (
     <form
@@ -212,6 +390,19 @@ const CanalVentaDialogForm = ({
             }}
           />
         </div>
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="logo"
+            control={control}
+            label="Logo"
+            disableAutoUppercase
+            placeholder="Ej: https://cdn.demo.com/logo.png"
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, logo: e.target.value });
+            }}
+          />
+        </div>
         <TextControlled<CanalVentaDialogValues>
           name="clasificacion"
           control={control}
@@ -232,6 +423,107 @@ const CanalVentaDialogForm = ({
             setPayload({ ...payload, categoria: e.target.value });
           }}
         />
+        <TextControlled<CanalVentaDialogValues>
+          name="fechaLimiteCredito"
+          control={control}
+          label="Limite credito (dias)"
+          size="small"
+          type="number"
+          inputProps={{ min: 0, step: "1" }}
+          onChange={(e) => {
+            setPayload({ ...payload, fechaLimiteCredito: e.target.value });
+          }}
+        />
+        <div className="md:col-span-2">
+          <AutocompleteControlled<CanalVentaDialogValues, string>
+            name="productoId"
+            control={control}
+            label="Producto"
+            size="small"
+            options={productIds}
+            getOptionLabel={(option) => productLabelsById.get(option) ?? option}
+            isOptionEqualToValue={(option, value) => option === value}
+            noOptionsText="No hay productos"
+            onValueChange={(value) => {
+              setPayload({
+                ...payload,
+                productoId: value ?? "",
+              });
+            }}
+          />
+        </div>
+        {selectedProductId ? (
+          <>
+            <TextControlled<CanalVentaDialogValues>
+              name="precioDolares"
+              control={control}
+              label="Precio Dolares"
+              size="small"
+              type="number"
+              inputProps={{ min: 0, step: "0.01" }}
+              onChange={(e) => {
+                setPayload({ ...payload, precioDolares: e.target.value });
+              }}
+            />
+            <TextControlled<CanalVentaDialogValues>
+              name="precioSoles"
+              control={control}
+              label="Precio Soles"
+              size="small"
+              type="number"
+              inputProps={{ min: 0, step: "0.01" }}
+              onChange={(e) => {
+                setPayload({ ...payload, precioSoles: e.target.value });
+              }}
+            />
+            <div className="md:col-span-2 rounded-md border border-slate-200">
+              <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 text-sm font-medium text-slate-700">
+                Precios configurados para este producto
+              </div>
+              {isLoadingProductPrices ? (
+                <p className="px-3 py-3 text-sm text-slate-500">Cargando...</p>
+              ) : productPrices.length ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600">
+                        <th className="px-3 py-2 text-left font-medium">
+                          Auxiliar
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Precio Dolares
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Precio Soles
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Estado
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productPrices.map((row) => (
+                        <tr
+                          key={`${row.idAuxiliar}-${row.precioDolares}-${row.precioSoles}`}
+                          className="border-t border-slate-100"
+                        >
+                          <td className="px-3 py-2">{row.idAuxiliar}</td>
+                          <td className="px-3 py-2">{row.precioDolares}</td>
+                          <td className="px-3 py-2">{row.precioSoles}</td>
+                          <td className="px-3 py-2">{row.estado ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="px-3 py-3 text-sm text-slate-500">
+                  No hay precios registrados para este producto.
+                </p>
+              )}
+            </div>
+          </>
+        ) : null}
         <TextControlled<CanalVentaDialogValues>
           name="fechaAniversario"
           control={control}
@@ -328,7 +620,7 @@ const resolveSalesChannelId = (channel?: Partial<SalesChannelDetail>) => {
 };
 
 const buildPayload = (
-  values: CanalVentaDialogValues,
+  values: Partial<CanalVentaDialogValues>,
   idAuxiliar: number,
 ): SaveSalesChannelPayload => ({
   idAuxiliar,
@@ -349,15 +641,51 @@ const buildPayload = (
   representanteLegal: String(values.representanteLegal ?? "").trim(),
   fechaNacimiento: String(values.fechaNacimiento ?? "").trim(),
   nota: String(values.nota ?? "").trim(),
+  permiteLiquidacionCredito: Boolean(values.permiteLiquidacionCredito),
+  logo: String(values.logo ?? "").trim(),
+  fechaLimiteCredito: parseCreditDaysValue(values.fechaLimiteCredito),
+  // Compatibilidad con backend legacy mientras migra el contrato.
   PermiteLiquidacionCredito: Boolean(values.permiteLiquidacionCredito),
 });
 
 const SalesChannelPage = () => {
-  const { channels, isLoading, error, refresh, saveChannel, deleteChannel } =
-    useSalesChannels();
+  const {
+    channels,
+    isLoading,
+    error,
+    refresh,
+    saveChannel,
+    deleteChannel,
+    saveAuxiliarProductPrice,
+    getAuxiliarProductPrice,
+    getAuxiliarProductPrices,
+  } = useSalesChannels();
   const openDialog = useDialogStore((state) => state.openDialog);
   const resolveAccess = useMaintenanceAccessResolver();
   const access = resolveAccess("maintenance.sales_channel");
+  const fetchAuxiliarProductPriceForDialog = useCallback(
+    async (idProducto: number, idAuxiliar: number) => {
+      const current = await getAuxiliarProductPrice(idProducto, idAuxiliar);
+      if (!current) return null;
+      return {
+        precioDolares: Number(current.precioDolares || 0),
+        precioSoles: Number(current.precioSoles || 0),
+      };
+    },
+    [getAuxiliarProductPrice],
+  );
+  const fetchAuxiliarProductPricesForDialog = useCallback(
+    async (idProducto: number) => {
+      const prices = await getAuxiliarProductPrices(idProducto);
+      return prices.map((item) => ({
+        idAuxiliar: Number(item.idAuxiliar || 0),
+        precioDolares: Number(item.precioDolares || 0),
+        precioSoles: Number(item.precioSoles || 0),
+        estado: item.estado,
+      }));
+    },
+    [getAuxiliarProductPrices],
+  );
 
   const openDeleteSalesChannelDialog = useCallback(
     (channel?: SalesChannelDetail) => {
@@ -446,15 +774,24 @@ const SalesChannelPage = () => {
           celular: channel?.celular ?? "",
           email: channel?.email ?? "",
           webSite: channel?.webSite ?? "",
+          logo: channel?.logo ?? "",
           clasificacion: channel?.clasificacion ?? "",
           categoria: channel?.categoria ?? "",
+          fechaLimiteCredito:
+            channel?.fechaLimiteCredito !== undefined
+              ? String(channel.fechaLimiteCredito)
+              : "",
           fechaAniversario: channel?.fechaAniversario ?? "",
           representanteLegal: channel?.representanteLegal ?? "",
           fechaNacimiento: channel?.fechaNacimiento ?? "",
           nota: channel?.nota ?? "",
           permiteLiquidacionCredito: Boolean(
-            channel?.PermiteLiquidacionCredito,
+            channel?.permiteLiquidacionCredito ??
+              channel?.PermiteLiquidacionCredito,
           ),
+          productoId: "",
+          precioDolares: "",
+          precioSoles: "",
           search: "",
           editingValue,
         },
@@ -466,6 +803,8 @@ const SalesChannelPage = () => {
           <CanalVentaDialogForm
             payload={payload as CanalVentaDialogPayload}
             setPayload={setPayload}
+            fetchAuxiliarProductPrice={fetchAuxiliarProductPriceForDialog}
+            fetchAuxiliarProductPrices={fetchAuxiliarProductPricesForDialog}
           />
         ),
         onDanger:
@@ -487,8 +826,10 @@ const SalesChannelPage = () => {
           const celular = String(data.celular ?? "").trim();
           const email = String(data.email ?? "").trim();
           const webSite = String(data.webSite ?? "").trim();
+          const logo = String(data.logo ?? "").trim();
           const clasificacion = String(data.clasificacion ?? "").trim();
           const categoria = String(data.categoria ?? "").trim();
+          const fechaLimiteCredito = String(data.fechaLimiteCredito ?? "").trim();
           const fechaAniversario = String(data.fechaAniversario ?? "").trim();
           const representanteLegal = String(
             data.representanteLegal ?? "",
@@ -498,6 +839,9 @@ const SalesChannelPage = () => {
           const permiteLiquidacionCredito = Boolean(
             data.permiteLiquidacionCredito,
           );
+          const productoId = parseCanalId(String(data.productoId ?? ""));
+          const precioDolares = parsePriceValue(data.precioDolares);
+          const precioSoles = parsePriceValue(data.precioSoles);
           const idAuxiliar = parseCanalId(
             String(data.editingValue ?? editingValue),
           );
@@ -553,8 +897,10 @@ const SalesChannelPage = () => {
                 celular,
                 email,
                 webSite,
+                logo,
                 clasificacion,
                 categoria,
+                fechaLimiteCredito,
                 fechaAniversario,
                 representanteLegal,
                 fechaNacimiento,
@@ -564,6 +910,23 @@ const SalesChannelPage = () => {
               idAuxiliar,
             );
             const savedId = await saveChannel(payload);
+
+            if (productoId > 0) {
+              const priceSaved = await saveAuxiliarProductPrice({
+                idProducto: productoId,
+                idAuxiliar: savedId,
+                precioDolares,
+                precioSoles,
+                estado: "A",
+              });
+
+              if (!priceSaved) {
+                throw new Error(
+                  "No se pudo guardar el precio del producto para este canal.",
+                );
+              }
+            }
+
             await refresh();
             queueServiciosRefresh();
 
@@ -596,6 +959,11 @@ const SalesChannelPage = () => {
       openDeleteSalesChannelDialog,
       openDialog,
       refresh,
+      fetchAuxiliarProductPriceForDialog,
+      fetchAuxiliarProductPricesForDialog,
+      getAuxiliarProductPrice,
+      getAuxiliarProductPrices,
+      saveAuxiliarProductPrice,
       saveChannel,
     ],
   );

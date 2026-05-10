@@ -61,6 +61,12 @@ const CanalVentaComponent = ({
       .trim()
       .toLowerCase() === "true" ||
     String(authUser?.permiteLiquidacionCredito ?? "").trim() === "1";
+  const isExternalUser =
+    String(authUser?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase() === "EXTERNO" ||
+    authUser?.isExternal === true ||
+    Number(authUser?.canalVentaId ?? 0) > 0;
   const showCreditOption = canUseCredit || isEditMode;
   const canEditFechaViaje = isEditing && isEditMode;
   const { openDialog } = useDialogStore();
@@ -355,6 +361,11 @@ const CanalVentaComponent = ({
     { value: "SOLES", label: "Soles" },
     { value: "DOLARES", label: "Dólares" },
   ];
+  const grupoOptions = [
+    { value: "", label: "SELECCIONE" },
+    { value: "COMPARTIDO", label: "COMPARTIDO" },
+    { value: "PRIVADO", label: "PRIVADO" },
+  ];
 
   const handleCanalDeVentaChange = (e: any) => {
     setValue("canalDeVentaTelefono", e.telefono);
@@ -400,6 +411,16 @@ const CanalVentaComponent = ({
           disabled
           size="small"
         />
+        {isExternalUser ? (
+          <SelectControlled
+            name="grupo"
+            control={control}
+            label="Grupo"
+            options={grupoOptions}
+            disabled={!isEditing}
+            size="small"
+          />
+        ) : null}
         <SelectControlled
           name="moneda"
           control={control}

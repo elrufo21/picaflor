@@ -86,12 +86,84 @@ function normalizeDateInputValue(value?: string | null): string {
   return iso ? iso.slice(0, 10) : "";
 }
 
+function parseRegistroDate(value?: string | null): Date | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+
+  const legacyMatch = raw.match(
+    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+  );
+  if (legacyMatch) {
+    const [, day, month, year] = legacyMatch;
+    const parsed = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      0,
+      0,
+      0,
+      0,
+    );
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const direct = new Date(raw);
+  if (Number.isNaN(direct.getTime())) return null;
+  return new Date(
+    direct.getFullYear(),
+    direct.getMonth(),
+    direct.getDate(),
+    0,
+    0,
+    0,
+    0,
+  );
+}
+
+function canExternalUserUnlockEditing(fechaRegistro?: string | null): boolean {
+  const registroDate = parseRegistroDate(fechaRegistro);
+  if (!registroDate) return false;
+
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0,
+    0,
+    0,
+    0,
+  );
+  const isSameDay = registroDate.getTime() === todayStart.getTime();
+  if (!isSameDay) return false;
+
+  const cutoff = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    20,
+    0,
+    0,
+    0,
+  );
+
+  return now.getTime() <= cutoff.getTime();
+}
+
 function n(v: any) {
   return v === null || v === undefined || v === "" ? "" : String(v);
 }
 
 function d(v: any) {
   return Number(v || 0).toFixed(2);
+}
+
+function buildRegionWithGrupo(region: unknown, grupo: unknown) {
+  const normalizedRegion = n(region).replace(/\|/g, " ").trim();
+  const normalizedGrupo = n(grupo).replace(/\|/g, " ").trim();
+  return normalizedGrupo
+    ? `${normalizedRegion}|${normalizedGrupo}`
+    : normalizedRegion;
 }
 
 function normalizeFlagVerificado(value: unknown): "0" | "1" {
@@ -726,7 +798,7 @@ function buildListaOrdenCreate(data) {
     n(data?.detalle?.tarifa?.servicio?.label ?? ""), // 47 IncluyeALmuerzo
     "", // 48 NotaImagen
     n(data?.hotel?.label ?? ""), // 49 Hotel
-    data.region, // 50 Region
+    buildRegionWithGrupo(data.region, data.grupo), // 50 Region|Grupo
   ].join("|");
 
   return `${orden}[${detalle}`;
@@ -790,7 +862,7 @@ function buildListaOrdenEdit(data) {
     n(data?.detalle?.tarifa?.servicio?.label ?? ""), // 48 IncluyeALmuerzo
     "", // 49 NotaImagen
     n(data?.hotel?.label ?? ""), // 50 Hotel
-    n(data.region), // 51 Region
+    buildRegionWithGrupo(data.region, data.grupo), // 51 Region|Grupo
   ].join("|");
 
   return `${orden}[${detalle}`;
@@ -1041,6 +1113,7 @@ const ViajeForm = () => {
       documentoCobranza: "DOCUMENTO COBRANZA",
       disponibles: 0,
       region: "",
+      grupo: "",
       counter: "",
       moneda: "DOLARES",
       canalDeVentaTelefono: "",
@@ -1091,6 +1164,12 @@ const ViajeForm = () => {
   //sesion
   const sessionRaw = localStorage.getItem("picaflor.auth.session");
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const isExternalUser =
+    String(session?.user?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase() === "EXTERNO" ||
+    session?.user?.isExternal === true ||
+    Number(session?.user?.canalVentaId ?? 0) > 0;
   const canUseCreditInCreate =
     session?.user?.permiteLiquidacionCredito === true ||
     String(session?.user?.permiteLiquidacionCredito ?? "")
@@ -1170,6 +1249,9 @@ const ViajeForm = () => {
   const fechaEmision = watch("fechaEmision");
   const notaId = watch("notaId");
   const isLiquidacionAnulada = watch("estado") === "ANULADO";
+  const fechaRegistro = String(
+    watch("fechaRegistro") ?? formData?.fechaRegistro ?? "",
+  ).trim();
   const flagVerificado = watch("flagVerificado");
   const isVerificado = normalizeFlagVerificado(flagVerificado) === "1";
   const canToggleVerificado =
@@ -1609,6 +1691,18 @@ const ViajeForm = () => {
         title: "Sin permiso",
         description: "No tienes permiso para editar en este módulo.",
         type: "error",
+      });
+      return;
+    }
+    if (
+      isExternalUser &&
+      !canExternalUserUnlockEditing(fechaRegistro || fechaEmision)
+    ) {
+      showToast({
+        title: "Edicion no permitida",
+        description:
+          "Como usuario externo solo puedes editar el mismo dia del registro hasta las 8:00 PM.",
+        type: "warning",
       });
       return;
     }
