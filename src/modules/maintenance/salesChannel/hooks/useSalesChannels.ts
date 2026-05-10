@@ -22,6 +22,10 @@ export type SalesChannelDetail = {
   representanteLegal?: string;
   fechaNacimiento?: string;
   nota?: string;
+  PermiteLiquidacionCredito?: boolean;
+  permiteLiquidacionCredito?: boolean;
+  logo?: string;
+  fechaLimiteCredito?: number;
 };
 
 export type SaveSalesChannelPayload = {
@@ -43,11 +47,33 @@ export type SaveSalesChannelPayload = {
   representanteLegal: string;
   fechaNacimiento: string;
   nota: string;
+  permiteLiquidacionCredito: boolean;
+  logo: string;
+  fechaLimiteCredito: number;
+  // Compatibilidad temporal con contratos legacy
+  PermiteLiquidacionCredito?: boolean;
+};
+
+export type AuxiliarProductPrice = {
+  idProducto: number;
+  idAuxiliar: number;
+  precioDolares: number;
+  precioSoles: number;
+  estado?: string;
+};
+
+export type SaveAuxiliarProductPricePayload = {
+  idProducto: number;
+  idAuxiliar: number;
+  precioDolares: number;
+  precioSoles: number;
+  estado?: string;
 };
 
 const SALES_CHANNEL_LIST_ENDPOINT = `${API_BASE_URL}/Canal/list`;
 const SALES_CHANNEL_SAVE_ENDPOINT = `${API_BASE_URL}/Canal/guardar-auxiliar`;
 const SALES_CHANNEL_DELETE_ENDPOINT = `${API_BASE_URL}/Canal/auxiliar`;
+const AUXILIAR_PRODUCT_PRICE_SAVE_ENDPOINT = `${API_BASE_URL}/Productos/auxiliar-precio/guardar`;
 
 const parseRawPayload = (rawText: string): unknown => {
   const trimmed = String(rawText ?? "").trim();
@@ -64,6 +90,26 @@ const normalizeText = (value: unknown) => {
   const normalized = String(value ?? "").trim();
   if (!normalized) return "";
   return normalized.toLowerCase() === "null" ? "" : normalized;
+};
+
+const normalizeNumber = (value: unknown) => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeBoolean = (value: unknown): boolean => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return Number.isFinite(value) && value > 0;
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "si" ||
+    normalized === "sí" ||
+    normalized === "s" ||
+    normalized === "yes"
+  );
 };
 
 const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] => {
@@ -119,6 +165,25 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
             normalizeText(row.fechaNacimiento ?? row.FechaNacimiento) ||
             undefined,
           nota: normalizeText(row.nota ?? row.Nota) || undefined,
+          PermiteLiquidacionCredito: normalizeBoolean(
+            row.permiteLiquidacionCredito ??
+              row.PermiteLiquidacionCredito ??
+              row.permiteCredito ??
+              row.PermiteCredito,
+          ),
+          permiteLiquidacionCredito: normalizeBoolean(
+            row.permiteLiquidacionCredito ??
+              row.PermiteLiquidacionCredito ??
+              row.permiteCredito ??
+              row.PermiteCredito,
+          ),
+          logo: normalizeText(row.logo ?? row.Logo) || undefined,
+          fechaLimiteCredito: normalizeNumber(
+            row.fechaLimiteCredito ??
+              row.FechaLimiteCredito ??
+              row.limiteCredito ??
+              row.LimiteCredito,
+          ),
         } as SalesChannelDetail;
       })
       .filter((item): item is SalesChannelDetail => Boolean(item));
@@ -176,6 +241,9 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
         : normalizeText(parts[15]);
       const contacto02 = isLegacyFormat ? "" : normalizeText(parts[16]);
       const nota = isLegacyFormat ? "" : normalizeText(parts[17]);
+      const permiteLiquidacionCredito = isLegacyFormat
+        ? false
+        : normalizeBoolean(parts[18]);
 
       return {
         id: idCanal > 0 ? idCanal : index + 1,
@@ -198,6 +266,10 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
         representanteLegal: representanteLegal || undefined,
         fechaNacimiento: fechaNacimiento || undefined,
         nota: nota || undefined,
+        PermiteLiquidacionCredito: permiteLiquidacionCredito,
+        permiteLiquidacionCredito: permiteLiquidacionCredito,
+        logo: normalizeText(parts[19]) || undefined,
+        fechaLimiteCredito: normalizeNumber(parts[20]),
       } as SalesChannelDetail;
     })
     .filter((item): item is SalesChannelDetail => Boolean(item));
@@ -273,6 +345,106 @@ const parseDeleteResponse = (rawResponse: string): boolean => {
   }
 
   return false;
+};
+
+const parseSuccessResponse = (rawResponse: string): boolean => {
+  const trimmed = String(rawResponse ?? "").trim();
+  if (!trimmed) return false;
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "true" || normalized === "ok") return true;
+  if (normalized === "false") return false;
+
+  const directNumber = Number(trimmed);
+  if (Number.isFinite(directNumber)) return directNumber > 0;
+
+  const parsed = parseRawPayload(trimmed);
+  if (typeof parsed === "boolean") return parsed;
+  if (typeof parsed === "number") return parsed > 0;
+  if (parsed && typeof parsed === "object") {
+    const blob = parsed as Record<string, unknown>;
+    const successCandidate =
+      blob.success ??
+      blob.Success ??
+      blob.result ??
+      blob.Result ??
+      blob.ok ??
+      blob.Ok ??
+      blob.data;
+
+    if (typeof successCandidate === "boolean") return successCandidate;
+    if (typeof successCandidate === "number") return successCandidate > 0;
+    if (typeof successCandidate === "string") {
+      const normalizedSuccess = successCandidate.trim().toLowerCase();
+      if (normalizedSuccess === "true" || normalizedSuccess === "ok")
+        return true;
+      if (normalizedSuccess === "false") return false;
+      const parsedSuccessNumber = Number(normalizedSuccess);
+      if (Number.isFinite(parsedSuccessNumber)) return parsedSuccessNumber > 0;
+    }
+  }
+  return false;
+};
+
+const parseAuxiliarProductPrice = (payload: unknown): AuxiliarProductPrice | null => {
+  if (!payload) return null;
+
+  if (Array.isArray(payload)) {
+    return parseAuxiliarProductPrice(payload[0]);
+  }
+
+  if (typeof payload !== "object") return null;
+
+  const row = payload as Record<string, unknown>;
+  const idProducto = normalizeNumber(
+    row.idProducto ?? row.IdProducto ?? row.productoId ?? row.ProductoId,
+  );
+  const idAuxiliar = normalizeNumber(
+    row.idAuxiliar ?? row.IdAuxiliar ?? row.auxiliarId ?? row.AuxiliarId,
+  );
+
+  return {
+    idProducto,
+    idAuxiliar,
+    precioDolares: normalizeNumber(
+      row.precioDolares ??
+        row.PrecioDolares ??
+        row.precioDol ??
+        row.PrecioDol ??
+        row.ventaDolar ??
+        row.VentaDolar,
+    ),
+    precioSoles: normalizeNumber(
+      row.precioSoles ??
+        row.PrecioSoles ??
+        row.precioSol ??
+        row.PrecioSol ??
+        row.ventaSoles ??
+        row.VentaSoles,
+    ),
+    estado: normalizeText(row.estado ?? row.Estado) || undefined,
+  };
+};
+
+const parseAuxiliarProductPricesList = (payload: unknown): AuxiliarProductPrice[] => {
+  if (!payload) return [];
+
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item) => parseAuxiliarProductPrice(item))
+      .filter((item): item is AuxiliarProductPrice => Boolean(item));
+  }
+
+  if (typeof payload === "object") {
+    const maybeData = (payload as { data?: unknown }).data;
+    if (maybeData !== undefined) {
+      return parseAuxiliarProductPricesList(maybeData);
+    }
+    const single = parseAuxiliarProductPrice(payload);
+    return single ? [single] : [];
+  }
+
+  return [];
 };
 
 export const useSalesChannels = () => {
@@ -370,5 +542,112 @@ export const useSalesChannels = () => {
     return true;
   }, []);
 
-  return { channels, isLoading, error, refresh, saveChannel, deleteChannel };
+  const saveAuxiliarProductPrice = useCallback(
+    async (payload: SaveAuxiliarProductPricePayload) => {
+      const idProducto = Number(payload.idProducto);
+      const idAuxiliar = Number(payload.idAuxiliar);
+
+      if (!Number.isFinite(idProducto) || idProducto <= 0) {
+        throw new Error("ID de producto invalido.");
+      }
+      if (!Number.isFinite(idAuxiliar) || idAuxiliar <= 0) {
+        throw new Error("ID de auxiliar invalido.");
+      }
+
+      const response = await fetch(AUXILIAR_PRODUCT_PRICE_SAVE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          accept: "text/plain, application/json",
+        },
+        body: JSON.stringify({
+          idProducto,
+          idAuxiliar,
+          precioDolares: normalizeNumber(payload.precioDolares),
+          precioSoles: normalizeNumber(payload.precioSoles),
+          estado: payload.estado ?? "A",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = (await response.text()).trim();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      return parseSuccessResponse(responseText);
+    },
+    [],
+  );
+
+  const getAuxiliarProductPrice = useCallback(
+    async (idProducto: number, idAuxiliar: number) => {
+      const productId = Number(idProducto);
+      const auxiliarId = Number(idAuxiliar);
+
+      if (!Number.isFinite(productId) || productId <= 0) {
+        throw new Error("ID de producto invalido.");
+      }
+      if (!Number.isFinite(auxiliarId) || auxiliarId <= 0) {
+        throw new Error("ID de auxiliar invalido.");
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/Productos/${productId}/auxiliar/${auxiliarId}/precio`,
+        {
+          method: "GET",
+          headers: { accept: "application/json, text/plain" },
+        },
+      );
+
+      if (response.status === 404) return null;
+
+      if (!response.ok) {
+        const errorText = (await response.text()).trim();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+
+      const rawText = await response.text();
+      const parsed = parseRawPayload(rawText);
+      const price = parseAuxiliarProductPrice(parsed);
+      return price;
+    },
+    [],
+  );
+
+  const getAuxiliarProductPrices = useCallback(async (idProducto: number) => {
+    const productId = Number(idProducto);
+    if (!Number.isFinite(productId) || productId <= 0) {
+      throw new Error("ID de producto invalido.");
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/Productos/${productId}/auxiliar-precios`,
+      {
+        method: "GET",
+        headers: { accept: "application/json, text/plain" },
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = (await response.text()).trim();
+      throw new Error(errorText || `HTTP ${response.status}`);
+    }
+
+    const rawText = await response.text();
+    const parsed = parseRawPayload(rawText);
+    return parseAuxiliarProductPricesList(parsed);
+  }, []);
+
+  return {
+    channels,
+    isLoading,
+    error,
+    refresh,
+    saveChannel,
+    deleteChannel,
+    saveAuxiliarProductPrice,
+    getAuxiliarProductPrice,
+    getAuxiliarProductPrices,
+  };
 };

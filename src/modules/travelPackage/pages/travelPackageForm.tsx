@@ -271,6 +271,7 @@ const focusBySelector = (selector?: string) => {
 
 const validateTravelPackageForm = (
   form: TravelPackageFormState,
+  allowCreditCondition: boolean,
 ): TravelPackageValidationError | null => {
   const destinos = (form.destinos ?? []).map(normalizeText).filter(Boolean);
   if (!destinos.length) {
@@ -312,6 +313,13 @@ const validateTravelPackageForm = (
   }
 
   const condicionPago = normalizeUpperText(form.condicionPago);
+  if (!allowCreditCondition && condicionPago === "CREDITO") {
+    return {
+      message:
+        "TU CANAL NO TIENE HABILITADA LA OPCION CREDITO PARA CREAR LIQUIDACIONES.",
+      focusSelector: '[name="condicionPago"]',
+    };
+  }
   if (!CONDICION_PAGO_ALLOWED.has(condicionPago)) {
     return {
       message: "SELECCIONE UNA CONDICIÓN DE PAGO VÁLIDA.",
@@ -794,6 +802,13 @@ const TravelPackageForm = () => {
   const isTravelPackageAnulado = normalizeUpperText(packageEstado) === "ANULADO";
   const canToggleVerificado =
     String(authUser?.areaId ?? authUser?.area ?? "") === "6";
+  const canUseCreditBySession =
+    authUser?.permiteLiquidacionCredito === true ||
+    String(authUser?.permiteLiquidacionCredito ?? "")
+      .trim()
+      .toLowerCase() === "true" ||
+    String(authUser?.permiteLiquidacionCredito ?? "").trim() === "1";
+  const allowCreditCondition = canUseCreditBySession || isEditMode;
   const isFormLocked = isEditMode && !isEditing;
   const fieldsetDisabled =
     isSaving || isLoadingDetail || isUpdatingVerificado || isFormLocked;
@@ -1005,7 +1020,10 @@ const TravelPackageForm = () => {
     }
 
     const formForSave = normalizePassengersForSubmit(form);
-    const validationError = validateTravelPackageForm(formForSave);
+    const validationError = validateTravelPackageForm(
+      formForSave,
+      allowCreditCondition,
+    );
     if (validationError) {
       showToast({
         title: "Validación",
@@ -1118,6 +1136,7 @@ const TravelPackageForm = () => {
     }
   }, [
     authUser?.id,
+    allowCreditCondition,
     form,
     id,
     isEditMode,
@@ -1712,6 +1731,7 @@ const TravelPackageForm = () => {
                 form={form}
                 onUpdateField={handlers.updateField}
                 isViewMode={isFormLocked}
+                allowCreditCondition={allowCreditCondition}
               />
             </div>
 

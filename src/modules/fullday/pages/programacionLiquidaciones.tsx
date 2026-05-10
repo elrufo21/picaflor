@@ -652,6 +652,7 @@ const LIQUIDACION_FIELDS = [
   { key: "flagServicio", label: "FlagServicio", sourceIndex: 51 },
   { key: "flagVerificado", label: "FlagVerificado", sourceIndex: 52 },
   { key: "idPaqueteViaje", label: "IdPaqueteViaje", sourceIndex: 53 },
+  { key: "grupo", label: "Grupo", sourceIndex: 54 },
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
@@ -661,6 +662,12 @@ type LiquidacionRow = Record<LiquidacionFieldKey, string> & {
   clienteId?: string;
   companiaId?: string;
   CompaniaId?: string;
+};
+
+type ExternalCreditLimitResponse = {
+  idAuxiliar?: number | string;
+  diasLimiteCredito?: number | string;
+  fechaLimiteCredito?: number | string;
 };
 
 const EXPECTED_FIELDS =
@@ -759,6 +766,88 @@ const parseLiquidacionesPayload = (payload: string | null | undefined) => {
     .filter((row) => row && row !== "~");
 
   return rows.map((row, index) => parseLiquidacionRow(row, index));
+};
+
+const parseExternalCreditLimitDays = (
+  payload: unknown,
+): number | null => {
+  if (!payload || typeof payload !== "object") return null;
+  const data = payload as ExternalCreditLimitResponse;
+  const parsed = Number(
+    data.diasLimiteCredito ?? data.fechaLimiteCredito ?? 0,
+  );
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.floor(parsed);
+};
+
+const parseRegistroDateParts = (
+  value?: string,
+): { year: number; month: number; day: number } | null => {
+  const raw = normalizeStringValue(value);
+  if (!raw) return null;
+
+  const dateToken = raw.split(" ")[0]?.split("T")[0] ?? "";
+  const legacyMatch = dateToken.match(/^(\d{2})\/(\d{2})\/(\d{2,4})$/);
+  if (legacyMatch) {
+    const [, dayRaw, monthRaw, yearRaw] = legacyMatch;
+    const year = yearRaw.length === 2 ? Number(`20${yearRaw}`) : Number(yearRaw);
+    const month = Number(monthRaw);
+    const day = Number(dayRaw);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+      return null;
+    }
+    return { year, month, day };
+  }
+
+  const isoMatch = dateToken.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const [, yearRaw, monthRaw, dayRaw] = isoMatch;
+    const year = Number(yearRaw);
+    const month = Number(monthRaw);
+    const day = Number(dayRaw);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+      return null;
+    }
+    return { year, month, day };
+  }
+
+  return null;
+};
+
+const getTodayPartsInLima = () => {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const formatted = formatter.format(new Date()); // YYYY-MM-DD
+  const [yearRaw, monthRaw, dayRaw] = formatted.split("-");
+  return {
+    year: Number(yearRaw),
+    month: Number(monthRaw),
+    day: Number(dayRaw),
+  };
+};
+
+const resolveRemainingCreditDays = (
+  fechaRegistro: string,
+  limiteCreditoDias: number | null,
+) => {
+  if (!Number.isFinite(limiteCreditoDias as number)) return "-";
+  const registroParts = parseRegistroDateParts(fechaRegistro);
+  if (!registroParts) return "-";
+
+  const today = getTodayPartsInLima();
+  const diffMs =
+    Date.UTC(today.year, today.month - 1, today.day) -
+    Date.UTC(
+      registroParts.year,
+      registroParts.month - 1,
+      registroParts.day,
+    );
+  const elapsedDays = diffMs > 0 ? Math.floor(diffMs / 86400000) : 0;
+  return Math.max(0, Number(limiteCreditoDias) - elapsedDays);
 };
 
 const normalizeProductName = (value?: string) =>
@@ -896,6 +985,19 @@ function parseFechaBackend(value?: string) {
 
 const LiquidacionesPage = () => {
   const { user } = useAuthStore();
+  const isExternalUser = useMemo(() => {
+    const tipoUsuario = String(user?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase();
+    const externalFlag = user?.isExternal === true;
+    const canalVentaId = Number(user?.canalVentaId ?? 0);
+
+    return (
+      tipoUsuario === "EXTERNO" ||
+      externalFlag ||
+      (Number.isFinite(canalVentaId) && canalVentaId > 0)
+    );
+  }, [user]);
   const navigate = useNavigate();
   const location = useLocation();
   const refreshKey =
@@ -910,6 +1012,9 @@ const LiquidacionesPage = () => {
   const [allRows, setAllRows] = useState<LiquidacionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [externalCreditLimitDays, setExternalCreditLimitDays] = useState<
+    number | null
+  >(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const todayValue = useMemo(() => {
     const now = new Date();
@@ -1156,6 +1261,14 @@ const LiquidacionesPage = () => {
   };
 
   useEffect(() => {
+    if (!isExternalUser) return;
+    if (searchMode !== "canal") return;
+
+    setSearchMode("none");
+    stopCanalSearch();
+  }, [isExternalUser, searchMode, stopCanalSearch]);
+
+  useEffect(() => {
     const persistedCanal =
       typeof searchCanal === "string"
         ? normalizeStringValue(searchCanal)
@@ -1283,6 +1396,40 @@ const LiquidacionesPage = () => {
   useEffect(() => {
     setFilteredRowsForTotals(rows);
   }, [rows]);
+
+  useEffect(() => {
+    const canalVentaId = Number(user?.canalVentaId ?? 0);
+    if (!isExternalUser || !Number.isFinite(canalVentaId) || canalVentaId <= 0) {
+      setExternalCreditLimitDays(null);
+      return;
+    }
+
+    let canceled = false;
+    fetch(`${API_BASE_URL}/Canal/auxiliar/${canalVentaId}/fecha-limite-credito`, {
+      method: "GET",
+      headers: { accept: "application/json, text/plain" },
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (canceled) return;
+        setExternalCreditLimitDays(parseExternalCreditLimitDays(data));
+      })
+      .catch((fetchError) => {
+        if (canceled) return;
+        console.error("No se pudo cargar fecha limite de credito", fetchError);
+        setExternalCreditLimitDays(null);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [isExternalUser, user?.canalVentaId]);
 
   useEffect(() => {
     if (searchMode !== "numero") {
@@ -1662,6 +1809,7 @@ const LiquidacionesPage = () => {
 
       destino: data.productoNombre,
       region: data.regionProducto,
+      grupo: data.grupo,
 
       fechaViaje: parseFechaBackend(data.fechaViaje),
       fechaEmision: parseFechaBackend(data.fechaRegistro?.split(" ")[0]),
@@ -1824,6 +1972,25 @@ const LiquidacionesPage = () => {
       columnHelper.accessor("condicion", {
         header: "Condicion",
       }),
+      ...(isExternalUser
+        ? [
+            columnHelper.display({
+              id: "diasCredito",
+              header: "Dias credito",
+              meta: { align: "center" },
+              cell: ({ row }) => {
+                const condicion = normalizeCondicionFilter(row.original.condicion);
+                if (condicion !== "CREDITO") return "-";
+                const remainingDays = resolveRemainingCreditDays(
+                  row.original.fechaRegistro,
+                  externalCreditLimitDays,
+                );
+                if (remainingDays === "-") return "-";
+                return `${remainingDays} dias`;
+              },
+            }),
+          ]
+        : []),
       columnHelper.accessor("cantidadPax", {
         meta: { align: "center" },
         header: "Cant.Pax",
@@ -1857,7 +2024,14 @@ const LiquidacionesPage = () => {
     );
 
     return cols;
-  }, [columnHelper, isPagoVerificado, navigate, sessionStore.user.areaId]);
+  }, [
+    columnHelper,
+    externalCreditLimitDays,
+    isExternalUser,
+    isPagoVerificado,
+    navigate,
+    sessionStore.user.areaId,
+  ]);
 
   const productosPromiseRef = useRef<Promise<Producto[]> | null>(null);
 
@@ -2051,32 +2225,44 @@ const LiquidacionesPage = () => {
             }}
           />
         </div>
-        <label className="inline-flex min-w-0 flex-1 items-center gap-2">
-          <input
-            type="checkbox"
-            checked={searchMode === "canal"}
-            onChange={(e) => handleToggleSearchByCanal(e.target.checked)}
-            className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-          />
-          <span className="truncate">Canal de venta</span>
-        </label>
-        <label className="inline-flex min-w-0 flex-1 items-center gap-2">
+        {!isExternalUser && (
+          <label
+            className={`inline-flex items-center gap-2 ${isExternalUser ? "shrink-0" : "min-w-0 flex-1"}`}
+          >
+            <input
+              type="checkbox"
+              checked={searchMode === "canal"}
+              onChange={(e) => handleToggleSearchByCanal(e.target.checked)}
+              className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            <span className={isExternalUser ? "" : "truncate"}>
+              Canal de venta
+            </span>
+          </label>
+        )}
+        <label
+          className={`inline-flex items-center gap-2 ${isExternalUser ? "shrink-0" : "min-w-0 flex-1"}`}
+        >
           <input
             type="checkbox"
             checked={searchMode === "numero"}
             onChange={(e) => handleToggleSearchByNumero(e.target.checked)}
             className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
           />
-          <span className="truncate">Numero de pedido</span>
+          <span className={isExternalUser ? "" : "truncate"}>
+            Numero de pedido
+          </span>
         </label>
-        <label className="inline-flex min-w-0 flex-1 items-center gap-2">
+        <label
+          className={`inline-flex items-center gap-2 ${isExternalUser ? "shrink-0" : "min-w-0 flex-1"}`}
+        >
           <input
             type="checkbox"
             checked={searchByFechaViaje}
             onChange={(e) => handleToggleSearchByFechaViaje(e.target.checked)}
             className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
           />
-          <span className="truncate">Fecha viaje</span>
+          <span className={isExternalUser ? "" : "truncate"}>Fecha viaje</span>
         </label>
       </div>
 
@@ -2582,6 +2768,7 @@ const LiquidacionesPage = () => {
         </div>
 
         {/* BOTONES */}
+
         <div className="flex shrink-0 flex-row gap-3">
           {/* BUSCAR */}
           <button
@@ -2594,18 +2781,19 @@ const LiquidacionesPage = () => {
           >
             <Search size={16} />
           </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              handleExcelExport();
-            }}
-            title="Exportar a Excel"
-            aria-label="Exportar a Excel"
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shadow transition hover:bg-emerald-700"
-          >
-            <FileSpreadsheet size={16} />
-          </button>
+          {!isExternalUser && (
+            <button
+              type="button"
+              onClick={() => {
+                handleExcelExport();
+              }}
+              title="Exportar a Excel"
+              aria-label="Exportar a Excel"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white shadow transition hover:bg-emerald-700"
+            >
+              <FileSpreadsheet size={16} />
+            </button>
+          )}
         </div>
       </div>
     </div>

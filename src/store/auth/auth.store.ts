@@ -22,6 +22,11 @@ const SESSION_EXPIRED_MESSAGE = "Tu sesion expiro, vuelve a ingresar.";
 export interface AuthUser {
   id: string;
   personalId: string;
+  tipoUsuario?: string;
+  isExternal?: boolean;
+  canalVentaId?: string | null;
+  canalVentaNombre?: string;
+  permiteLiquidacionCredito?: boolean;
   area: string;
   areaId?: string | null;
   username: string;
@@ -54,6 +59,15 @@ interface LoginPayload {
 interface LoginResponse {
   id: string;
   personalId: string;
+  tipoUsuario?: string | null;
+  usuarioExterno?: string | number | boolean | null;
+  UsuarioExterno?: string | number | boolean | null;
+  canalVentaId?: string | number | null;
+  CanalVentaId?: string | number | null;
+  canalVentaNombre?: string | null;
+  CanalVentaNombre?: string | null;
+  permiteLiquidacionCredito?: string | number | boolean | null;
+  PermiteLiquidacionCredito?: string | number | boolean | null;
   area: string;
   areaId?: string;
   usuario: string;
@@ -113,7 +127,9 @@ const isAuthSession = (value: unknown): value is AuthSession =>
 
 const normalizeDateOnly = (value?: string | null): string | null => {
   const trimmed = String(value ?? "").trim();
-  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!trimmed) return null;
+  const candidate = trimmed.slice(0, 10);
+  const match = candidate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
 
   const year = Number(match[1]);
@@ -125,6 +141,19 @@ const normalizeDateOnly = (value?: string | null): string | null => {
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
 
   return `${match[1]}-${match[2]}-${match[3]}`;
+};
+
+const normalizeOptionalString = (value: unknown): string | null => {
+  const normalized = String(value ?? "").trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+const normalizeBoolean = (value: unknown): boolean => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return Number.isFinite(value) && value > 0;
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 };
 
 const normalizeList = (value: unknown): string[] => {
@@ -268,6 +297,20 @@ const isPasswordExpiredByDate = (expiryDate?: string | null): boolean => {
   return today.getTime() >= expiry.getTime();
 };
 
+const isOptionalExpiryReachedByDate = (expiryDate?: string | null): boolean => {
+  const normalized = normalizeDateOnly(expiryDate);
+  if (!normalized) return false;
+
+  const [year, month, day] = normalized.split("-").map(Number);
+  const expiry = new Date(year, month - 1, day);
+  expiry.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return today.getTime() >= expiry.getTime();
+};
+
 const readSessionFromStorage = (): AuthSession | null => {
   if (typeof window === "undefined") return null;
   try {
@@ -324,7 +367,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
   const canRestoreStoredSession =
     !!hasValidStoredSession &&
     !!storedPasswordExpiryDate &&
-    !!storedSomeExpiryDate &&
     hasStoredPermissions(storedSession?.user);
 
   const logout = (reason?: string) => {
@@ -359,15 +401,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
       session &&
       !isExpired(session.expiresAt) &&
       normalizedPasswordDate &&
-      normalizedSomeDate &&
       hasStoredPermissions(session.user)
     ) {
-      const someMustRenew = isPasswordExpiredByDate(normalizedSomeDate);
+      const someMustRenew = isOptionalExpiryReachedByDate(normalizedSomeDate);
       set({
         user: session.user,
         token: session.token,
         passwordExpiryDate: normalizedPasswordDate,
-        someExpiryDate: normalizedSomeDate,
+        someExpiryDate: normalizedSomeDate ?? null,
         passwordMustChange: isPasswordExpiredByDate(normalizedPasswordDate),
         someMustRenew,
         isAuthenticated: true,
@@ -390,7 +431,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       ? isPasswordExpiredByDate(storedPasswordExpiryDate)
       : false,
     someMustRenew: canRestoreStoredSession
-      ? isPasswordExpiredByDate(storedSomeExpiryDate)
+      ? isOptionalExpiryReachedByDate(storedSomeExpiryDate)
       : false,
     isAuthenticated: !!canRestoreStoredSession,
     hydrated: false,
@@ -521,21 +562,37 @@ export const useAuthStore = create<AuthState>((set, get) => {
         parsed.VencimientoSome ??
         null;
       const someExpiryDate = normalizeDateOnly(rawSomeExpiryDate);
-      if (!someExpiryDate) {
-        set({
-          loading: false,
-          isAuthenticated: false,
-          user: null,
-          token: null,
-          passwordExpiryDate: null,
-          someExpiryDate: null,
-          passwordMustChange: false,
-          someMustRenew: false,
-          error: "No se recibio fecha de vencimiento SOME.",
-          hydrated: true,
-        });
-        return false;
-      }
+
+      const tipoUsuarioNormalized = String(parsed.tipoUsuario ?? "")
+        .trim()
+        .toUpperCase();
+      const canalVentaIdNormalized = normalizeOptionalString(
+        parsed.canalVentaId ?? parsed.CanalVentaId,
+      );
+      const canalVentaNombreNormalized =
+        normalizeOptionalString(
+          parsed.canalVentaNombre ?? parsed.CanalVentaNombre,
+        ) ?? "";
+      const usuarioExternoRaw =
+        parsed.usuarioExterno ?? parsed.UsuarioExterno ?? null;
+      const usuarioExternoNumber = Number(usuarioExternoRaw);
+      const isExternalUser =
+        tipoUsuarioNormalized === "EXTERNO" ||
+        usuarioExternoRaw === true ||
+        usuarioExternoRaw === "1" ||
+        usuarioExternoNumber === 1 ||
+        Number(canalVentaIdNormalized ?? 0) > 0;
+      const tipoUsuarioResolved =
+        tipoUsuarioNormalized ||
+        (isExternalUser ? "EXTERNO" : "INTERNO");
+      const hasCanalVentaFromLogin =
+        Boolean(canalVentaIdNormalized) ||
+        Boolean(String(canalVentaNombreNormalized).trim());
+      const permiteLiquidacionCreditoRaw =
+        parsed.permiteLiquidacionCredito ?? parsed.PermiteLiquidacionCredito;
+      const permiteLiquidacionCredito = !hasCanalVentaFromLogin
+        ? true
+        : normalizeBoolean(permiteLiquidacionCreditoRaw);
 
       const expiresAt =
         (parsed.expiresAtUtc ? Date.parse(parsed.expiresAtUtc) : null) ??
@@ -547,10 +604,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
         token: parsed.token,
         expiresAt: expiresAt ?? Date.now() + 5 * 60 * 1000,
         fechaVencimientoClave: passwordExpiryDate,
-        renovacionSome: someExpiryDate,
+        renovacionSome: someExpiryDate ?? "",
         user: {
           id: parsed.id,
           personalId: parsed.personalId,
+          tipoUsuario: tipoUsuarioResolved,
+          isExternal: isExternalUser,
+          canalVentaId: canalVentaIdNormalized,
+          canalVentaNombre: canalVentaNombreNormalized,
+          permiteLiquidacionCredito,
           area: parsed.area,
           areaId: parsed.areaId ?? null,
           username: usernameSafe,
@@ -607,7 +669,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       persistSession(session);
 
       const someMustRenew = someExpiryDate
-        ? isPasswordExpiredByDate(someExpiryDate)
+        ? isOptionalExpiryReachedByDate(someExpiryDate)
         : false;
       set({
         loading: false,

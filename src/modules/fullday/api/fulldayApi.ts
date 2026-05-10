@@ -51,11 +51,13 @@ const formatDateForListado = (value?: string) => {
 export async function fetchListadoByProducto(
   fecha: string | undefined,
   idProducto: number,
+  usuarioId?: number | string,
 ) {
   if (!idProducto) return [];
   const dateValue = formatDateForListado(fecha);
   const payload = {
     valores: `${dateValue}|${dateValue}|${idProducto}`,
+    usuarioId: Number(usuarioId ?? 0) > 0 ? Number(usuarioId) : undefined,
   };
 
   const res = await fetch(`${API_BASE_URL}/Programacion/lista-full-day`, {
