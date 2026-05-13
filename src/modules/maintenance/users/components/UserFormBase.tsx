@@ -618,26 +618,28 @@ export default function UserFormBase({
                   </>
                 )}
 
-                <div className="mt-4">
-                  <AutocompleteControlled
-                    name="PersonalId"
-                    control={control}
-                    label="Personal"
-                    placeholder="Buscar personal"
-                    options={employeeOptions}
-                    getOptionLabel={(option) => option.label}
-                    isOptionEqualToValue={(opt, val) =>
-                      String(opt.value) === String(val.value)
-                    }
-                    onValueChange={() => {
-                      setTimeout(() => setFocus("UsuarioAlias"), 0);
-                    }}
-                    required={!isExternalUser}
-                    disabled={lockIdentityFields || isExternalUser}
-                    size="small"
-                    data-focus-next="input[name='usr_alias_new']"
-                  />
-                </div>
+                {!isExternalUser && (
+                  <div className="mt-4">
+                    <AutocompleteControlled
+                      name="PersonalId"
+                      control={control}
+                      label="Personal"
+                      placeholder="Buscar personal"
+                      options={employeeOptions}
+                      getOptionLabel={(option) => option.label}
+                      isOptionEqualToValue={(opt, val) =>
+                        String(opt.value) === String(val.value)
+                      }
+                      onValueChange={() => {
+                        setTimeout(() => setFocus("UsuarioAlias"), 0);
+                      }}
+                      required
+                      disabled={lockIdentityFields}
+                      size="small"
+                      data-focus-next="input[name='usr_alias_new']"
+                    />
+                  </div>
+                )}
 
                 <div className="mt-4">
                   <TextControlled

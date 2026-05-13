@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { Checkbox, FormControlLabel } from "@mui/material";
 
 import DndTable from "@/components/dataTabla/DndTable";
@@ -40,6 +40,7 @@ type CanalVentaDialogValues = {
   nota: string;
   permiteLiquidacionCredito: boolean;
   logo: string;
+  limiteCredito: string;
   fechaLimiteCredito: string;
   productoId: string;
   precioDolares: string;
@@ -50,6 +51,8 @@ type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
   value?: string;
   search?: string;
   editingValue?: string;
+  imageFile?: File | null;
+  imagePreview?: string;
 };
 
 const parsePriceValue = (value: unknown) => {
@@ -113,6 +116,7 @@ const CanalVentaDialogForm = ({
       nota: String(payload.nota ?? ""),
       permiteLiquidacionCredito: Boolean(payload.permiteLiquidacionCredito),
       logo: String(payload.logo ?? ""),
+      limiteCredito: String(payload.limiteCredito ?? ""),
       fechaLimiteCredito: String(payload.fechaLimiteCredito ?? ""),
       productoId: String(payload.productoId ?? ""),
       precioDolares: String(payload.precioDolares ?? ""),
@@ -136,6 +140,28 @@ const CanalVentaDialogForm = ({
     name: "productoId",
   });
   const editingAuxiliarId = Number(payload.editingValue ?? payload.value ?? 0);
+  const logoUrl = String(payload.logo ?? "").trim();
+  const filePreview = String(payload.imagePreview ?? "").trim();
+  const imagePreview =
+    payload.imageFile instanceof File
+      ? filePreview
+      : logoUrl || filePreview;
+
+  const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const preview = String(reader.result ?? "");
+      setPayload({
+        ...payload,
+        imageFile: file,
+        imagePreview: preview,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     let canceled = false;
@@ -399,9 +425,36 @@ const CanalVentaDialogForm = ({
             placeholder="Ej: https://cdn.demo.com/logo.png"
             size="small"
             onChange={(e) => {
-              setPayload({ ...payload, logo: e.target.value });
+              setPayload({
+                ...payload,
+                logo: e.target.value,
+              });
             }}
           />
+        </div>
+        <div className="md:col-span-2 rounded-md border border-slate-200 p-3">
+          <div className="mb-2 text-sm font-medium text-slate-700">
+            Imagen (logo)
+          </div>
+          {imagePreview ? (
+            <div className="mb-3 h-36 w-full overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+              <img
+                src={imagePreview}
+                alt="Logo del canal"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ) : null}
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700">
+            <Upload className="h-4 w-4" />
+            Seleccionar imagen
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="hidden"
+            />
+          </label>
         </div>
         <TextControlled<CanalVentaDialogValues>
           name="clasificacion"
@@ -421,6 +474,17 @@ const CanalVentaDialogForm = ({
           size="small"
           onChange={(e) => {
             setPayload({ ...payload, categoria: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="limiteCredito"
+          control={control}
+          label="Limite credito"
+          size="small"
+          type="number"
+          inputProps={{ min: 0, step: "0.01" }}
+          onChange={(e) => {
+            setPayload({ ...payload, limiteCredito: e.target.value });
           }}
         />
         <TextControlled<CanalVentaDialogValues>
@@ -620,7 +684,7 @@ const resolveSalesChannelId = (channel?: Partial<SalesChannelDetail>) => {
 };
 
 const buildPayload = (
-  values: Partial<CanalVentaDialogValues>,
+  values: Partial<CanalVentaDialogValues> & { imageFile?: File | null },
   idAuxiliar: number,
 ): SaveSalesChannelPayload => ({
   idAuxiliar,
@@ -643,7 +707,9 @@ const buildPayload = (
   nota: String(values.nota ?? "").trim(),
   permiteLiquidacionCredito: Boolean(values.permiteLiquidacionCredito),
   logo: String(values.logo ?? "").trim(),
+  limiteCredito: parsePriceValue(values.limiteCredito),
   fechaLimiteCredito: parseCreditDaysValue(values.fechaLimiteCredito),
+  imageFile: values.imageFile instanceof File ? values.imageFile : null,
   // Compatibilidad con backend legacy mientras migra el contrato.
   PermiteLiquidacionCredito: Boolean(values.permiteLiquidacionCredito),
 });
@@ -775,6 +841,10 @@ const SalesChannelPage = () => {
           email: channel?.email ?? "",
           webSite: channel?.webSite ?? "",
           logo: channel?.logo ?? "",
+          limiteCredito:
+            channel?.limiteCredito !== undefined
+              ? String(channel.limiteCredito)
+              : "",
           clasificacion: channel?.clasificacion ?? "",
           categoria: channel?.categoria ?? "",
           fechaLimiteCredito:
@@ -792,6 +862,8 @@ const SalesChannelPage = () => {
           productoId: "",
           precioDolares: "",
           precioSoles: "",
+          imageFile: null,
+          imagePreview: channel?.logo ?? "",
           search: "",
           editingValue,
         },
@@ -827,6 +899,7 @@ const SalesChannelPage = () => {
           const email = String(data.email ?? "").trim();
           const webSite = String(data.webSite ?? "").trim();
           const logo = String(data.logo ?? "").trim();
+          const limiteCredito = String(data.limiteCredito ?? "").trim();
           const clasificacion = String(data.clasificacion ?? "").trim();
           const categoria = String(data.categoria ?? "").trim();
           const fechaLimiteCredito = String(data.fechaLimiteCredito ?? "").trim();
@@ -898,6 +971,7 @@ const SalesChannelPage = () => {
                 email,
                 webSite,
                 logo,
+                limiteCredito,
                 clasificacion,
                 categoria,
                 fechaLimiteCredito,
@@ -906,6 +980,8 @@ const SalesChannelPage = () => {
                 fechaNacimiento,
                 nota,
                 permiteLiquidacionCredito,
+                imageFile:
+                  data.imageFile instanceof File ? data.imageFile : null,
               },
               idAuxiliar,
             );

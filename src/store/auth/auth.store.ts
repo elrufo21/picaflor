@@ -26,6 +26,7 @@ export interface AuthUser {
   isExternal?: boolean;
   canalVentaId?: string | null;
   canalVentaNombre?: string;
+  canalVentaLogo?: string;
   permiteLiquidacionCredito?: boolean;
   area: string;
   areaId?: string | null;
@@ -66,6 +67,10 @@ interface LoginResponse {
   CanalVentaId?: string | number | null;
   canalVentaNombre?: string | null;
   CanalVentaNombre?: string | null;
+  canalVentaLogo?: string | null;
+  CanalVentaLogo?: string | null;
+  logo?: string | null;
+  Logo?: string | null;
   permiteLiquidacionCredito?: string | number | boolean | null;
   PermiteLiquidacionCredito?: string | number | boolean | null;
   area: string;
@@ -573,6 +578,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
         normalizeOptionalString(
           parsed.canalVentaNombre ?? parsed.CanalVentaNombre,
         ) ?? "";
+      const canalVentaLogoNormalized =
+        normalizeOptionalString(
+          parsed.canalVentaLogo ??
+            parsed.CanalVentaLogo ??
+            parsed.logo ??
+            parsed.Logo,
+        ) ?? "";
       const usuarioExternoRaw =
         parsed.usuarioExterno ?? parsed.UsuarioExterno ?? null;
       const usuarioExternoNumber = Number(usuarioExternoRaw);
@@ -612,6 +624,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           isExternal: isExternalUser,
           canalVentaId: canalVentaIdNormalized,
           canalVentaNombre: canalVentaNombreNormalized,
+          canalVentaLogo: canalVentaLogoNormalized,
           permiteLiquidacionCredito,
           area: parsed.area,
           areaId: parsed.areaId ?? null,

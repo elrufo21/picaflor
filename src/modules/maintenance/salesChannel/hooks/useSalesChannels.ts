@@ -25,6 +25,7 @@ export type SalesChannelDetail = {
   PermiteLiquidacionCredito?: boolean;
   permiteLiquidacionCredito?: boolean;
   logo?: string;
+  limiteCredito?: number;
   fechaLimiteCredito?: number;
 };
 
@@ -49,7 +50,9 @@ export type SaveSalesChannelPayload = {
   nota: string;
   permiteLiquidacionCredito: boolean;
   logo: string;
+  limiteCredito: number;
   fechaLimiteCredito: number;
+  imageFile?: File | null;
   // Compatibilidad temporal con contratos legacy
   PermiteLiquidacionCredito?: boolean;
 };
@@ -100,7 +103,9 @@ const normalizeNumber = (value: unknown) => {
 const normalizeBoolean = (value: unknown): boolean => {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return Number.isFinite(value) && value > 0;
-  const normalized = String(value ?? "").trim().toLowerCase();
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
   if (!normalized) return false;
   return (
     normalized === "1" ||
@@ -112,7 +117,9 @@ const normalizeBoolean = (value: unknown): boolean => {
   );
 };
 
-const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] => {
+const parseSalesChannelsListPayload = (
+  payload: unknown,
+): SalesChannelDetail[] => {
   if (!payload) return [];
 
   if (Array.isArray(payload)) {
@@ -158,9 +165,8 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
             normalizeText(row.fechaAniversario ?? row.FechaAniversario) ||
             undefined,
           representanteLegal:
-            normalizeText(
-              row.representanteLegal ?? row.RepresentanteLegal,
-            ) || undefined,
+            normalizeText(row.representanteLegal ?? row.RepresentanteLegal) ||
+            undefined,
           fechaNacimiento:
             normalizeText(row.fechaNacimiento ?? row.FechaNacimiento) ||
             undefined,
@@ -177,7 +183,12 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
               row.permiteCredito ??
               row.PermiteCredito,
           ),
-          logo: normalizeText(row.logo ?? row.Logo) || undefined,
+          logo:
+            normalizeText(row.logo ?? row.Logo ?? row.imagen ?? row.Imagen) ||
+            undefined,
+          limiteCredito: normalizeNumber(
+            row.limiteCredito ?? row.LimiteCredito,
+          ),
           fechaLimiteCredito: normalizeNumber(
             row.fechaLimiteCredito ??
               row.FechaLimiteCredito ??
@@ -269,7 +280,8 @@ const parseSalesChannelsListPayload = (payload: unknown): SalesChannelDetail[] =
         PermiteLiquidacionCredito: permiteLiquidacionCredito,
         permiteLiquidacionCredito: permiteLiquidacionCredito,
         logo: normalizeText(parts[19]) || undefined,
-        fechaLimiteCredito: normalizeNumber(parts[20]),
+        limiteCredito: normalizeNumber(parts[20]),
+        fechaLimiteCredito: normalizeNumber(parts[21] ?? parts[20]),
       } as SalesChannelDetail;
     })
     .filter((item): item is SalesChannelDetail => Boolean(item));
@@ -337,7 +349,8 @@ const parseDeleteResponse = (rawResponse: string): boolean => {
     if (typeof successCandidate === "number") return successCandidate > 0;
     if (typeof successCandidate === "string") {
       const normalizedSuccess = successCandidate.trim().toLowerCase();
-      if (normalizedSuccess === "true" || normalizedSuccess === "ok") return true;
+      if (normalizedSuccess === "true" || normalizedSuccess === "ok")
+        return true;
       if (normalizedSuccess === "false") return false;
       const parsedSuccessNumber = Number(normalizedSuccess);
       if (Number.isFinite(parsedSuccessNumber)) return parsedSuccessNumber > 0;
@@ -386,7 +399,9 @@ const parseSuccessResponse = (rawResponse: string): boolean => {
   return false;
 };
 
-const parseAuxiliarProductPrice = (payload: unknown): AuxiliarProductPrice | null => {
+const parseAuxiliarProductPrice = (
+  payload: unknown,
+): AuxiliarProductPrice | null => {
   if (!payload) return null;
 
   if (Array.isArray(payload)) {
@@ -426,7 +441,9 @@ const parseAuxiliarProductPrice = (payload: unknown): AuxiliarProductPrice | nul
   };
 };
 
-const parseAuxiliarProductPricesList = (payload: unknown): AuxiliarProductPrice[] => {
+const parseAuxiliarProductPricesList = (
+  payload: unknown,
+): AuxiliarProductPrice[] => {
   if (!payload) return [];
 
   if (Array.isArray(payload)) {
@@ -495,13 +512,49 @@ export const useSalesChannels = () => {
   }, [loadChannels]);
 
   const saveChannel = useCallback(async (payload: SaveSalesChannelPayload) => {
+    const formData = new FormData();
+    formData.append("IdAuxiliar", String(normalizeNumber(payload.idAuxiliar)));
+    formData.append("RUC", String(payload.ruc ?? "").trim());
+    formData.append("RazonSocial", String(payload.razonSocial ?? "").trim());
+    formData.append("Auxiliar", String(payload.auxiliar ?? "").trim());
+    formData.append("Direccion", String(payload.direccion ?? "").trim());
+    formData.append("Region", String(payload.region ?? "").trim());
+    formData.append("Telefono", String(payload.telefono ?? "").trim());
+    formData.append("Celular", String(payload.celular ?? "").trim());
+    formData.append("Email", String(payload.email ?? "").trim());
+    formData.append("WebSite", String(payload.webSite ?? "").trim());
+    formData.append("Clasificacion", String(payload.clasificacion ?? "").trim());
+    formData.append("Categoria", String(payload.categoria ?? "").trim());
+    formData.append("FechaAniversario", String(payload.fechaAniversario ?? "").trim());
+    formData.append("RepresentanteLegal", String(payload.representanteLegal ?? "").trim());
+    formData.append("FechaNacimiento", String(payload.fechaNacimiento ?? "").trim());
+    formData.append("Contacto", String(payload.contacto ?? "").trim());
+    formData.append("Contacto02", String(payload.contacto02 ?? "").trim());
+    formData.append("Nota", String(payload.nota ?? "").trim());
+    formData.append(
+      "PermiteLiquidacionCredito",
+      String(Boolean(payload.permiteLiquidacionCredito)),
+    );
+    formData.append(
+      "LimiteCredito",
+      String(normalizeNumber(payload.limiteCredito)),
+    );
+    formData.append(
+      "FechaLimiteCredito",
+      String(normalizeNumber(payload.fechaLimiteCredito)),
+    );
+    formData.append("Logo", String(payload.logo ?? "").trim());
+
+    if (payload.imageFile instanceof File) {
+      formData.append("imagen", payload.imageFile);
+    }
+
     const response = await fetch(SALES_CHANNEL_SAVE_ENDPOINT, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         accept: "text/plain, application/json",
       },
-      body: JSON.stringify(payload),
+      body: formData,
     });
 
     if (!response.ok) {
