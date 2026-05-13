@@ -78,6 +78,14 @@ const parseCreditDaysValue = (value: unknown) => {
   return Math.max(0, Math.floor(parsed));
 };
 
+const getTodayDateInputValue = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const CanalVentaDialogForm = ({
   payload,
   setPayload,
@@ -315,6 +323,19 @@ const CanalVentaDialogForm = ({
           }}
         />
         <div className="md:col-span-2">
+          {" "}
+          <TextControlled<CanalVentaDialogValues>
+            name="razonSocial"
+            control={control}
+            label="Razón social"
+            placeholder="Ej: AEROMAR TRAVEL SAC"
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, razonSocial: e.target.value });
+            }}
+          />
+        </div>
+        <div className="md:col-span-2">
           <TextControlled<CanalVentaDialogValues>
             name="label"
             control={control}
@@ -324,6 +345,18 @@ const CanalVentaDialogForm = ({
             size="small"
             onChange={(e) => {
               setPayload({ ...payload, label: e.target.value });
+            }}
+          />
+        </div>{" "}
+        <div className="md:col-span-2">
+          <TextControlled<CanalVentaDialogValues>
+            name="representanteLegal"
+            control={control}
+            label="Representante legal"
+            placeholder="Ej: JUAN PEREZ"
+            size="small"
+            onChange={(e) => {
+              setPayload({ ...payload, representanteLegal: e.target.value });
             }}
           />
         </div>
@@ -338,63 +371,7 @@ const CanalVentaDialogForm = ({
               setPayload({ ...payload, direccion: e.target.value });
             }}
           />
-        </div>
-        <div className="md:col-span-2">
-          {" "}
-          <TextControlled<CanalVentaDialogValues>
-            name="razonSocial"
-            control={control}
-            label="Razón social"
-            placeholder="Ej: AEROMAR TRAVEL SAC"
-            size="small"
-            onChange={(e) => {
-              setPayload({ ...payload, razonSocial: e.target.value });
-            }}
-          />
-        </div>
-
-        <TextControlled<CanalVentaDialogValues>
-          name="contacto"
-          control={control}
-          label="Contacto"
-          placeholder="Ej: DIANA"
-          required
-          size="small"
-          onChange={(e) => {
-            setPayload({ ...payload, contacto: e.target.value });
-          }}
-        />
-        <TextControlled<CanalVentaDialogValues>
-          name="contacto02"
-          control={control}
-          label="Contacto 02"
-          placeholder="Ej: MARIA"
-          size="small"
-          onChange={(e) => {
-            setPayload({ ...payload, contacto02: e.target.value });
-          }}
-        />
-        <TextControlled<CanalVentaDialogValues>
-          name="telefono"
-          control={control}
-          label="Telefono"
-          placeholder="Ej: 984821760"
-          required
-          size="small"
-          onChange={(e) => {
-            setPayload({ ...payload, telefono: e.target.value });
-          }}
-        />
-        <TextControlled<CanalVentaDialogValues>
-          name="celular"
-          control={control}
-          label="Celular"
-          placeholder="Ej: 984821760"
-          size="small"
-          onChange={(e) => {
-            setPayload({ ...payload, celular: e.target.value });
-          }}
-        />
+        </div>{" "}
         <div className="md:col-span-2">
           <TextControlled<CanalVentaDialogValues>
             name="email"
@@ -409,35 +386,110 @@ const CanalVentaDialogForm = ({
             }}
           />
         </div>
-        <div className="md:col-span-2">
-          <TextControlled<CanalVentaDialogValues>
-            name="webSite"
-            control={control}
-            label="Web site"
-            disableAutoUppercase
-            placeholder="Ej: https://canal.com"
-            size="small"
-            onChange={(e) => {
-              setPayload({ ...payload, webSite: e.target.value });
-            }}
-          />
-        </div>
-        <div className="md:col-span-2">
-          <TextControlled<CanalVentaDialogValues>
-            name="logo"
-            control={control}
-            label="Logo"
-            disableAutoUppercase
-            placeholder="Ej: https://cdn.demo.com/logo.png"
-            size="small"
-            onChange={(e) => {
-              setPayload({
-                ...payload,
-                logo: e.target.value,
-              });
-            }}
-          />
-        </div>
+        <TextControlled<CanalVentaDialogValues>
+          name="fechaAniversario"
+          control={control}
+          label="Fecha aniversario"
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          onChange={(e) => {
+            setPayload({ ...payload, fechaAniversario: e.target.value });
+          }}
+        />{" "}
+        <TextControlled<CanalVentaDialogValues>
+          name="clasificacion"
+          control={control}
+          label="Categoria y Clasificación"
+          placeholder="Ej: A"
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, clasificacion: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="contacto"
+          control={control}
+          label="Contacto"
+          placeholder="Ej: DIANA"
+          required
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, contacto: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="telefono"
+          control={control}
+          label="Telefono"
+          placeholder="Ej: 984821760"
+          required
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, telefono: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="fechaNacimiento"
+          control={control}
+          label="Fecha nacimiento"
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          onChange={(e) => {
+            setPayload({ ...payload, fechaNacimiento: e.target.value });
+          }}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="webSite"
+          control={control}
+          label="Web site"
+          disableAutoUppercase
+          placeholder="Ej: https://canal.com"
+          size="small"
+          onChange={(e) => {
+            setPayload({ ...payload, webSite: e.target.value });
+          }}
+        />
+        <Controller
+          name="permiteLiquidacionCredito"
+          control={control}
+          render={({ field }) => (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={Boolean(field.value)}
+                  onChange={(_, checked) => {
+                    field.onChange(checked);
+                    setPayload({
+                      ...payload,
+                      permiteLiquidacionCredito: checked,
+                    });
+                  }}
+                  size="small"
+                />
+              }
+              label="Permite liquidación crédito"
+              sx={{
+                margin: 0,
+                ".MuiFormControlLabel-label": {
+                  fontSize: "0.9rem",
+                },
+              }}
+            />
+          )}
+        />
+        <TextControlled<CanalVentaDialogValues>
+          name="fechaLimiteCredito"
+          control={control}
+          label="Dìas de crèdito"
+          size="small"
+          type="number"
+          inputProps={{ min: 0, step: "1" }}
+          onChange={(e) => {
+            setPayload({ ...payload, fechaLimiteCredito: e.target.value });
+          }}
+        />{" "}
         <div className="md:col-span-2 rounded-md border border-slate-200 p-3">
           <div className="mb-2 text-sm font-medium text-slate-700">
             Imagen (logo)
@@ -461,39 +513,7 @@ const CanalVentaDialogForm = ({
               className="hidden"
             />
           </label>
-        </div>
-        <TextControlled<CanalVentaDialogValues>
-          name="clasificacion"
-          control={control}
-          label="Clasificación"
-          placeholder="Ej: A"
-          size="small"
-          onChange={(e) => {
-            setPayload({ ...payload, clasificacion: e.target.value });
-          }}
-        />
-        <TextControlled<CanalVentaDialogValues>
-          name="categoria"
-          control={control}
-          label="Categoría"
-          placeholder="Ej: PREMIUM"
-          size="small"
-          onChange={(e) => {
-            setPayload({ ...payload, categoria: e.target.value });
-          }}
-        />
-
-        <TextControlled<CanalVentaDialogValues>
-          name="fechaLimiteCredito"
-          control={control}
-          label="Limite credito (dias)"
-          size="small"
-          type="number"
-          inputProps={{ min: 0, step: "1" }}
-          onChange={(e) => {
-            setPayload({ ...payload, fechaLimiteCredito: e.target.value });
-          }}
-        />
+        </div>{" "}
         <div className="md:col-span-2">
           <AutocompleteControlled<CanalVentaDialogValues, string>
             name="productoId"
@@ -584,84 +604,6 @@ const CanalVentaDialogForm = ({
             </div>
           </>
         ) : null}
-        <TextControlled<CanalVentaDialogValues>
-          name="fechaAniversario"
-          control={control}
-          label="Fecha aniversario"
-          type="date"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          onChange={(e) => {
-            setPayload({ ...payload, fechaAniversario: e.target.value });
-          }}
-        />
-        <TextControlled<CanalVentaDialogValues>
-          name="fechaNacimiento"
-          control={control}
-          label="Fecha nacimiento"
-          type="date"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          onChange={(e) => {
-            setPayload({ ...payload, fechaNacimiento: e.target.value });
-          }}
-        />
-        <div className="md:col-span-2">
-          <TextControlled<CanalVentaDialogValues>
-            name="representanteLegal"
-            control={control}
-            label="Representante legal"
-            placeholder="Ej: JUAN PEREZ"
-            size="small"
-            onChange={(e) => {
-              setPayload({ ...payload, representanteLegal: e.target.value });
-            }}
-          />
-        </div>
-        <div className="md:col-span-2">
-          <Controller
-            name="permiteLiquidacionCredito"
-            control={control}
-            render={({ field }) => (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={Boolean(field.value)}
-                    onChange={(_, checked) => {
-                      field.onChange(checked);
-                      setPayload({
-                        ...payload,
-                        permiteLiquidacionCredito: checked,
-                      });
-                    }}
-                    size="small"
-                  />
-                }
-                label="Permite liquidación crédito"
-                sx={{
-                  margin: 0,
-                  ".MuiFormControlLabel-label": {
-                    fontSize: "0.9rem",
-                  },
-                }}
-              />
-            )}
-          />
-        </div>
-        <div className="md:col-span-2">
-          <TextControlled<CanalVentaDialogValues>
-            name="nota"
-            control={control}
-            label="Nota"
-            placeholder="Comentarios adicionales"
-            multiline
-            rows={3}
-            size="small"
-            onChange={(e) => {
-              setPayload({ ...payload, nota: e.target.value });
-            }}
-          />
-        </div>
       </div>
     </form>
   );
@@ -810,6 +752,7 @@ const SalesChannelPage = () => {
     (mode: "create" | "edit", channel?: SalesChannelDetail) => {
       if (mode === "create" && !access.create) return;
       if (mode === "edit" && !access.edit) return;
+      const todayDate = getTodayDateInputValue();
       const editingValue =
         mode === "edit"
           ? String(channel?.idAuxiliar ?? channel?.idCanal ?? "")
@@ -847,9 +790,15 @@ const SalesChannelPage = () => {
             channel?.fechaLimiteCredito !== undefined
               ? String(channel.fechaLimiteCredito)
               : "",
-          fechaAniversario: channel?.fechaAniversario ?? "",
+          fechaAniversario:
+            mode === "create"
+              ? todayDate
+              : (channel?.fechaAniversario ?? ""),
           representanteLegal: channel?.representanteLegal ?? "",
-          fechaNacimiento: channel?.fechaNacimiento ?? "",
+          fechaNacimiento:
+            mode === "create"
+              ? todayDate
+              : (channel?.fechaNacimiento ?? ""),
           nota: channel?.nota ?? "",
           permiteLiquidacionCredito: Boolean(
             channel?.permiteLiquidacionCredito ??
