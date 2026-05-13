@@ -408,8 +408,8 @@ const styles = StyleSheet.create({
   },
   headerImage: {
     width: "100%",
-    maxHeight: 150,
-    objectFit: "cover",
+    height: 65,
+    objectFit: "contain",
   },
   content: {
     padding: 10, // 👈 antes 15

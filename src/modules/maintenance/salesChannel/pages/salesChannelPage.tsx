@@ -155,6 +155,10 @@ const CanalVentaDialogForm = ({
     control,
     name: "productoId",
   });
+  const permiteLiquidacionCredito = useWatch({
+    control,
+    name: "permiteLiquidacionCredito",
+  });
   const editingAuxiliarId = Number(payload.editingValue ?? payload.value ?? 0);
   const logoUrl = String(payload.logo ?? "").trim();
   const filePreview = String(payload.imagePreview ?? "").trim();
@@ -485,6 +489,7 @@ const CanalVentaDialogForm = ({
           label="Dìas de crèdito"
           size="small"
           type="number"
+          disabled={!permiteLiquidacionCredito}
           inputProps={{ min: 0, step: "1" }}
           onChange={(e) => {
             setPayload({ ...payload, fechaLimiteCredito: e.target.value });

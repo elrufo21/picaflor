@@ -228,6 +228,7 @@ function normalizeDestinos(destinos: string[]) {
 
 const S = StyleSheet.create({
   page: { padding: 0, fontFamily: "Helvetica", backgroundColor: "#F8FAFC" },
+  headerImage: { width: "100%", height: 100, objectFit: "contain" },
   content: { padding: 12 },
 
   topRow: {
@@ -681,7 +682,7 @@ export default function PackageInvoicePdf({
   return (
     <Document title={pdfName}>
       <Page size="A4" style={S.page}>
-        <Image src="/images/invoice/header.jpeg" />
+        <Image src="/images/invoice/header.jpeg" style={S.headerImage} />
         <View style={S.content}>
           {/* TITLE */}
 
