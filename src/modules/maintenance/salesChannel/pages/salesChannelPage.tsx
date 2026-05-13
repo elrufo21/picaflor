@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { Pencil, Plus, Trash2, Upload } from "lucide-react";
@@ -56,7 +62,9 @@ type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
 };
 
 const parsePriceValue = (value: unknown) => {
-  const normalized = String(value ?? "").trim().replace(",", ".");
+  const normalized = String(value ?? "")
+    .trim()
+    .replace(",", ".");
   if (!normalized) return 0;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -80,7 +88,7 @@ const CanalVentaDialogForm = ({
   setPayload: (
     next:
       | Record<string, unknown>
-      | ((prev: Record<string, unknown>) => Record<string, unknown>)
+      | ((prev: Record<string, unknown>) => Record<string, unknown>),
   ) => void;
   fetchAuxiliarProductPrice: (
     idProducto: number,
@@ -143,9 +151,7 @@ const CanalVentaDialogForm = ({
   const logoUrl = String(payload.logo ?? "").trim();
   const filePreview = String(payload.imagePreview ?? "").trim();
   const imagePreview =
-    payload.imageFile instanceof File
-      ? filePreview
-      : logoUrl || filePreview;
+    payload.imageFile instanceof File ? filePreview : logoUrl || filePreview;
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -476,17 +482,7 @@ const CanalVentaDialogForm = ({
             setPayload({ ...payload, categoria: e.target.value });
           }}
         />
-        <TextControlled<CanalVentaDialogValues>
-          name="limiteCredito"
-          control={control}
-          label="Limite credito"
-          size="small"
-          type="number"
-          inputProps={{ min: 0, step: "0.01" }}
-          onChange={(e) => {
-            setPayload({ ...payload, limiteCredito: e.target.value });
-          }}
-        />
+
         <TextControlled<CanalVentaDialogValues>
           name="fechaLimiteCredito"
           control={control}
@@ -857,7 +853,7 @@ const SalesChannelPage = () => {
           nota: channel?.nota ?? "",
           permiteLiquidacionCredito: Boolean(
             channel?.permiteLiquidacionCredito ??
-              channel?.PermiteLiquidacionCredito,
+            channel?.PermiteLiquidacionCredito,
           ),
           productoId: "",
           precioDolares: "",
@@ -902,7 +898,9 @@ const SalesChannelPage = () => {
           const limiteCredito = String(data.limiteCredito ?? "").trim();
           const clasificacion = String(data.clasificacion ?? "").trim();
           const categoria = String(data.categoria ?? "").trim();
-          const fechaLimiteCredito = String(data.fechaLimiteCredito ?? "").trim();
+          const fechaLimiteCredito = String(
+            data.fechaLimiteCredito ?? "",
+          ).trim();
           const fechaAniversario = String(data.fechaAniversario ?? "").trim();
           const representanteLegal = String(
             data.representanteLegal ?? "",
