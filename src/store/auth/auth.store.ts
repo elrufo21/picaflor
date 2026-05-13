@@ -50,6 +50,7 @@ export interface AuthSession {
   expiresAt: number;
   fechaVencimientoClave: string;
   renovacionSome: string;
+  renovacionBD: string;
 }
 
 interface LoginPayload {
@@ -85,6 +86,8 @@ interface LoginResponse {
   FechaVencimientoClave?: string | null;
   renovacionSome?: string | null;
   RenovacionSome?: string | null;
+  renovacionBD?: string | null;
+  RenovacionBD?: string | null;
   vencimientoSome?: string | null;
   VencimientoSome?: string | null;
   modulosPermitidosRaw?: string | null;
@@ -105,8 +108,11 @@ interface AuthState {
   token: string | null;
   passwordExpiryDate: string | null;
   someExpiryDate: string | null;
+  dbRenewalDate: string | null;
   passwordMustChange: boolean;
   someMustRenew: boolean;
+  dbMustRenew: boolean;
+  dbShouldWarn: boolean;
   isAuthenticated: boolean;
   hydrated: boolean;
   loading: boolean;
@@ -127,7 +133,9 @@ const isAuthSession = (value: unknown): value is AuthSession =>
   "expiresAt" in value &&
   "fechaVencimientoClave" in value &&
   "renovacionSome" in value &&
+  "renovacionBD" in value &&
   typeof (value as { renovacionSome?: unknown }).renovacionSome === "string" &&
+  typeof (value as { renovacionBD?: unknown }).renovacionBD === "string" &&
   typeof (value as { token?: unknown }).token === "string";
 
 const normalizeDateOnly = (value?: string | null): string | null => {
@@ -316,6 +324,31 @@ const isOptionalExpiryReachedByDate = (expiryDate?: string | null): boolean => {
   return today.getTime() >= expiry.getTime();
 };
 
+const getDaysUntilDate = (expiryDate?: string | null): number | null => {
+  const normalized = normalizeDateOnly(expiryDate);
+  if (!normalized) return null;
+
+  const [year, month, day] = normalized.split("-").map(Number);
+  const expiry = new Date(year, month - 1, day);
+  expiry.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return Math.round((expiry.getTime() - today.getTime()) / msPerDay);
+};
+
+const isDbRenewalBlockedByDate = (expiryDate?: string | null): boolean => {
+  const daysUntil = getDaysUntilDate(expiryDate);
+  return daysUntil !== null && daysUntil <= 0;
+};
+
+const isDbRenewalWarningWindowByDate = (expiryDate?: string | null): boolean => {
+  const daysUntil = getDaysUntilDate(expiryDate);
+  return daysUntil !== null && daysUntil > 0 && daysUntil <= 7;
+};
+
 const readSessionFromStorage = (): AuthSession | null => {
   if (typeof window === "undefined") return null;
   try {
@@ -369,9 +402,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
   const storedSomeExpiryDate = hasValidStoredSession
     ? normalizeDateOnly(storedSession?.renovacionSome ?? null)
     : null;
+  const storedDbRenewalDate = hasValidStoredSession
+    ? normalizeDateOnly(storedSession?.renovacionBD ?? null)
+    : null;
   const canRestoreStoredSession =
     !!hasValidStoredSession &&
     !!storedPasswordExpiryDate &&
+    !!storedDbRenewalDate &&
     hasStoredPermissions(storedSession?.user);
 
   const logout = (reason?: string) => {
@@ -386,8 +423,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
       token: null,
       passwordExpiryDate: null,
       someExpiryDate: null,
+      dbRenewalDate: null,
       passwordMustChange: false,
       someMustRenew: false,
+      dbMustRenew: false,
+      dbShouldWarn: false,
       isAuthenticated: false,
       error: reason ?? null,
       hydrated: true,
@@ -402,20 +442,29 @@ export const useAuthStore = create<AuthState>((set, get) => {
       session?.fechaVencimientoClave,
     );
     const normalizedSomeDate = normalizeDateOnly(session?.renovacionSome ?? null);
+    const normalizedDbRenewalDate = normalizeDateOnly(
+      session?.renovacionBD ?? null,
+    );
     if (
       session &&
       !isExpired(session.expiresAt) &&
       normalizedPasswordDate &&
+      normalizedDbRenewalDate &&
       hasStoredPermissions(session.user)
     ) {
       const someMustRenew = isOptionalExpiryReachedByDate(normalizedSomeDate);
+      const dbMustRenew = isDbRenewalBlockedByDate(normalizedDbRenewalDate);
+      const dbShouldWarn = isDbRenewalWarningWindowByDate(normalizedDbRenewalDate);
       set({
         user: session.user,
         token: session.token,
         passwordExpiryDate: normalizedPasswordDate,
         someExpiryDate: normalizedSomeDate ?? null,
+        dbRenewalDate: normalizedDbRenewalDate,
         passwordMustChange: isPasswordExpiredByDate(normalizedPasswordDate),
         someMustRenew,
+        dbMustRenew,
+        dbShouldWarn,
         isAuthenticated: true,
         hydrated: true,
       });
@@ -432,11 +481,18 @@ export const useAuthStore = create<AuthState>((set, get) => {
     token: canRestoreStoredSession ? storedSession?.token : null,
     passwordExpiryDate: canRestoreStoredSession ? storedPasswordExpiryDate : null,
     someExpiryDate: canRestoreStoredSession ? storedSomeExpiryDate : null,
+    dbRenewalDate: canRestoreStoredSession ? storedDbRenewalDate : null,
     passwordMustChange: canRestoreStoredSession
       ? isPasswordExpiredByDate(storedPasswordExpiryDate)
       : false,
     someMustRenew: canRestoreStoredSession
       ? isOptionalExpiryReachedByDate(storedSomeExpiryDate)
+      : false,
+    dbMustRenew: canRestoreStoredSession
+      ? isDbRenewalBlockedByDate(storedDbRenewalDate)
+      : false,
+    dbShouldWarn: canRestoreStoredSession
+      ? isDbRenewalWarningWindowByDate(storedDbRenewalDate)
       : false,
     isAuthenticated: !!canRestoreStoredSession,
     hydrated: false,
@@ -502,8 +558,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
           token: null,
           passwordExpiryDate: null,
           someExpiryDate: null,
+          dbRenewalDate: null,
           passwordMustChange: false,
           someMustRenew: false,
+          dbMustRenew: false,
+          dbShouldWarn: false,
           error: message,
           hydrated: true,
         });
@@ -518,8 +577,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
           token: null,
           passwordExpiryDate: null,
           someExpiryDate: null,
+          dbRenewalDate: null,
           passwordMustChange: false,
           someMustRenew: false,
+          dbMustRenew: false,
+          dbShouldWarn: false,
           error: "El servidor no responde. Intenta de nuevo más tarde.",
           hydrated: true,
         });
@@ -534,8 +596,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
           token: null,
           passwordExpiryDate: null,
           someExpiryDate: null,
+          dbRenewalDate: null,
           passwordMustChange: false,
           someMustRenew: false,
+          dbMustRenew: false,
+          dbShouldWarn: false,
           error: "Credenciales incorrectas",
           hydrated: true,
         });
@@ -553,8 +618,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
           token: null,
           passwordExpiryDate: null,
           someExpiryDate: null,
+          dbRenewalDate: null,
           passwordMustChange: false,
           someMustRenew: false,
+          dbMustRenew: false,
+          dbShouldWarn: false,
           error: "No se recibio fecha de vencimiento de clave.",
           hydrated: true,
         });
@@ -567,6 +635,26 @@ export const useAuthStore = create<AuthState>((set, get) => {
         parsed.VencimientoSome ??
         null;
       const someExpiryDate = normalizeDateOnly(rawSomeExpiryDate);
+      const rawDbRenewalDate = parsed.renovacionBD ?? parsed.RenovacionBD ?? null;
+      const dbRenewalDate = normalizeDateOnly(rawDbRenewalDate);
+      if (!dbRenewalDate) {
+        set({
+          loading: false,
+          isAuthenticated: false,
+          user: null,
+          token: null,
+          passwordExpiryDate: null,
+          someExpiryDate: null,
+          dbRenewalDate: null,
+          passwordMustChange: false,
+          someMustRenew: false,
+          dbMustRenew: false,
+          dbShouldWarn: false,
+          error: "No se recibio fecha de renovacion de base de datos.",
+          hydrated: true,
+        });
+        return false;
+      }
 
       const tipoUsuarioNormalized = String(parsed.tipoUsuario ?? "")
         .trim()
@@ -617,6 +705,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         expiresAt: expiresAt ?? Date.now() + 5 * 60 * 1000,
         fechaVencimientoClave: passwordExpiryDate,
         renovacionSome: someExpiryDate ?? "",
+        renovacionBD: dbRenewalDate,
         user: {
           id: parsed.id,
           personalId: parsed.personalId,
@@ -684,6 +773,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const someMustRenew = someExpiryDate
         ? isOptionalExpiryReachedByDate(someExpiryDate)
         : false;
+      const dbMustRenew = isDbRenewalBlockedByDate(dbRenewalDate);
+      const dbShouldWarn = isDbRenewalWarningWindowByDate(dbRenewalDate);
       set({
         loading: false,
         isAuthenticated: true,
@@ -691,8 +782,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
         token: session.token,
         passwordExpiryDate: session.fechaVencimientoClave,
         someExpiryDate,
+        dbRenewalDate,
         passwordMustChange: isPasswordExpiredByDate(session.fechaVencimientoClave),
         someMustRenew,
+        dbMustRenew,
+        dbShouldWarn,
         hydrated: true,
         error: null,
       });

@@ -7,7 +7,7 @@ import {
 } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { Checkbox, FormControlLabel } from "@mui/material";
 
 import DndTable from "@/components/dataTabla/DndTable";
@@ -25,6 +25,8 @@ import {
 import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.com$/i;
+
+const normalizeText = (value: unknown) => String(value ?? "").trim();
 
 type CanalVentaDialogValues = {
   ruc: string;
@@ -151,6 +153,7 @@ const CanalVentaDialogForm = ({
     }[]
   >([]);
   const [isLoadingProductPrices, setIsLoadingProductPrices] = useState(false);
+  const [isSearchingRuc, setIsSearchingRuc] = useState(false);
   const selectedProductId = useWatch({
     control,
     name: "productoId",
@@ -164,6 +167,148 @@ const CanalVentaDialogForm = ({
   const filePreview = String(payload.imagePreview ?? "").trim();
   const imagePreview =
     payload.imageFile instanceof File ? filePreview : logoUrl || filePreview;
+
+  const handleBuscarPorRuc = useCallback(async () => {
+    const ruc = normalizeText(payload.ruc);
+    if (!ruc) {
+      showToast({
+        title: "Atencion",
+        description: "Ingresa un RUC para buscar.",
+        type: "warning",
+      });
+      return;
+    }
+    if (!/^\d{11}$/.test(ruc)) {
+      showToast({
+        title: "RUC invalido",
+        description: "El RUC debe tener 11 digitos numericos.",
+        type: "warning",
+      });
+      return;
+    }
+
+    const token = normalizeText(import.meta.env.VITE_API_DOCUMENTO);
+    if (!token) {
+      showToast({
+        title: "Configuracion faltante",
+        description: "Falta configurar VITE_API_DOCUMENTO en el .env",
+        type: "error",
+      });
+      return;
+    }
+
+    setIsSearchingRuc(true);
+    try {
+      const response = await fetch(
+        `https://dniruc.apisperu.com/api/v1/ruc/${encodeURIComponent(ruc)}?token=${encodeURIComponent(token)}`,
+        { method: "GET" },
+      );
+
+      if (!response.ok) {
+        throw new Error("No se pudo consultar el RUC.");
+      }
+
+      const responseBody: unknown = await response.json();
+      if (!responseBody || typeof responseBody !== "object") {
+        showToast({
+          title: "Sin resultados",
+          description: "No se encontraron datos para ese RUC.",
+          type: "info",
+        });
+        return;
+      }
+
+      const payloadData = responseBody as Record<string, unknown>;
+      const nestedResponse =
+        payloadData.response &&
+        typeof payloadData.response === "object" &&
+        (payloadData.response as Record<string, unknown>).data &&
+        typeof (payloadData.response as Record<string, unknown>).data ===
+          "object"
+          ? ((payloadData.response as Record<string, unknown>).data as Record<
+              string,
+              unknown
+            >)
+          : payloadData;
+
+      const pickFirst = (...values: unknown[]) =>
+        values.map(normalizeText).find((value) => value.length > 0) ?? "";
+
+      const apiMessage = pickFirst(
+        nestedResponse.message,
+        nestedResponse.error,
+        (nestedResponse as { errors?: unknown }).errors,
+      );
+
+      if (nestedResponse.success === false) {
+        showToast({
+          title: "Sin resultados",
+          description: apiMessage || "No se encontraron datos para ese RUC.",
+          type: "info",
+        });
+        return;
+      }
+
+      const razonSocial = pickFirst(
+        nestedResponse.razonSocial,
+        nestedResponse.nombreORazonSocial,
+        nestedResponse.nombre_o_razon_social,
+        nestedResponse.nombre,
+        nestedResponse.nombreRazon,
+      );
+      const direccion = pickFirst(
+        nestedResponse.direccion,
+        nestedResponse.direccionCompleta,
+        nestedResponse.domicilioFiscal,
+      );
+      const rucEncontrado = pickFirst(nestedResponse.ruc, ruc);
+
+      setValue("ruc", rucEncontrado, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      if (razonSocial) {
+        setValue("razonSocial", razonSocial, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+        setValue("label", razonSocial, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+      if (direccion) {
+        setValue("direccion", direccion, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+
+      setPayload((prev) => ({
+        ...prev,
+        ruc: rucEncontrado,
+        razonSocial: razonSocial || String(prev.razonSocial ?? ""),
+        label: razonSocial || String(prev.label ?? ""),
+        direccion: direccion || String(prev.direccion ?? ""),
+      }));
+
+      showToast({
+        title: "Datos cargados",
+        description: "Se completo la informacion del canal desde el RUC.",
+        type: "success",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo buscar por RUC.";
+      showToast({
+        title: "Error",
+        description: message,
+        type: "error",
+      });
+    } finally {
+      setIsSearchingRuc(false);
+    }
+  }, [payload.ruc, setPayload, setValue]);
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -306,6 +451,17 @@ const CanalVentaDialogForm = ({
       }}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="md:col-span-2">
+          <button
+            type="button"
+            onClick={handleBuscarPorRuc}
+            disabled={isSearchingRuc}
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Search className="h-4 w-4" />
+            {isSearchingRuc ? "Buscando..." : "Buscar por RUC"}
+          </button>
+        </div>
         <TextControlled<CanalVentaDialogValues>
           name="ruc"
           control={control}

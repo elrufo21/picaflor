@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 import { useNavigate } from "react-router";
 
 import UserFormBase from "@/modules/maintenance/users/components/UserFormBase";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useUsersStore } from "@/store/users/users.store";
+
+const DB_RENEWAL_WARNING_MESSAGE =
+  "LA SUSCRIPCION A LA BASE DE DATOS ESTA POR VENCER, CONTACTE CON EL SOPORTE";
+
+const formatModalDate = (value?: string | null) => {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return raw || "sin fecha";
+  return `${match[3]}/${match[2]}/${match[1]}`;
+};
 
 const PasswordExpiryGate = () => {
   const navigate = useNavigate();
@@ -15,6 +24,9 @@ const PasswordExpiryGate = () => {
     passwordExpiryDate,
     someExpiryDate,
     someMustRenew,
+    dbRenewalDate,
+    dbMustRenew,
+    dbShouldWarn,
     logout,
   } = useAuthStore();
   const { users, fetchUsers, updateUser } = useUsersStore();
@@ -23,7 +35,9 @@ const PasswordExpiryGate = () => {
 
   const [loadingUser, setLoadingUser] = useState(false);
   const [hasResolvedCurrentUser, setHasResolvedCurrentUser] = useState(false);
-  const activeDialogRef = useRef<"password" | "some" | null>(null);
+  const activeDialogRef = useRef<
+    "password" | "some" | "db" | "dbWarning" | null
+  >(null);
   const fallbackLogoutRef = useRef(false);
   const submitForcedPasswordRef = useRef<(() => Promise<boolean>) | null>(null);
 
@@ -59,7 +73,128 @@ const PasswordExpiryGate = () => {
   }, [logout, navigate]);
 
   useEffect(() => {
-    if (!someMustRenew) {
+    if (!dbShouldWarn || dbMustRenew || !dbRenewalDate) {
+      if (activeDialogRef.current === "dbWarning") {
+        closeDialog();
+        activeDialogRef.current = null;
+      }
+      return;
+    }
+    if (activeDialogRef.current) return;
+
+    openDialog({
+      title: "Aviso de suscripcion",
+      description: DB_RENEWAL_WARNING_MESSAGE,
+      size: "md",
+      showCancel: false,
+      disableClose: false,
+      confirmLabel: "Cerrar",
+      onConfirm: async () => {
+        closeDialog();
+        activeDialogRef.current = null;
+        return true;
+      },
+      content: () => (
+        <div className="rounded-xl border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-5">
+          <p className="text-lg font-semibold tracking-tight text-slate-900">
+            Renovacion de base de datos
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            {DB_RENEWAL_WARNING_MESSAGE}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            Fecha de renovacion:{" "}
+            <span className="font-semibold text-amber-700">
+              {formatModalDate(dbRenewalDate)}
+            </span>
+            .
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            Puedes continuar usando el sistema.
+          </p>
+        </div>
+      ),
+      onClose: () => {
+        activeDialogRef.current = null;
+      },
+    });
+
+    activeDialogRef.current = "dbWarning";
+  }, [
+    dbShouldWarn,
+    dbMustRenew,
+    dbRenewalDate,
+    closeDialog,
+    openDialog,
+  ]);
+
+  useEffect(() => {
+    if (!dbMustRenew) {
+      if (activeDialogRef.current === "db") {
+        closeDialog();
+        activeDialogRef.current = null;
+      }
+      return;
+    }
+
+    if (activeDialogRef.current === "db") return;
+
+    if (activeDialogRef.current === "password") {
+      closeDialog();
+      activeDialogRef.current = null;
+      submitForcedPasswordRef.current = null;
+    }
+
+    if (activeDialogRef.current === "some") {
+      closeDialog();
+      activeDialogRef.current = null;
+    }
+
+    if (activeDialogRef.current === "dbWarning") {
+      closeDialog();
+      activeDialogRef.current = null;
+    }
+
+    openDialog({
+      title: "Suscripcion de base de datos vencida",
+      description:
+        "Tu acceso ha sido bloqueado hasta que soporte renueve la suscripcion.",
+      size: "md",
+      showCancel: false,
+      disableClose: true,
+      confirmLabel: "Cerrar sesion",
+      onConfirm: async () => {
+        logoutAndRedirect();
+        return true;
+      },
+      content: () => (
+        <div className="rounded-xl border border-blue-200 bg-gradient-to-b from-blue-50 to-white p-5">
+          <p className="text-lg font-semibold tracking-tight text-slate-900">
+            Renovacion de base de datos
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            Fecha de renovacion:{" "}
+            <span className="font-semibold text-red-600">
+              {formatModalDate(dbRenewalDate)}
+            </span>
+            .
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            Debes comunicarte con soporte. No podras continuar en el sistema
+            mientras no se renueve.
+          </p>
+        </div>
+      ),
+      onClose: () => {
+        activeDialogRef.current = null;
+      },
+    });
+
+    activeDialogRef.current = "db";
+  }, [dbMustRenew, dbRenewalDate, closeDialog, openDialog, logoutAndRedirect]);
+
+  useEffect(() => {
+    if (dbMustRenew || !someMustRenew) {
       if (activeDialogRef.current === "some") {
         closeDialog();
         activeDialogRef.current = null;
@@ -94,7 +229,7 @@ const PasswordExpiryGate = () => {
           <p className="mt-2 text-sm leading-6 text-slate-700">
             Fecha de vencimiento:{" "}
             <span className="font-semibold text-red-600">
-              {someExpiryDate ?? "sin fecha"}
+              {formatModalDate(someExpiryDate)}
             </span>
             .
           </p>
@@ -110,10 +245,17 @@ const PasswordExpiryGate = () => {
     });
 
     activeDialogRef.current = "some";
-  }, [someMustRenew, someExpiryDate, closeDialog, openDialog, logoutAndRedirect]);
+  }, [
+    dbMustRenew,
+    someMustRenew,
+    someExpiryDate,
+    closeDialog,
+    openDialog,
+    logoutAndRedirect,
+  ]);
 
   useEffect(() => {
-    if (!passwordMustChange || someMustRenew) {
+    if (!passwordMustChange || someMustRenew || dbMustRenew) {
       setHasResolvedCurrentUser(false);
       return;
     }
@@ -153,6 +295,7 @@ const PasswordExpiryGate = () => {
       active = false;
     };
   }, [
+    dbMustRenew,
     passwordMustChange,
     someMustRenew,
     currentUserId,
@@ -187,7 +330,7 @@ const PasswordExpiryGate = () => {
   );
 
   useEffect(() => {
-    if (!passwordMustChange || someMustRenew) {
+    if (!passwordMustChange || someMustRenew || dbMustRenew) {
       fallbackLogoutRef.current = false;
       if (activeDialogRef.current === "password") {
         submitForcedPasswordRef.current = null;
@@ -210,6 +353,7 @@ const PasswordExpiryGate = () => {
     toast.error("No se pudo cargar tu usuario. Inicia sesion nuevamente.");
     logoutAndRedirect();
   }, [
+    dbMustRenew,
     passwordMustChange,
     someMustRenew,
     loadingUser,
@@ -221,6 +365,7 @@ const PasswordExpiryGate = () => {
 
   useEffect(() => {
     if (
+      dbMustRenew ||
       someMustRenew ||
       !passwordMustChange ||
       loadingUser ||
@@ -231,7 +376,7 @@ const PasswordExpiryGate = () => {
     if (activeDialogRef.current) return;
 
     openDialog({
-      title: `Tu contrasena vencio (${passwordExpiryDate ?? "sin fecha"}).`,
+      title: `Tu contrasena vencio (${formatModalDate(passwordExpiryDate)}).`,
       description:
         "Debes actualizar tu contrasena para continuar. La aplicacion permanecera bloqueada hasta completar este cambio.",
       size: "xl",
@@ -277,6 +422,7 @@ const PasswordExpiryGate = () => {
 
     activeDialogRef.current = "password";
   }, [
+    dbMustRenew,
     someMustRenew,
     passwordMustChange,
     passwordExpiryDate,
