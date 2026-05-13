@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Image,
 } from "@react-pdf/renderer";
+import { useAuthStore } from "@/store/auth/auth.store";
+import { API_BASE_URL } from "@/config";
 
 /* =========================
    DATA
@@ -70,6 +72,43 @@ const ISO_DATE_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}:\d{2}:\d{2}))?$/;
 const DMY_DATE_PATTERN =
   /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}:\d{2}:\d{2}))?$/;
+
+const buildPdfLogoUri = (rawLogo?: string): string => {
+  const trimmed = String(rawLogo ?? "").trim();
+  if (!trimmed) return "";
+
+  const normalized = (() => {
+    if (
+      trimmed.startsWith("http://") ||
+      trimmed.startsWith("https://") ||
+      trimmed.startsWith("data:image/")
+    ) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith("/")) {
+      return `${API_BASE_URL}${trimmed}`;
+    }
+
+    return `${API_BASE_URL}/${trimmed}`;
+  })();
+
+  const secureUrl = normalized.replace(
+    /^http:\/\/res\.cloudinary\.com\//i,
+    "https://res.cloudinary.com/",
+  );
+
+  // react-pdf suele renderizar mejor png/jpg que webp/svg en algunas fuentes externas.
+  if (
+    secureUrl.includes("res.cloudinary.com") &&
+    secureUrl.includes("/upload/") &&
+    !secureUrl.includes("/f_png/")
+  ) {
+    return secureUrl.replace("/upload/", "/upload/f_png/");
+  }
+
+  return secureUrl;
+};
 
 function formatFechaParaMostrar(value?: string): string {
   if (!value) return "";
@@ -367,6 +406,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     fontFamily: "Helvetica",
   },
+  headerImage: {
+    width: "100%",
+    maxHeight: 150,
+    objectFit: "cover",
+  },
   content: {
     padding: 10, // 👈 antes 15
   },
@@ -637,6 +681,16 @@ const PdfDocument = ({
   data?: InvoiceData;
   pdfName?: string;
 }) => {
+  const { isExternalUser, canalVentaLogo } = useAuthStore((state) => {
+    const user = state.user;
+    const tipoUsuario = String(user?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase();
+    return {
+      isExternalUser: Boolean(user?.isExternal) || tipoUsuario === "EXTERNO",
+      canalVentaLogo: String(user?.canalVentaLogo ?? "").trim(),
+    };
+  });
   const invoiceData = data ?? DEFAULT_INVOICE_DATA;
   const {
     destino,
@@ -680,10 +734,18 @@ const PdfDocument = ({
       maximumFractionDigits: 2,
     });
   };
+  const externalLogoUri = isExternalUser ? buildPdfLogoUri(canalVentaLogo) : "";
+  const headerImageSrc = externalLogoUri
+    ? {
+        uri: externalLogoUri,
+        method: "GET",
+        headers: { "Cache-Control": "no-cache" },
+      }
+    : "/images/invoice/header.jpeg";
   return (
     <Document title={pdfName}>
       <Page size="A4" style={styles.page}>
-        <Image src="/images/invoice/header.jpeg" />
+        <Image src={headerImageSrc} style={styles.headerImage} />
 
         <View style={styles.content}>
           <Text style={styles.title}>{destino || ""}</Text>
