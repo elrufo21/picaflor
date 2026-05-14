@@ -15,8 +15,13 @@ import {
 } from "@/app/auth/submodulePermissionOverrides";
 import { SUBMODULE_OPTIONS } from "@/app/auth/submoduleCatalog";
 import { resetAllStores } from "@/store/resetAllStores";
+import {
+  AUTH_STORAGE_KEY,
+  clearLegacyStoredSessions,
+  parseSessionExpiryFromUtc,
+  resolveSessionExpiryTs,
+} from "@/shared/auth/session";
 
-const STORAGE_KEY = "picaflor.auth.session";
 const SESSION_EXPIRED_MESSAGE = "Tu sesion expiro, vuelve a ingresar.";
 
 export interface AuthUser {
@@ -48,6 +53,8 @@ export interface AuthSession {
   token: string;
   user: AuthUser;
   expiresAt: number;
+  expiresAtUtc?: string | null;
+  expiresInSeconds?: number | null;
   fechaVencimientoClave: string;
   renovacionSome: string;
   renovacionBD: string;
@@ -111,6 +118,7 @@ interface AuthState {
   dbRenewalDate: string | null;
   passwordMustChange: boolean;
   someMustRenew: boolean;
+  someShouldWarn: boolean;
   dbMustRenew: boolean;
   dbShouldWarn: boolean;
   isAuthenticated: boolean;
@@ -349,10 +357,17 @@ const isDbRenewalWarningWindowByDate = (expiryDate?: string | null): boolean => 
   return daysUntil !== null && daysUntil > 0 && daysUntil <= 7;
 };
 
+const isSomeRenewalWarningWindowByDate = (
+  expiryDate?: string | null,
+): boolean => {
+  const daysUntil = getDaysUntilDate(expiryDate);
+  return daysUntil !== null && daysUntil > 0 && daysUntil <= 7;
+};
+
 const readSessionFromStorage = (): AuthSession | null => {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return isAuthSession(parsed) ? parsed : null;
@@ -363,12 +378,12 @@ const readSessionFromStorage = (): AuthSession | null => {
 
 const persistSession = (session: AuthSession) => {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
 };
 
 const clearSession = () => {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(STORAGE_KEY);
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
 };
 
 const scheduleSessionExpiration = (expiresAt: number, onExpire: () => void) => {
@@ -389,13 +404,16 @@ const scheduleSessionExpiration = (expiresAt: number, onExpire: () => void) => {
 };
 
 export const useAuthStore = create<AuthState>((set, get) => {
+  clearLegacyStoredSessions();
   const storedSession = readSessionFromStorage();
 
-  const isExpired = (expiresAt?: number | null) =>
-    !expiresAt || expiresAt <= Date.now();
+  const isExpired = (session?: AuthSession | null) => {
+    const expiryTs = resolveSessionExpiryTs(session ?? undefined);
+    return !expiryTs || expiryTs <= Date.now();
+  };
 
   const hasValidStoredSession =
-    storedSession && !isExpired(storedSession.expiresAt);
+    storedSession && !isExpired(storedSession);
   const storedPasswordExpiryDate = hasValidStoredSession
     ? normalizeDateOnly(storedSession?.fechaVencimientoClave)
     : null;
@@ -426,6 +444,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       dbRenewalDate: null,
       passwordMustChange: false,
       someMustRenew: false,
+      someShouldWarn: false,
       dbMustRenew: false,
       dbShouldWarn: false,
       isAuthenticated: false,
@@ -447,12 +466,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
     );
     if (
       session &&
-      !isExpired(session.expiresAt) &&
+      !isExpired(session) &&
       normalizedPasswordDate &&
       normalizedDbRenewalDate &&
       hasStoredPermissions(session.user)
     ) {
       const someMustRenew = isOptionalExpiryReachedByDate(normalizedSomeDate);
+      const someShouldWarn = isSomeRenewalWarningWindowByDate(normalizedSomeDate);
       const dbMustRenew = isDbRenewalBlockedByDate(normalizedDbRenewalDate);
       const dbShouldWarn = isDbRenewalWarningWindowByDate(normalizedDbRenewalDate);
       set({
@@ -463,6 +483,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         dbRenewalDate: normalizedDbRenewalDate,
         passwordMustChange: isPasswordExpiredByDate(normalizedPasswordDate),
         someMustRenew,
+        someShouldWarn,
         dbMustRenew,
         dbShouldWarn,
         isAuthenticated: true,
@@ -487,6 +508,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
       : false,
     someMustRenew: canRestoreStoredSession
       ? isOptionalExpiryReachedByDate(storedSomeExpiryDate)
+      : false,
+    someShouldWarn: canRestoreStoredSession
+      ? isSomeRenewalWarningWindowByDate(storedSomeExpiryDate)
       : false,
     dbMustRenew: canRestoreStoredSession
       ? isDbRenewalBlockedByDate(storedDbRenewalDate)
@@ -561,6 +585,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           dbRenewalDate: null,
           passwordMustChange: false,
           someMustRenew: false,
+          someShouldWarn: false,
           dbMustRenew: false,
           dbShouldWarn: false,
           error: message,
@@ -580,6 +605,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           dbRenewalDate: null,
           passwordMustChange: false,
           someMustRenew: false,
+          someShouldWarn: false,
           dbMustRenew: false,
           dbShouldWarn: false,
           error: "El servidor no responde. Intenta de nuevo más tarde.",
@@ -599,6 +625,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           dbRenewalDate: null,
           passwordMustChange: false,
           someMustRenew: false,
+          someShouldWarn: false,
           dbMustRenew: false,
           dbShouldWarn: false,
           error: "Credenciales incorrectas",
@@ -621,6 +648,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           dbRenewalDate: null,
           passwordMustChange: false,
           someMustRenew: false,
+          someShouldWarn: false,
           dbMustRenew: false,
           dbShouldWarn: false,
           error: "No se recibio fecha de vencimiento de clave.",
@@ -648,6 +676,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           dbRenewalDate: null,
           passwordMustChange: false,
           someMustRenew: false,
+          someShouldWarn: false,
           dbMustRenew: false,
           dbShouldWarn: false,
           error: "No se recibio fecha de renovacion de base de datos.",
@@ -694,15 +723,19 @@ export const useAuthStore = create<AuthState>((set, get) => {
         ? true
         : normalizeBoolean(permiteLiquidacionCreditoRaw);
 
-      const expiresAt =
-        (parsed.expiresAtUtc ? Date.parse(parsed.expiresAtUtc) : null) ??
-        (parsed.expiresInSeconds
+      const expiresAtFromUtc = parseSessionExpiryFromUtc(parsed.expiresAtUtc);
+      const expiresAtFromSeconds =
+        typeof parsed.expiresInSeconds === "number" &&
+        Number.isFinite(parsed.expiresInSeconds)
           ? Date.now() + parsed.expiresInSeconds * 1000
-          : null);
+          : null;
+      const expiresAt = expiresAtFromUtc ?? expiresAtFromSeconds;
 
       const session: AuthSession = {
         token: parsed.token,
         expiresAt: expiresAt ?? Date.now() + 5 * 60 * 1000,
+        expiresAtUtc: parsed.expiresAtUtc ?? null,
+        expiresInSeconds: parsed.expiresInSeconds ?? null,
         fechaVencimientoClave: passwordExpiryDate,
         renovacionSome: someExpiryDate ?? "",
         renovacionBD: dbRenewalDate,
@@ -773,6 +806,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const someMustRenew = someExpiryDate
         ? isOptionalExpiryReachedByDate(someExpiryDate)
         : false;
+      const someShouldWarn = isSomeRenewalWarningWindowByDate(someExpiryDate);
       const dbMustRenew = isDbRenewalBlockedByDate(dbRenewalDate);
       const dbShouldWarn = isDbRenewalWarningWindowByDate(dbRenewalDate);
       set({
@@ -785,6 +819,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         dbRenewalDate,
         passwordMustChange: isPasswordExpiredByDate(session.fechaVencimientoClave),
         someMustRenew,
+        someShouldWarn,
         dbMustRenew,
         dbShouldWarn,
         hydrated: true,

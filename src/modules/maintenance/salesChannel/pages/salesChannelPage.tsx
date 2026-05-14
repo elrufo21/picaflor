@@ -952,14 +952,10 @@ const SalesChannelPage = () => {
               ? String(channel.fechaLimiteCredito)
               : "",
           fechaAniversario:
-            mode === "create"
-              ? todayDate
-              : (channel?.fechaAniversario ?? ""),
+            mode === "create" ? todayDate : (channel?.fechaAniversario ?? ""),
           representanteLegal: channel?.representanteLegal ?? "",
           fechaNacimiento:
-            mode === "create"
-              ? todayDate
-              : (channel?.fechaNacimiento ?? ""),
+            mode === "create" ? todayDate : (channel?.fechaNacimiento ?? ""),
           nota: channel?.nota ?? "",
           permiteLiquidacionCredito: Boolean(
             channel?.permiteLiquidacionCredito ??

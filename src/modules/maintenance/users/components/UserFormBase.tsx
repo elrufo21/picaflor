@@ -137,6 +137,14 @@ export default function UserFormBase({
     [canalVentaList],
   );
 
+  const normalizeSearchValue = useCallback((value: string) => {
+    return String(value ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toUpperCase();
+  }, []);
+
   const form = useForm<UserFormValues>({
     defaultValues: emptyValues,
   });
@@ -265,7 +273,8 @@ export default function UserFormBase({
   }, [employees.length, fetchEmployees]);
 
   useEffect(() => {
-    reset(mapInitialData(mode === "create" ? undefined : initialData));
+    const mappedValues = mapInitialData(mode === "create" ? undefined : initialData);
+    reset(mappedValues);
     focusFirstInput(containerRef.current);
   }, [initialData, mode, reset, employeeOptions, canalVentaOptions]);
 
@@ -585,6 +594,22 @@ export default function UserFormBase({
                         isOptionEqualToValue={(opt, val) =>
                           String(opt.value) === String(val.value)
                         }
+                        filterOptions={(options, state) => {
+                          const rawQuery = normalizeSearchValue(state.inputValue);
+                          if (!rawQuery) return options;
+
+                          const terms = rawQuery.split(/\s+/).filter(Boolean);
+                          if (!terms.length) return options;
+
+                          return options.filter((option) => {
+                            const searchable = [
+                              normalizeSearchValue(option.label),
+                              normalizeSearchValue(String(option.value ?? "")),
+                            ].join(" ");
+                            return terms.every((term) => searchable.includes(term));
+                          });
+                        }}
+                        autoAdvance={false}
                         disabled={lockIdentityFields}
                         size="small"
                       />

@@ -8,6 +8,10 @@ import { useUsersStore } from "@/store/users/users.store";
 
 const DB_RENEWAL_WARNING_MESSAGE =
   "LA SUSCRIPCION A LA BASE DE DATOS ESTA POR VENCER, CONTACTE CON EL SOPORTE";
+const SOME_RENEWAL_WARNING_MESSAGE =
+  "LA SUSCRIPCION DE SOME ESTA POR VENCER, CONTACTE CON EL SOPORTE";
+const DB_RENEWAL_SUSPENDED_MESSAGE =
+  "La cuenta se encuentra suspendida temporalmente, por favor comunicarse con soporte y cerrar sesion.";
 
 const formatModalDate = (value?: string | null) => {
   const raw = String(value ?? "").trim();
@@ -24,6 +28,7 @@ const PasswordExpiryGate = () => {
     passwordExpiryDate,
     someExpiryDate,
     someMustRenew,
+    someShouldWarn,
     dbRenewalDate,
     dbMustRenew,
     dbShouldWarn,
@@ -36,7 +41,7 @@ const PasswordExpiryGate = () => {
   const [loadingUser, setLoadingUser] = useState(false);
   const [hasResolvedCurrentUser, setHasResolvedCurrentUser] = useState(false);
   const activeDialogRef = useRef<
-    "password" | "some" | "db" | "dbWarning" | null
+    "password" | "some" | "db" | "dbWarning" | "someWarning" | null
   >(null);
   const fallbackLogoutRef = useRef(false);
   const submitForcedPasswordRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -45,6 +50,12 @@ const PasswordExpiryGate = () => {
   const normalizedUsername = String(user?.username ?? "")
     .trim()
     .toUpperCase();
+  const isExternalUser = useMemo(() => {
+    const tipoUsuario = String(user?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase();
+    return Boolean(user?.isExternal) || tipoUsuario === "EXTERNO";
+  }, [user?.isExternal, user?.tipoUsuario]);
 
   const currentUserRecord = useMemo(() => {
     const byId =
@@ -73,7 +84,7 @@ const PasswordExpiryGate = () => {
   }, [logout, navigate]);
 
   useEffect(() => {
-    if (!dbShouldWarn || dbMustRenew || !dbRenewalDate) {
+    if (!dbShouldWarn || dbMustRenew || !dbRenewalDate || isExternalUser) {
       if (activeDialogRef.current === "dbWarning") {
         closeDialog();
         activeDialogRef.current = null;
@@ -124,6 +135,71 @@ const PasswordExpiryGate = () => {
     dbShouldWarn,
     dbMustRenew,
     dbRenewalDate,
+    isExternalUser,
+    closeDialog,
+    openDialog,
+  ]);
+
+  useEffect(() => {
+    if (
+      dbMustRenew ||
+      someMustRenew ||
+      !someShouldWarn ||
+      !someExpiryDate ||
+      isExternalUser
+    ) {
+      if (activeDialogRef.current === "someWarning") {
+        closeDialog();
+        activeDialogRef.current = null;
+      }
+      return;
+    }
+    if (activeDialogRef.current) return;
+
+    openDialog({
+      title: "Aviso de suscripcion",
+      description: SOME_RENEWAL_WARNING_MESSAGE,
+      size: "md",
+      showCancel: false,
+      disableClose: false,
+      confirmLabel: "Cerrar",
+      onConfirm: async () => {
+        closeDialog();
+        activeDialogRef.current = null;
+        return true;
+      },
+      content: () => (
+        <div className="rounded-xl border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-5">
+          <p className="text-lg font-semibold tracking-tight text-slate-900">
+            Renovacion de Hosting SOME
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            {SOME_RENEWAL_WARNING_MESSAGE}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            Fecha de renovacion:{" "}
+            <span className="font-semibold text-amber-700">
+              {formatModalDate(someExpiryDate)}
+            </span>
+            .
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            Puedes continuar usando el sistema.
+          </p>
+        </div>
+      ),
+      onClose: () => {
+        activeDialogRef.current = null;
+      },
+    });
+
+    activeDialogRef.current = "someWarning";
+  }, [
+    dbMustRenew,
+    someMustRenew,
+    someShouldWarn,
+    someExpiryDate,
+    isExternalUser,
     closeDialog,
     openDialog,
   ]);
@@ -155,10 +231,14 @@ const PasswordExpiryGate = () => {
       activeDialogRef.current = null;
     }
 
+    if (activeDialogRef.current === "someWarning") {
+      closeDialog();
+      activeDialogRef.current = null;
+    }
+
     openDialog({
       title: "Suscripcion de base de datos vencida",
-      description:
-        "Tu acceso ha sido bloqueado hasta que soporte renueve la suscripcion.",
+      description: DB_RENEWAL_SUSPENDED_MESSAGE,
       size: "md",
       showCancel: false,
       disableClose: true,
@@ -180,8 +260,7 @@ const PasswordExpiryGate = () => {
             .
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-700">
-            Debes comunicarte con soporte. No podras continuar en el sistema
-            mientras no se renueve.
+            {DB_RENEWAL_SUSPENDED_MESSAGE}
           </p>
         </div>
       ),
@@ -210,9 +289,14 @@ const PasswordExpiryGate = () => {
       submitForcedPasswordRef.current = null;
     }
 
+    if (activeDialogRef.current === "someWarning") {
+      closeDialog();
+      activeDialogRef.current = null;
+    }
+
     openDialog({
-      title: "Licencia SOME vencida",
-      description: "Tu licencia de SOME vencio y la aplicacion quedara bloqueada.",
+      title: "Suscripcion de SOME vencida",
+      description: DB_RENEWAL_SUSPENDED_MESSAGE,
       size: "md",
       showCancel: false,
       disableClose: true,
@@ -227,15 +311,14 @@ const PasswordExpiryGate = () => {
             Renovacion de Hosting SOME
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-700">
-            Fecha de vencimiento:{" "}
+            Fecha de renovacion:{" "}
             <span className="font-semibold text-red-600">
               {formatModalDate(someExpiryDate)}
             </span>
             .
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-700">
-            Debes comunicarte con soporte para renovar tu plan anual. Mientras
-            no se renueve la licencia, no podras continuar en el sistema.
+            {DB_RENEWAL_SUSPENDED_MESSAGE}
           </p>
         </div>
       ),
