@@ -1889,12 +1889,11 @@ const LiquidacionesPage = () => {
   const isPagoVerificado = useCallback((row: LiquidacionRow) => {
     return normalizeStringValue(row.flagVerificado) === "1";
   }, []);
-  const sessionRaw = localStorage.getItem("picaflor.auth.session");
-  const sessionStore = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const isAreaSupervisor = String(user?.areaId ?? "") === "6";
   const columns = useMemo(() => {
     const cols = [];
 
-    if (sessionStore.user.areaId === "6") {
+    if (isAreaSupervisor) {
       cols.push(
         columnHelper.display({
           id: "pVerificado",
@@ -2028,9 +2027,9 @@ const LiquidacionesPage = () => {
     columnHelper,
     externalCreditLimitDays,
     isExternalUser,
+    isAreaSupervisor,
     isPagoVerificado,
     navigate,
-    sessionStore.user.areaId,
   ]);
 
   const productosPromiseRef = useRef<Promise<Producto[]> | null>(null);

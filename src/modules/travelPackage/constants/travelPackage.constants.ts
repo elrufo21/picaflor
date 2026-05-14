@@ -7,6 +7,7 @@ import type {
   TravelPackageSelectionRow,
   TravelPackageFormState,
 } from "../types/travelPackage.types";
+import { readStoredSession } from "@/shared/auth/session";
 
 // ─── Select options ──────────────────────────────────────────────────────────
 
@@ -156,10 +157,10 @@ export const getTodayIso = (): string => {
 export const getSessionDisplayName = (): string => {
   if (typeof window === "undefined") return "";
   try {
-    const raw = window.localStorage.getItem("picaflor.auth.session");
-    if (!raw) return "";
-    const parsed = JSON.parse(raw);
-    return String(parsed?.user?.displayName ?? "").trim();
+    const session = readStoredSession() as
+      | { user?: { displayName?: string } }
+      | null;
+    return String(session?.user?.displayName ?? "").trim();
   } catch {
     return "";
   }

@@ -11,8 +11,7 @@ import { useDialogStore } from "@/app/store/dialogStore";
 import { usePackageStore } from "../../store/fulldayStore";
 import { useAuthStore } from "@/store/auth/auth.store";
 import type { AuthUser } from "@/store/auth/auth.store";
-
-const AUTH_SESSION_STORAGE_KEY = "picaflor.auth.session";
+import { AUTH_STORAGE_KEY } from "@/shared/auth/session";
 
 const normalizeSessionText = (value: unknown): string =>
   String(value ?? "").trim();
@@ -27,7 +26,7 @@ const resolveSessionLockedCanalVenta = (authUser: AuthUser | null) => {
   if (typeof window === "undefined") return null;
 
   try {
-    const rawSession = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+    const rawSession = window.localStorage.getItem(AUTH_STORAGE_KEY);
     if (!rawSession) return null;
 
     const parsed = JSON.parse(rawSession) as {
