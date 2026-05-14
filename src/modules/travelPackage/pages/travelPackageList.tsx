@@ -369,6 +369,7 @@ const TravelPackageList = () => {
       ? (location.state as { refresh?: unknown }).refresh
       : undefined;
   const authUser = useAuthStore((state) => state.user);
+  const isAreaSupervisor = String(authUser?.areaId ?? "") === "6";
   const todayValue = useMemo(() => getTodayIso(), []);
   const [pendingStartDate, setPendingStartDate] = useState(todayValue);
   const [pendingEndDate, setPendingEndDate] = useState(todayValue);
@@ -404,9 +405,6 @@ const TravelPackageList = () => {
   const isPagoVerificado = useCallback((row: TravelPackageListadoRow) => {
     return normalizeStringValue(row.flagVerificado) === "1";
   }, []);
-  const sessionRaw = localStorage.getItem("picaflor.auth.session");
-  const sessionStore = sessionRaw ? JSON.parse(sessionRaw) : null;
-
   useEffect(() => {
     pendingStartDateRef.current = pendingStartDate;
   }, [pendingStartDate]);
@@ -697,7 +695,7 @@ const TravelPackageList = () => {
     };
 
     const exportColumns: ExportColumn[] = [];
-    if (sessionStore?.user?.areaId === "6") {
+    if (isAreaSupervisor) {
       exportColumns.push({
         key: "pVerificado",
         label: "Verificado",
@@ -903,7 +901,7 @@ const TravelPackageList = () => {
   const columns = useMemo<ColumnDef<TravelPackageListadoRow>[]>(() => {
     const cols: ColumnDef<TravelPackageListadoRow>[] = [];
 
-    if (sessionStore?.user?.areaId === "6") {
+    if (isAreaSupervisor) {
       cols.push(
         columnHelper.display({
           id: "pVerificado",
@@ -989,7 +987,7 @@ const TravelPackageList = () => {
       }),
     );
     return cols;
-  }, [columnHelper, isPagoVerificado, navigate, sessionStore?.user?.areaId]);
+  }, [columnHelper, isPagoVerificado, navigate, isAreaSupervisor]);
 
   const SearchInputComponent = ({
     globalFilter,

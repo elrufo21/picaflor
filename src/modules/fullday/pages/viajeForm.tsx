@@ -39,6 +39,7 @@ import { showToast } from "@/components/ui/AppToast";
 import { toISODate } from "@/shared/helpers/helpers";
 import { formatDate } from "@/shared/helpers/formatDate";
 import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
+import { useAuthStore } from "@/store/auth/auth.store";
 
 const LIQUIDACIONES_STALE_STORAGE_KEY =
   "fullday:programacion-liquidaciones:stale:v1";
@@ -1080,26 +1081,24 @@ const ViajeForm = () => {
     });
   }, [formData, reset]);
   const navigate = useNavigate();
-  //sesion
-  const sessionRaw = localStorage.getItem("picaflor.auth.session");
-  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const authUser = useAuthStore((state) => state.user);
   const isExternalUser =
-    String(session?.user?.tipoUsuario ?? "")
+    String(authUser?.tipoUsuario ?? "")
       .trim()
       .toUpperCase() === "EXTERNO" ||
-    session?.user?.isExternal === true ||
-    Number(session?.user?.canalVentaId ?? 0) > 0;
+    authUser?.isExternal === true ||
+    Number(authUser?.canalVentaId ?? 0) > 0;
   const canUseCreditInCreate =
-    session?.user?.permiteLiquidacionCredito === true ||
-    String(session?.user?.permiteLiquidacionCredito ?? "")
+    authUser?.permiteLiquidacionCredito === true ||
+    String(authUser?.permiteLiquidacionCredito ?? "")
       .trim()
       .toLowerCase() === "true" ||
-    String(session?.user?.permiteLiquidacionCredito ?? "").trim() === "1";
+    String(authUser?.permiteLiquidacionCredito ?? "").trim() === "1";
   const { idProduct, liquidacionId } = useParams();
   const canUseCreditForCurrentSubmit =
     Boolean(liquidacionId) || canUseCreditInCreate;
   const canToggleVerificado =
-    Boolean(liquidacionId) && String(session?.user?.areaId ?? "") === "6";
+    Boolean(liquidacionId) && String(authUser?.areaId ?? "") === "6";
   const { packages, date, loadPackages } = usePackageStore();
   useEffect(() => {
     if (!incomingFormData || formData) return;
@@ -1153,11 +1152,11 @@ const ViajeForm = () => {
       shouldDirty: true,
     });
     if (!liquidacionId && watch("counter") === "") {
-      setValue("counter", session.user.displayName, {
+      setValue("counter", String(authUser?.displayName ?? ""), {
         shouldDirty: true,
       });
     }
-  }, [packages, idProduct, setValue]);
+  }, [packages, idProduct, liquidacionId, setValue, authUser?.displayName, watch]);
 
   const destino = watch("destino");
   const fechaViaje = watch("fechaViaje");
@@ -1213,6 +1212,15 @@ const ViajeForm = () => {
     try {
       const fechaViajeValue =
         toISODate(data.fechaViaje) || parseFecha(data.fechaViaje);
+      const usuarioId = Number(authUser?.id ?? 0);
+      if (!usuarioId) {
+        showToast({
+          title: "Sesión",
+          description: "No se pudo identificar el usuario de la sesión.",
+          type: "error",
+        });
+        return;
+      }
 
       const payload = {
         ...data,
@@ -1223,7 +1231,7 @@ const ViajeForm = () => {
         totalGeneral: Number(data.totalGeneral ?? data.precioTotal),
 
         cantPax: Number(data.cantPax),
-        usuarioId: Number(session.user.id),
+        usuarioId,
         companiaId: 1,
         idProducto: Number(idProduct),
         canalVenta: data.canalDeVenta?.auxiliar ?? data.canalVenta,
@@ -1305,7 +1313,7 @@ const ViajeForm = () => {
   };
 
   const handleToggleVerificado = async () => {
-    if (String(session?.user?.areaId ?? "") !== "6") return;
+    if (String(authUser?.areaId ?? "") !== "6") return;
     if (!liquidacionId) return;
 
     const notaId = Number(liquidacionId);
@@ -1327,7 +1335,7 @@ const ViajeForm = () => {
         {
           notaId,
           estado: nextEstado,
-          usuario: String(session?.user?.displayName ?? "").trim(),
+          usuario: String(authUser?.displayName ?? "").trim(),
         },
         {
           headers: {

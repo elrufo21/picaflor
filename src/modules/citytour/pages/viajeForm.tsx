@@ -37,6 +37,7 @@ import type { InvoiceData } from "@/components/invoice/Invoice";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { showToast } from "@/components/ui/AppToast";
 import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
+import { useAuthStore } from "@/store/auth/auth.store";
 import {
   handleNumberInputArrowNavigation,
   toISODate,
@@ -1161,21 +1162,19 @@ const ViajeForm = () => {
   }, [formData, reset]);
 
   const navigate = useNavigate();
-  //sesion
-  const sessionRaw = localStorage.getItem("picaflor.auth.session");
-  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const authUser = useAuthStore((state) => state.user);
   const isExternalUser =
-    String(session?.user?.tipoUsuario ?? "")
+    String(authUser?.tipoUsuario ?? "")
       .trim()
       .toUpperCase() === "EXTERNO" ||
-    session?.user?.isExternal === true ||
-    Number(session?.user?.canalVentaId ?? 0) > 0;
+    authUser?.isExternal === true ||
+    Number(authUser?.canalVentaId ?? 0) > 0;
   const canUseCreditInCreate =
-    session?.user?.permiteLiquidacionCredito === true ||
-    String(session?.user?.permiteLiquidacionCredito ?? "")
+    authUser?.permiteLiquidacionCredito === true ||
+    String(authUser?.permiteLiquidacionCredito ?? "")
       .trim()
       .toLowerCase() === "true" ||
-    String(session?.user?.permiteLiquidacionCredito ?? "").trim() === "1";
+    String(authUser?.permiteLiquidacionCredito ?? "").trim() === "1";
   const { idProduct, liquidacionId } = useParams();
   const canUseCreditForCurrentSubmit =
     Boolean(liquidacionId) || canUseCreditInCreate;
@@ -1238,11 +1237,11 @@ const ViajeForm = () => {
       shouldDirty: true,
     });
     if (!liquidacionId && watch("counter") === "") {
-      setValue("counter", session.user.displayName, {
+      setValue("counter", String(authUser?.displayName ?? ""), {
         shouldDirty: true,
       });
     }
-  }, [packages, idProduct, setValue]);
+  }, [packages, idProduct, liquidacionId, setValue, authUser?.displayName, watch]);
 
   const destino = watch("destino");
   const fechaViaje = watch("fechaViaje");
@@ -1255,7 +1254,7 @@ const ViajeForm = () => {
   const flagVerificado = watch("flagVerificado");
   const isVerificado = normalizeFlagVerificado(flagVerificado) === "1";
   const canToggleVerificado =
-    Boolean(liquidacionId) && String(session?.user?.areaId ?? "") === "6";
+    Boolean(liquidacionId) && String(authUser?.areaId ?? "") === "6";
   const canCreateLiquidacion = canAccessAction("citytour", "create");
   const canEditLiquidacion = canAccessAction("citytour", "edit");
   const canDeleteLiquidacion = canAccessAction("citytour", "delete");
@@ -1310,6 +1309,15 @@ const ViajeForm = () => {
 
       const fechaViajeValue =
         toISODate(data.fechaViaje) || parseFecha(data.fechaViaje);
+      const usuarioId = Number(authUser?.id ?? 0);
+      if (!usuarioId) {
+        showToast({
+          title: "Sesión",
+          description: "No se pudo identificar el usuario de la sesión.",
+          type: "error",
+        });
+        return;
+      }
 
       const payload = {
         ...data,
@@ -1320,7 +1328,7 @@ const ViajeForm = () => {
         totalGeneral: Number(data.totalGeneral ?? data.precioTotal),
 
         cantPax: Number(data.cantPax),
-        usuarioId: Number(session.user.id),
+        usuarioId,
         companiaId: 1,
         idProducto: mainProductId,
         canalVenta: data.canalDeVenta?.auxiliar ?? data.canalVenta,

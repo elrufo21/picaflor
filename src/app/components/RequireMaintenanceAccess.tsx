@@ -1,18 +1,17 @@
 import { Navigate, useLocation } from "react-router";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
+import { AUTH_STORAGE_KEY } from "@/shared/auth/session";
 
 type Props = {
   children: React.ReactNode;
 };
 
-const STORAGE_KEY = "picaflor.auth.session";
-
 const readAreaIdFromStorage = () => {
   if (typeof window === "undefined") return null;
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as {
       user?: { areaId?: string | number | null };
