@@ -1,4 +1,9 @@
 import axios, { type AxiosRequestConfig, type Method } from "axios";
+import {
+  clearStoredSession,
+  isStoredSessionExpired,
+  readStoredSession,
+} from "@/shared/auth/session";
 
 interface ApiRequestParams<TBody = unknown, TFallback = unknown> {
   url: string;
@@ -7,6 +12,24 @@ interface ApiRequestParams<TBody = unknown, TFallback = unknown> {
   config?: AxiosRequestConfig;
   fallback?: TFallback;
 }
+
+const AUTH_EXPIRED_REDIRECT = "/login?reason=session-expired";
+
+const isLoginRequest = (url: string) => {
+  const normalized = String(url ?? "").toLowerCase();
+  return normalized.includes("/user/acceso");
+};
+
+const redirectToExpiredSession = () => {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname === "/login") return;
+  window.location.replace(AUTH_EXPIRED_REDIRECT);
+};
+
+const expireSessionAndRedirect = () => {
+  clearStoredSession();
+  redirectToExpiredSession();
+};
 
 const DATE_PREFIX_RE = /^\d{4}-\d{2}-\d{2}(?:$|[T\s])/;
 
@@ -66,6 +89,24 @@ export async function apiRequest<
   fallback,
 }: ApiRequestParams<TBody, TFallback>): Promise<TResponse | TFallback> {
   try {
+    const shouldAttachAuth = !isLoginRequest(url);
+    const storedSession = readStoredSession();
+
+    if (shouldAttachAuth && storedSession && isStoredSessionExpired(storedSession)) {
+      expireSessionAndRedirect();
+      if (typeof fallback !== "undefined") return fallback;
+      throw new Error("Sesion expirada");
+    }
+
+    const token =
+      storedSession && typeof storedSession.token === "string"
+        ? storedSession.token.trim()
+        : "";
+    const requestHeaders = {
+      ...(config.headers ?? {}),
+      ...(shouldAttachAuth && token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
     const normalizedData =
       data === null || data === undefined ? data : normalizeDatePayload(data);
     const response = await axios({
@@ -73,6 +114,7 @@ export async function apiRequest<
       method,
       data: normalizedData,
       ...config,
+      headers: requestHeaders,
     });
     let result = response.data;
 
@@ -83,6 +125,14 @@ export async function apiRequest<
 
     return result;
   } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      expireSessionAndRedirect();
+      if (typeof fallback !== "undefined") {
+        return fallback;
+      }
+      throw new Error("Sesion expirada");
+    }
+
     console.error("⚠️ Error del api", err);
     if (typeof fallback !== "undefined") {
       return fallback;

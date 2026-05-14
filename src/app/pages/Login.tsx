@@ -37,6 +37,15 @@ const Login = () => {
     }
   }, [navigate, token]);
 
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const reason = searchParams.get("reason");
+    if (reason !== "session-expired") return;
+
+    toast.error("Sesion expirada");
+    navigate("/login", { replace: true });
+  }, [location.search, navigate]);
+
   const onSubmit = async (values: LoginForm) => {
     const ok = await login({
       username: values.username,
