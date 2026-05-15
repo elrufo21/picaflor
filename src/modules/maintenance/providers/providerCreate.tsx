@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import ProviderForm from "@/components/maintenance/ProviderForm";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Provider, ProviderBankAccount } from "@/types/maintenance";
@@ -15,7 +15,7 @@ export default function ProviderCreate() {
     if (!rs) {
       return;
     }
-    toast.success("Proveedor creado correctamente");
+    showToast({ title: "Exito", description: "Proveedor creado correctamente", type: "success" });
   };
 
   const handleNew = () => {

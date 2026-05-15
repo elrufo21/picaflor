@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-
+import { showToast } from "@/components/ui/AppToast";
 import DndTable from "@/components/dataTabla/DndTable";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useAreasQuery } from "../useAreasQuery";
@@ -69,10 +68,10 @@ const AreaList = () => {
                   onConfirm: async () => {
                     const ok = await deleteArea(area.id);
                     if (!ok) {
-                      toast.error("No se pudo eliminar el area");
+                      showToast({ title: "Error", description: "No se pudo eliminar el area", type: "error" });
                       return false;
                     }
-                    toast.success("Area eliminada");
+                    showToast({ title: "Exito", description: "Area eliminada", type: "success" });
                     await fetchAreas();
                     return true;
                   },
@@ -98,17 +97,17 @@ const AreaList = () => {
             onSave={async (data) => {
               const areaName = String(data.area ?? "").trim();
               if (!areaName) {
-                toast.error("Ingrese el nombre del area");
+                showToast({ title: "Error", description: "Ingrese el nombre del area", type: "error" });
                 return false;
               }
 
               if (mode === "create") {
                 const ok = await addArea({ area: areaName });
                 if (!ok) {
-                  toast.error("Ya existe esta area");
+                  showToast({ title: "Error", description: "Ya existe esta area", type: "error" });
                   return false;
                 }
-                toast.success("Area creada correctamente");
+                showToast({ title: "Exito", description: "Area creada correctamente", type: "success" });
                 await fetchAreas();
                 return true;
               }
@@ -118,7 +117,7 @@ const AreaList = () => {
                 ...data,
                 area: areaName,
               });
-              toast.success("Area actualizada");
+              showToast({ title: "Exito", description: "Area actualizada", type: "success" });
               await fetchAreas();
               return true;
             }}
@@ -163,10 +162,10 @@ const AreaList = () => {
                   onConfirm: async () => {
                     const ok = await deleteArea(row.original.id);
                     if (!ok) {
-                      toast.error("No se pudo eliminar el area");
+                      showToast({ title: "Error", description: "No se pudo eliminar el area", type: "error" });
                       return false;
                     }
-                    toast.success("Area eliminada");
+                    showToast({ title: "Exito", description: "Area eliminada", type: "success" });
                     await fetchAreas();
                     return true;
                   },

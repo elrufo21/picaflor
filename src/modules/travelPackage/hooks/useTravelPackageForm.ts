@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { useAuthStore } from "@/store/auth/auth.store";
 import {
@@ -285,7 +285,7 @@ export const useTravelPackageForm = () => {
           : 0;
 
         if (parsedCantPax > MAX_PASSENGERS) {
-          toast.error("El limite es 99", { id: "travel-package-max-pax" });
+          showToast({ title: "Error", description: "El limite es 99", type: "error", id: "travel-package-max-pax" });
           newState.cantPax = String(MAX_PASSENGERS);
         } else {
           newState.cantPax = rawCantPax ? String(parsedCantPax) : "";

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import HolidayForm from "@/components/maintenance/HolidayForm";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Holiday } from "@/types/maintenance";
@@ -11,7 +11,7 @@ export default function HolidayCreate() {
   const handleSave = async (data: Holiday) => {
     const rs = await addHoliday(data);
     if (!rs) return;
-    toast.success("Feriado creado correctamente");
+    showToast({ title: "Exito", description: "Feriado creado correctamente", type: "success" });
     navigate("/maintenance/holidays");
   };
 

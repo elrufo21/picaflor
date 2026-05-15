@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import AreaForm from "../components/AreaForm";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 
@@ -10,10 +10,10 @@ const AreaCreate = () => {
   const handleSave = async (data: { area: string; id?: number }) => {
     const ok = await addArea({ area: data.area });
     if (!ok) {
-      toast.error("Ya existe esta area");
+      showToast({ title: "Error", description: "Ya existe esta area", type: "error" });
       return;
     }
-    toast.success("Área creada correctamente");
+    showToast({ title: "Exito", description: "Área creada correctamente", type: "success" });
   };
 
   return (

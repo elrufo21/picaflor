@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import HolidayForm from "@/components/maintenance/HolidayForm";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Holiday } from "@/types/maintenance";
@@ -27,7 +27,7 @@ export default function HolidayEdit() {
     if (!id) return;
     const rs = await updateHoliday(Number(id), payload);
     if (!rs) return;
-    toast.success("Feriado actualizado correctamente");
+    showToast({ title: "Exito", description: "Feriado actualizado correctamente", type: "success" });
     navigate("/maintenance/holidays");
   };
 
@@ -40,14 +40,14 @@ export default function HolidayEdit() {
         try {
           const result = await deleteHoliday(Number(id));
           if (result === false) {
-            toast.error("No se pudo eliminar el feriado.");
+            showToast({ title: "Error", description: "No se pudo eliminar el feriado.", type: "error" });
             return;
           }
-          toast.success("Feriado eliminado");
+          showToast({ title: "Exito", description: "Feriado eliminado", type: "success" });
           navigate("/maintenance/holidays");
         } catch (error) {
           console.error("Error eliminando feriado", error);
-          toast.error("Ocurrió un error al eliminar el feriado.");
+          showToast({ title: "Error", description: "Ocurrió un error al eliminar el feriado.", type: "error" });
         }
       },
     });

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import EmployeeForm from "../components/EmployeeForm";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import type { Personal } from "@/types/employees";
@@ -13,10 +13,10 @@ const EmployeeCreate = () => {
   ) => {
     const ok = await addEmployee(data);
     if (!ok) {
-      toast.error("No se pudo crear el empleado");
+      showToast({ title: "Error", description: "No se pudo crear el empleado", type: "error" });
       return;
     }
-    toast.success("Empleado creado correctamente");
+    showToast({ title: "Exito", description: "Empleado creado correctamente", type: "success" });
     navigate("/maintenance/employees");
   };
 

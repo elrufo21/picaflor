@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import CategoryForm from "../components/CategoryForm";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 
@@ -16,10 +16,10 @@ const CategoryCreate = () => {
       codigoSunat: data.codigoSunat ?? "",
     });
     if (!ok) {
-      toast.error("Ya existe esa categoria");
+      showToast({ title: "Error", description: "Ya existe esa categoria", type: "error" });
       return;
     }
-    toast.success("Categoría creada correctamente");
+    showToast({ title: "Exito", description: "Categoría creada correctamente", type: "success" });
   };
 
   return (

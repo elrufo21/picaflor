@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import MaintenancePageFrame from "@/modules/maintenance/components/MaintenancePageFrame";
 import { API_BASE_URL } from "@/config";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
@@ -754,7 +754,7 @@ const SecurityAreaPermissionsPage = () => {
 
   const handleSave = async () => {
     if (!selectedAreaId) {
-      toast.error("Selecciona un área.");
+      showToast({ title: "Error", description: "Selecciona un área.", type: "error" });
       return;
     }
 
@@ -790,7 +790,7 @@ const SecurityAreaPermissionsPage = () => {
         error instanceof Error && error.message
           ? error.message
           : "No se pudo guardar en la base de datos.";
-      toast.error(`No se pudo guardar: ${detail}`);
+      showToast({ title: "Error", description: `No se pudo guardar: ${detail}`, type: "error" });
       return;
     }
 
@@ -810,7 +810,7 @@ const SecurityAreaPermissionsPage = () => {
       loadForUser(authUser);
       loadSubmodulesForUser(authUser);
     }
-    toast.success("Permisos por área guardados.");
+    showToast({ title: "Exito", description: "Permisos por área guardados.", type: "success" });
   };
 
   const handleUseDefaultBase = () => {
@@ -849,7 +849,7 @@ const SecurityAreaPermissionsPage = () => {
       loadForUser(authUser);
       loadSubmodulesForUser(authUser);
     }
-    toast.success("Área restaurada a configuración base.");
+    showToast({ title: "Exito", description: "Área restaurada a configuración base.", type: "success" });
   };
 
   return (

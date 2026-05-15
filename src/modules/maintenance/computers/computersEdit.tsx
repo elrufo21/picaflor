@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import { toast } from "sonner";
-
+import { showToast } from "@/components/ui/AppToast";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Computer } from "@/types/maintenance";
 import ComputerForm from "@/components/maintenance/ComputerForm";
@@ -33,7 +32,7 @@ export default function ComputerEdit() {
   const handleSave = async (data: Omit<Computer, "id">) => {
     const rs = await updateComputer(Number(id), data);
     if (!rs) return;
-    toast.success("Computadora actualizada correctamente");
+    showToast({ title: "Exito", description: "Computadora actualizada correctamente", type: "success" });
     navigate("/maintenance/computers");
   };
 
@@ -46,14 +45,14 @@ export default function ComputerEdit() {
         try {
           const result = await deleteComputer(Number(id));
           if (result === false) {
-            toast.error("No se pudo eliminar la computadora.");
+            showToast({ title: "Error", description: "No se pudo eliminar la computadora.", type: "error" });
             return;
           }
-          toast.success("Computadora eliminada correctamente");
+          showToast({ title: "Exito", description: "Computadora eliminada correctamente", type: "success" });
           navigate("/maintenance/computers");
         } catch (error) {
           console.error("Error eliminando computadora", error);
-          toast.error("Ocurrio un error al eliminar la computadora.");
+          showToast({ title: "Error", description: "Ocurrio un error al eliminar la computadora.", type: "error" });
         }
       },
     });

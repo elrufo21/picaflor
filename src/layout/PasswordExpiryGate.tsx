@@ -6,6 +6,7 @@ import { useDialogStore } from "@/app/store/dialogStore";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useUsersStore } from "@/store/users/users.store";
 
+import { showToast } from "@/components/ui/AppToast";
 const DB_RENEWAL_WARNING_MESSAGE =
   "LA SUSCRIPCION A LA BASE DE DATOS ESTA POR VENCER, CONTACTE CON EL SOPORTE";
 const SOME_RENEWAL_WARNING_MESSAGE =
@@ -389,9 +390,7 @@ const PasswordExpiryGate = () => {
   const handleSaveForcedPassword = useCallback(
     async (values: Record<string, unknown>) => {
       if (!currentUserRecord) {
-        toast.error(
-          "No se pudo identificar el usuario actual para actualizar la clave.",
-        );
+        showToast({ title: "Error", description: "No se pudo identificar el usuario actual para actualizar la clave.", type: "error" });
         return false;
       }
 
@@ -401,11 +400,11 @@ const PasswordExpiryGate = () => {
       });
 
       if (!ok) {
-        toast.error("No se pudo actualizar la contrasena.");
+        showToast({ title: "Error", description: "No se pudo actualizar la contrasena.", type: "error" });
         return false;
       }
 
-      toast.success("Contrasena actualizada. Inicia sesion nuevamente.");
+      showToast({ title: "Exito", description: "Contrasena actualizada. Inicia sesion nuevamente.", type: "success" });
       logoutAndRedirect();
       return true;
     },
@@ -433,7 +432,7 @@ const PasswordExpiryGate = () => {
     }
 
     fallbackLogoutRef.current = true;
-    toast.error("No se pudo cargar tu usuario. Inicia sesion nuevamente.");
+    showToast({ title: "Error", description: "No se pudo cargar tu usuario. Inicia sesion nuevamente.", type: "error" });
     logoutAndRedirect();
   }, [
     dbMustRenew,
@@ -474,9 +473,7 @@ const PasswordExpiryGate = () => {
       onConfirm: async () => {
         const submitForcedPassword = submitForcedPasswordRef.current;
         if (typeof submitForcedPassword !== "function") {
-          toast.error(
-            "No se pudo preparar el formulario para actualizar la clave.",
-          );
+          showToast({ title: "Error", description: "No se pudo preparar el formulario para actualizar la clave.", type: "error" });
           return false;
         }
 

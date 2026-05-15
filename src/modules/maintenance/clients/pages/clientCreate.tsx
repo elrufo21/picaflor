@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import ClientForm from "../components/ClientForm";
 import { useClientsStore } from "@/store/clients/clients.store";
 import type { Client } from "@/types/maintenance";
@@ -11,10 +11,10 @@ export default function ClientCreate() {
   const handleSave = async (data: Client) => {
     const ok = await addClient(data);
     if (!ok) {
-      toast.error("No se pudo crear el cliente");
+      showToast({ title: "Error", description: "No se pudo crear el cliente", type: "error" });
       return;
     }
-    toast.success("Cliente creado correctamente");
+    showToast({ title: "Exito", description: "Cliente creado correctamente", type: "success" });
   };
 
   const handleNew = () => {

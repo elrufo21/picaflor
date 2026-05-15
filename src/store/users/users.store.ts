@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import type { User } from "../employees/employees.store";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 export type { User } from "../employees/employees.store";
 
 interface UsersState {
@@ -157,7 +157,7 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       });
 
       if (isAliasDuplicateResponse(created)) {
-        toast.error("El alias de usuario ya existe.");
+        showToast({ title: "Error", description: "El alias de usuario ya existe.", type: "error" });
         return false;
       }
 
@@ -169,12 +169,12 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       return true;
     } catch (err) {
       if (isAliasDuplicateResponse(err)) {
-        toast.error("El alias de usuario ya existe.");
+        showToast({ title: "Error", description: "El alias de usuario ya existe.", type: "error" });
         return false;
       }
       const message = extractApiMessage(err);
       if (message) {
-        toast.error(message);
+        showToast({ title: "Error", description: message, type: "error" });
       }
       console.error("Error creating user", err);
       return false;
@@ -198,7 +198,7 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       });
 
       if (isAliasDuplicateResponse(updated)) {
-        toast.error("El alias de usuario ya existe.");
+        showToast({ title: "Error", description: "El alias de usuario ya existe.", type: "error" });
         return false;
       }
 
@@ -210,12 +210,12 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       return true;
     } catch (err) {
       if (isAliasDuplicateResponse(err)) {
-        toast.error("El alias de usuario ya existe.");
+        showToast({ title: "Error", description: "El alias de usuario ya existe.", type: "error" });
         return false;
       }
       const message = extractApiMessage(err);
       if (message) {
-        toast.error(message);
+        showToast({ title: "Error", description: message, type: "error" });
       }
       console.error("Error updating user", err);
       return false;

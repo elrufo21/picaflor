@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import ProviderForm from "@/components/maintenance/ProviderForm";
 import type { Provider, ProviderBankAccount } from "@/types/maintenance";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
@@ -56,7 +56,7 @@ export default function ProviderEdit() {
     if (!rs) {
       return;
     }
-    toast.success("Proveedor actualizado correctamente");
+    showToast({ title: "Exito", description: "Proveedor actualizado correctamente", type: "success" });
     navigate("/maintenance/providers");
   };
 
@@ -69,14 +69,14 @@ export default function ProviderEdit() {
         try {
           const result = await deleteProvider(Number(id));
           if (result === false) {
-            toast.error("No se pudo eliminar el proveedor.");
+            showToast({ title: "Error", description: "No se pudo eliminar el proveedor.", type: "error" });
             return;
           }
-          toast.success("Proveedor eliminado");
+          showToast({ title: "Exito", description: "Proveedor eliminado", type: "success" });
           navigate("/maintenance/providers");
         } catch (error) {
           console.error("Error eliminando proveedor", error);
-          toast.error("Ocurrio un error al eliminar el proveedor.");
+          showToast({ title: "Error", description: "Ocurrio un error al eliminar el proveedor.", type: "error" });
         }
       },
     });
