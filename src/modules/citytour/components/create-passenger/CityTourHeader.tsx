@@ -15,6 +15,7 @@ interface PackageHeaderProps {
   canalVentaList: CanalOption[];
   estadoPagoOptions: any[];
   handleAddCanalVenta: () => void;
+  isExternalUser?: boolean;
 }
 
 export const PackageHeader = ({
@@ -24,33 +25,50 @@ export const PackageHeader = ({
   canalVentaList,
   estadoPagoOptions,
   handleAddCanalVenta,
+  isExternalUser = false,
 }: PackageHeaderProps) => {
+  const grupoOptions = [
+    { value: "", label: "SELECCIONE" },
+    { value: "COMPARTIDO", label: "COMPARTIDO" },
+    { value: "PRIVADO", label: "PRIVADO" },
+  ];
+
   return (
     <div className="space-y-3">
       <div className="p-3 space-y-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           <div className="col-span-2">
-            <AutocompleteControlled
-              name="canalVenta"
-              control={control}
-              label="Canal de venta"
-              options={canalVentaList}
-              getOptionLabel={(option: any) => option.label}
-              isOptionEqualToValue={(option: any, value: any) =>
-                option.value === value.value
-              }
-              inputEndAdornment={
-                <button
-                  type="button"
-                  className="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
-                  onClick={handleAddCanalVenta}
-                >
-                  Nuevo
-                </button>
-              }
-              size="small"
-              className="w-full"
-            />
+            {isExternalUser ? (
+              <SelectControlled
+                name="grupo"
+                control={control}
+                label="Grupo"
+                options={grupoOptions}
+                size="small"
+              />
+            ) : (
+              <AutocompleteControlled
+                name="canalVenta"
+                control={control}
+                label="Canal de venta"
+                options={canalVentaList}
+                getOptionLabel={(option: any) => option.label}
+                isOptionEqualToValue={(option: any, value: any) =>
+                  option.value === value.value
+                }
+                inputEndAdornment={
+                  <button
+                    type="button"
+                    className="px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors"
+                    onClick={handleAddCanalVenta}
+                  >
+                    Nuevo
+                  </button>
+                }
+                size="small"
+                className="w-full"
+              />
+            )}
           </div>
           <TextControlled
             name="counter"

@@ -119,6 +119,7 @@ type FormValues = {
   moneda?: string;
   origen?: string;
   canalVenta?: CanalOption | null;
+  grupo?: string;
   counter?: string;
   condicion?: SelectOption | null;
   puntoPartida?: string;
@@ -208,6 +209,12 @@ const parseLegacyDate = (value?: string) => {
 
 const PackagePassengerCreate = () => {
   const { user } = useAuthStore();
+  const isExternalUser =
+    String(user?.tipoUsuario ?? "")
+      .trim()
+      .toUpperCase() === "EXTERNO" ||
+    user?.isExternal === true ||
+    Number(user?.canalVentaId ?? 0) > 0;
   const location = useLocation();
   const { id, liquidacionId } = useParams<{
     id: string;
@@ -249,6 +256,7 @@ const PackagePassengerCreate = () => {
       moneda: "PEN",
       origen: "LIMA",
       canalVenta: null,
+      grupo: "",
       counter: user?.displayName,
       condicion: null,
       puntoPartida: "",
@@ -319,9 +327,9 @@ const PackagePassengerCreate = () => {
 
   useEffect(() => {
     if (pkg) {
-      setFocus("canalVenta");
+      setFocus(isExternalUser ? "grupo" : "canalVenta");
     }
-  }, [pkg, setFocus]);
+  }, [pkg, isExternalUser, setFocus]);
 
   const availableCount = pkg?.disponibles ?? 0;
   const pendingPartidaRef = useRef<string | null>(null);
@@ -938,7 +946,7 @@ const PackagePassengerCreate = () => {
       });
     };
 
-    if (!hasSelectedOption(values.canalVenta))
+    if (!isExternalUser && !hasSelectedOption(values.canalVenta))
       markMissing("canalVenta", "Canal de venta");
     if (!hasSelectedOption(values.condicion))
       markMissing("condicion", "Condición");
@@ -983,7 +991,7 @@ const PackagePassengerCreate = () => {
       errors.push("Selecciona un Full Day válido antes de continuar.");
     }
 
-    if (!hasSelectedOption(values.canalVenta)) {
+    if (!isExternalUser && !hasSelectedOption(values.canalVenta)) {
       errors.push("Asocia un canal de venta para proceder con la reserva.");
     }
 
@@ -1206,7 +1214,7 @@ const PackagePassengerCreate = () => {
     setValue("fechaPago", getTodayDateInputValue());
     setValue("fechaEmision", getTodayDateInputValue());
     setTimeout(() => {
-      setFocus("canalVenta");
+      setFocus(isExternalUser ? "grupo" : "canalVenta");
     }, 0);
     navigate("/fullday");
   };
@@ -1458,6 +1466,7 @@ const PackagePassengerCreate = () => {
                       canalVentaList={canalVentaList}
                       estadoPagoOptions={estadoPagoOptions}
                       handleAddCanalVenta={handleAddCanalVenta}
+                      isExternalUser={isExternalUser}
                     />
 
                     <PassengerDetails
