@@ -4,11 +4,19 @@ import type { ReactNode } from "react";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
-interface ToastProps {
+interface AppToastProps {
   title: string;
   description?: ReactNode;
   type?: ToastType;
   onClose?: () => void;
+}
+
+interface ShowToastProps {
+  title: string;
+  description?: ReactNode;
+  type?: ToastType;
+  id?: string | number;
+  duration?: number;
 }
 
 const AppToast = ({
@@ -16,7 +24,7 @@ const AppToast = ({
   description,
   type = "info",
   onClose,
-}: ToastProps) => {
+}: AppToastProps) => {
   const getIcon = () => {
     switch (type) {
       case "success":
@@ -70,7 +78,13 @@ const AppToast = ({
   );
 };
 
-export const showToast = ({ title, description, type = "info" }: ToastProps) => {
+export const showToast = ({
+  title,
+  description,
+  type = "info",
+  id,
+  duration = 4000,
+}: ShowToastProps) => {
   toast.custom(
     (t) => (
       <AppToast
@@ -81,7 +95,8 @@ export const showToast = ({ title, description, type = "info" }: ToastProps) => 
       />
     ),
     {
-      duration: 4000,
+      duration,
+      id,
     },
   );
 };

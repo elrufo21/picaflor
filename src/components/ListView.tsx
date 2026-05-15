@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { Pencil, PlusIcon, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import { createColumnHelper } from "@tanstack/react-table";
 import ButtonComponent from "./inputs/addButton";
 import { useDialogStore } from "@/store/app/dialog.store";
@@ -109,13 +109,13 @@ export function CrudList<T>(props: CrudListProps<T>) {
               try {
                 const result = await deleteItem(id);
                 if (result === false) {
-                  toast.error("No se pudo eliminar el registro.");
+                  showToast({ title: "Error", description: "No se pudo eliminar el registro.", type: "error" });
                   return;
                 }
-                toast.success("Elemento eliminado.");
+                showToast({ title: "Exito", description: "Elemento eliminado.", type: "success" });
               } catch (error) {
                 console.error("Error deleting item", error);
-                toast.error("Ocurrió un error al eliminar.");
+                showToast({ title: "Error", description: "Ocurrió un error al eliminar.", type: "error" });
               }
             },
           });

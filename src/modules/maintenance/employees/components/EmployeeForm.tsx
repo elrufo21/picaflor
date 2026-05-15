@@ -7,8 +7,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useForm } from "react-hook-form";
 import { Camera, Plus, Save, Trash2, Upload, X } from "lucide-react";
-import { toast } from "sonner";
-
+import { showToast } from "@/components/ui/AppToast";
 import {
   DateInput,
   SelectControlled,
@@ -281,37 +280,37 @@ export default function EmployeeForm({
     async (values: Personal): Promise<boolean> => {
       const codigo = (values.personalCodigo ?? "").trim();
       if (!codigo) {
-        toast.error("El campo Codigo personal es obligatorio.");
+        showToast({ title: "Error", description: "El campo Codigo personal es obligatorio.", type: "error" });
         return false;
       }
 
       const areaId = Number(values.areaId ?? 0);
       if (!areaId) {
-        toast.error("El campo Area es obligatorio.");
+        showToast({ title: "Error", description: "El campo Area es obligatorio.", type: "error" });
         return false;
       }
 
       const nombres = (values.personalNombres ?? "").trim();
       if (!nombres) {
-        toast.error("El campo Nombres es obligatorio.");
+        showToast({ title: "Error", description: "El campo Nombres es obligatorio.", type: "error" });
         return false;
       }
 
       const apellidos = (values.personalApellidos ?? "").trim();
       if (!apellidos) {
-        toast.error("El campo Apellidos es obligatorio.");
+        showToast({ title: "Error", description: "El campo Apellidos es obligatorio.", type: "error" });
         return false;
       }
 
       const dni = (values.personalDni ?? "").trim();
       if (dni && !dniRegex.test(dni)) {
-        toast.error("El DNI debe tener exactamente 8 digitos.");
+        showToast({ title: "Error", description: "El DNI debe tener exactamente 8 digitos.", type: "error" });
         return false;
       }
 
       const email = (values.personalEmail ?? "").trim();
       if (email && !emailRegex.test(email)) {
-        toast.error("Ingrese un correo valido (ejemplo: usuario@dominio.com).");
+        showToast({ title: "Error", description: "Ingrese un correo valido (ejemplo: usuario@dominio.com).", type: "error" });
         return false;
       }
 

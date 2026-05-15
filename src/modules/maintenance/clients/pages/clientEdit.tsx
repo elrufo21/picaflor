@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import ClientForm from "../components/ClientForm";
 import { useClientsStore } from "@/store/clients/clients.store";
 import type { Client } from "@/types/maintenance";
@@ -32,20 +32,20 @@ const ClientEdit = () => {
   const handleSave = async (data: Client) => {
     const ok = await updateClient(Number(id), data);
     if (!ok) {
-      toast.error("No se pudo actualizar el cliente");
+      showToast({ title: "Error", description: "No se pudo actualizar el cliente", type: "error" });
       return;
     }
-    toast.success("Cliente actualizado");
+    showToast({ title: "Exito", description: "Cliente actualizado", type: "success" });
     navigate("/maintenance/clients");
   };
 
   const handleDelete = async () => {
     const ok = await deleteClient(Number(id));
     if (!ok) {
-      toast.error("No se pudo eliminar el cliente");
+      showToast({ title: "Error", description: "No se pudo eliminar el cliente", type: "error" });
       return;
     }
-    toast.success("Cliente eliminado");
+    showToast({ title: "Exito", description: "Cliente eliminado", type: "success" });
     navigate("/maintenance/clients");
   };
 

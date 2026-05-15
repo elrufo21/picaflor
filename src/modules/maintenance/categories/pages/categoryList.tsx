@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-
+import { showToast } from "@/components/ui/AppToast";
 import DndTable from "@/components/dataTabla/DndTable";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useCategoriesQuery } from "../useCategoriesQuery";
@@ -60,10 +59,10 @@ const CategoryList = () => {
                   onConfirm: async () => {
                     const ok = await deleteCategory(id);
                     if (!ok) {
-                      toast.error("No se pudo eliminar la categoria");
+                      showToast({ title: "Error", description: "No se pudo eliminar la categoria", type: "error" });
                       return false;
                     }
-                    toast.success("Categoria eliminada");
+                    showToast({ title: "Exito", description: "Categoria eliminada", type: "success" });
                     await fetchCategories();
                     return true;
                   },
@@ -89,7 +88,7 @@ const CategoryList = () => {
             onSave={async (data) => {
               const nombreSublinea = String(data.nombreSublinea ?? "").trim();
               if (!nombreSublinea) {
-                toast.error("Ingrese el nombre de la categoria");
+                showToast({ title: "Error", description: "Ingrese el nombre de la categoria", type: "error" });
                 return false;
               }
 
@@ -99,10 +98,10 @@ const CategoryList = () => {
                   codigoSunat: data.codigoSunat ?? "",
                 });
                 if (!ok) {
-                  toast.error("Ya existe esa categoria");
+                  showToast({ title: "Error", description: "Ya existe esa categoria", type: "error" });
                   return false;
                 }
-                toast.success("Categoria creada correctamente");
+                showToast({ title: "Exito", description: "Categoria creada correctamente", type: "success" });
                 await fetchCategories();
                 return true;
               }
@@ -114,10 +113,10 @@ const CategoryList = () => {
                 nombreSublinea,
               });
               if (!ok) {
-                toast.error("Ya existe esa categoria");
+                showToast({ title: "Error", description: "Ya existe esa categoria", type: "error" });
                 return false;
               }
-              toast.success("Categoria actualizada");
+              showToast({ title: "Exito", description: "Categoria actualizada", type: "success" });
               await fetchCategories();
               return true;
             }}
@@ -179,10 +178,10 @@ const CategoryList = () => {
                     onConfirm: async () => {
                       const ok = await deleteCategory(id);
                       if (!ok) {
-                        toast.error("No se pudo eliminar la categoria");
+                        showToast({ title: "Error", description: "No se pudo eliminar la categoria", type: "error" });
                         return false;
                       }
-                      toast.success("Categoria eliminada");
+                      showToast({ title: "Exito", description: "Categoria eliminada", type: "success" });
                       await fetchCategories();
                       return true;
                     },

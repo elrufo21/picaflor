@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import CategoryForm from "../components/CategoryForm";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useCategoriesQuery } from "../useCategoriesQuery";
@@ -25,20 +25,20 @@ const CategoryEdit = () => {
   const handleSave = async (data: Category) => {
     const ok = await updateCategory(Number(id), data);
     if (!ok) {
-      toast.error("Ya existe esa categoria");
+      showToast({ title: "Error", description: "Ya existe esa categoria", type: "error" });
       return;
     }
-    toast.success("Categoría actualizada");
+    showToast({ title: "Exito", description: "Categoría actualizada", type: "success" });
     navigate("/maintenance/categories");
   };
 
   const handleDelete = async () => {
     const ok = await deleteCategory(Number(id));
     if (!ok) {
-      toast.error("No se pudo eliminar la categoría");
+      showToast({ title: "Error", description: "No se pudo eliminar la categoría", type: "error" });
       return;
     }
-    toast.success("Categoría eliminada");
+    showToast({ title: "Exito", description: "Categoría eliminada", type: "success" });
     navigate("/maintenance/categories");
   };
 

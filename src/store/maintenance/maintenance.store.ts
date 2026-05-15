@@ -13,7 +13,6 @@ import type {
   ProviderBankAccount,
 } from "@/types/maintenance";
 import { apiRequest } from "@/shared/helpers/apiRequest";
-import { toast } from "sonner";
 import { showToast } from "@/components/ui/AppToast";
 import { queryClient } from "@/shared/queryClient";
 import {
@@ -360,7 +359,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           typeof created === "string" &&
           created.toLowerCase().includes("existe cuenta")
         ) {
-          toast.error("La cuenta bancaria ya existe");
+          showToast({ title: "Error", description: "La cuenta bancaria ya existe", type: "error" });
           return false;
         }
       } else if (account.action === "u") {
@@ -377,7 +376,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           typeof updated === "string" &&
           updated.toLowerCase().includes("existe cuenta")
         ) {
-          toast.error("La cuenta bancaria ya existe");
+          showToast({ title: "Error", description: "La cuenta bancaria ya existe", type: "error" });
           return false;
         }
       } else if (account.action === "d") {
@@ -811,7 +810,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         typeof created === "string" &&
         created.toLowerCase().includes("existe")
       ) {
-        //toast.error("Ya existe esa categoria");
+        //showToast({ title: "Error", description: "Ya existe esa categoria", type: "error" });
         return false;
       }
 
@@ -852,7 +851,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         typeof updated === "string" &&
         updated.toLowerCase().includes("existe")
       ) {
-        toast.error("Ya existe esa categoria");
+        showToast({ title: "Error", description: "Ya existe esa categoria", type: "error" });
         return false;
       }
 
@@ -921,7 +920,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         typeof created === "string" &&
         created.toLowerCase().includes("existe")
       ) {
-        //  toast.error("Ya existe esta area");
+        //  showToast({ title: "Error", description: "Ya existe esta area", type: "error" });
         return false;
       }
 
@@ -1047,7 +1046,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         typeof created === "string" &&
         created.toLowerCase().includes("existe")
       ) {
-        toast.error("Ya existe esta maquina registrada");
+        showToast({ title: "Error", description: "Ya existe esta maquina registrada", type: "error" });
         return false;
       }
 
@@ -1116,7 +1115,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         typeof updated === "string" &&
         updated.toLowerCase().includes("existe")
       ) {
-        toast.error("Ya existe un registro con ese nombre");
+        showToast({ title: "Error", description: "Ya existe un registro con ese nombre", type: "error" });
         return false;
       }
 
@@ -1229,7 +1228,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         created.toLowerCase().includes("existe") &&
         created.toLowerCase().includes("ruc")
       ) {
-        toast.error(created);
+        showToast({ title: "Error", description: created, type: "error" });
         return false;
       }
 
@@ -1340,7 +1339,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         updated.toLowerCase().includes("existe") &&
         updated.toLowerCase().includes("ruc")
       ) {
-        toast.error(updated);
+        showToast({ title: "Error", description: updated, type: "error" });
         return false;
       }
 
@@ -1446,7 +1445,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       });
 
       if (isDuplicateHoliday(created)) {
-        toast.error("Esa fecha ya está registrada");
+        showToast({ title: "Error", description: "Esa fecha ya está registrada", type: "error" });
         return false;
       }
 
@@ -1469,7 +1468,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       });
 
       if (isDuplicateHoliday(updated)) {
-        toast.error("Esa fecha ya está registrada");
+        showToast({ title: "Error", description: "Esa fecha ya está registrada", type: "error" });
         return false;
       }
 

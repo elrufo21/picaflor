@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import EmployeeForm from "../components/EmployeeForm";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import type { Personal } from "@/types/employees";
@@ -32,20 +32,20 @@ const EmployeeEdit = () => {
   ) => {
     const ok = await updateEmployee(Number(id), data);
     if (!ok) {
-      toast.error("No se pudo actualizar el empleado");
+      showToast({ title: "Error", description: "No se pudo actualizar el empleado", type: "error" });
       return;
     }
-    toast.success("Empleado actualizado");
+    showToast({ title: "Exito", description: "Empleado actualizado", type: "success" });
     navigate("/maintenance/employees");
   };
 
   const handleDelete = async () => {
     const ok = await deleteEmployee(Number(id));
     if (!ok) {
-      toast.error("No se pudo eliminar, ya que tiene relacion con otros modulos");
+      showToast({ title: "Error", description: "No se pudo eliminar, ya que tiene relacion con otros modulos", type: "error" });
       return;
     }
-    toast.success("Empleado eliminado");
+    showToast({ title: "Exito", description: "Empleado eliminado", type: "success" });
     navigate("/maintenance/employees");
   };
 

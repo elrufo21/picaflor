@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import { LogIn } from "lucide-react";
 
 import { TextControlled } from "@/components/ui/inputs";
@@ -42,7 +42,7 @@ const Login = () => {
     const reason = searchParams.get("reason");
     if (reason !== "session-expired") return;
 
-    toast.error("Sesion expirada");
+    showToast({ title: "Error", description: "Sesion expirada", type: "error" });
     navigate("/login", { replace: true });
   }, [location.search, navigate]);
 
@@ -54,10 +54,10 @@ const Login = () => {
     const today = new Date().toISOString().split("T")[0];
     setDate(today);
     if (ok) {
-      //toast.success("Bienvenido");
+      //showToast({ title: "Exito", description: "Bienvenido", type: "success" });
       navigate("/fullday", { replace: true });
     } else {
-      toast.error("Credenciales invalidas");
+      showToast({ title: "Error", description: "Credenciales invalidas", type: "error" });
     }
   };
 

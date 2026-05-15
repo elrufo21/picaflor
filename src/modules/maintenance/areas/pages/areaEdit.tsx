@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import AreaForm from "../components/AreaForm";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useAreasQuery } from "../useAreasQuery";
@@ -30,17 +30,17 @@ const AreaEdit = () => {
 
   const handleSave = async (data: Area) => {
     await updateArea(Number(id), data);
-    toast.success("Ya existe esta area");
+    showToast({ title: "Exito", description: "Ya existe esta area", type: "success" });
     navigate("/maintenance/areas");
   };
 
   const handleDelete = async () => {
     const ok = await deleteArea(Number(id));
     if (!ok) {
-      toast.error("No se pudo eliminar el área");
+      showToast({ title: "Error", description: "No se pudo eliminar el área", type: "error" });
       return;
     }
-    toast.success("Área eliminada");
+    showToast({ title: "Exito", description: "Área eliminada", type: "success" });
     navigate("/maintenance/areas");
   };
 

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-
+import { showToast } from "@/components/ui/AppToast";
 import DndTable from "@/components/dataTabla/DndTable";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 import type { Personal } from "@/types/employees";
@@ -59,12 +58,10 @@ const EmployeeList = () => {
                   onConfirm: async () => {
                     const ok = await deleteEmployee(id);
                     if (!ok) {
-                      toast.error(
-                        "No se pudo eliminar, ya que tiene relacion con otros modulos",
-                      );
+                      showToast({ title: "Error", description: "No se pudo eliminar, ya que tiene relacion con otros modulos", type: "error" });
                       return false;
                     }
-                    toast.success("Empleado eliminado");
+                    showToast({ title: "Exito", description: "Empleado eliminado", type: "success" });
                     await fetchEmployees("ACTIVO");
                     return true;
                   },
@@ -91,10 +88,10 @@ const EmployeeList = () => {
               if (mode === "create") {
                 const ok = await addEmployee(data);
                 if (!ok) {
-                  toast.error("No se pudo crear el empleado");
+                  showToast({ title: "Error", description: "No se pudo crear el empleado", type: "error" });
                   return false;
                 }
-                toast.success("Empleado creado correctamente");
+                showToast({ title: "Exito", description: "Empleado creado correctamente", type: "success" });
                 await fetchEmployees("ACTIVO");
                 return true;
               }
@@ -103,10 +100,10 @@ const EmployeeList = () => {
               if (!id) return false;
               const ok = await updateEmployee(id, data);
               if (!ok) {
-                toast.error("No se pudo actualizar el empleado");
+                showToast({ title: "Error", description: "No se pudo actualizar el empleado", type: "error" });
                 return false;
               }
-              toast.success("Empleado actualizado");
+              showToast({ title: "Exito", description: "Empleado actualizado", type: "success" });
               await fetchEmployees("ACTIVO");
               return true;
             }}
@@ -173,12 +170,10 @@ const EmployeeList = () => {
                   onConfirm: async () => {
                     const ok = await deleteEmployee(row.original.personalId);
                     if (!ok) {
-                      toast.error(
-                        "No se pudo eliminar, ya que tiene relacion con otros modulos",
-                      );
+                      showToast({ title: "Error", description: "No se pudo eliminar, ya que tiene relacion con otros modulos", type: "error" });
                       return false;
                     }
-                    toast.success("Empleado eliminado");
+                    showToast({ title: "Exito", description: "Empleado eliminado", type: "success" });
                     await fetchEmployees("ACTIVO");
                     return true;
                   },

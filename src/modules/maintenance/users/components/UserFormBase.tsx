@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Save, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import {
   IconButton,
   InputAdornment,
@@ -314,7 +314,7 @@ export default function UserFormBase({
               message: "Selecciona un canal de venta valido.",
             });
             setFocus("CanalVenta");
-            toast.error("Selecciona un canal de venta valido");
+            showToast({ title: "Error", description: "Selecciona un canal de venta valido", type: "error" });
             return false;
           }
 
@@ -324,7 +324,7 @@ export default function UserFormBase({
               message: "Nombres es obligatorio.",
             });
             setFocus("Nombres");
-            toast.error("Ingrese nombres");
+            showToast({ title: "Error", description: "Ingrese nombres", type: "error" });
             return false;
           }
 
@@ -334,7 +334,7 @@ export default function UserFormBase({
               message: "Apellidos es obligatorio.",
             });
             setFocus("Apellidos");
-            toast.error("Ingrese apellidos");
+            showToast({ title: "Error", description: "Ingrese apellidos", type: "error" });
             return false;
           }
         } else if (personalId <= 0) {
@@ -343,7 +343,7 @@ export default function UserFormBase({
             message: "Selecciona un personal.",
           });
           setFocus("PersonalId");
-          toast.error("Selecciona un personal");
+          showToast({ title: "Error", description: "Selecciona un personal", type: "error" });
           return false;
         }
       }
@@ -354,7 +354,7 @@ export default function UserFormBase({
           message: "Usuario/Alias es obligatorio.",
         });
         setFocus("UsuarioAlias");
-        toast.error("Ingrese usuario o alias");
+        showToast({ title: "Error", description: "Ingrese usuario o alias", type: "error" });
         return false;
       }
 
@@ -371,7 +371,7 @@ export default function UserFormBase({
             message: "Contraseña es obligatoria.",
           });
           setFocus("UsuarioClave");
-          toast.error("Ingrese la contraseña");
+          showToast({ title: "Error", description: "Ingrese la contraseña", type: "error" });
           return false;
         }
 
@@ -381,19 +381,17 @@ export default function UserFormBase({
             message: "Confirma la contraseña.",
           });
           setFocus("ConfirmClave");
-          toast.error("Confirma la contraseña");
+          showToast({ title: "Error", description: "Confirma la contraseña", type: "error" });
           return false;
         }
 
         if (!passwordMinRules.test(password)) {
-          toast.error(
-            "La contraseña debe tener minimo 6 caracteres, una mayuscula y un numero",
-          );
+          showToast({ title: "Error", description: "La contraseña debe tener minimo 6 caracteres, una mayuscula y un numero", type: "error" });
           return false;
         }
 
         if (password !== confirmPassword) {
-          toast.error("Las contraseñas no coinciden");
+          showToast({ title: "Error", description: "Las contraseñas no coinciden", type: "error" });
           return false;
         }
       }

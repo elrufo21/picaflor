@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-
+import { showToast } from "@/components/ui/AppToast";
 import DndTable from "@/components/dataTabla/DndTable";
 import UserFormBase from "@/modules/maintenance/users/components/UserFormBase";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -74,10 +73,10 @@ const UserList = () => {
                   onConfirm: async () => {
                     const ok = await deleteUser(id);
                     if (!ok) {
-                      toast.error("No se pudo eliminar el usuario");
+                      showToast({ title: "Error", description: "No se pudo eliminar el usuario", type: "error" });
                       return false;
                     }
-                    toast.success("Usuario eliminado");
+                    showToast({ title: "Exito", description: "Usuario eliminado", type: "success" });
                     await fetchUsers(usersEstado);
                     return true;
                   },
@@ -105,10 +104,10 @@ const UserList = () => {
               if (mode === "create") {
                 const ok = await addUser(payload);
                 if (!ok) {
-                  toast.error("No se pudo crear el usuario");
+                  showToast({ title: "Error", description: "No se pudo crear el usuario", type: "error" });
                   return false;
                 }
-                toast.success("Usuario creado correctamente");
+                showToast({ title: "Exito", description: "Usuario creado correctamente", type: "success" });
                 await fetchUsers(usersEstado);
                 return true;
               }
@@ -117,10 +116,10 @@ const UserList = () => {
               if (!id) return false;
               const ok = await updateUser(id, payload);
               if (!ok) {
-                toast.error("No se pudo actualizar el usuario");
+                showToast({ title: "Error", description: "No se pudo actualizar el usuario", type: "error" });
                 return false;
               }
-              toast.success("Usuario actualizado");
+              showToast({ title: "Exito", description: "Usuario actualizado", type: "success" });
               await fetchUsers(usersEstado);
               return true;
             }}
@@ -146,10 +145,10 @@ const UserList = () => {
         onConfirm: async () => {
           const ok = await deleteUser(id);
           if (!ok) {
-            toast.error("No se pudo eliminar el usuario");
+            showToast({ title: "Error", description: "No se pudo eliminar el usuario", type: "error" });
             return false;
           }
-          toast.success("Usuario eliminado");
+          showToast({ title: "Exito", description: "Usuario eliminado", type: "success" });
           await fetchUsers(usersEstado);
           return true;
         },

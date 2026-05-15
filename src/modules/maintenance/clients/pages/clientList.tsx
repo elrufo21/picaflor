@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-
+import { showToast } from "@/components/ui/AppToast";
 import DndTable from "@/components/dataTabla/DndTable";
 import { useClientsStore } from "@/store/clients/clients.store";
 import type { Client } from "@/types/maintenance";
@@ -49,10 +48,10 @@ const ClientList = () => {
                   onConfirm: async () => {
                     const ok = await deleteClient(id);
                     if (!ok) {
-                      toast.error("No se pudo eliminar el cliente");
+                      showToast({ title: "Error", description: "No se pudo eliminar el cliente", type: "error" });
                       return false;
                     }
-                    toast.success("Cliente eliminado");
+                    showToast({ title: "Exito", description: "Cliente eliminado", type: "success" });
                     await fetchClients("ACTIVO");
                     return true;
                   },
@@ -79,10 +78,10 @@ const ClientList = () => {
               if (mode === "create") {
                 const ok = await addClient(data);
                 if (!ok) {
-                  toast.error("No se pudo crear el cliente");
+                  showToast({ title: "Error", description: "No se pudo crear el cliente", type: "error" });
                   return false;
                 }
-                toast.success("Cliente creado correctamente");
+                showToast({ title: "Exito", description: "Cliente creado correctamente", type: "success" });
                 await fetchClients("ACTIVO");
                 return true;
               }
@@ -91,10 +90,10 @@ const ClientList = () => {
               if (!id) return false;
               const ok = await updateClient(id, data);
               if (!ok) {
-                toast.error("No se pudo actualizar el cliente");
+                showToast({ title: "Error", description: "No se pudo actualizar el cliente", type: "error" });
                 return false;
               }
-              toast.success("Cliente actualizado");
+              showToast({ title: "Exito", description: "Cliente actualizado", type: "success" });
               await fetchClients("ACTIVO");
               return true;
             }}
@@ -158,10 +157,10 @@ const ClientList = () => {
                   onConfirm: async () => {
                     const ok = await deleteClient(row.original.clienteId);
                     if (!ok) {
-                      toast.error("No se pudo eliminar el cliente");
+                      showToast({ title: "Error", description: "No se pudo eliminar el cliente", type: "error" });
                       return false;
                     }
-                    toast.success("Cliente eliminado");
+                    showToast({ title: "Exito", description: "Cliente eliminado", type: "success" });
                     await fetchClients("ACTIVO");
                     return true;
                   },

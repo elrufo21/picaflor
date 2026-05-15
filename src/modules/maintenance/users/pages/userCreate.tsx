@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
-
+import { showToast } from "@/components/ui/AppToast";
 import UserFormBase from "@/modules/maintenance/users/components/UserFormBase";
 import { useUsersStore } from "@/store/users/users.store";
 import type { User } from "@/store/users/users.store";
@@ -33,11 +32,11 @@ const UserCreate = () => {
     const created = await addUser(data);
 
     if (!created) {
-      //  toast.error("No se pudo crear el usuario.");
+      //  showToast({ title: "Error", description: "No se pudo crear el usuario.", type: "error" });
       return false;
     }
 
-    toast.success("Usuario creado correctamente");
+    showToast({ title: "Exito", description: "Usuario creado correctamente", type: "success" });
     setForm({
       PersonalId: 0,
       TipoUsuario: "INTERNO",

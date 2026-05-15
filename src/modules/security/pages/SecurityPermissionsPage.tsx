@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import MaintenancePageFrame from "@/modules/maintenance/components/MaintenancePageFrame";
 import { API_BASE_URL } from "@/config";
 import { useUsersStore } from "@/store/users/users.store";
@@ -568,7 +568,7 @@ const SecurityPermissionsPage = () => {
 
   const handleSave = async () => {
     if (!selectedUserId) {
-      toast.error("Selecciona un usuario.");
+      showToast({ title: "Error", description: "Selecciona un usuario.", type: "error" });
       return;
     }
 
@@ -603,7 +603,7 @@ const SecurityPermissionsPage = () => {
         "No se pudo guardar permisos por usuario en backend",
         error,
       );
-      toast.error("No se pudo guardar en la base de datos.");
+      showToast({ title: "Error", description: "No se pudo guardar en la base de datos.", type: "error" });
       return;
     }
 
@@ -622,7 +622,7 @@ const SecurityPermissionsPage = () => {
       loadForUser(authUser);
       loadSubmodulesForUser(authUser);
     }
-    toast.success("Permisos guardados.");
+    showToast({ title: "Exito", description: "Permisos guardados.", type: "success" });
   };
 
   const handleClearOverrides = () => {
@@ -663,7 +663,7 @@ const SecurityPermissionsPage = () => {
       loadForUser(authUser);
       loadSubmodulesForUser(authUser);
     }
-    toast.success("Overrides limpiados. El usuario vuelve a heredar por área.");
+    showToast({ title: "Exito", description: "Overrides limpiados. El usuario vuelve a heredar por área.", type: "success" });
   };
 
   const toggleCheck = (

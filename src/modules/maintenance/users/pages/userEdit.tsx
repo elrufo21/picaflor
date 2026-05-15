@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/AppToast";
 import { useDialogStore } from "@/store/app/dialog.store";
 import UserFormBase from "@/modules/maintenance/users/components/UserFormBase";
 import type { User } from "@/store/employees/employees.store";
@@ -32,11 +32,11 @@ const UserEdit = () => {
   const handleSave = async (data: Omit<User, "id">) => {
     const updated = await updateUser(Number(id), data);
     if (!updated) {
-      toast.error("No se pudo guardar el usuario.");
+      showToast({ title: "Error", description: "No se pudo guardar el usuario.", type: "error" });
       return false;
     }
 
-    toast.success("Empleado guardado correctamente");
+    showToast({ title: "Exito", description: "Empleado guardado correctamente", type: "success" });
     navigate("/maintenance/users");
     return true;
   };
@@ -50,14 +50,14 @@ const UserEdit = () => {
         try {
           const result = await deleteUser(Number(id));
           if (result === false) {
-            toast.error("No se pudo eliminar el usuario.");
+            showToast({ title: "Error", description: "No se pudo eliminar el usuario.", type: "error" });
             return;
           }
-          toast.success("Empleado eliminado correctamente");
+          showToast({ title: "Exito", description: "Empleado eliminado correctamente", type: "success" });
           navigate("/maintenance/users");
         } catch (error) {
           console.error("Error eliminando usuario", error);
-          toast.error("Ocurrio un error al eliminar el usuario.");
+          showToast({ title: "Error", description: "Ocurrio un error al eliminar el usuario.", type: "error" });
         }
       },
     });
