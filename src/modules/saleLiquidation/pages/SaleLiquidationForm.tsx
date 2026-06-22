@@ -1,18 +1,14 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 
 import { useDialogStore, type DialogPayload } from "@/app/store/dialogStore";
 import DndTable from "@/components/dataTabla/DndTable";
 import { showToast } from "@/components/ui/AppToast";
 import { formatCurrency } from "@/shared/helpers/formatCurrency";
+import { queryClient } from "@/shared/queryClient";
 import {
   formatDate,
   formatDateForInput,
@@ -72,15 +68,16 @@ const bancoOptions: SelectOption[] = [
 const emptyPaymentPayload = (): PaymentFormPayload => ({
   liquidaId: 0,
   recibido: getTodayDateInputValue(),
-  formaPago: "EFECTIVO",
+  formaPago: "",
   moneda: "SOLES",
   tipoCambio: "1",
   importe: "",
-  entidadBancaria: "-",
+  entidadBancaria: "",
   nroOperacion: "",
 });
 
 const textValue = (value: unknown) => String(value ?? "");
+const THREE_DECIMAL_NUMBER = /^\d*(?:\.\d{0,3})?$/;
 const normalizePaymentMethod = (value: unknown) =>
   textValue(value).trim().toUpperCase();
 const requiresBankData = (value: unknown) =>
@@ -120,32 +117,35 @@ const paymentToPayload = (
     ? textValue(payment.nroOperacion)
     : "",
 });
+const paymentSignature = (payload: PaymentFormPayload) =>
+  JSON.stringify([
+    textValue(payload.recibido).trim(),
+    normalizePaymentMethod(payload.formaPago),
+    normalizeCurrency(payload.moneda),
+    toAmount(payload.tipoCambio) || 1,
+    toAmount(payload.importe),
+    paymentBankValue(payload.formaPago, payload.entidadBancaria),
+    requiresBankData(payload.formaPago)
+      ? textValue(payload.nroOperacion).trim()
+      : "",
+  ]);
 
 const SaleLiquidationForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const authUser = useAuthStore((state) => state.user);
   const openDialog = useDialogStore((state) => state.openDialog);
-  const [detail, setDetail] = useState<SaleLiquidationDetail | null>(null);
-  const [loading, setLoading] = useState(Boolean(id));
-  const [error, setError] = useState("");
-
-  const loadDetail = useCallback(async () => {
-    if (!id) return;
-    setLoading(true);
-    setError("");
-    try {
-      setDetail(await fetchLiquidationPaymentDetail(id));
-    } catch {
-      setError("No se pudo cargar la liquidacion.");
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    void loadDetail();
-  }, [loadDetail]);
+  const {
+    data: detail,
+    isLoading: loading,
+    isError,
+  } = useQuery<SaleLiquidationDetail>({
+    queryKey: ["sale-liquidations", "detail", id],
+    queryFn: () => fetchLiquidationPaymentDetail(id!),
+    enabled: Boolean(id),
+    staleTime: Infinity,
+  });
 
   const paymentRows = useMemo<PaymentTableRow[]>(
     () =>
@@ -173,11 +173,17 @@ const SaleLiquidationForm = () => {
       ),
     [paymentRows],
   );
+  const firstAccountPaymentId =
+    textValue(detail?.condicion).replace(/\s+/g, "").toUpperCase() === "ACUENTA"
+      ? paymentRows[0]?.liquidaId
+      : undefined;
 
   const openPaymentDialog = useCallback(
     (payment?: SaleLiquidationPayment) => {
       if (!id) return;
       const isEdit = Boolean(payment?.liquidaId);
+      const lockAmount = payment?.liquidaId === firstAccountPaymentId;
+      const maxAmount = (detail?.saldo ?? 0) + (payment?.acuenta ?? 0);
 
       openDialog({
         title: isEdit ? "Editar pago" : "Agregar pago",
@@ -190,12 +196,20 @@ const SaleLiquidationForm = () => {
         onConfirm: async (payload) => {
           const form = payload as PaymentFormPayload;
           const importe = toAmount(form.importe);
-          const tipoCambio = toAmount(form.tipoCambio) || 1;
+          const tipoCambio = toAmount(form.tipoCambio);
           const formaPago = normalizePaymentMethod(form.formaPago);
           const entidadBancaria = textValue(form.entidadBancaria).trim();
           const nroOperacion = textValue(form.nroOperacion).trim();
 
           const recibido = textValue(form.recibido) || getTodayDateInputValue();
+
+          if (
+            payment &&
+            paymentSignature(form) ===
+              paymentSignature(paymentToPayload(payment))
+          ) {
+            return true;
+          }
 
           if (!Number.isFinite(importe) || importe <= 0) {
             showToast({
@@ -231,10 +245,23 @@ const SaleLiquidationForm = () => {
               return false;
             }
           }
-          if (isDollarCurrency(form.moneda) && tipoCambio <= 0) {
+          if (
+            isDollarCurrency(form.moneda) &&
+            (!THREE_DECIMAL_NUMBER.test(textValue(form.tipoCambio)) ||
+              tipoCambio <= 0)
+          ) {
             showToast({
               title: "Tipo de cambio requerido",
-              description: "Ingresa un tipo de cambio mayor a cero.",
+              description:
+                "Ingresa un tipo de cambio mayor a cero y con hasta 3 decimales.",
+              type: "warning",
+            });
+            return false;
+          }
+          if (appliedAmount(form) > maxAmount) {
+            showToast({
+              title: "Importe excedido",
+              description: "El importe no debe superar el monto a pagar.",
               type: "warning",
             });
             return false;
@@ -246,7 +273,7 @@ const SaleLiquidationForm = () => {
             recibido,
             formaPago,
             moneda: textValue(form.moneda),
-            tipoCambio,
+            tipoCambio: tipoCambio || 1,
             importe,
             acuenta: appliedAmount(form),
             entidadBancaria: paymentBankValue(formaPago, entidadBancaria),
@@ -259,7 +286,9 @@ const SaleLiquidationForm = () => {
             description: "La liquidacion fue actualizada.",
             type: "success",
           });
-          await loadDetail();
+          await queryClient.invalidateQueries({
+            queryKey: ["sale-liquidations"],
+          });
           return true;
         },
         content: ({ payload, setPayload }) => (
@@ -267,6 +296,8 @@ const SaleLiquidationForm = () => {
             payload={payload as PaymentFormPayload}
             setPayload={(next) => setPayload(next)}
             saldo={detail?.saldo ?? 0}
+            maxAmount={maxAmount}
+            lockAmount={lockAmount}
           />
         ),
       });
@@ -275,8 +306,9 @@ const SaleLiquidationForm = () => {
       authUser?.displayName,
       authUser?.username,
       detail?.documento,
+      detail?.saldo,
+      firstAccountPaymentId,
       id,
-      loadDetail,
       openDialog,
     ],
   );
@@ -298,7 +330,9 @@ const SaleLiquidationForm = () => {
             description: "La liquidacion fue actualizada.",
             type: "success",
           });
-          await loadDetail();
+          await queryClient.invalidateQueries({
+            queryKey: ["sale-liquidations"],
+          });
           return true;
         },
         content: () => (
@@ -308,7 +342,7 @@ const SaleLiquidationForm = () => {
         ),
       });
     },
-    [id, loadDetail, openDialog],
+    [id, openDialog],
   );
 
   const columns = useMemo(() => {
@@ -343,30 +377,34 @@ const SaleLiquidationForm = () => {
         header: "Acciones",
         cell: ({ row }) => (
           <div className="flex items-center justify-center gap-1">
-            <button
-              type="button"
-              onClick={() => openPaymentDialog(row.original)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-800"
-              title="Editar pago"
-              aria-label="Editar pago"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => confirmDeletePayment(row.original)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 hover:text-red-800"
-              title="Eliminar pago"
-              aria-label="Eliminar pago"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {row.original.liquidaId !== firstAccountPaymentId && (
+              <button
+                type="button"
+                onClick={() => openPaymentDialog(row.original)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+                title="Editar pago"
+                aria-label="Editar pago"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
+            {row.original.liquidaId !== firstAccountPaymentId && (
+              <button
+                type="button"
+                onClick={() => confirmDeletePayment(row.original)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 hover:text-red-800"
+                title="Eliminar pago"
+                aria-label="Eliminar pago"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
         ),
         meta: { align: "center" },
       }),
     ];
-  }, [confirmDeletePayment, openPaymentDialog]);
+  }, [confirmDeletePayment, firstAccountPaymentId, openPaymentDialog]);
 
   if (!id) {
     return (
@@ -384,10 +422,10 @@ const SaleLiquidationForm = () => {
     );
   }
 
-  if (error || !detail) {
+  if (isError || !detail) {
     return (
       <div className="rounded-lg border border-red-200 bg-white p-4 text-sm text-red-700">
-        {error || "Liquidacion no encontrada."}
+        No se pudo cargar la liquidacion.
       </div>
     );
   }
@@ -397,7 +435,16 @@ const SaleLiquidationForm = () => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
-          onClick={() => navigate("/sale-liquidations")}
+          onClick={() =>
+            navigate("/sale-liquidations", {
+              state: {
+                useCache: Boolean(
+                  (location.state as { fromSaleList?: boolean } | null)
+                    ?.fromSaleList,
+                ),
+              },
+            })
+          }
           className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold hover:bg-slate-50"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -461,24 +508,25 @@ const SaleLiquidationForm = () => {
         columns={columns}
         enableSearching={false}
         emptyMessage="Sin pagos registrados"
-        headerAction={
+        dateFilterComponent={() => (
           <button
             type="button"
-            onClick={openPaymentDialog}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8612A] text-white shadow-sm hover:bg-[#d55320]"
+            onClick={() => openPaymentDialog()}
+            className="ml-auto inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#E8612A] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#d55320]"
             title="Agregar pago"
             aria-label="Agregar pago"
           >
             <Plus className="h-5 w-5" />
+            AGREGAR PAGO
           </button>
-        }
+        )}
       />
 
       <section className="grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 text-right font-semibold md:grid-cols-4">
         <Summary label="Efectivo $/." value={money(totals.efectivoUsd)} />
-        <Summary label="Efectivo S/." value={money(totals.efectivoPen)} />
+        <Summary label="Efectivo S/" value={money(totals.efectivoPen)} />
         <Summary label="Otros $/." value={money(totals.otrosUsd)} />
-        <Summary label="Otros S/." value={money(totals.otrosPen)} />
+        <Summary label="Otros S/" value={money(totals.otrosPen)} />
       </section>
     </div>
   );
@@ -488,10 +536,14 @@ const PaymentDialogForm = ({
   payload,
   setPayload,
   saldo,
+  maxAmount,
+  lockAmount,
 }: {
   payload: PaymentFormPayload;
   setPayload: (payload: PaymentFormPayload) => void;
   saldo: number;
+  maxAmount: number;
+  lockAmount: boolean;
 }) => {
   const formaPago = textValue(payload.formaPago).toUpperCase();
   const isDeposito = requiresBankData(formaPago);
@@ -505,7 +557,7 @@ const PaymentDialogForm = ({
     setPayload({
       ...payload,
       moneda: value,
-      tipoCambio: value === "SOLES" ? "1" : textValue(payload.tipoCambio || ""),
+      tipoCambio: value === "SOLES" ? "1" : "",
     });
   const updateFormaPago = (value: string) =>
     setPayload({
@@ -526,11 +578,11 @@ const PaymentDialogForm = ({
       <div className="overflow-hidden rounded-lg border border-slate-300 bg-white">
         <AmountRow label="SALDO ACTUAL" value={money(saldo)} strong danger />
         <AmountRow
-          label={`IMPORTE ${isDollars ? "$" : "S/."}`}
+          label={`IMPORTE ${isDollars ? "$" : "S/"}`}
           value={money(importe)}
         />
         <AmountRow
-          label="TOTAL APLICADO S/."
+          label="TOTAL APLICADO S/"
           value={money(totalAplicado)}
           strong
         />
@@ -575,7 +627,10 @@ const PaymentDialogForm = ({
               <Input
                 type="number"
                 value={textValue(payload.tipoCambio)}
-                onChange={(value) => update("tipoCambio", value)}
+                onChange={(value) =>
+                  THREE_DECIMAL_NUMBER.test(value) &&
+                  update("tipoCambio", value)
+                }
                 step="0.001"
                 alignRight
                 disabled={!isDollars}
@@ -587,10 +642,16 @@ const PaymentDialogForm = ({
                 value={textValue(payload.importe)}
                 onChange={(value) => update("importe", value)}
                 step="0.01"
+                max={
+                  isDollars
+                    ? maxAmount / (toAmount(payload.tipoCambio) || 1)
+                    : maxAmount
+                }
                 alignRight
+                disabled={lockAmount}
               />
             </DialogField>
-            <DialogField label="Total aplicado S/.">
+            <DialogField label="Total aplicado S/">
               <input
                 value={money(totalAplicado)}
                 disabled
@@ -709,6 +770,7 @@ const Input = ({
   type = "text",
   placeholder,
   step,
+  max,
   alignRight = false,
   disabled = false,
 }: {
@@ -717,6 +779,7 @@ const Input = ({
   type?: string;
   placeholder?: string;
   step?: string;
+  max?: number;
   alignRight?: boolean;
   disabled?: boolean;
 }) => (
@@ -726,6 +789,7 @@ const Input = ({
     onChange={(event) => onChange(event.target.value)}
     placeholder={placeholder}
     step={step}
+    max={max}
     disabled={disabled}
     className={`h-9 w-full rounded border border-slate-300 px-2 text-sm text-slate-900 outline-none focus:border-[#E8612A] focus:ring-2 focus:ring-orange-100 disabled:bg-slate-100 disabled:text-slate-400 ${
       alignRight ? "text-right" : ""
