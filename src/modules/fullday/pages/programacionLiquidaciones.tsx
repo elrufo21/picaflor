@@ -2911,7 +2911,7 @@ const LiquidacionesPage = () => {
             when: (row) =>
               String(row.estado ?? "")
                 .trim()
-                .toUpperCase() !== "ANULADO" && row.condicion === "CREDITO",
+                .toUpperCase() === "PENDIENTE" && row.condicion === "CREDITO",
             className: "bg-orange-200 text-orange-700",
           },
 

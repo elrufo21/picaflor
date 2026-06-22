@@ -11,6 +11,11 @@ const parseDate = (value: string | number | Date) => {
       const [, y, m, d] = dateOnlyMatch;
       return new Date(Number(y), Number(m) - 1, Number(d));
     }
+    const legacyDateMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (legacyDateMatch) {
+      const [, d, m, y] = legacyDateMatch;
+      return new Date(Number(y), Number(m) - 1, Number(d));
+    }
     return new Date(trimmed);
   }
 

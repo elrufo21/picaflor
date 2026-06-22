@@ -16,6 +16,7 @@ import ModuleDefaultRedirect from "./components/ModuleDefaultRedirect";
 import Login from "./pages/Login";
 import Forbidden from "./pages/Forbidden";
 import type { ModuleCode } from "./auth/mockModulePermissions";
+import saleLiquidationRoutes from "../modules/saleLiquidation/router";
 
 type RouteEntry = {
   path?: string;
@@ -65,6 +66,10 @@ const router = createBrowserRouter([
       { path: "projects", element: <Projects /> },
       { path: "reports", element: <Reports /> },
       { path: "settings", element: <Settings /> },
+      ...withModuleGuard(
+        saleLiquidationRoutes as RouteEntry[],
+        "sale_liquidation",
+      ),
       ...withModuleGuard(fulldayCoreRoutes, "fullday"),
       ...withModuleGuard(fulldayProgramacionRoutes, "programacion"),
       ...withModuleGuard(citytourRoutes as RouteEntry[], "citytour"),

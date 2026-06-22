@@ -1112,6 +1112,10 @@ const ViajeForm = () => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingVerificado, setIsUpdatingVerificado] = useState(false);
+  const [isCheckingEditPayments, setIsCheckingEditPayments] = useState(false);
+  const [canEditByPayments, setCanEditByPayments] = useState<boolean | null>(
+    null,
+  );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -1122,6 +1126,30 @@ const ViajeForm = () => {
   useEffect(() => {
     setIsEditing(!liquidacionId);
   }, [liquidacionId, setIsEditing]);
+  useEffect(() => {
+    if (!liquidacionId) {
+      setCanEditByPayments(true);
+      return;
+    }
+
+    const loadEditState = async () => {
+      try {
+        setIsCheckingEditPayments(true);
+        const response = await axios.get(
+          `${API_BASE_URL}/Programacion/liquidacion-pago-estado/${liquidacionId}`,
+        );
+        setCanEditByPayments(
+          Boolean(response.data?.puedeEditar ?? response.data?.PuedeEditar),
+        );
+      } catch {
+        setCanEditByPayments(false);
+      } finally {
+        setIsCheckingEditPayments(false);
+      }
+    };
+
+    void loadEditState();
+  }, [liquidacionId]);
   useEffect(() => {
     if (!packages.length) return;
 
@@ -1554,7 +1582,7 @@ const ViajeForm = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleUnlockEditing = () => {
+  const handleUnlockEditing = async () => {
     if (!canEditLiquidacion) {
       showToast({
         title: "Sin permiso",
@@ -1571,6 +1599,14 @@ const ViajeForm = () => {
         title: "Edicion no permitida",
         description:
           "Como usuario externo solo puedes editar el mismo dia del registro hasta las 8:00 PM.",
+        type: "warning",
+      });
+      return;
+    }
+    if (!canEditByPayments) {
+      showToast({
+        title: "Edicion no permitida",
+        description: "Esta liquidacion no tiene pagos registrados.",
         type: "warning",
       });
       return;
@@ -1821,12 +1857,26 @@ const ViajeForm = () => {
                   </button>
                 )}
 
+                {!isEditing && liquidacionId && canEditByPayments === true && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/sale-liquidation/${liquidacionId}`)}
+                    className="inline-flex items-center rounded-lg bg-sky-600 px-3 py-2 text-sm text-white ring-1 ring-sky-600/30 transition hover:bg-sky-700"
+                  >
+                    Ver pagos
+                  </button>
+                )}
+
                 {liquidacionId && !isEditing && (
                   <button
                     type="button"
                     onClick={handleUnlockEditing}
                     title="Desbloquear edición"
-                    disabled={!canEditLiquidacion}
+                    disabled={
+                      !canEditLiquidacion ||
+                      isCheckingEditPayments ||
+                      canEditByPayments !== true
+                    }
                     className="
                               inline-flex items-center gap-1
                               rounded-lg bg-white px-3 py-2
@@ -1835,7 +1885,11 @@ const ViajeForm = () => {
                               disabled:opacity-50 disabled:cursor-not-allowed
                             "
                   >
-                    <Lock size={16} />
+                    {isCheckingEditPayments ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Lock size={16} />
+                    )}
                   </button>
                 )}
               </div>

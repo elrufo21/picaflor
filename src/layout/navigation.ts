@@ -81,6 +81,14 @@ export const navigationItems: NavigationItem[] = [
     moduleCode: "cashflow",
   },
   {
+    label: "Liquidación de ventas",
+    to: "/sale-liquidations",
+    icon: Briefcase,
+    description: "Pagos pendientes",
+    end: true,
+    moduleCode: "sale_liquidation",
+  },
+  {
     label: "Tour de Lima",
     to: "/citytour",
     icon: Car,

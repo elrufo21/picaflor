@@ -22,6 +22,7 @@ export const MODULE_CODES: ModuleCode[] = [
   "cashflow",
   "maintenance",
   "security",
+  "sale_liquidation",
 ];
 
 const ACTIONS: PermissionAction[] = ["read", "create", "edit", "delete"];
