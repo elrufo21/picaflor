@@ -59,7 +59,10 @@ export default [
     path: "citytour/:idProduct/passengers/boleta",
     element: <CityTourBoletaPreview />,
     handle: {
-      breadcrumb: [{ label: "City Tour", to: "/citytour" }, { label: "Boleta" }],
+      breadcrumb: [
+        { label: "City Tour", to: "/citytour" },
+        { label: "Boleta" },
+      ],
     },
   },
   {

@@ -35,6 +35,7 @@ const MODULE_OPTIONS: Array<{ code: ModuleCode; label: string }> = [
   { code: "cashflow", label: "cashflow" },
   { code: "maintenance", label: "mantenimiento" },
   { code: "security", label: "seguridad" },
+  { code: "sale_liquidation", label: "liquidacion de ventas" },
 ];
 
 type ModuleCheckRow = {
