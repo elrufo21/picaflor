@@ -80,6 +80,8 @@ const textValue = (value: unknown) => String(value ?? "");
 const THREE_DECIMAL_NUMBER = /^\d*(?:\.\d{0,3})?$/;
 const normalizePaymentMethod = (value: unknown) =>
   textValue(value).trim().toUpperCase();
+const normalizeOperation = (value: unknown) =>
+  textValue(value).replace(/\s/g, "").toUpperCase();
 const requiresBankData = (value: unknown) =>
   normalizePaymentMethod(value) === "DEPOSITO";
 const paymentBankValue = (formaPago: unknown, entidadBancaria: unknown) => {
@@ -114,7 +116,7 @@ const paymentToPayload = (
   importe: textValue(payment.importe),
   entidadBancaria: paymentBankValue(payment.formaPago, payment.entidadBancaria),
   nroOperacion: requiresBankData(payment.formaPago)
-    ? textValue(payment.nroOperacion)
+    ? normalizeOperation(payment.nroOperacion)
     : "",
 });
 const paymentSignature = (payload: PaymentFormPayload) =>
@@ -126,7 +128,7 @@ const paymentSignature = (payload: PaymentFormPayload) =>
     toAmount(payload.importe),
     paymentBankValue(payload.formaPago, payload.entidadBancaria),
     requiresBankData(payload.formaPago)
-      ? textValue(payload.nroOperacion).trim()
+      ? normalizeOperation(payload.nroOperacion)
       : "",
   ]);
 
@@ -199,7 +201,7 @@ const SaleLiquidationForm = () => {
           const tipoCambio = toAmount(form.tipoCambio);
           const formaPago = normalizePaymentMethod(form.formaPago);
           const entidadBancaria = textValue(form.entidadBancaria).trim();
-          const nroOperacion = textValue(form.nroOperacion).trim();
+          const nroOperacion = normalizeOperation(form.nroOperacion);
 
           const recibido = textValue(form.recibido) || getTodayDateInputValue();
 
@@ -476,7 +478,11 @@ const SaleLiquidationForm = () => {
             <Field label="Moneda" value={detail.moneda} />
             <Field
               label="Credito"
-              value={detail.permiteCredito ? "Si" : "No"}
+              value={
+                textValue(detail.condicion).trim().toUpperCase() === "CREDITO"
+                  ? "SI"
+                  : "NO"
+              }
             />
           </div>
         </div>
@@ -523,9 +529,9 @@ const SaleLiquidationForm = () => {
       />
 
       <section className="grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 text-right font-semibold md:grid-cols-4">
-        <Summary label="Efectivo $/." value={money(totals.efectivoUsd)} />
+        <Summary label="Efectivo $/" value={money(totals.efectivoUsd)} />
         <Summary label="Efectivo S/" value={money(totals.efectivoPen)} />
-        <Summary label="Otros $/." value={money(totals.otrosUsd)} />
+        <Summary label="Otros $/" value={money(totals.otrosUsd)} />
         <Summary label="Otros S/" value={money(totals.otrosPen)} />
       </section>
     </div>
@@ -675,7 +681,9 @@ const PaymentDialogForm = ({
             <DialogField label="Nro Operacion">
               <Input
                 value={textValue(payload.nroOperacion)}
-                onChange={(value) => update("nroOperacion", value)}
+                onChange={(value) =>
+                  update("nroOperacion", normalizeOperation(value))
+                }
                 disabled={!isDeposito}
               />
             </DialogField>
