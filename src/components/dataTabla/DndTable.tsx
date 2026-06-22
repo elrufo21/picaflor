@@ -386,7 +386,7 @@ const DndTable = <TData extends Record<string, any> = Record<string, any>>({
       className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${className}`}
     >
       {/* Header con búsqueda y acciones */}
-      {(enableFiltering || enableSearching || headerAction) && (
+      {(enableFiltering || enableSearching || headerAction || dateFilterComponent) && (
         <TableHeader
           globalFilter={globalFilter}
           setGlobalFilter={setGlobalFilter}

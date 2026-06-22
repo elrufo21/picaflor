@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import DndTable from "@/components/dataTabla/DndTable";
@@ -31,31 +32,20 @@ const normalizeFilter = (value?: string) =>
 
 const SaleLiquidationList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const authUser = useAuthStore((state) => state.user);
-  const [rows, setRows] = useState<SaleLiquidationRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>("TODOS");
+  const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>("PENDIENTE");
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>("TODOS");
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-
-    fetchPendingLiquidations(authUser?.areaId ?? 0, authUser?.personalId ?? 0)
-      .then((data) => {
-        if (!cancelled) setRows(data);
-      })
-      .catch(() => {
-        if (!cancelled) setRows([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authUser?.areaId, authUser?.personalId]);
+  const areaId = authUser?.areaId ?? 0;
+  const personalId = authUser?.personalId ?? 0;
+  const { data: rows = [], isLoading: loading } = useQuery({
+    queryKey: ["sale-liquidations", "pending", areaId, personalId],
+    queryFn: () => fetchPendingLiquidations(areaId, personalId),
+    staleTime: Infinity,
+    refetchOnMount: (location.state as { useCache?: boolean } | null)?.useCache
+      ? true
+      : "always",
+  });
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
@@ -83,7 +73,11 @@ const SaleLiquidationList = () => {
         cell: ({ row }) => (
           <button
             type="button"
-            onClick={() => navigate(`/sale-liquidation/${row.original.notaId}`)}
+            onClick={() =>
+              navigate(`/sale-liquidation/${row.original.notaId}`, {
+                state: { fromSaleList: true },
+              })
+            }
             className="text-xs font-semibold text-blue-800 cursor-pointer hover:text-slate-900"
           >
             Ver
@@ -91,12 +85,14 @@ const SaleLiquidationList = () => {
         ),
         meta: { align: "center" },
       }),
+      helper.accessor("notaId", { header: "Nro Liquidaciòn" }),
       helper.accessor("documento", { header: "Documento" }),
       helper.accessor("fechaViaje", {
         header: "Fecha viaje",
         cell: (info) => formatDate(info.getValue()),
       }),
       helper.accessor("cliente", { header: "Cliente" }),
+      helper.accessor("auxiliar", { header: "Canal de venta" }),
       helper.accessor("servicio", { header: "Servicio" }),
       helper.accessor("moneda", { header: "Moneda" }),
       helper.accessor("total", {
@@ -164,7 +160,7 @@ const SaleLiquidationList = () => {
       <DndTable
         data={filteredRows}
         columns={columns}
-        enableSorting
+        enableSorting={false}
         isLoading={loading}
         emptyMessage="No se encontraron liquidaciones pendientes"
         enableFiltering={false}
