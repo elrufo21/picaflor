@@ -172,6 +172,8 @@ const SaleLiquidationList = () => {
           "formaPago",
           "estado",
           "counter",
+          "notaId",
+          "auxiliar",
         ]}
         dateFilterComponent={Filters}
       />
