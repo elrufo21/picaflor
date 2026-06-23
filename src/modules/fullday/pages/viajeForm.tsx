@@ -1190,6 +1190,17 @@ const ViajeForm = () => {
   const fechaViaje = watch("fechaViaje");
   const fechaEmision = watch("fechaEmision");
   const notaId = watch("notaId");
+  const rawPaymentCondition = watch("condicion");
+  const paymentCondition = String(
+    typeof rawPaymentCondition === "string"
+      ? rawPaymentCondition
+      : rawPaymentCondition?.value ?? rawPaymentCondition?.label ?? "",
+  )
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+  const canViewPayments =
+    paymentCondition.includes("CUENTA") || paymentCondition.includes("CREDITO");
   const isLiquidacionAnulada = watch("estado") === "ANULADO";
   const fechaRegistro = String(
     watch("fechaRegistro") ?? formData?.fechaRegistro ?? "",
@@ -1857,7 +1868,9 @@ const ViajeForm = () => {
                   </button>
                 )}
 
-                {!isEditing && liquidacionId && canEditByPayments === true && (
+                {!isEditing &&
+                  liquidacionId &&
+                  canViewPayments && (
                   <button
                     type="button"
                     onClick={() => navigate(`/sale-liquidation/${liquidacionId}`)}

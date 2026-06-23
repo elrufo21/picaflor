@@ -147,6 +147,9 @@ export async function saveLiquidationPayment(
     },
   });
   if (result === true || String(result).trim().toLowerCase() === "true") return true;
+  if (String(result).trim().toLowerCase() === "operacion_duplicada") {
+    throw new Error("Ese numero de operacion ya existe para el banco seleccionado.");
+  }
   throw new Error(String(result || "No se pudo registrar el pago."));
 }
 

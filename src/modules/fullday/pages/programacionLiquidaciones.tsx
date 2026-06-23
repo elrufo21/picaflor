@@ -1467,6 +1467,7 @@ const LiquidacionesPage = () => {
       clearTimeout(searchDebounceRef.current);
     }
 
+    setSearchResults(null);
     searchDebounceRef.current = setTimeout(() => {
       const controller = new AbortController();
       searchAbortRef.current = controller;
@@ -2826,7 +2827,13 @@ const LiquidacionesPage = () => {
         ]}
         enableSearching
         searchInputComponent={SearchModeFilterInput}
-        isLoading={loading}
+        isLoading={
+          loading ||
+          searchLoading ||
+          (searchMode === "numero" &&
+            Boolean(searchNumber.trim()) &&
+            searchResults === null)
+        }
         emptyMessage="No se encontraron liquidaciones"
         dateFilterComponent={DateRangeFilter}
         enableRowSelection={false}
