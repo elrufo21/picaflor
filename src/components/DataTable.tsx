@@ -131,6 +131,7 @@ export default function DataTable<T>({
 
     return flexRender(cell.column.columnDef.cell, cell.getContext());
   };
+  const formatInteger = (value: number) => value.toLocaleString("en-US");
 
   return (
     <div className="w-full border rounded-xl bg-white shadow p-4">
@@ -231,7 +232,7 @@ export default function DataTable<T>({
 
         <span className="text-center flex-1">
           <strong>
-            {end}/{totalCount}
+            {formatInteger(end)}/{formatInteger(totalCount)}
           </strong>
         </span>
 

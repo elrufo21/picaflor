@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx-js-style";
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { ArrowLeft, FileDown, FileText } from "lucide-react";
 import {
   Document,
@@ -175,10 +175,12 @@ const CityTourListado = () => {
   const { id } = useParams();
   const idProducto = Number(id);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     listado,
     listadoLoading,
+    loadPackages,
     loadListadoByProducto,
     packages,
     date,
@@ -189,8 +191,9 @@ const CityTourListado = () => {
   useEffect(() => {
     if (Number.isFinite(idProducto)) {
       loadListadoByProducto(date, idProducto);
+      loadPackages(date);
     }
-  }, [date, idProducto, loadListadoByProducto]);
+  }, [date, idProducto, loadListadoByProducto, loadPackages]);
 
   const selectedProducto = useMemo(
     () =>
@@ -202,6 +205,14 @@ const CityTourListado = () => {
   const displayName = toPlainText(
     selectedFullDayName || selectedProducto?.destino || "Sin nombre",
   );
+  const routeMeta =
+    location.state && typeof location.state === "object"
+      ? (location.state as { transporte?: unknown; guia?: unknown })
+      : {};
+  const transportePdf = toPlainText(
+    routeMeta.transporte ?? selectedProducto?.transporte ?? "",
+  );
+  const guiaPdf = toPlainText(routeMeta.guia ?? selectedProducto?.guia ?? "");
 
   const normalizedListado = useMemo(() => parseListado(listado), [listado]);
   const filteredListado = useMemo(() => {
@@ -411,7 +422,7 @@ const CityTourListado = () => {
         </Text>
         <View style={pdfStyles.metaRow}>
           <Text style={pdfStyles.metaLabel}>TRANS :</Text>
-          <Text style={pdfStyles.metaValue}></Text>
+          <Text style={pdfStyles.metaValue}>{transportePdf}</Text>
         </View>
         <View style={pdfStyles.metaRow}>
           <Text style={pdfStyles.metaLabel}>FECHA :</Text>
@@ -419,7 +430,7 @@ const CityTourListado = () => {
         </View>
         <View style={pdfStyles.metaRow}>
           <Text style={pdfStyles.metaLabel}>GUIA :</Text>
-          <Text style={pdfStyles.metaValue}></Text>
+          <Text style={pdfStyles.metaValue}>{guiaPdf}</Text>
         </View>
         <View style={pdfStyles.table}>
           <View style={[pdfStyles.row, pdfStyles.header]}>

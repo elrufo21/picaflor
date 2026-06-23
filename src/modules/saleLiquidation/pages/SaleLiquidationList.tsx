@@ -10,13 +10,11 @@ import { formatDate } from "@/shared/helpers/formatDate";
 import { fetchPendingLiquidations, type SaleLiquidationRow } from "../api";
 
 const ESTADO_OPTIONS = [
-  { label: "Todos", value: "TODOS" },
   { label: "Pendientes", value: "PENDIENTE" },
   { label: "Cancelados", value: "CANCELADO" },
 ] as const;
 
 const TIPO_OPTIONS = [
-  { label: "Todos", value: "TODOS" },
   { label: "Credito", value: "CREDITO" },
   { label: "A cuenta", value: "ACUENTA" },
 ] as const;
@@ -47,7 +45,7 @@ const SaleLiquidationList = () => {
   const location = useLocation();
   const authUser = useAuthStore((state) => state.user);
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>("PENDIENTE");
-  const [tipoFilter, setTipoFilter] = useState<TipoFilter>("TODOS");
+  const [tipoFilter, setTipoFilter] = useState<TipoFilter>("CREDITO");
   const [filteredRowsForTotals, setFilteredRowsForTotals] = useState<
     SaleLiquidationRow[] | null
   >(null);
@@ -67,14 +65,11 @@ const SaleLiquidationList = () => {
       const estado = normalizeFilter(row.estado);
       const condicion = normalizeFilter(row.condicion);
 
-      if (estadoFilter !== "TODOS" && estado !== estadoFilter) return false;
+      if (estado !== estadoFilter) return false;
 
-      if (tipoFilter === "CREDITO") return condicion === "CREDITO";
-      if (tipoFilter === "ACUENTA") {
-        return condicion === "ACUENTA" || (row.acuenta > 0 && row.saldo > 0);
-      }
-
-      return true;
+      return tipoFilter === "CREDITO"
+        ? condicion === "CREDITO"
+        : condicion === "ACUENTA" || (row.acuenta > 0 && row.saldo > 0);
     });
   }, [estadoFilter, rows, tipoFilter]);
 
@@ -83,12 +78,14 @@ const SaleLiquidationList = () => {
       (filteredRowsForTotals ?? filteredRows).reduce(
         (acc, row) => {
           const currency = normalizeCurrency(row.moneda);
+          const saldo = Number(row.saldo) || 0;
           const bucket =
             normalizeFilter(row.formaPago) === "EFECTIVO"
               ? "efectivo"
               : "depTarYa";
-          const key = `${bucket}${currency === "DOLARES" ? "Dolares" : "Soles"}` as keyof typeof acc;
-          acc[key] += Number(row.saldo) || 0;
+          const key =
+            `${bucket}${currency === "DOLARES" ? "Dolares" : "Soles"}` as keyof typeof acc;
+          acc[key] += saldo;
           return acc;
         },
         {
@@ -218,66 +215,95 @@ const SaleLiquidationList = () => {
         paginationBottomContent={
           <div className="px-4 sm:px-6 py-3 bg-slate-50/60">
             <div className="overflow-x-auto">
-              <table className="ml-auto min-w-[680px] text-right text-xs sm:text-sm">
-                <tbody>
-                  <tr className="border-b border-slate-200">
-                    <td className="px-4 py-2 align-top">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        Dolares - Efectivo
-                      </div>
-                      <div className="font-medium text-slate-800">
-                        {formatTotalsAmount(totals.efectivoDolares)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 align-top border-l border-slate-200">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        Dolares - Dep/Tar/Yape
-                      </div>
-                      <div className="font-medium text-slate-800">
-                        {formatTotalsAmount(totals.depTarYaDolares)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 align-top border-l border-slate-200">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        Dolares - Total
-                      </div>
-                      <div className="font-semibold text-slate-900">
-                        {formatTotalsAmount(
-                          totals.efectivoDolares + totals.depTarYaDolares,
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-2 align-top">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        Soles - Efectivo
-                      </div>
-                      <div className="font-medium text-slate-800">
-                        {formatTotalsAmount(totals.efectivoSoles)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 align-top border-l border-slate-200">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        Soles - Dep/Tar/Yape
-                      </div>
-                      <div className="font-medium text-slate-800">
-                        {formatTotalsAmount(totals.depTarYaSoles)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 align-top border-l border-slate-200">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        Soles - Total
-                      </div>
-                      <div className="font-semibold text-slate-900">
-                        {formatTotalsAmount(
-                          totals.efectivoSoles + totals.depTarYaSoles,
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              {estadoFilter === "PENDIENTE" ? (
+                <table className="ml-auto min-w-[360px] text-right text-xs sm:text-sm">
+                  <tbody>
+                    <tr>
+                      <td className="px-4 py-2 align-top">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                          Deuda Dolares
+                        </div>
+                        <div className="font-semibold text-slate-900">
+                          {formatTotalsAmount(
+                            totals.efectivoDolares + totals.depTarYaDolares,
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 align-top border-l border-slate-200">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                          Deuda Soles
+                        </div>
+                        <div className="font-semibold text-slate-900">
+                          {formatTotalsAmount(
+                            totals.efectivoSoles + totals.depTarYaSoles,
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                <table className="ml-auto min-w-[680px] text-right text-xs sm:text-sm">
+                  <tbody>
+                    <tr className="border-b border-slate-200">
+                      <td className="px-4 py-2 align-top">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                          Dolares - Efectivo
+                        </div>
+                        <div className="font-medium text-slate-800">
+                          {formatTotalsAmount(totals.efectivoDolares)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 align-top border-l border-slate-200">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                          Dolares - Dep/Tar/Yape
+                        </div>
+                        <div className="font-medium text-slate-800">
+                          {formatTotalsAmount(totals.depTarYaDolares)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 align-top border-l border-slate-200">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                          Dolares - Total
+                        </div>
+                        <div className="font-semibold text-slate-900">
+                          {formatTotalsAmount(
+                            totals.efectivoDolares + totals.depTarYaDolares,
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-2 align-top">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                          Soles - Efectivo
+                        </div>
+                        <div className="font-medium text-slate-800">
+                          {formatTotalsAmount(totals.efectivoSoles)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 align-top border-l border-slate-200">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                          Soles - Dep/Tar/Yape
+                        </div>
+                        <div className="font-medium text-slate-800">
+                          {formatTotalsAmount(totals.depTarYaSoles)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 align-top border-l border-slate-200">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                          Soles - Total
+                        </div>
+                        <div className="font-semibold text-slate-900">
+                          {formatTotalsAmount(
+                            totals.efectivoSoles + totals.depTarYaSoles,
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         }

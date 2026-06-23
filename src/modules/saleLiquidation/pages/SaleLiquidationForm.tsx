@@ -373,6 +373,7 @@ const SaleLiquidationForm = () => {
             queryKey: ["sale-liquidations"],
           });
           markLiquidacionesAsStale();
+          navigate("/fullday/programacion/liquidaciones");
           return true;
         },
         content: ({ payload, setPayload }) => (
@@ -396,6 +397,7 @@ const SaleLiquidationForm = () => {
       firstAccountPaymentId,
       id,
       isPaymentReadOnly,
+      navigate,
       openDialog,
       paymentRows,
     ],
@@ -423,6 +425,7 @@ const SaleLiquidationForm = () => {
             queryKey: ["sale-liquidations"],
           });
           markLiquidacionesAsStale();
+          navigate("/fullday/programacion/liquidaciones");
           return true;
         },
         content: () => (
@@ -432,7 +435,7 @@ const SaleLiquidationForm = () => {
         ),
       });
     },
-    [id, isPaymentReadOnly, openDialog],
+    [id, isPaymentReadOnly, navigate, openDialog],
   );
 
   const columns = useMemo(() => {
@@ -665,6 +668,10 @@ const PaymentDialogForm = ({
       moneda: value,
       tipoCambio: needsExchangeRate(value, originCurrency) ? "" : "1",
     });
+  const handleMonedaChange = (value: string) => {
+    updateMoneda(value);
+    setTimeout(() => importeRef.current?.focus(), 0);
+  };
   const updateFormaPago = (value: string) => {
     setPayload({
       ...payload,
@@ -727,7 +734,7 @@ const PaymentDialogForm = ({
             <DialogField label="Moneda">
               <Select
                 value={textValue(payload.moneda)}
-                onChange={updateMoneda}
+                onChange={handleMonedaChange}
                 options={["SOLES", "DOLARES"]}
               />
             </DialogField>

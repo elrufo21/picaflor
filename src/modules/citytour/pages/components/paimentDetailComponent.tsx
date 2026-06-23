@@ -1,5 +1,5 @@
 import { SelectControlled, TextControlled } from "@/components/ui/inputs";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEventHandler } from "react";
 import { Controller } from "react-hook-form";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import { usePackageStore } from "../../store/cityTourStore";
@@ -27,6 +27,7 @@ const normalizeMoneyInput = (value: string) => {
 
 const PaimentDetailComponent = ({ control, setValue, watch }) => {
   const { isEditing } = usePackageStore();
+  const nserieRef = useRef<HTMLInputElement | null>(null);
   const [isTypingExtraSoles, setIsTypingExtraSoles] = useState(false);
   const [isTypingExtraDolares, setIsTypingExtraDolares] = useState(false);
   const documentoCobranzaOptions = [
@@ -114,6 +115,15 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
         : 0;
 
   const totalSaldo = roundCurrency(totalFinal + extraAplicado);
+  const handleDocumentoCobranzaChange: ChangeEventHandler<
+    HTMLInputElement | HTMLTextAreaElement
+  > = (event) => {
+    const value = String(event.target.value ?? "").toUpperCase();
+    if (value === "BOLETA" || value === "FACTURA") {
+      setTimeout(() => nserieRef.current?.focus(), 0);
+    }
+  };
+
   useEffect(() => {
     if (isEditing === false) return;
     if (condicion === "CANCELADO") {
@@ -246,6 +256,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             label="Tipo de Documento"
             options={documentoCobranzaOptions}
             disabled={!isEditing}
+            onChange={handleDocumentoCobranzaChange}
             size="small"
           />
         </div>
@@ -254,6 +265,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             name="nserie"
             disabled={watch("documentoCobranza") === "DOCUMENTO COBRANZA"}
             control={control}
+            inputRef={nserieRef}
             size="small"
             transform={(value) => value.toUpperCase()}
             inputProps={{
