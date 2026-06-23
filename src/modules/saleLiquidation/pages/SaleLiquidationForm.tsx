@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, type ReactNode, type Ref } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
@@ -179,12 +179,18 @@ const SaleLiquidationForm = () => {
     textValue(detail?.condicion).replace(/\s+/g, "").toUpperCase() === "ACUENTA"
       ? paymentRows[0]?.liquidaId
       : undefined;
+  const isPaymentReadOnly =
+    textValue(detail?.estado).trim().toUpperCase() === "PAGADO" ||
+    Number(detail?.saldo ?? 0) <= 0;
 
   const openPaymentDialog = useCallback(
     (payment?: SaleLiquidationPayment) => {
+      if (isPaymentReadOnly) return;
       if (!id) return;
       const isEdit = Boolean(payment?.liquidaId);
-      const lockAmount = payment?.liquidaId === firstAccountPaymentId;
+      const lockAmount =
+        firstAccountPaymentId !== undefined &&
+        payment?.liquidaId === firstAccountPaymentId;
       const maxAmount = (detail?.saldo ?? 0) + (payment?.acuenta ?? 0);
 
       openDialog({
@@ -246,6 +252,22 @@ const SaleLiquidationForm = () => {
               });
               return false;
             }
+            if (
+              paymentRows.some(
+                (row) =>
+                  row.liquidaId !== Number(form.liquidaId ?? 0) &&
+                  textValue(row.entidadBancaria).trim().toUpperCase() ===
+                    entidadBancaria.toUpperCase() &&
+                  normalizeOperation(row.nroOperacion) === nroOperacion,
+              )
+            ) {
+              showToast({
+                title: "Operacion duplicada",
+                description: `La operacion ${nroOperacion} ya existe para ${entidadBancaria}.`,
+                type: "warning",
+              });
+              return false;
+            }
           }
           if (
             isDollarCurrency(form.moneda) &&
@@ -269,20 +291,30 @@ const SaleLiquidationForm = () => {
             return false;
           }
 
-          await saveLiquidationPayment({
-            liquidaId: Number(form.liquidaId ?? 0),
-            notaId: Number(id),
-            recibido,
-            formaPago,
-            moneda: textValue(form.moneda),
-            tipoCambio: tipoCambio || 1,
-            importe,
-            acuenta: appliedAmount(form),
-            entidadBancaria: paymentBankValue(formaPago, entidadBancaria),
-            nroOperacion: requiresBankData(formaPago) ? nroOperacion : "",
-            imagen: "",
-            usuario: authUser?.displayName || authUser?.username || "admin",
-          });
+          try {
+            await saveLiquidationPayment({
+              liquidaId: Number(form.liquidaId ?? 0),
+              notaId: Number(id),
+              recibido,
+              formaPago,
+              moneda: textValue(form.moneda),
+              tipoCambio: tipoCambio || 1,
+              importe,
+              acuenta: appliedAmount(form),
+              entidadBancaria: paymentBankValue(formaPago, entidadBancaria),
+              nroOperacion: requiresBankData(formaPago) ? nroOperacion : "",
+              imagen: "",
+              usuario: authUser?.displayName || authUser?.username || "admin",
+            });
+          } catch (error) {
+            showToast({
+              title: "No se pudo guardar el pago",
+              description:
+                error instanceof Error ? error.message : "Intenta nuevamente.",
+              type: "error",
+            });
+            return false;
+          }
           showToast({
             title: isEdit ? "Pago actualizado" : "Pago registrado",
             description: "La liquidacion fue actualizada.",
@@ -311,12 +343,15 @@ const SaleLiquidationForm = () => {
       detail?.saldo,
       firstAccountPaymentId,
       id,
+      isPaymentReadOnly,
       openDialog,
+      paymentRows,
     ],
   );
 
   const confirmDeletePayment = useCallback(
     (payment: SaleLiquidationPayment) => {
+      if (isPaymentReadOnly) return;
       if (!id) return;
 
       openDialog({
@@ -344,7 +379,7 @@ const SaleLiquidationForm = () => {
         ),
       });
     },
-    [id, openDialog],
+    [id, isPaymentReadOnly, openDialog],
   );
 
   const columns = useMemo(() => {
@@ -379,7 +414,8 @@ const SaleLiquidationForm = () => {
         header: "Acciones",
         cell: ({ row }) => (
           <div className="flex items-center justify-center gap-1">
-            {row.original.liquidaId !== firstAccountPaymentId && (
+            {!isPaymentReadOnly &&
+              row.original.liquidaId !== firstAccountPaymentId && (
               <button
                 type="button"
                 onClick={() => openPaymentDialog(row.original)}
@@ -390,7 +426,8 @@ const SaleLiquidationForm = () => {
                 <Pencil className="h-4 w-4" />
               </button>
             )}
-            {row.original.liquidaId !== firstAccountPaymentId && (
+            {!isPaymentReadOnly &&
+              row.original.liquidaId !== firstAccountPaymentId && (
               <button
                 type="button"
                 onClick={() => confirmDeletePayment(row.original)}
@@ -406,7 +443,12 @@ const SaleLiquidationForm = () => {
         meta: { align: "center" },
       }),
     ];
-  }, [confirmDeletePayment, firstAccountPaymentId, openPaymentDialog]);
+  }, [
+    confirmDeletePayment,
+    firstAccountPaymentId,
+    isPaymentReadOnly,
+    openPaymentDialog,
+  ]);
 
   if (!id) {
     return (
@@ -514,25 +556,27 @@ const SaleLiquidationForm = () => {
         columns={columns}
         enableSearching={false}
         emptyMessage="Sin pagos registrados"
-        dateFilterComponent={() => (
-          <button
-            type="button"
-            onClick={() => openPaymentDialog()}
-            className="ml-auto inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#E8612A] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#d55320]"
-            title="Agregar pago"
-            aria-label="Agregar pago"
-          >
-            <Plus className="h-5 w-5" />
-            AGREGAR PAGO
-          </button>
-        )}
+        dateFilterComponent={() =>
+          isPaymentReadOnly ? null : (
+            <button
+              type="button"
+              onClick={() => openPaymentDialog()}
+              className="ml-auto inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#E8612A] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#d55320]"
+              title="Agregar pago"
+              aria-label="Agregar pago"
+            >
+              <Plus className="h-5 w-5" />
+              AGREGAR PAGO
+            </button>
+          )
+        }
       />
 
       <section className="grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 text-right font-semibold md:grid-cols-4">
         <Summary label="Efectivo $/" value={money(totals.efectivoUsd)} />
         <Summary label="Efectivo S/" value={money(totals.efectivoPen)} />
-        <Summary label="Otros $/" value={money(totals.otrosUsd)} />
-        <Summary label="Otros S/" value={money(totals.otrosPen)} />
+        <Summary label="Deposito $/" value={money(totals.otrosUsd)} />
+        <Summary label="Deposito S/" value={money(totals.otrosPen)} />
       </section>
     </div>
   );
@@ -551,6 +595,7 @@ const PaymentDialogForm = ({
   maxAmount: number;
   lockAmount: boolean;
 }) => {
+  const importeRef = useRef<HTMLInputElement>(null);
   const formaPago = textValue(payload.formaPago).toUpperCase();
   const isDeposito = requiresBankData(formaPago);
   const isDollars = isDollarCurrency(payload.moneda);
@@ -565,7 +610,7 @@ const PaymentDialogForm = ({
       moneda: value,
       tipoCambio: value === "SOLES" ? "1" : "",
     });
-  const updateFormaPago = (value: string) =>
+  const updateFormaPago = (value: string) => {
     setPayload({
       ...payload,
       formaPago: value,
@@ -578,6 +623,8 @@ const PaymentDialogForm = ({
           : "",
       nroOperacion: requiresBankData(value) ? payload.nroOperacion : "",
     });
+    if (value === "EFECTIVO") importeRef.current?.focus();
+  };
 
   return (
     <div className="space-y-4">
@@ -644,6 +691,7 @@ const PaymentDialogForm = ({
             </DialogField>
             <DialogField label="Importe">
               <Input
+                inputRef={importeRef}
                 type="number"
                 value={textValue(payload.importe)}
                 onChange={(value) => update("importe", value)}
@@ -779,6 +827,7 @@ const Input = ({
   placeholder,
   step,
   max,
+  inputRef,
   alignRight = false,
   disabled = false,
 }: {
@@ -788,10 +837,12 @@ const Input = ({
   placeholder?: string;
   step?: string;
   max?: number;
+  inputRef?: Ref<HTMLInputElement>;
   alignRight?: boolean;
   disabled?: boolean;
 }) => (
   <input
+    ref={inputRef}
     type={type}
     value={value}
     onChange={(event) => onChange(event.target.value)}
