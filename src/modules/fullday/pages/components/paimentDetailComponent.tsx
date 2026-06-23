@@ -3,7 +3,7 @@ import {
   SelectControlled,
   TextControlled,
 } from "@/components/ui/inputs";
-import { useEffect } from "react";
+import { useEffect, useRef, type ChangeEventHandler } from "react";
 import { Controller } from "react-hook-form";
 import { formatCurrency, roundCurrency } from "@/shared/helpers/formatCurrency";
 import { usePackageStore } from "../../store/fulldayStore";
@@ -13,6 +13,7 @@ const BASE_BANK_VALUES = new Set(["", "-"]);
 
 const PaimentDetailComponent = ({ control, setValue, watch }) => {
   const { isEditing } = usePackageStore();
+  const nserieRef = useRef<HTMLInputElement | null>(null);
   const documentoCobranzaOptions = [
     {
       label: "Documento de Cobranza",
@@ -72,6 +73,14 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
         : 0;
 
   const totalSaldo = roundCurrency(totalFinal + extraAplicado);
+  const handleDocumentoCobranzaChange: ChangeEventHandler<
+    HTMLInputElement | HTMLTextAreaElement
+  > = (event) => {
+    const value = String(event.target.value ?? "").toUpperCase();
+    if (value === "BOLETA" || value === "FACTURA") {
+      setTimeout(() => nserieRef.current?.focus(), 0);
+    }
+  };
 
   useEffect(() => {
     if (isEditing === false) return;
@@ -234,6 +243,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             label="Tipo de Documento"
             options={documentoCobranzaOptions}
             disabled={!isEditing}
+            onChange={handleDocumentoCobranzaChange}
             size="small"
           />
         </div>
@@ -242,6 +252,7 @@ const PaimentDetailComponent = ({ control, setValue, watch }) => {
             name="nserie"
             disabled={watch("documentoCobranza") === "DOCUMENTO COBRANZA"}
             control={control}
+            inputRef={nserieRef}
             size="small"
             transform={(value) => value.toUpperCase()}
             inputProps={{

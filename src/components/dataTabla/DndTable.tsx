@@ -636,6 +636,8 @@ const renderDisplayCell = (cell: any) => {
   return flexRender(cell.column.columnDef.cell, cell.getContext());
 };
 
+const formatInteger = (value: number) => value.toLocaleString("en-US");
+
 // ============================================
 // BODY DE LA TABLA
 // ============================================
@@ -805,21 +807,25 @@ const TablePagination = ({ table, pageSizeOptions }: TablePaginationProps) => {
           <span className="text-sm text-slate-600">
             Mostrando{" "}
             <span className="font-medium">
-              {table.getState().pagination.pageIndex *
-                table.getState().pagination.pageSize +
-                1}
+              {formatInteger(
+                table.getState().pagination.pageIndex *
+                  table.getState().pagination.pageSize +
+                  1,
+              )}
             </span>{" "}
             a{" "}
             <span className="font-medium">
-              {Math.min(
-                (table.getState().pagination.pageIndex + 1) *
-                  table.getState().pagination.pageSize,
-                table.getFilteredRowModel().rows.length,
+              {formatInteger(
+                Math.min(
+                  (table.getState().pagination.pageIndex + 1) *
+                    table.getState().pagination.pageSize,
+                  table.getFilteredRowModel().rows.length,
+                ),
               )}
             </span>{" "}
             de{" "}
             <span className="font-medium">
-              {table.getFilteredRowModel().rows.length}
+              {formatInteger(table.getFilteredRowModel().rows.length)}
             </span>{" "}
             resultados
           </span>
@@ -845,9 +851,12 @@ const TablePagination = ({ table, pageSizeOptions }: TablePaginationProps) => {
           <span className="text-sm text-slate-600 px-2">
             Página{" "}
             <span className="font-medium">
-              {table.getState().pagination.pageIndex + 1}
+              {formatInteger(table.getState().pagination.pageIndex + 1)}
             </span>{" "}
-            de <span className="font-medium">{table.getPageCount()}</span>
+            de{" "}
+            <span className="font-medium">
+              {formatInteger(table.getPageCount())}
+            </span>
           </span>
 
           <button

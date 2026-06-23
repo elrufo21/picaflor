@@ -224,11 +224,22 @@ const PackageList = () => {
   );
 
   const handleListadoClick = useCallback(
-    (row: { id?: number; idProducto?: number }) => {
+    (row: {
+      id?: number;
+      idProducto?: number;
+      destino?: string;
+      transporte?: string;
+      guia?: string;
+    }) => {
       const idProducto = row?.idProducto ?? row?.id;
       if (!idProducto) return;
       setSelectedFullDayName(row?.destino ?? "");
-      navigate(`/cityTour/${idProducto}/listado`);
+      navigate(`/cityTour/${idProducto}/listado`, {
+        state: {
+          transporte: row?.transporte ?? "",
+          guia: row?.guia ?? "",
+        },
+      });
     },
     [navigate, setSelectedFullDayName],
   );
