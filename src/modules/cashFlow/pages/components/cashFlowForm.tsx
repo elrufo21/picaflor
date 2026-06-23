@@ -12,6 +12,7 @@ import type {
   CashFlowStatus,
   EncargadoOption,
 } from "../../types";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
 const DEFAULT_CONTEO = [
   { cantidad: "", denominacion: 200.0 },
@@ -354,10 +355,10 @@ export default function CashFlowForm({
                                 />
                               </td>
                               <td className="py-0.5 px-2 text-right text-gray-700 text-xs w-1/3">
-                                {item.denominacion.toFixed(2)}
+                                {formatCurrency(item.denominacion)}
                               </td>
                               <td className="py-0.5 px-2 text-right font-semibold text-slate-800 text-xs w-1/3">
-                                {(cantidad * item.denominacion).toFixed(2)}
+                                {formatCurrency(cantidad * item.denominacion)}
                               </td>
                             </tr>
                           );
@@ -366,7 +367,7 @@ export default function CashFlowForm({
                     </table>
                   </div>
                   <div className="bg-slate-900 text-white font-semibold text-right px-2 py-1.5 text-xs">
-                    Total S/ {totalEfectivo.toFixed(2)}
+                    Total S/ {formatCurrency(totalEfectivo)}
                   </div>
                 </div>
               </div>
@@ -430,7 +431,7 @@ export default function CashFlowForm({
                               {item.descripcion}
                             </td>
                             <td className="text-right py-1 px-2 font-medium text-xs whitespace-nowrap">
-                              S/ {item.importe.toFixed(2)}
+                              S/ {formatCurrency(item.importe)}
                             </td>
                             <td className="py-1 px-1">
                               <button
@@ -456,7 +457,7 @@ export default function CashFlowForm({
                       Efectivo en Caja
                     </span>
                     <span className="text-base sm:text-lg font-bold whitespace-nowrap">
-                      S/ {efectivoCaja.toFixed(2)}
+                      S/ {formatCurrency(efectivoCaja)}
                     </span>
                   </div>
                 </div>
@@ -476,7 +477,7 @@ export default function CashFlowForm({
                     </span>
                     <input
                       disabled
-                      value={`S/ ${totalBilletes.toFixed(2)}`}
+                      value={`S/ ${formatCurrency(totalBilletes)}`}
                       className="flex-1 px-2 py-1 border  rounded text-right font-semibold text-slate-800 bg-white text-xs"
                     />
                   </div>
@@ -486,7 +487,7 @@ export default function CashFlowForm({
                     </span>
                     <input
                       disabled
-                      value={`S/ ${totalSencillo.toFixed(2)}`}
+                      value={`S/ ${formatCurrency(totalSencillo)}`}
                       className="flex-1 px-2 py-1 border rounded text-right font-semibold text-slate-800 bg-gray-50 text-xs"
                     />
                   </div>
@@ -496,7 +497,7 @@ export default function CashFlowForm({
                     </span>
                     <input
                       disabled
-                      value={`S/ ${diferencial.toFixed(2)}`}
+                      value={`S/ ${formatCurrency(diferencial)}`}
                       className={`flex-1 px-2 py-1 border  rounded text-right font-semibold text-xs ${diferencialClass}`}
                     />
                   </div>
@@ -528,11 +529,9 @@ export default function CashFlowForm({
                       Ingresos:
                     </span>
                     <input
-                      type="number"
-                      value={ventaTotal.efectivo || ""}
+                      value={formatCurrency(ventaTotal.efectivo)}
                       disabled
                       className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold focus:border-slate-500 focus:outline-none"
-                      step="0.01"
                     />
                   </div>
                   <div className="flex justify-between items-center gap-2">
@@ -540,11 +539,9 @@ export default function CashFlowForm({
                       Tarjeta:
                     </span>
                     <input
-                      type="number"
-                      value={ventaTotal.tarjeta || ""}
+                      value={formatCurrency(ventaTotal.tarjeta)}
                       disabled
                       className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold text-blue-700 focus:border-slate-500 focus:outline-none"
-                      step="0.01"
                     />
                   </div>
                   <div className="flex justify-between items-center gap-2">
@@ -552,11 +549,9 @@ export default function CashFlowForm({
                       Depósitos y/o Yape:
                     </span>
                     <input
-                      type="number"
-                      value={ventaTotal.deposito || ""}
+                      value={formatCurrency(ventaTotal.deposito)}
                       disabled
                       className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold text-green-700 focus:border-slate-500 focus:outline-none"
-                      step="0.01"
                     />
                   </div>
                   <div className="flex justify-between items-center gap-2">
@@ -564,7 +559,7 @@ export default function CashFlowForm({
                       Salidas:
                     </span>
                     <div className="w-28 sm:w-32 px-2 py-1 bg-red-500 text-white rounded text-right font-bold">
-                      S/ {totalGastos.toFixed(2)}
+                      S/ {formatCurrency(totalGastos)}
                     </div>
                   </div>
                   <div className="flex justify-between items-center pt-1.5 border-t border-gray-200 gap-2">
@@ -572,7 +567,7 @@ export default function CashFlowForm({
                       Total:
                     </span>
                     <div className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-bold bg-white">
-                      S/ {totalVenta.toFixed(2)}
+                      S/ {formatCurrency(totalVenta)}
                     </div>
                   </div>
                 </div>

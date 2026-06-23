@@ -1873,7 +1873,14 @@ const ViajeForm = () => {
                   canViewPayments && (
                   <button
                     type="button"
-                    onClick={() => navigate(`/sale-liquidation/${liquidacionId}`)}
+                    onClick={() =>
+                      navigate(`/sale-liquidation/${liquidacionId}`, {
+                        state: {
+                          returnTo: `/fullday/${idProduct}/passengers/view/${liquidacionId}`,
+                          returnState: { formData: formData ?? incomingFormData },
+                        },
+                      })
+                    }
                     className="inline-flex items-center rounded-lg bg-sky-600 px-3 py-2 text-sm text-white ring-1 ring-sky-600/30 transition hover:bg-sky-700"
                   >
                     Ver pagos

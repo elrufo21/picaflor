@@ -102,6 +102,42 @@ const resolveListadoFieldsByProduct = (productName: string): ListadoField[] => {
   });
 };
 
+const cleanListadoValue = (value: unknown) =>
+  normalizeLegacyXmlPayload(String(value ?? "")).trim();
+
+const excelColumnWidth = (
+  field: ListadoField,
+  rows: Record<string, unknown>[],
+) => {
+  const minWidthByKey: Record<string, number> = {
+    celular: 38,
+    nombreApellidos: 42,
+    puntoEmbarque: 55,
+    puntoParida: 55,
+    hotel: 55,
+    observaciones: 45,
+  };
+  const maxWidthByKey: Record<string, number> = {
+    celular: 70,
+    nombreApellidos: 70,
+    puntoEmbarque: 90,
+    puntoParida: 90,
+    hotel: 90,
+    observaciones: 80,
+  };
+  const contentWidth = rows.reduce(
+    (max, row) => Math.max(max, toPlainText(row?.[field.key]).length + 2),
+    field.label.length + 2,
+  );
+
+  return {
+    wch: Math.min(
+      Math.max(contentWidth, minWidthByKey[field.key] ?? 18),
+      maxWidthByKey[field.key] ?? 35,
+    ),
+  };
+};
+
 const parseListadoRow = (rowText: string, index: number) => {
   const values = normalizeLegacyXmlPayload(rowText).split("|");
   const expectedLength =
@@ -115,9 +151,7 @@ const parseListadoRow = (rowText: string, index: number) => {
 
   const row: Record<string, string> = {};
   BASE_LISTADO_FIELDS.forEach((field) => {
-    row[field.key] = normalizeLegacyXmlPayload(
-      normalizedValues[field.sourceIndex] ?? "",
-    );
+    row[field.key] = cleanListadoValue(normalizedValues[field.sourceIndex]);
   });
 
   const lq = Number(row.lq);
@@ -155,7 +189,7 @@ const normalizeObjectRow = (item: Record<string, unknown>, index: number) => {
     row[field.key] =
       value === null || value === undefined
         ? ""
-        : normalizeLegacyXmlPayload(String(value));
+        : cleanListadoValue(value);
   });
 
   const idCandidate =
@@ -339,14 +373,7 @@ const FulldayListado = () => {
       ref: `A1:${lastCol}${lastRow}`,
     };
 
-    ws["!cols"] = listadoFields.map((f) => {
-      if (f.key.includes("observaciones")) return { wch: 40 };
-      if (f.key.includes("nombreApellidos")) return { wch: 30 };
-      if (f.key.includes("puntoEmbarque") || f.key.includes("puntoParida")) {
-        return { wch: 32 };
-      }
-      return { wch: 18 };
-    });
+    ws["!cols"] = listadoFields.map((field) => excelColumnWidth(field, data));
     const numericCols = listadoFields
       .map((f, i) => (NUMERIC_KEYS.includes(f.key) ? i : null))
       .filter((i) => i !== null) as number[];
@@ -402,33 +429,105 @@ const FulldayListado = () => {
   };
 
   const pdfStyles = StyleSheet.create({
-    page: { padding: 16, fontSize: 8 },
-    title: { fontSize: 12, marginBottom: 8 },
-    meta: { fontSize: 9, marginBottom: 6 },
-    table: { borderWidth: 1, borderColor: "#e2e8f0" },
-    row: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#e2e8f0" },
-    header: { backgroundColor: "#f8fafc" },
-    cell: { flex: 1, padding: 3 },
+    page: {
+      paddingHorizontal: 16,
+      paddingVertical: 18,
+      fontSize: 6.8,
+      fontFamily: "Helvetica",
+      color: "#000",
+    },
+    title: { fontSize: 10, fontWeight: 700, marginBottom: 8 },
+    divider: { fontSize: 7, marginBottom: 5 },
+    metaRow: { flexDirection: "row", marginBottom: 2 },
+    metaLabel: { width: 38, fontSize: 8, fontWeight: 700 },
+    metaValue: { fontSize: 8, fontWeight: 700 },
+    table: { marginTop: 14, borderTopWidth: 1, borderLeftWidth: 1 },
+    row: { flexDirection: "row", minHeight: 16 },
+    header: { backgroundColor: "#cfcfcf" },
+    cell: {
+      paddingHorizontal: 2,
+      paddingVertical: 2,
+      borderRightWidth: 1,
+      borderBottomWidth: 1,
+      fontSize: 6.3,
+    },
+    headerCell: { fontSize: 6.5, fontWeight: 700 },
+    center: { textAlign: "center" },
+    red: { color: "#ff0000", fontWeight: 700 },
   });
+  const pdfColumns = [
+    { key: "lq", label: "LQ", width: 30, center: true },
+    { key: "hora", label: "HR", width: 34, center: true, red: true },
+    { key: "nombreApellidos", label: "NOMBRES", width: 140 },
+    { key: "celular", label: "CELULAR", width: 80 },
+    { key: "counter", label: "COUNTER", width: 74, center: true },
+    { key: "pax", label: "PAX", width: 30, center: true },
+    { key: "islas", label: "Islas", width: 30, center: true },
+    { key: "tubu", label: "Tubu", width: 30, center: true },
+    { key: "reseN", label: "Re.N", width: 30, center: true },
+    { key: "puntoEmbarque", label: "RECOJO", width: 108, center: true },
+    { key: "condicion", label: "CONDICION", width: 54, center: true },
+    { key: "clasificacion", label: "AGENCIA", width: 66, center: true },
+    { key: "observaciones", label: "OBSERVACIONES", width: 99 },
+  ];
+  const formatPdfDate = (value: string) => {
+    const [year, month, day] = String(value ?? "").split("-");
+    return year && month && day ? `${day}/${month}/${year}` : value || "-";
+  };
 
   const buildPdfDocument = () => (
     <Document>
-      <Page size="A4" style={pdfStyles.page}>
-        <Text style={pdfStyles.title}>Listado de programacion</Text>
-        <Text style={pdfStyles.meta}>Fecha: {date || "-"}</Text>
-        <Text style={pdfStyles.meta}>Full Day: {displayName}</Text>
+      <Page size="A4" orientation="landscape" style={pdfStyles.page}>
+        <Text style={pdfStyles.title}>{displayName.toUpperCase()}</Text>
+        <Text style={pdfStyles.divider}>
+          -------------------------------------------------------------------------------
+        </Text>
+        <View style={pdfStyles.metaRow}>
+          <Text style={pdfStyles.metaLabel}>TRANS :</Text>
+          <Text style={pdfStyles.metaValue}></Text>
+        </View>
+        <View style={pdfStyles.metaRow}>
+          <Text style={pdfStyles.metaLabel}>FECHA :</Text>
+          <Text style={pdfStyles.metaValue}>{formatPdfDate(date)}</Text>
+        </View>
+        <View style={pdfStyles.metaRow}>
+          <Text style={pdfStyles.metaLabel}>GUIA :</Text>
+          <Text style={pdfStyles.metaValue}></Text>
+        </View>
         <View style={pdfStyles.table}>
           <View style={[pdfStyles.row, pdfStyles.header]}>
-            {listadoFields.map((field) => (
-              <Text key={field.key} style={pdfStyles.cell}>
+            {pdfColumns.map((field) => (
+              <Text
+                key={field.key}
+                style={[
+                  pdfStyles.cell,
+                  pdfStyles.headerCell,
+                  field.center ? pdfStyles.center : {},
+                  { width: field.width },
+                ]}
+              >
                 {field.label}
               </Text>
             ))}
           </View>
-          {filteredListado.map((row: any, index: number) => (
+          {filteredListado
+            .filter((row: any) => row.hora !== "~")
+            .map((row: any, index: number) => (
             <View key={row.id ?? index} style={pdfStyles.row}>
-              {listadoFields.map((field) => (
-                <Text key={field.key} style={pdfStyles.cell}>
+              {pdfColumns.map((field) => (
+                <Text
+                  key={field.key}
+                  style={[
+                    pdfStyles.cell,
+                    field.center ? pdfStyles.center : {},
+                    field.red ||
+                    (field.key === "condicion" &&
+                      toPlainText(row?.[field.key]).toUpperCase().includes("DEBE"))
+                      ? pdfStyles.red
+                      : {},
+                    { width: field.width },
+                  ]}
+                >
                   {toPlainText(row?.[field.key])}
                 </Text>
               ))}

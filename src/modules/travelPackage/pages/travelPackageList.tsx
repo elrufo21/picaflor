@@ -969,17 +969,17 @@ const TravelPackageList = () => {
       columnHelper.accessor("totalGeneral", {
         header: "Total",
         meta: { align: "right" },
-        cell: ({ row }) => row.original.totalGeneral.toFixed(2),
+        cell: ({ row }) => formatTotalsAmount(row.original.totalGeneral),
       }),
       columnHelper.accessor("acuenta", {
         header: "A cuenta",
         meta: { align: "right" },
-        cell: ({ row }) => row.original.acuenta.toFixed(2),
+        cell: ({ row }) => formatTotalsAmount(row.original.acuenta),
       }),
       columnHelper.accessor("saldo", {
         header: "Saldo",
         meta: { align: "right" },
-        cell: ({ row }) => row.original.saldo.toFixed(2),
+        cell: ({ row }) => formatTotalsAmount(row.original.saldo),
       }),
       columnHelper.accessor("estado", {
         header: "Estado",

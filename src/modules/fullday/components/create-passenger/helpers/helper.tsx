@@ -1,8 +1,9 @@
 import { useWatch } from "react-hook-form";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
 export const SubTotal = ({ control, name }) => {
   const total = useWatch({ control, name }) || 0;
-  return <>{Number(total).toFixed(2)}</>;
+  return <>{formatCurrency(total)}</>;
 };
 
 export const TotalGeneral = ({ control, setValue }) => {
@@ -16,5 +17,5 @@ export const TotalGeneral = ({ control, setValue }) => {
 
   setValue("totalGeneral", total, { shouldDirty: true });
 
-  return <>{total.toFixed(2)}</>;
+  return <>{formatCurrency(total)}</>;
 };

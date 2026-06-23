@@ -166,9 +166,9 @@ const PaymentDetailFloating = ({
     const message =
       form.condicionPago === "CANCELADO"
         ? "EL PASAJERO NO TIENE DEUDA."
-        : `EL PASAJERO SI TIENE DEUDA ${currencySymbol} ${roundCurrency(
+        : `EL PASAJERO SI TIENE DEUDA ${currencySymbol} ${formatCurrency(
             debtAmount,
-          ).toFixed(2)}`;
+          )}`;
 
     setIfChanged("mensajePasajero", message);
   }, [form.condicionPago, currencySymbol, totalSaldo, form.saldo]);

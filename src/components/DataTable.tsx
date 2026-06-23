@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-table";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDialogStore } from "@/store/app/dialog.store";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
 interface DataTableProps<T> {
   columns: any[];
@@ -122,6 +123,14 @@ export default function DataTable<T>({
       table.setPageIndex(lastPage);
     }
   };
+  const renderDisplayCell = (cell: any) => {
+    const meta = cell.column.columnDef.meta ?? {};
+    const rawValue = cell.getValue();
+
+    if (meta.money || meta.numeric) return formatCurrency(rawValue);
+
+    return flexRender(cell.column.columnDef.cell, cell.getContext());
+  };
 
   return (
     <div className="w-full border rounded-xl bg-white shadow p-4">
@@ -191,10 +200,7 @@ export default function DataTable<T>({
                       key={cell.id}
                       className={`p-3 ${colClass} ${extraClass}`}
                     >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
+                      {renderDisplayCell(cell)}
                     </td>
                   );
                 })}

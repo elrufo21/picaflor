@@ -929,9 +929,7 @@ const ItinerarySection = ({
                   value={
                     dayTotal === 0
                       ? ""
-                      : isViewMode
-                        ? formatCurrency(dayTotal)
-                        : ` ${dayTotal.toFixed(2)}`
+                      : formatCurrency(dayTotal)
                   }
                   size="small"
                   InputProps={{ readOnly: true }}
@@ -1257,11 +1255,7 @@ const ItinerarySection = ({
 
                             <div className="border-l border-slate-200 p-2.5 text-right font-semibold text-slate-800 bg-white">
                               {row.subtotal
-                                ? `${currencySymbol} ${
-                                    isViewMode
-                                      ? formatCurrency(row.subtotal)
-                                      : row.subtotal.toFixed(2)
-                                  }`
+                                ? `${currencySymbol} ${formatCurrency(row.subtotal)}`
                                 : ""}
                             </div>
                           </div>
