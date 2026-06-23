@@ -1821,9 +1821,9 @@ const ViajeForm = () => {
                     className="cursor-pointer"
                     onClick={() => {
                       if (liquidacionId) {
-                        navigate("/fullday/programacion/liquidaciones");
+                        navigate("/citytour/programacion/liquidaciones");
                       } else {
-                        navigate("/cityTour");
+                        navigate("/citytour");
                       }
                     }}
                   />
@@ -2010,7 +2010,14 @@ const ViajeForm = () => {
                   canViewPayments && (
                   <button
                     type="button"
-                    onClick={() => navigate(`/sale-liquidation/${liquidacionId}`)}
+                    onClick={() =>
+                      navigate(`/sale-liquidation/${liquidacionId}`, {
+                        state: {
+                          returnTo: `/citytour/${idProduct}/passengers/view/${liquidacionId}`,
+                          returnState: { formData: formData ?? incomingFormData },
+                        },
+                      })
+                    }
                     className="inline-flex items-center rounded-lg bg-sky-600 px-3 py-2 text-sm text-white ring-1 ring-sky-600/30 transition hover:bg-sky-700"
                   >
                     Ver pagos

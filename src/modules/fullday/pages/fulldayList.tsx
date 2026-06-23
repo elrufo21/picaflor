@@ -467,7 +467,7 @@ const PackageList = () => {
         header: "Disponibles",
         meta: { align: "center" },
       },
-      /**{
+      {
         accessorKey: "transporte",
         header: "Transporte",
         cell: ({ row }: any) => {
@@ -508,7 +508,7 @@ const PackageList = () => {
             />
           );
         },
-      }, */
+      },
       {
         id: "action",
         header: "Acciones",

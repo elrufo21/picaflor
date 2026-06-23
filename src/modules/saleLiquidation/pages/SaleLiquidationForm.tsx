@@ -23,6 +23,17 @@ import {
   type SaleLiquidationPayment,
 } from "../api";
 
+const LIQUIDACIONES_STALE_STORAGE_KEY =
+  "fullday:programacion-liquidaciones:stale:v1";
+
+const markLiquidacionesAsStale = () => {
+  try {
+    window.sessionStorage.setItem(LIQUIDACIONES_STALE_STORAGE_KEY, "1");
+  } catch {
+    // no bloquear el pago si el navegador no deja escribir sessionStorage
+  }
+};
+
 type PaymentFormPayload = DialogPayload & {
   liquidaId?: number;
   recibido?: string;
@@ -32,6 +43,11 @@ type PaymentFormPayload = DialogPayload & {
   importe?: string;
   entidadBancaria?: string;
   nroOperacion?: string;
+};
+type SaleLiquidationLocationState = {
+  fromSaleList?: boolean;
+  returnTo?: string;
+  returnState?: unknown;
 };
 
 type PaymentTableRow = SaleLiquidationPayment & { id: number };
@@ -65,11 +81,11 @@ const bancoOptions: SelectOption[] = [
   { value: "INTERBANK", label: "Interbank" },
 ];
 
-const emptyPaymentPayload = (): PaymentFormPayload => ({
+const emptyPaymentPayload = (moneda?: string): PaymentFormPayload => ({
   liquidaId: 0,
   recibido: getTodayDateInputValue(),
   formaPago: "",
-  moneda: "SOLES",
+  moneda: normalizeCurrency(moneda),
   tipoCambio: "1",
   importe: "",
   entidadBancaria: "",
@@ -100,10 +116,17 @@ const isDollarCurrency = (moneda: unknown) => {
 };
 const normalizeCurrency = (moneda: unknown) =>
   isDollarCurrency(moneda) ? "DOLARES" : "SOLES";
-const appliedAmount = (payload: PaymentFormPayload) => {
+const needsExchangeRate = (paymentCurrency: unknown, originCurrency: unknown) =>
+  normalizeCurrency(paymentCurrency) !== normalizeCurrency(originCurrency);
+const currencySymbol = (moneda: unknown) =>
+  isDollarCurrency(moneda) ? "$" : "S/";
+const appliedAmount = (payload: PaymentFormPayload, originCurrency: unknown) => {
   const importe = toAmount(payload.importe);
   const tipoCambio = toAmount(payload.tipoCambio) || 1;
-  return isDollarCurrency(payload.moneda) ? importe * tipoCambio : importe;
+  if (!needsExchangeRate(payload.moneda, originCurrency)) return importe;
+  return isDollarCurrency(originCurrency)
+    ? importe / tipoCambio
+    : importe * tipoCambio;
 };
 const paymentToPayload = (
   payment: SaleLiquidationPayment,
@@ -135,6 +158,7 @@ const paymentSignature = (payload: PaymentFormPayload) =>
 const SaleLiquidationForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const locationState = location.state as SaleLiquidationLocationState | null;
   const { id } = useParams();
   const authUser = useAuthStore((state) => state.user);
   const openDialog = useDialogStore((state) => state.openDialog);
@@ -175,13 +199,38 @@ const SaleLiquidationForm = () => {
       ),
     [paymentRows],
   );
+  const patchedReturnState = useMemo(() => {
+    const state = locationState?.returnState;
+    if (!detail || !state || typeof state !== "object") return state;
+
+    const formData = (state as { formData?: Record<string, unknown> }).formData;
+    if (!formData || typeof formData !== "object") return state;
+
+    const efectivo = paymentRows
+      .filter((payment) => normalizePaymentMethod(payment.formaPago) === "EFECTIVO")
+      .reduce((sum, payment) => sum + Number(payment.acuenta || 0), 0);
+    const deposito = paymentRows
+      .filter((payment) => normalizePaymentMethod(payment.formaPago) !== "EFECTIVO")
+      .reduce((sum, payment) => sum + Number(payment.acuenta || 0), 0);
+
+    return {
+      ...state,
+      formData: {
+        ...formData,
+        acuenta: detail.acuenta,
+        saldo: detail.saldo,
+        efectivo,
+        deposito,
+        estado: detail.estado,
+      },
+    };
+  }, [detail, locationState?.returnState, paymentRows]);
   const firstAccountPaymentId =
     textValue(detail?.condicion).replace(/\s+/g, "").toUpperCase() === "ACUENTA"
       ? paymentRows[0]?.liquidaId
       : undefined;
   const isPaymentReadOnly =
-    textValue(detail?.estado).trim().toUpperCase() === "PAGADO" ||
-    Number(detail?.saldo ?? 0) <= 0;
+    textValue(detail?.estado).trim().toUpperCase() === "PAGADO";
 
   const openPaymentDialog = useCallback(
     (payment?: SaleLiquidationPayment) => {
@@ -200,7 +249,7 @@ const SaleLiquidationForm = () => {
         confirmLabel: isEdit ? "Guardar cambios" : "Guardar pago",
         initialPayload: payment
           ? paymentToPayload(payment)
-          : emptyPaymentPayload(),
+          : emptyPaymentPayload(detail?.moneda),
         onConfirm: async (payload) => {
           const form = payload as PaymentFormPayload;
           const importe = toAmount(form.importe);
@@ -270,7 +319,7 @@ const SaleLiquidationForm = () => {
             }
           }
           if (
-            isDollarCurrency(form.moneda) &&
+            needsExchangeRate(form.moneda, detail?.moneda) &&
             (!THREE_DECIMAL_NUMBER.test(textValue(form.tipoCambio)) ||
               tipoCambio <= 0)
           ) {
@@ -282,7 +331,7 @@ const SaleLiquidationForm = () => {
             });
             return false;
           }
-          if (appliedAmount(form) > maxAmount) {
+          if (appliedAmount(form, detail?.moneda) > maxAmount) {
             showToast({
               title: "Importe excedido",
               description: "El importe no debe superar el monto a pagar.",
@@ -300,7 +349,7 @@ const SaleLiquidationForm = () => {
               moneda: textValue(form.moneda),
               tipoCambio: tipoCambio || 1,
               importe,
-              acuenta: appliedAmount(form),
+              acuenta: appliedAmount(form, detail?.moneda),
               entidadBancaria: paymentBankValue(formaPago, entidadBancaria),
               nroOperacion: requiresBankData(formaPago) ? nroOperacion : "",
               imagen: "",
@@ -323,6 +372,7 @@ const SaleLiquidationForm = () => {
           await queryClient.invalidateQueries({
             queryKey: ["sale-liquidations"],
           });
+          markLiquidacionesAsStale();
           return true;
         },
         content: ({ payload, setPayload }) => (
@@ -332,6 +382,7 @@ const SaleLiquidationForm = () => {
             saldo={detail?.saldo ?? 0}
             maxAmount={maxAmount}
             lockAmount={lockAmount}
+            originCurrency={detail?.moneda}
           />
         ),
       });
@@ -340,6 +391,7 @@ const SaleLiquidationForm = () => {
       authUser?.displayName,
       authUser?.username,
       detail?.documento,
+      detail?.moneda,
       detail?.saldo,
       firstAccountPaymentId,
       id,
@@ -370,6 +422,7 @@ const SaleLiquidationForm = () => {
           await queryClient.invalidateQueries({
             queryKey: ["sale-liquidations"],
           });
+          markLiquidacionesAsStale();
           return true;
         },
         content: () => (
@@ -480,14 +533,13 @@ const SaleLiquidationForm = () => {
         <button
           type="button"
           onClick={() =>
-            navigate("/sale-liquidations", {
-              state: {
-                useCache: Boolean(
-                  (location.state as { fromSaleList?: boolean } | null)
-                    ?.fromSaleList,
-                ),
-              },
-            })
+            locationState?.returnTo
+              ? navigate(locationState.returnTo, {
+                  state: patchedReturnState,
+                })
+              : navigate("/sale-liquidations", {
+                  state: { useCache: Boolean(locationState?.fromSaleList) },
+                })
           }
           className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold hover:bg-slate-50"
         >
@@ -588,19 +640,22 @@ const PaymentDialogForm = ({
   saldo,
   maxAmount,
   lockAmount,
+  originCurrency,
 }: {
   payload: PaymentFormPayload;
   setPayload: (payload: PaymentFormPayload) => void;
   saldo: number;
   maxAmount: number;
   lockAmount: boolean;
+  originCurrency?: string;
 }) => {
   const importeRef = useRef<HTMLInputElement>(null);
   const formaPago = textValue(payload.formaPago).toUpperCase();
   const isDeposito = requiresBankData(formaPago);
-  const isDollars = isDollarCurrency(payload.moneda);
+  const exchangeRateNeeded = needsExchangeRate(payload.moneda, originCurrency);
   const importe = toAmount(payload.importe);
-  const totalAplicado = appliedAmount(payload);
+  const tipoCambio = toAmount(payload.tipoCambio) || 1;
+  const totalAplicado = appliedAmount(payload, originCurrency);
   const saldoFinal = Math.max((Number(saldo) || 0) - totalAplicado, 0);
   const update = (key: keyof PaymentFormPayload, value: string) =>
     setPayload({ ...payload, [key]: value });
@@ -608,7 +663,7 @@ const PaymentDialogForm = ({
     setPayload({
       ...payload,
       moneda: value,
-      tipoCambio: value === "SOLES" ? "1" : "",
+      tipoCambio: needsExchangeRate(value, originCurrency) ? "" : "1",
     });
   const updateFormaPago = (value: string) => {
     setPayload({
@@ -631,11 +686,11 @@ const PaymentDialogForm = ({
       <div className="overflow-hidden rounded-lg border border-slate-300 bg-white">
         <AmountRow label="SALDO ACTUAL" value={money(saldo)} strong danger />
         <AmountRow
-          label={`IMPORTE ${isDollars ? "$" : "S/"}`}
+          label={`IMPORTE ${currencySymbol(payload.moneda)}`}
           value={money(importe)}
         />
         <AmountRow
-          label="TOTAL APLICADO S/"
+          label={`TOTAL APLICADO ${currencySymbol(originCurrency)}`}
           value={money(totalAplicado)}
           strong
         />
@@ -686,7 +741,7 @@ const PaymentDialogForm = ({
                 }
                 step="0.001"
                 alignRight
-                disabled={!isDollars}
+                disabled={!exchangeRateNeeded}
               />
             </DialogField>
             <DialogField label="Importe">
@@ -697,15 +752,17 @@ const PaymentDialogForm = ({
                 onChange={(value) => update("importe", value)}
                 step="0.01"
                 max={
-                  isDollars
-                    ? maxAmount / (toAmount(payload.tipoCambio) || 1)
+                  exchangeRateNeeded
+                    ? isDollarCurrency(originCurrency)
+                      ? maxAmount * tipoCambio
+                      : maxAmount / tipoCambio
                     : maxAmount
                 }
                 alignRight
                 disabled={lockAmount}
               />
             </DialogField>
-            <DialogField label="Total aplicado S/">
+            <DialogField label={`Total aplicado ${currencySymbol(originCurrency)}`}>
               <input
                 value={money(totalAplicado)}
                 disabled

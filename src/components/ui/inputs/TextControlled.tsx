@@ -6,6 +6,7 @@ import {
   type Control,
   type Path,
 } from "react-hook-form";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
 /* ===========================
    HELPER DE FOCO
@@ -113,9 +114,14 @@ function TextControlled<T extends FieldValues>({
         const shouldHideZero =
           Boolean(displayZeroAsEmpty) && (value === 0 || value === "0");
         const rawDisplayValue = shouldHideZero ? "" : (value ?? "");
+        const isNumericReadonly =
+          inputType === "number" &&
+          (Boolean(restProps.disabled) || Boolean(restInputProps?.readOnly));
         const displayValue =
           formatter && rawDisplayValue !== "" && rawDisplayValue !== null
             ? formatter(rawDisplayValue)
+            : isNumericReadonly && rawDisplayValue !== ""
+              ? formatCurrency(rawDisplayValue)
             : rawDisplayValue;
 
         const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -184,6 +190,7 @@ function TextControlled<T extends FieldValues>({
           <TextField
             {...restProps}
             {...fieldProps}
+            type={isNumericReadonly ? "text" : restProps.type}
             name={shouldDisableHistory ? historySafeFieldName : fieldProps.name}
             id={
               shouldDisableHistory

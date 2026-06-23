@@ -3,13 +3,14 @@ import {
   SelectControlled,
   DateInput,
 } from "@/components/ui/inputs";
-import { useEffect, type KeyboardEvent } from "react";
+import { useEffect, useRef, type ChangeEventHandler, type KeyboardEvent } from "react";
 import {
   useWatch,
   type Control,
   type UseFormRegister,
   type UseFormSetValue,
 } from "react-hook-form";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
 interface PaymentSummaryProps {
   control: Control<any>;
@@ -41,6 +42,7 @@ export const PaymentSummary = ({
   const condicionSelected = useWatch({ control, name: "condicion" });
   const medioPagoValue = useWatch({ control, name: "medioPago" });
   const acuentaValue = useWatch({ control, name: "acuenta" });
+  const nserieRef = useRef<HTMLInputElement | null>(null);
   const saldoAmount = Number(saldo) || 0;
   const deudaAmount = Math.max(saldoAmount, 0);
   const hasDebt = deudaAmount > 0;
@@ -63,6 +65,14 @@ export const PaymentSummary = ({
     .toUpperCase();
   const isDeposito = normalizedMedioPago === "DEPOSITO";
   const isEfectivo = normalizedMedioPago === "EFECTIVO";
+  const handleDocumentoCobranzaChange: ChangeEventHandler<
+    HTMLInputElement | HTMLTextAreaElement
+  > = (event) => {
+    const value = String(event.target.value ?? "").toUpperCase();
+    if (value === "BOLETA" || value === "FACTURA") {
+      setTimeout(() => nserieRef.current?.focus(), 0);
+    }
+  };
 
   useEffect(() => {
     if (isCancelado) {
@@ -125,16 +135,16 @@ export const PaymentSummary = ({
     }
     if (condicionKey.includes("cuenta")) {
       return hasDebt
-        ? `El Pasajero Si Tiene Deuda S/ -${deudaAmount.toFixed(2)}`
+        ? `El Pasajero Si Tiene Deuda S/ -${formatCurrency(deudaAmount)}`
         : "El Pasajero No Tiene Deuda";
     }
     if (condicionKey.includes("credit")) {
       return hasDebt
-        ? `El Pasajero Si Tiene Deuda S/ ${deudaAmount.toFixed(2)}`
+        ? `El Pasajero Si Tiene Deuda S/ ${formatCurrency(deudaAmount)}`
         : "El Pasajero No Tiene Deuda";
     }
     return hasDebt
-      ? `El Pasajero Si Tiene Deuda S/ ${deudaAmount.toFixed(2)}`
+      ? `El Pasajero Si Tiene Deuda S/ ${formatCurrency(deudaAmount)}`
       : "El Pasajero No Tiene Deuda";
   })();
 
@@ -184,6 +194,7 @@ export const PaymentSummary = ({
             control={control}
             label="Tipo de Documento"
             options={documentoCobranzaOptions}
+            onChange={handleDocumentoCobranzaChange}
             size="small"
           />
         </div>
@@ -192,6 +203,7 @@ export const PaymentSummary = ({
             name="nserie"
             disabled={watch("documentoCobranza") === "DOCUMENTO DE COBRANZA"}
             control={control}
+            inputRef={nserieRef}
             size="small"
           />
         </div>
@@ -217,7 +229,7 @@ export const PaymentSummary = ({
               TOTAL A PAGAR S/ :
             </div>
             <div className="px-3 py-2 text-right font-semibold">
-              {totalPagar.toFixed(2)}
+              {formatCurrency(totalPagar)}
             </div>
           </div>
           <div className="grid grid-cols-3 border-b border-slate-300">
@@ -242,7 +254,7 @@ export const PaymentSummary = ({
               SALDO S/ :
             </div>
             <div className="px-3 py-2 text-right font-semibold">
-              {saldo.toFixed(2)}
+              {formatCurrency(saldo)}
             </div>
           </div>
           <div className="grid grid-cols-3 border-b border-slate-300">

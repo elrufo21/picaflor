@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import DndTable from "@/components/dataTabla/DndTable";
 import { cashFlowSeeds } from "../data/cashFlowSeeds";
 import type { CashFlowRecord } from "../types";
+import { formatCurrency as formatAmount } from "@/shared/helpers/formatCurrency";
 
 const formatDate = (value: string) => {
   if (!value) return "Pendiente";
@@ -27,7 +28,7 @@ const sumConteo = (record: CashFlowRecord) =>
     return sum + cantidad * item.denominacion;
   }, 0);
 
-const formatCurrency = (value: number) => `S/ ${value.toFixed(2)}`;
+const formatCurrency = (value: number) => `S/ ${formatAmount(value)}`;
 
 const CashFlowList = () => {
   const navigate = useNavigate();

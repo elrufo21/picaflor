@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { getFocusableElements } from "@/shared/helpers/formFocus";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
 type Props = {
   id?: string;
@@ -83,6 +84,8 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
     const resolvedClassName = className
       ? `${baseClassName} ${className} ${textAlignClass}`
       : `${baseClassName} ${textAlignClass}`;
+    const displayValue =
+      disabled && type === "number" && value !== "" ? formatCurrency(value) : value;
 
     return (
       <input
@@ -90,8 +93,8 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
         id={id}
         data-nav-col={navColumn}
         data-nav-row={navRow}
-        type={type}
-        value={value}
+        type={disabled && type === "number" ? "text" : type}
+        value={displayValue}
         onChange={(event) => {
           const nextValue = shouldUppercase
             ? event.target.value.toUpperCase()

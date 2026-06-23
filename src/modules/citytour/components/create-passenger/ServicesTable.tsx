@@ -10,6 +10,7 @@ import type { KeyboardEvent } from "react";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import { showToast } from "@/components/ui/AppToast";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
 interface ServicesTableProps {
   partidas: { value: string; label: string }[] | undefined;
@@ -562,7 +563,7 @@ export const ServicesTable = ({
 
                     {/* SUBTOTAL */}
                     <td className="border px-2 py-1 text-right font-semibold text-[16px]">
-                      {(row.precioUnit * row.cantidad).toFixed(2)}
+                      {formatCurrency(row.precioUnit * row.cantidad)}
                     </td>
                   </tr>
                 );

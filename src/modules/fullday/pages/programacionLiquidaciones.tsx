@@ -2006,16 +2006,19 @@ const LiquidacionesPage = () => {
       columnHelper.accessor("totalPagar", {
         header: "Total",
         meta: { align: "right" },
+        cell: ({ row }) => formatTotalsAmount(parseMoneyValue(row.original.totalPagar)),
       }),
 
       columnHelper.accessor("acuenta", {
         header: "Acuenta",
         meta: { align: "right" },
+        cell: ({ row }) => formatTotalsAmount(parseMoneyValue(row.original.acuenta)),
       }),
 
       columnHelper.accessor("saldo", {
         header: "Saldo",
         meta: { align: "right" },
+        cell: ({ row }) => formatTotalsAmount(parseMoneyValue(row.original.saldo)),
       }),
 
       columnHelper.accessor("estado", {

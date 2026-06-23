@@ -36,6 +36,7 @@ import {
   Filter,
   X,
 } from "lucide-react";
+import { formatCurrency } from "@/shared/helpers/formatCurrency";
 type RowColorRule<T = Record<string, any>> = {
   when: (row: T) => boolean;
   className: string;
@@ -626,6 +627,15 @@ const SortIcon = ({ sorted }) => {
   return <ChevronsUpDown className="w-4 h-4 text-slate-400" />;
 };
 
+const renderDisplayCell = (cell: any) => {
+  const meta = cell.column.columnDef.meta ?? {};
+  const rawValue = cell.getValue();
+
+  if (meta.money || meta.numeric) return formatCurrency(rawValue);
+
+  return flexRender(cell.column.columnDef.cell, cell.getContext());
+};
+
 // ============================================
 // BODY DE LA TABLA
 // ============================================
@@ -732,7 +742,7 @@ const TableBody = <TData extends Record<string, any>>({
                   : ""
               }`}
             >
-              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              {renderDisplayCell(cell)}
             </td>
           ))}
         </tr>
