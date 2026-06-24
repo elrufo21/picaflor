@@ -479,7 +479,7 @@ const TableHeader = ({
 
   return (
     <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/60">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         {/* Buscador + accion primaria */}
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:min-w-0">
           <div className={searchContainerClassName}>
@@ -513,7 +513,7 @@ const TableHeader = ({
         </div>
 
         {/* Acciones */}
-        <div className="flex w-full flex-wrap items-start gap-2 sm:items-center xl:justify-end">
+        <div className="flex w-full flex-wrap items-end gap-2 sm:items-center xl:justify-end">
           {dateFilterComponent
             ? dateFilterComponent()
             : enableDateFilter && (
