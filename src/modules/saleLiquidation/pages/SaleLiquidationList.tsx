@@ -46,13 +46,17 @@ const SaleLiquidationList = () => {
   const location = useLocation();
   const authUser = useAuthStore((state) => state.user);
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>("PENDIENTE");
-  const [tipoFilter, setTipoFilter] = useState<TipoFilter>("CREDITO");
+  const [tipoFilter, setTipoFilter] = useState<TipoFilter>("TODOS");
   const [filteredRowsForTotals, setFilteredRowsForTotals] = useState<
     SaleLiquidationRow[] | null
   >(null);
   const areaId = authUser?.areaId ?? 0;
   const personalId = authUser?.personalId ?? 0;
-  const { data: rows = [], isLoading: loading, isFetching } = useQuery({
+  const {
+    data: rows = [],
+    isLoading: loading,
+    isFetching,
+  } = useQuery({
     queryKey: ["sale-liquidations", "pending", areaId, personalId],
     queryFn: () => fetchPendingLiquidations(areaId, personalId),
     staleTime: Infinity,
@@ -153,41 +157,37 @@ const SaleLiquidationList = () => {
   }, [navigate]);
 
   const Filters = () => (
-    <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex min-w-[360px] items-end gap-3">
-        <div className="flex min-w-[140px] flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Estado</label>
-          <select
-            value={estadoFilter}
-            onChange={(event) =>
-              setEstadoFilter(event.target.value as EstadoFilter)
-            }
-            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          >
-            {ESTADO_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+    <div className="flex flex-wrap items-end gap-3">
+      <div className="flex min-w-[140px] flex-col gap-1 text-xs text-slate-500">
+        <label className="font-medium text-slate-600">Estado</label>
+        <select
+          value={estadoFilter}
+          onChange={(event) =>
+            setEstadoFilter(event.target.value as EstadoFilter)
+          }
+          className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+        >
+          {ESTADO_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
-        <div className="flex min-w-[140px] flex-col gap-1 text-xs text-slate-500">
-          <label className="font-medium text-slate-600">Tipo</label>
-          <select
-            value={tipoFilter}
-            onChange={(event) =>
-              setTipoFilter(event.target.value as TipoFilter)
-            }
-            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          >
-            {TIPO_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="flex min-w-[140px] flex-col gap-1 text-xs text-slate-500">
+        <label className="font-medium text-slate-600">Tipo</label>
+        <select
+          value={tipoFilter}
+          onChange={(event) => setTipoFilter(event.target.value as TipoFilter)}
+          className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+        >
+          {TIPO_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );
