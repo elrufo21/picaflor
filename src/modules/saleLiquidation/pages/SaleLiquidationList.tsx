@@ -15,6 +15,7 @@ const ESTADO_OPTIONS = [
 ] as const;
 
 const TIPO_OPTIONS = [
+  { label: "Todos", value: "TODOS" },
   { label: "Credito", value: "CREDITO" },
   { label: "A cuenta", value: "ACUENTA" },
 ] as const;
@@ -66,6 +67,7 @@ const SaleLiquidationList = () => {
       const condicion = normalizeFilter(row.condicion);
 
       if (estado !== estadoFilter) return false;
+      if (tipoFilter === "TODOS") return true;
 
       return tipoFilter === "CREDITO"
         ? condicion === "CREDITO"
