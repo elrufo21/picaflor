@@ -51,7 +51,7 @@ const SaleLiquidationList = () => {
   >(null);
   const areaId = authUser?.areaId ?? 0;
   const personalId = authUser?.personalId ?? 0;
-  const { data: rows = [], isLoading: loading } = useQuery({
+  const { data: rows = [], isLoading: loading, isFetching } = useQuery({
     queryKey: ["sale-liquidations", "pending", areaId, personalId],
     queryFn: () => fetchPendingLiquidations(areaId, personalId),
     staleTime: Infinity,
@@ -196,7 +196,7 @@ const SaleLiquidationList = () => {
         data={filteredRows}
         columns={columns}
         enableSorting={false}
-        isLoading={loading}
+        isLoading={loading || isFetching}
         emptyMessage="No se encontraron liquidaciones pendientes"
         enableFiltering={false}
         searchColumns={[
