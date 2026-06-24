@@ -235,7 +235,7 @@ const SaleLiquidationForm = () => {
   const backTarget = useMemo(() => {
     const returnTo = textValue(locationState?.returnTo).toLowerCase();
     if (returnTo.includes("/citytour/")) {
-      return "/citytour/programacion/liquidaciones";
+      return "/fullday/programacion/liquidaciones";
     }
     if (returnTo.includes("/fullday/")) {
       return "/fullday/programacion/liquidaciones";
