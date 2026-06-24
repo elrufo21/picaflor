@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useRef, type ReactNode, type Ref } from "react";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
@@ -225,6 +232,16 @@ const SaleLiquidationForm = () => {
       },
     };
   }, [detail, locationState?.returnState, paymentRows]);
+  const backTarget = useMemo(() => {
+    const returnTo = textValue(locationState?.returnTo).toLowerCase();
+    if (returnTo.includes("/citytour/")) {
+      return "/citytour/programacion/liquidaciones";
+    }
+    if (returnTo.includes("/fullday/")) {
+      return "/fullday/programacion/liquidaciones";
+    }
+    return "/sale-liquidations";
+  }, [locationState?.returnTo]);
   const firstAccountPaymentId =
     textValue(detail?.condicion).replace(/\s+/g, "").toUpperCase() === "ACUENTA"
       ? paymentRows[0]?.liquidaId
@@ -373,7 +390,6 @@ const SaleLiquidationForm = () => {
             queryKey: ["sale-liquidations"],
           });
           markLiquidacionesAsStale();
-          navigate("/fullday/programacion/liquidaciones");
           return true;
         },
         content: ({ payload, setPayload }) => (
@@ -397,7 +413,6 @@ const SaleLiquidationForm = () => {
       firstAccountPaymentId,
       id,
       isPaymentReadOnly,
-      navigate,
       openDialog,
       paymentRows,
     ],
@@ -425,7 +440,6 @@ const SaleLiquidationForm = () => {
             queryKey: ["sale-liquidations"],
           });
           markLiquidacionesAsStale();
-          navigate("/fullday/programacion/liquidaciones");
           return true;
         },
         content: () => (
@@ -435,7 +449,7 @@ const SaleLiquidationForm = () => {
         ),
       });
     },
-    [id, isPaymentReadOnly, navigate, openDialog],
+    [id, isPaymentReadOnly, openDialog],
   );
 
   const columns = useMemo(() => {
@@ -536,13 +550,12 @@ const SaleLiquidationForm = () => {
         <button
           type="button"
           onClick={() =>
-            locationState?.returnTo
-              ? navigate(locationState.returnTo, {
-                  state: patchedReturnState,
-                })
-              : navigate("/sale-liquidations", {
-                  state: { useCache: Boolean(locationState?.fromSaleList) },
-                })
+            navigate(
+              backTarget,
+              backTarget === "/sale-liquidations"
+                ? { state: { useCache: Boolean(locationState?.fromSaleList) } }
+                : { state: patchedReturnState },
+            )
           }
           className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold hover:bg-slate-50"
         >
@@ -653,6 +666,7 @@ const PaymentDialogForm = ({
   originCurrency?: string;
 }) => {
   const importeRef = useRef<HTMLInputElement>(null);
+  const tipoCambioRef = useRef<HTMLInputElement>(null);
   const formaPago = textValue(payload.formaPago).toUpperCase();
   const isDeposito = requiresBankData(formaPago);
   const exchangeRateNeeded = needsExchangeRate(payload.moneda, originCurrency);
@@ -670,7 +684,33 @@ const PaymentDialogForm = ({
     });
   const handleMonedaChange = (value: string) => {
     updateMoneda(value);
-    setTimeout(() => importeRef.current?.focus(), 0);
+    setTimeout(
+      () =>
+        (needsExchangeRate(value, originCurrency)
+          ? tipoCambioRef
+          : importeRef
+        ).current?.focus(),
+      0,
+    );
+  };
+  const handleTipoCambioKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    importeRef.current?.focus();
+  };
+  const handleEnterNavigation = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" || event.defaultPrevented) return;
+    const target = event.target as HTMLElement | null;
+    if (!target?.matches("input, select")) return;
+
+    event.preventDefault();
+    const fields = Array.from(
+      event.currentTarget.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+        "input:not(:disabled), select:not(:disabled)",
+      ),
+    );
+    const index = fields.indexOf(target as HTMLInputElement | HTMLSelectElement);
+    fields[index + 1]?.focus();
   };
   const updateFormaPago = (value: string) => {
     setPayload({
@@ -716,7 +756,10 @@ const PaymentDialogForm = ({
           </span>
         </div>
         <div className="p-3">
-          <div className="grid divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200">
+          <div
+            className="grid divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200"
+            onKeyDown={handleEnterNavigation}
+          >
             <DialogField label="Fecha de adelanto">
               <Input
                 type="date"
@@ -740,12 +783,14 @@ const PaymentDialogForm = ({
             </DialogField>
             <DialogField label="Tipo cambio">
               <Input
+                inputRef={tipoCambioRef}
                 type="number"
                 value={textValue(payload.tipoCambio)}
                 onChange={(value) =>
                   THREE_DECIMAL_NUMBER.test(value) &&
                   update("tipoCambio", value)
                 }
+                onKeyDown={handleTipoCambioKeyDown}
                 step="0.001"
                 alignRight
                 disabled={!exchangeRateNeeded}
@@ -892,6 +937,7 @@ const Input = ({
   step,
   max,
   inputRef,
+  onKeyDown,
   alignRight = false,
   disabled = false,
 }: {
@@ -902,6 +948,7 @@ const Input = ({
   step?: string;
   max?: number;
   inputRef?: Ref<HTMLInputElement>;
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
   alignRight?: boolean;
   disabled?: boolean;
 }) => (
@@ -910,6 +957,7 @@ const Input = ({
     type={type}
     value={value}
     onChange={(event) => onChange(event.target.value)}
+    onKeyDown={onKeyDown}
     placeholder={placeholder}
     step={step}
     max={max}
