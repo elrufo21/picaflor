@@ -1,6 +1,7 @@
 import { Navigate } from "react-router";
 import MaintenanceDashboard from "./pages/MaintenanceDashboard";
 import UserList from "./users/pages/userList";
+import ExternalUserRequests from "./users/pages/externalUserRequests";
 import AreaList from "./areas/pages/areaList";
 import CategoryList from "./categories/pages/categoryList";
 import EmployeeList from "./employees/pages/employeeList";
@@ -168,6 +169,16 @@ const maintenanceRoutes = [
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
         { label: "Usuarios" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/external-user-requests",
+    element: <ExternalUserRequests />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Solicitudes externas" },
       ],
     },
   },

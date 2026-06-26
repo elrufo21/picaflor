@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { showToast } from "@/components/ui/AppToast";
 import { LogIn } from "lucide-react";
 
@@ -241,6 +241,21 @@ const Login = () => {
                   "Ingresar"
                 )}
               </button>
+
+              <div className="flex flex-col items-center gap-2">
+                <Link
+                  to="/recuperar-clave"
+                  className="text-sm text-slate-300 hover:text-white"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+                <Link
+                  to="/registro-externo"
+                  className="text-sm text-slate-300 hover:text-white"
+                >
+                  Solicitar acceso externo
+                </Link>
+              </div>
             </div>
           </form>
         </div>

@@ -56,6 +56,11 @@ export const SUBMODULE_OPTIONS: SubmoduleOption[] = [
     detail: "Permite abrir la pantalla de usuarios.",
   },
   {
+    code: "maintenance.external_user_requests",
+    label: "Mantenimiento - Solicitudes externas",
+    detail: "Permite aprobar accesos de usuarios externos.",
+  },
+  {
     code: "fullday.programacion_liquidaciones.btn_agregar",
     label: "Full Day - Boton Agregar",
     detail: "Habilita el boton Agregar en Programacion de liquidaciones.",
