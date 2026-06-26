@@ -11,6 +11,7 @@ import {
   Sparkles,
   Search,
   ArrowUpRight,
+  UserPlus,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -101,6 +102,14 @@ export default function MaintenanceDashboard() {
       iconClass: "text-violet-600",
       route: "/maintenance/users",
       submoduleCode: "maintenance.users",
+    },
+    {
+      title: "Solicitudes externas",
+      desc: "Aprueba accesos solicitados por usuarios externos.",
+      icon: UserPlus,
+      iconClass: "text-teal-700",
+      route: "/maintenance/external-user-requests",
+      submoduleCode: "maintenance.external_user_requests",
     },
   ];
 

@@ -14,6 +14,8 @@ import RequireAuth from "./components/RequireAuth";
 import RequireModuleAccess from "./components/RequireModuleAccess";
 import ModuleDefaultRedirect from "./components/ModuleDefaultRedirect";
 import Login from "./pages/Login";
+import ExternalUserRegister from "./pages/ExternalUserRegister";
+import PasswordRecovery from "./pages/PasswordRecovery";
 import Forbidden from "./pages/Forbidden";
 import type { ModuleCode } from "./auth/mockModulePermissions";
 import saleLiquidationRoutes from "../modules/saleLiquidation/router";
@@ -51,6 +53,14 @@ const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/registro-externo",
+    element: <ExternalUserRegister />,
+  },
+  {
+    path: "/recuperar-clave",
+    element: <PasswordRecovery />,
   },
 
   {

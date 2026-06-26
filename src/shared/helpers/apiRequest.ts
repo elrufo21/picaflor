@@ -17,7 +17,11 @@ const AUTH_EXPIRED_REDIRECT = "/login?reason=session-expired";
 
 const isLoginRequest = (url: string) => {
   const normalized = String(url ?? "").toLowerCase();
-  return normalized.includes("/user/acceso");
+  return (
+    normalized.includes("/user/acceso") ||
+    normalized.includes("/user/recuperar-clave") ||
+    normalized.includes("/user/restablecer-clave")
+  );
 };
 
 const redirectToExpiredSession = () => {
