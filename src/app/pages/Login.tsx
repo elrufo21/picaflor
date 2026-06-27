@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate } from "react-router";
 import { showToast } from "@/components/ui/AppToast";
-import { LogIn } from "lucide-react";
+import { Eye, EyeOff, LogIn } from "lucide-react";
 
 import { TextControlled } from "@/components/ui/inputs";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -18,6 +18,7 @@ const Login = () => {
   const location = useLocation();
   const { token, login, loading, error, hydrate, hydrated } = useAuthStore();
   const { setDate } = usePackageStore();
+  const [showPassword, setShowPassword] = useState(false);
   const form = useForm<LoginForm>({
     defaultValues: {
       username: "",
@@ -25,7 +26,7 @@ const Login = () => {
     },
   });
 
-  const { control, handleSubmit, setFocus } = form;
+  const { control, handleSubmit } = form;
 
   useEffect(() => {
     hydrate();
@@ -157,7 +158,7 @@ const Login = () => {
                   control={control}
                   label="Contraseña"
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   disableAutoUppercase
                   size="small"
                   InputLabelProps={{
@@ -178,6 +179,18 @@ const Login = () => {
                     },
                   }}
                   InputProps={{
+                    endAdornment: (
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((visible) => !visible)}
+                        onMouseDown={(event) => event.preventDefault()}
+                        className="mr-1 flex text-slate-300 hover:text-white"
+                        aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                        title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    ),
                     sx: {
                       color: "white",
                       backgroundColor: "rgba(255,255,255,0.05)",

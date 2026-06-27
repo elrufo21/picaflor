@@ -464,6 +464,44 @@ const parseAuxiliarProductPricesList = (
   return [];
 };
 
+export const buildSalesChannelFormData = (payload: SaveSalesChannelPayload) => {
+  const formData = new FormData();
+  formData.append("IdAuxiliar", String(normalizeNumber(payload.idAuxiliar)));
+  formData.append("RUC", String(payload.ruc ?? "").trim());
+  formData.append("RazonSocial", String(payload.razonSocial ?? "").trim());
+  formData.append("Auxiliar", String(payload.auxiliar ?? "").trim());
+  formData.append("Direccion", String(payload.direccion ?? "").trim());
+  formData.append("Region", String(payload.region ?? "").trim());
+  formData.append("Telefono", String(payload.telefono ?? "").trim());
+  formData.append("Celular", String(payload.celular ?? "").trim());
+  formData.append("Email", String(payload.email ?? "").trim());
+  formData.append("WebSite", String(payload.webSite ?? "").trim());
+  formData.append("Clasificacion", String(payload.clasificacion ?? "").trim());
+  formData.append("Categoria", String(payload.categoria ?? "").trim());
+  formData.append("FechaAniversario", String(payload.fechaAniversario ?? "").trim());
+  formData.append("RepresentanteLegal", String(payload.representanteLegal ?? "").trim());
+  formData.append("FechaNacimiento", String(payload.fechaNacimiento ?? "").trim());
+  formData.append("Contacto", String(payload.contacto ?? "").trim());
+  formData.append("Contacto02", String(payload.contacto02 ?? "").trim());
+  formData.append("Nota", String(payload.nota ?? "").trim());
+  formData.append(
+    "PermiteLiquidacionCredito",
+    String(Boolean(payload.permiteLiquidacionCredito)),
+  );
+  formData.append("LimiteCredito", String(normalizeNumber(payload.limiteCredito)));
+  formData.append(
+    "FechaLimiteCredito",
+    String(normalizeNumber(payload.fechaLimiteCredito)),
+  );
+  formData.append("Logo", String(payload.logo ?? "").trim());
+
+  if (payload.imageFile instanceof File) {
+    formData.append("imagen", payload.imageFile);
+  }
+
+  return formData;
+};
+
 export const useSalesChannels = () => {
   const [channels, setChannels] = useState<SalesChannelDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -512,42 +550,7 @@ export const useSalesChannels = () => {
   }, [loadChannels]);
 
   const saveChannel = useCallback(async (payload: SaveSalesChannelPayload) => {
-    const formData = new FormData();
-    formData.append("IdAuxiliar", String(normalizeNumber(payload.idAuxiliar)));
-    formData.append("RUC", String(payload.ruc ?? "").trim());
-    formData.append("RazonSocial", String(payload.razonSocial ?? "").trim());
-    formData.append("Auxiliar", String(payload.auxiliar ?? "").trim());
-    formData.append("Direccion", String(payload.direccion ?? "").trim());
-    formData.append("Region", String(payload.region ?? "").trim());
-    formData.append("Telefono", String(payload.telefono ?? "").trim());
-    formData.append("Celular", String(payload.celular ?? "").trim());
-    formData.append("Email", String(payload.email ?? "").trim());
-    formData.append("WebSite", String(payload.webSite ?? "").trim());
-    formData.append("Clasificacion", String(payload.clasificacion ?? "").trim());
-    formData.append("Categoria", String(payload.categoria ?? "").trim());
-    formData.append("FechaAniversario", String(payload.fechaAniversario ?? "").trim());
-    formData.append("RepresentanteLegal", String(payload.representanteLegal ?? "").trim());
-    formData.append("FechaNacimiento", String(payload.fechaNacimiento ?? "").trim());
-    formData.append("Contacto", String(payload.contacto ?? "").trim());
-    formData.append("Contacto02", String(payload.contacto02 ?? "").trim());
-    formData.append("Nota", String(payload.nota ?? "").trim());
-    formData.append(
-      "PermiteLiquidacionCredito",
-      String(Boolean(payload.permiteLiquidacionCredito)),
-    );
-    formData.append(
-      "LimiteCredito",
-      String(normalizeNumber(payload.limiteCredito)),
-    );
-    formData.append(
-      "FechaLimiteCredito",
-      String(normalizeNumber(payload.fechaLimiteCredito)),
-    );
-    formData.append("Logo", String(payload.logo ?? "").trim());
-
-    if (payload.imageFile instanceof File) {
-      formData.append("imagen", payload.imageFile);
-    }
+    const formData = buildSalesChannelFormData(payload);
 
     const response = await fetch(SALES_CHANNEL_SAVE_ENDPOINT, {
       method: "POST",
