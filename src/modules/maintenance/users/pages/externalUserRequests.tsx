@@ -1,12 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Check, XCircle } from "lucide-react";
+import { Check, Eye, EyeOff, Wrench, XCircle } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { showToast } from "@/components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import {
+  buildSalesChannelFormData,
+  type SaveSalesChannelPayload,
+} from "../../salesChannel/hooks/useSalesChannels";
+import {
+  buildPayload,
+  CanalVentaDialogForm,
+  getTodayDateInputValue,
+  parseCanalId,
+  parsePriceValue,
+  type CanalVentaDialogPayload,
+} from "../../salesChannel/pages/salesChannelPage";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
 
@@ -15,6 +27,10 @@ type SolicitudUsuarioExterno = {
   solicitudId: number;
   canalVentaId: number;
   canalVentaNombre?: string;
+  ruc?: string;
+  razonSocial?: string;
+  canalExiste?: boolean;
+  logo?: string;
   nombres?: string;
   apellidos?: string;
   usuarioAlias?: string;
@@ -27,13 +43,29 @@ type SolicitudUsuarioExterno = {
 
 const estados = ["PENDIENTE", "APROBADA", "RECHAZADA"] as const;
 
-const mapSolicitud = (item: any): SolicitudUsuarioExterno => {
+const normalizeBoolean = (value: unknown) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return Number.isFinite(value) && value > 0;
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return ["1", "true", "si", "sí", "s", "yes"].includes(normalized);
+};
+
+const mapSolicitud = (item: Record<string, unknown>): SolicitudUsuarioExterno => {
   const solicitudId = Number(item?.solicitudId ?? item?.SolicitudId ?? 0);
+  const canalVentaId = Number(item?.canalVentaId ?? item?.CanalVentaId ?? 0);
+  const canalExisteRaw = item?.canalExiste ?? item?.CanalExiste;
   return {
     id: solicitudId,
     solicitudId,
-    canalVentaId: Number(item?.canalVentaId ?? item?.CanalVentaId ?? 0),
+    canalVentaId,
     canalVentaNombre: item?.canalVentaNombre ?? item?.CanalVentaNombre ?? "",
+    ruc: item?.ruc ?? item?.Ruc ?? item?.RUC ?? "",
+    razonSocial: item?.razonSocial ?? item?.RazonSocial ?? "",
+    logo: item?.logo ?? item?.Logo ?? item?.imagen ?? item?.Imagen ?? "",
+    canalExiste:
+      canalExisteRaw === undefined || canalExisteRaw === null
+        ? canalVentaId > 0
+        : normalizeBoolean(canalExisteRaw),
     nombres: item?.nombres ?? item?.Nombres ?? "",
     apellidos: item?.apellidos ?? item?.Apellidos ?? "",
     usuarioAlias: item?.usuarioAlias ?? item?.UsuarioAlias ?? "",
@@ -52,6 +84,39 @@ const formatDate = (value?: string) => {
   return date.toLocaleDateString("es-PE");
 };
 
+const isPending = (row: SolicitudUsuarioExterno) =>
+  String(row.estado ?? "").trim().toUpperCase() === "PENDIENTE";
+
+const PasswordField = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div className="relative">
+      <input
+        type={visible ? "text" : "password"}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 outline-none focus:border-blue-500"
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((current) => !current)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800"
+        aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
+        title={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
+      >
+        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+};
+
 const ExternalUserRequests = () => {
   const openDialog = useDialogStore((state) => state.openDialog);
   const resolveAccess = useMaintenanceAccessResolver();
@@ -63,7 +128,7 @@ const ExternalUserRequests = () => {
   const fetchRows = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await apiRequest<any[]>({
+      const response = await apiRequest<Record<string, unknown>[]>({
         url: `${API_BASE_URL}/SolicitudesUsuarioExterno?estado=${encodeURIComponent(estado)}`,
         method: "GET",
         fallback: [],
@@ -81,6 +146,14 @@ const ExternalUserRequests = () => {
   const aprobar = useCallback(
     (row: SolicitudUsuarioExterno) => {
       if (!access.create) return;
+      if (!row.canalVentaId || !row.canalExiste) {
+        showToast({
+          title: "Atencion",
+          description: "Regulariza el canal antes de aprobar.",
+          type: "warning",
+        });
+        return;
+      }
 
       openDialog({
         title: "Aprobar solicitud",
@@ -95,13 +168,11 @@ const ExternalUserRequests = () => {
           <div className="space-y-3">
             <label className="block text-sm">
               <span className="mb-1 block text-slate-600">Clave temporal</span>
-              <input
-                type="password"
+              <PasswordField
                 value={String(payload.usuarioClave ?? "")}
-                onChange={(event) =>
-                  setPayload({ ...payload, usuarioClave: event.target.value })
+                onChange={(usuarioClave) =>
+                  setPayload({ ...payload, usuarioClave })
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
               />
             </label>
             <label className="block text-sm">
@@ -132,6 +203,126 @@ const ExternalUserRequests = () => {
             },
           });
           showToast({ title: "Exito", description: "Solicitud aprobada.", type: "success" });
+          await fetchRows();
+          return true;
+        },
+      });
+    },
+    [access.create, fetchRows, openDialog],
+  );
+
+  const regularizar = useCallback(
+    (row: SolicitudUsuarioExterno) => {
+      if (!access.create) return;
+      const todayDate = getTodayDateInputValue();
+
+      openDialog({
+        title: "Regularizar canal de venta",
+        description: `Completa los datos del canal para ${row.usuarioAlias}.`,
+        size: "md",
+        confirmLabel: "Regularizar",
+        cancelLabel: "Cancelar",
+        initialPayload: {
+          ruc: row.ruc ?? "",
+          razonSocial: row.razonSocial ?? "",
+          label: row.razonSocial ?? row.canalVentaNombre ?? "",
+          direccion: "",
+          region: "",
+          value: row.canalVentaId ? String(row.canalVentaId) : "",
+          contacto: `${row.nombres ?? ""} ${row.apellidos ?? ""}`.trim(),
+          contacto02: "",
+          telefono: row.telefono ?? "",
+          celular: "",
+          email: row.email ?? "",
+          webSite: "",
+          logo: row.logo ?? "",
+          limiteCredito: "",
+          clasificacion: "",
+          categoria: "",
+          fechaLimiteCredito: "",
+          fechaAniversario: todayDate,
+          representanteLegal: "",
+          fechaNacimiento: todayDate,
+          nota: "",
+          permiteLiquidacionCredito: false,
+          productoId: "",
+          precioDolares: "",
+          precioSoles: "",
+          imageFile: null,
+          imagePreview: row.logo ?? "",
+          search: "",
+          editingValue: row.canalVentaId ? String(row.canalVentaId) : "",
+        },
+        content: ({ payload, setPayload }) => (
+          <CanalVentaDialogForm
+            payload={payload as CanalVentaDialogPayload}
+            setPayload={setPayload}
+            fetchAuxiliarProductPrice={async () => null}
+            fetchAuxiliarProductPrices={async () => []}
+          />
+        ),
+        onConfirm: async (data) => {
+          const label = String(data.label ?? "").trim();
+          const contacto = String(data.contacto ?? "").trim();
+          const telefono = String(data.telefono ?? "").trim();
+
+          if (!label || !contacto || !telefono) {
+            showToast({
+              title: "Atencion",
+              description: "Completa nombre, contacto y telefono del canal.",
+              type: "warning",
+            });
+            return false;
+          }
+
+          const payload = buildPayload(
+            {
+              ruc: String(data.ruc ?? "").trim(),
+              razonSocial: String(data.razonSocial ?? "").trim(),
+              label,
+              direccion: String(data.direccion ?? "").trim(),
+              region: String(data.region ?? "").trim(),
+              contacto,
+              contacto02: String(data.contacto02 ?? "").trim(),
+              telefono,
+              celular: String(data.celular ?? "").trim(),
+              email: String(data.email ?? "").trim(),
+              webSite: String(data.webSite ?? "").trim(),
+              logo: String(data.logo ?? "").trim(),
+              limiteCredito: String(data.limiteCredito ?? "").trim(),
+              clasificacion: String(data.clasificacion ?? "").trim(),
+              categoria: String(data.categoria ?? "").trim(),
+              fechaLimiteCredito: String(data.fechaLimiteCredito ?? "").trim(),
+              fechaAniversario: String(data.fechaAniversario ?? "").trim(),
+              representanteLegal: String(data.representanteLegal ?? "").trim(),
+              fechaNacimiento: String(data.fechaNacimiento ?? "").trim(),
+              nota: String(data.nota ?? "").trim(),
+              permiteLiquidacionCredito: Boolean(data.permiteLiquidacionCredito),
+              imageFile: data.imageFile instanceof File ? data.imageFile : null,
+            },
+            row.canalVentaId,
+          );
+          const formData = buildSalesChannelFormData(
+            payload as SaveSalesChannelPayload,
+          );
+          const productoId = parseCanalId(String(data.productoId ?? ""));
+          if (productoId > 0) {
+            formData.append("ProductoId", String(productoId));
+            formData.append("PrecioDolares", String(parsePriceValue(data.precioDolares)));
+            formData.append("PrecioSoles", String(parsePriceValue(data.precioSoles)));
+          }
+
+          await apiRequest({
+            url: `${API_BASE_URL}/SolicitudesUsuarioExterno/${row.solicitudId}/regularizar-canal`,
+            method: "POST",
+            data: formData,
+          });
+
+          showToast({
+            title: "Exito",
+            description: "Canal regularizado.",
+            type: "success",
+          });
           await fetchRows();
           return true;
         },
@@ -194,6 +385,19 @@ const ExternalUserRequests = () => {
       }),
       columnHelper.accessor("canalVentaNombre", {
         header: "Canal",
+        cell: ({ row }) =>
+          row.original.canalVentaId
+            ? row.original.canalExiste
+              ? row.original.canalVentaNombre || "-"
+              : "Pendiente regularización"
+            : "Pendiente regularización",
+      }),
+      columnHelper.accessor("ruc", {
+        header: "RUC",
+        cell: (info) => info.getValue() ?? "-",
+      }),
+      columnHelper.accessor("razonSocial", {
+        header: "Razon social",
         cell: (info) => info.getValue() ?? "-",
       }),
       columnHelper.accessor("email", {
@@ -217,11 +421,29 @@ const ExternalUserRequests = () => {
         header: "Acciones",
         meta: { align: "center" },
         cell: ({ row }) =>
-          row.original.estado === "PENDIENTE" ? (
+          isPending(row.original) ? (
             <div className="flex items-center justify-center gap-3">
+              {!row.original.canalVentaId || !row.original.canalExiste ? (
+                <button
+                  type="button"
+                  disabled={!access.create}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    regularizar(row.original);
+                  }}
+                  className="text-blue-600 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Regularizar"
+                >
+                  <Wrench className="h-4 w-4" />
+                </button>
+              ) : null}
               <button
                 type="button"
-                disabled={!access.create}
+                disabled={
+                  !access.create ||
+                  !row.original.canalVentaId ||
+                  !row.original.canalExiste
+                }
                 onClick={(event) => {
                   event.stopPropagation();
                   aprobar(row.original);
@@ -249,7 +471,7 @@ const ExternalUserRequests = () => {
           ),
       }),
     ];
-  }, [access.create, access.delete, aprobar, rechazar]);
+  }, [access.create, access.delete, aprobar, rechazar, regularizar]);
 
   return (
     <MaintenancePageFrame

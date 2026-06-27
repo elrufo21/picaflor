@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   useCallback,
   useEffect,
@@ -16,6 +17,7 @@ import { showToast } from "@/components/ui/AppToast";
 import { queueServiciosRefresh } from "@/app/db/serviciosSync";
 import { serviciosDB } from "@/app/db/serviciosDB";
 import { AutocompleteControlled, TextControlled } from "@/components/ui/inputs";
+import { lookupRuc } from "@/shared/helpers/lookupRuc";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 import {
   type SalesChannelDetail,
@@ -28,7 +30,7 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.com$/i;
 
 const normalizeText = (value: unknown) => String(value ?? "").trim();
 
-type CanalVentaDialogValues = {
+export type CanalVentaDialogValues = {
   ruc: string;
   razonSocial: string;
   label: string;
@@ -55,7 +57,7 @@ type CanalVentaDialogValues = {
   precioSoles: string;
 };
 
-type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
+export type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
   value?: string;
   search?: string;
   editingValue?: string;
@@ -63,7 +65,7 @@ type CanalVentaDialogPayload = Partial<CanalVentaDialogValues> & {
   imagePreview?: string;
 };
 
-const parsePriceValue = (value: unknown) => {
+export const parsePriceValue = (value: unknown) => {
   const normalized = String(value ?? "")
     .trim()
     .replace(",", ".");
@@ -72,7 +74,7 @@ const parsePriceValue = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const parseCreditDaysValue = (value: unknown) => {
+export const parseCreditDaysValue = (value: unknown) => {
   const normalized = String(value ?? "").trim();
   if (!normalized) return 0;
   const parsed = Number(normalized);
@@ -80,7 +82,7 @@ const parseCreditDaysValue = (value: unknown) => {
   return Math.max(0, Math.floor(parsed));
 };
 
-const getTodayDateInputValue = () => {
+export const getTodayDateInputValue = () => {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -88,7 +90,7 @@ const getTodayDateInputValue = () => {
   return `${year}-${month}-${day}`;
 };
 
-const CanalVentaDialogForm = ({
+export const CanalVentaDialogForm = ({
   payload,
   setPayload,
   fetchAuxiliarProductPrice,
@@ -187,81 +189,12 @@ const CanalVentaDialogForm = ({
       return;
     }
 
-    const token = normalizeText(import.meta.env.VITE_API_DOCUMENTO);
-    if (!token) {
-      showToast({
-        title: "Configuracion faltante",
-        description: "Falta configurar VITE_API_DOCUMENTO en el .env",
-        type: "error",
-      });
-      return;
-    }
-
     setIsSearchingRuc(true);
     try {
-      const response = await fetch(
-        `https://dniruc.apisperu.com/api/v1/ruc/${encodeURIComponent(ruc)}?token=${encodeURIComponent(token)}`,
-        { method: "GET" },
-      );
-
-      if (!response.ok) {
-        throw new Error("No se pudo consultar el RUC.");
-      }
-
-      const responseBody: unknown = await response.json();
-      if (!responseBody || typeof responseBody !== "object") {
-        showToast({
-          title: "Sin resultados",
-          description: "No se encontraron datos para ese RUC.",
-          type: "info",
-        });
-        return;
-      }
-
-      const payloadData = responseBody as Record<string, unknown>;
-      const nestedResponse =
-        payloadData.response &&
-        typeof payloadData.response === "object" &&
-        (payloadData.response as Record<string, unknown>).data &&
-        typeof (payloadData.response as Record<string, unknown>).data ===
-          "object"
-          ? ((payloadData.response as Record<string, unknown>).data as Record<
-              string,
-              unknown
-            >)
-          : payloadData;
-
-      const pickFirst = (...values: unknown[]) =>
-        values.map(normalizeText).find((value) => value.length > 0) ?? "";
-
-      const apiMessage = pickFirst(
-        nestedResponse.message,
-        nestedResponse.error,
-        (nestedResponse as { errors?: unknown }).errors,
-      );
-
-      if (nestedResponse.success === false) {
-        showToast({
-          title: "Sin resultados",
-          description: apiMessage || "No se encontraron datos para ese RUC.",
-          type: "info",
-        });
-        return;
-      }
-
-      const razonSocial = pickFirst(
-        nestedResponse.razonSocial,
-        nestedResponse.nombreORazonSocial,
-        nestedResponse.nombre_o_razon_social,
-        nestedResponse.nombre,
-        nestedResponse.nombreRazon,
-      );
-      const direccion = pickFirst(
-        nestedResponse.direccion,
-        nestedResponse.direccionCompleta,
-        nestedResponse.domicilioFiscal,
-      );
-      const rucEncontrado = pickFirst(nestedResponse.ruc, ruc);
+      const result = await lookupRuc(ruc);
+      const rucEncontrado = result.ruc;
+      const razonSocial = result.razonSocial;
+      const direccion = result.direccion;
 
       setValue("ruc", rucEncontrado, {
         shouldDirty: true,
@@ -770,7 +703,7 @@ const CanalVentaDialogForm = ({
   );
 };
 
-const parseCanalId = (value?: string) => {
+export const parseCanalId = (value?: string) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
@@ -782,7 +715,7 @@ const resolveSalesChannelId = (channel?: Partial<SalesChannelDetail>) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const buildPayload = (
+export const buildPayload = (
   values: Partial<CanalVentaDialogValues> & { imageFile?: File | null },
   idAuxiliar: number,
 ): SaveSalesChannelPayload => ({

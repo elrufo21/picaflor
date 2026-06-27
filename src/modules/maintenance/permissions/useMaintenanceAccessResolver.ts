@@ -63,14 +63,32 @@ export const useMaintenanceAccessResolver = () => {
       }
 
       const code = normalize(submoduleCode);
+      const fallbackCode =
+        code === "maintenance.external_user_requests"
+          ? "maintenance.users"
+          : "";
       const canRead =
-        canAccessSubmoduleAction(code, "read") || canAccessSubmodule(code);
+        canAccessSubmoduleAction(code, "read") ||
+        canAccessSubmodule(code) ||
+        Boolean(fallbackCode && (
+          canAccessSubmoduleAction(fallbackCode, "read") ||
+          canAccessSubmodule(fallbackCode)
+        ));
 
       return {
         read: canRead,
-        create: canRead && canAccessSubmoduleAction(code, "create"),
-        edit: canRead && canAccessSubmoduleAction(code, "edit"),
-        delete: canRead && canAccessSubmoduleAction(code, "delete"),
+        create: canRead && (
+          canAccessSubmoduleAction(code, "create") ||
+          Boolean(fallbackCode && canAccessSubmoduleAction(fallbackCode, "create"))
+        ),
+        edit: canRead && (
+          canAccessSubmoduleAction(code, "edit") ||
+          Boolean(fallbackCode && canAccessSubmoduleAction(fallbackCode, "edit"))
+        ),
+        delete: canRead && (
+          canAccessSubmoduleAction(code, "delete") ||
+          Boolean(fallbackCode && canAccessSubmoduleAction(fallbackCode, "delete"))
+        ),
       };
     },
     [

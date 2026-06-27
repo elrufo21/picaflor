@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { ArrowLeft, KeyRound, Mail } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, KeyRound, Mail } from "lucide-react";
 import { showToast } from "@/components/ui/AppToast";
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
@@ -18,6 +18,8 @@ const PasswordRecovery = () => {
   const [usuarioOCorreo, setUsuarioOCorreo] = useState("");
   const [nuevaClave, setNuevaClave] = useState("");
   const [confirmarClave, setConfirmarClave] = useState("");
+  const [showNuevaClave, setShowNuevaClave] = useState(false);
+  const [showConfirmarClave, setShowConfirmarClave] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -120,24 +122,46 @@ const PasswordRecovery = () => {
           </div>
         ) : (
           <div className="space-y-5">
-            <input
-              value={nuevaClave}
-              onChange={(event) => setNuevaClave(event.target.value)}
-              className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 text-sm outline-none focus:border-cyan-400"
-              placeholder="Nueva contraseña"
-              type="password"
-              autoComplete="new-password"
-              maxLength={50}
-            />
-            <input
-              value={confirmarClave}
-              onChange={(event) => setConfirmarClave(event.target.value)}
-              className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 text-sm outline-none focus:border-cyan-400"
-              placeholder="Confirmar contraseña"
-              type="password"
-              autoComplete="new-password"
-              maxLength={50}
-            />
+            <div className="relative">
+              <input
+                value={nuevaClave}
+                onChange={(event) => setNuevaClave(event.target.value)}
+                className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 pr-11 text-sm outline-none focus:border-cyan-400"
+                placeholder="Nueva contraseña"
+                type={showNuevaClave ? "text" : "password"}
+                autoComplete="new-password"
+                maxLength={50}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNuevaClave((visible) => !visible)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                aria-label={showNuevaClave ? "Ocultar contraseña" : "Mostrar contraseña"}
+                title={showNuevaClave ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {showNuevaClave ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                value={confirmarClave}
+                onChange={(event) => setConfirmarClave(event.target.value)}
+                className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 pr-11 text-sm outline-none focus:border-cyan-400"
+                placeholder="Confirmar contraseña"
+                type={showConfirmarClave ? "text" : "password"}
+                autoComplete="new-password"
+                maxLength={50}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmarClave((visible) => !visible)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                aria-label={showConfirmarClave ? "Ocultar contraseña" : "Mostrar contraseña"}
+                title={showConfirmarClave ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {showConfirmarClave ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             <button
               type="button"
               onClick={restablecerClave}
