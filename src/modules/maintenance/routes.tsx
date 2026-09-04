@@ -12,6 +12,7 @@ import PartidaList from "./partidas/pages/partidaList";
 import ProductList from "./products/pages/productList";
 import ActividadAdiList from "./actividadesAdi/pages/actividadList";
 import TransportList from "./transport/pages/transportList";
+import GuideList from "./guides/pages/guideList";
 import RequireMaintenanceAccess from "@/app/components/RequireMaintenanceAccess";
 
 // Por ahora dejamos solo usuarios y áreas activas en mantenimiento.
@@ -159,6 +160,16 @@ const maintenanceRoutes = [
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
         { label: "Transporte" },
+      ],
+    },
+  },
+  {
+    path: "maintenance/guides",
+    element: <GuideList />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Guías" },
       ],
     },
   },

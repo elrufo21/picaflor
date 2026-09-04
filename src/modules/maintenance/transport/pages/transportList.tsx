@@ -6,9 +6,10 @@ import { Pencil, Plus } from "lucide-react";
 import DndTable from "@/components/dataTabla/DndTable";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { showToast } from "@/components/ui/AppToast";
-import { TextControlled } from "@/components/ui/inputs";
+import { SelectControlled, TextControlled } from "@/components/ui/inputs";
 import MaintenancePageFrame from "../../components/MaintenancePageFrame";
 import { useMaintenanceAccessResolver } from "../../permissions/useMaintenanceAccessResolver";
+import { useHotelRegions } from "../../hotels/useHotelRegions";
 import {
   type SaveTransportePayload,
   type TransporteDetail,
@@ -16,11 +17,11 @@ import {
 } from "../hooks/useTransportes";
 
 type TransporteDialogValues = {
-  clasificacion: string;
+  idRegion: string;
   nombreTransporte: string;
   telefono: string;
   contacto: string;
-  categoria: string;
+  unidades: string;
   activo: "1" | "0";
 };
 
@@ -38,61 +39,59 @@ const TransporteDialogForm = ({
   setPayload: (next: Record<string, unknown>) => void;
 }) => {
   const isCreateMode = !String(payload.editingValue ?? "").trim();
+  const { data: regions = [], isLoading } = useHotelRegions();
+  const regionOptions = regions.map((region) => ({ value: region.idRegion, label: region.nombre }));
 
   const { control } = useForm<TransporteDialogValues>({
     defaultValues: {
-      clasificacion: String(payload.clasificacion ?? ""),
+      idRegion: String(payload.idRegion ?? ""),
       nombreTransporte: String(payload.nombreTransporte ?? ""),
       telefono: String(payload.telefono ?? ""),
       contacto: String(payload.contacto ?? ""),
-      categoria: String(payload.categoria ?? ""),
+      unidades: String(payload.unidades ?? ""),
       activo: payload.activo === "0" ? "0" : "1",
     },
   });
 
   return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-      }}
-    >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <TextControlled<TransporteDialogValues>
-          name="clasificacion"
+    <form className="flex flex-col gap-5" onSubmit={(event) => event.preventDefault()}>
+      <SelectControlled<TransporteDialogValues>
+          name="idRegion"
           control={control}
-          label="Clasificacion"
-          placeholder="Ej: Terrestre"
+          label="Región"
+          options={regionOptions}
           required
           size="small"
+          helperText={isLoading ? "Cargando regiones..." : undefined}
+          disabled={isLoading && !regionOptions.length}
           onChange={(e) => {
-            setPayload({ ...payload, clasificacion: e.target.value });
+            setPayload({ ...payload, idRegion: e.target.value });
+          }}
+        />
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <TextControlled<TransporteDialogValues>
+          name="unidades"
+          control={control}
+          label="Unidades"
+          placeholder="Ej: Bus o Sprinter"
+          size="small"
+          transform={(value) => value.toUpperCase()}
+          onChange={(e) => {
+            setPayload({ ...payload, unidades: e.target.value });
           }}
         />
         <TextControlled<TransporteDialogValues>
-          name="categoria"
-          control={control}
-          label="Categoria"
-          placeholder="Ej: Bus"
-          required
-          size="small"
-          onChange={(e) => {
-            setPayload({ ...payload, categoria: e.target.value });
-          }}
-        />
-        <div className="md:col-span-2">
-          <TextControlled<TransporteDialogValues>
             name="nombreTransporte"
             control={control}
-            label="Nombre transporte"
+            label="Transporte"
             placeholder="Ej: Movil Tours"
             required
             size="small"
+            transform={(value) => value.toUpperCase()}
             onChange={(e) => {
               setPayload({ ...payload, nombreTransporte: e.target.value });
             }}
           />
-        </div>
         <TextControlled<TransporteDialogValues>
           name="telefono"
           control={control}
@@ -109,29 +108,30 @@ const TransporteDialogForm = ({
           label="Contacto"
           placeholder="Ej: Juan Perez"
           size="small"
+          transform={(value) => value.toUpperCase()}
           onChange={(e) => {
             setPayload({ ...payload, contacto: e.target.value });
           }}
         />
-        <div className="md:col-span-2 space-y-1">
+      </div>
+      {payload.editingValue ? (
+        <div className="space-y-1">
           <label className="text-xs font-medium text-slate-700">Activo</label>
           <select
             value={isCreateMode ? "1" : payload.activo === "0" ? "0" : "1"}
-            disabled={isCreateMode}
             onChange={(e) => {
-              if (isCreateMode) return;
               setPayload({
                 ...payload,
                 activo: e.target.value === "0" ? "0" : "1",
               });
             }}
-            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700"
           >
             <option value="1">Activo</option>
             <option value="0">Inactivo</option>
           </select>
         </div>
-      </div>
+      ) : null}
     </form>
   );
 };
@@ -146,11 +146,12 @@ const buildPayload = (
   idTransporte: number,
 ): SaveTransportePayload => ({
   idTransporte,
-  clasificacion: String(values.clasificacion ?? "").trim(),
+  idRegion: Number(values.idRegion ?? 0),
+  region: "",
   nombreTransporte: String(values.nombreTransporte ?? "").trim(),
   telefono: String(values.telefono ?? "").trim(),
   contacto: String(values.contacto ?? "").trim(),
-  categoria: String(values.categoria ?? "").trim(),
+  unidades: String(values.unidades ?? "").trim(),
   fechaRegistro: null,
   activo: values.activo !== "0",
 });
@@ -178,11 +179,11 @@ const TransportList = () => {
             : "Actualiza los datos del transporte seleccionado.",
         size: "md",
         initialPayload: {
-          clasificacion: item?.clasificacion ?? "",
+          idRegion: item?.idRegion ? String(item.idRegion) : "",
           nombreTransporte: item?.nombreTransporte ?? "",
           telefono: item?.telefono ?? "",
           contacto: item?.contacto ?? "",
-          categoria: item?.categoria ?? "",
+          unidades: item?.unidades ?? "",
           activo: item?.activo === false ? "0" : "1",
           value: editingValue,
           search: "",
@@ -197,11 +198,11 @@ const TransportList = () => {
           />
         ),
         onConfirm: async (data) => {
-          const clasificacion = String(data.clasificacion ?? "").trim();
+          const idRegion = Number(data.idRegion ?? 0);
           const nombreTransporte = String(data.nombreTransporte ?? "").trim();
           const telefono = String(data.telefono ?? "").trim();
           const contacto = String(data.contacto ?? "").trim();
-          const categoria = String(data.categoria ?? "").trim();
+          const unidades = String(data.unidades ?? "").trim();
           const idTransporte = parseTransporteId(
             String(data.editingValue ?? editingValue),
           );
@@ -212,13 +213,13 @@ const TransportList = () => {
                 ? "0"
                 : "1";
 
-          if (!clasificacion) {
+          if (!idRegion) {
             showToast({
               title: "Atencion",
-              description: "Ingresa la clasificacion del transporte.",
+              description: "Selecciona la región del transporte.",
               type: "warning",
             });
-            throw new Error("Clasificacion requerida");
+            throw new Error("Región requerida");
           }
 
           if (!nombreTransporte) {
@@ -230,23 +231,14 @@ const TransportList = () => {
             throw new Error("Nombre de transporte requerido");
           }
 
-          if (!categoria) {
-            showToast({
-              title: "Atencion",
-              description: "Ingresa la categoria del transporte.",
-              type: "warning",
-            });
-            throw new Error("Categoria requerida");
-          }
-
           try {
             const payload = buildPayload(
               {
-                clasificacion,
+                idRegion: String(idRegion),
                 nombreTransporte,
                 telefono,
                 contacto,
-                categoria,
+                unidades,
                 activo,
               },
               idTransporte,
@@ -287,8 +279,8 @@ const TransportList = () => {
         header: "ID",
         cell: (info) => String(info.getValue()),
       }),
-      columnHelper.accessor("clasificacion", {
-        header: "Clasificacion",
+      columnHelper.accessor("region", {
+        header: "Región",
         cell: (info) => info.getValue() || "-",
       }),
       columnHelper.accessor("nombreTransporte", {
@@ -303,8 +295,8 @@ const TransportList = () => {
         header: "Contacto",
         cell: (info) => info.getValue() || "-",
       }),
-      columnHelper.accessor("categoria", {
-        header: "Categoria",
+      columnHelper.accessor("unidades", {
+        header: "Unidades",
         cell: (info) => info.getValue() || "-",
       }),
       columnHelper.accessor("fechaRegistro", {

@@ -11,6 +11,10 @@ import { useDialogStore } from "@/app/store/dialogStore";
 import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useSubmodulePermissionsStore } from "@/store/permissions/submodulePermissions.store";
+import { useGuias } from "../../maintenance/guides/hooks/useGuias";
+import GuideAssignmentSelect from "../../maintenance/guides/components/GuideAssignmentSelect";
+import { useTransportes } from "../../maintenance/transport/hooks/useTransportes";
+import TransportAssignmentSelect from "../../maintenance/transport/components/TransportAssignmentSelect";
 
 /* =========================
    HELPERS
@@ -110,6 +114,8 @@ const PackageList = () => {
   const [transportGuideChanges, setTransportGuideChanges] = useState<
     TransportGuideChange[]
   >([]);
+  const { guias } = useGuias();
+  const { transportes } = useTransportes();
 
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const authUser = useAuthStore((state) => state.user);
@@ -484,17 +490,16 @@ const PackageList = () => {
         cell: ({ row }: any) => {
           const idDetalle = row.original.idDetalle ?? row.original.id;
           return (
-            <input
-              type="text"
-              defaultValue={row.original.transporte ?? ""}
-              onClick={(e) => e.stopPropagation()}
-              onBlur={(e) => {
-                const upper = e.target.value.toUpperCase();
-                e.target.value = upper;
-                handleTransportGuideChange(idDetalle, "transporte", upper);
-              }}
-              className="w-40 border text-center border-slate-300 rounded-md py-1 text-sm
-          uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            <TransportAssignmentSelect
+              transportes={transportes}
+              value={
+                transportGuideChanges.find((change) => change.idDetalle === idDetalle)?.transporte ??
+                row.original.transporte ??
+                ""
+              }
+              region={row.original.region}
+              disabled={!canEditProgramacion}
+              onChange={(value) => handleTransportGuideChange(idDetalle, "transporte", value)}
             />
           );
         },
@@ -505,17 +510,16 @@ const PackageList = () => {
         cell: ({ row }: any) => {
           const idDetalle = row.original.idDetalle ?? row.original.id;
           return (
-            <input
-              type="text"
-              defaultValue={row.original.guia ?? ""}
-              onClick={(e) => e.stopPropagation()}
-              onBlur={(e) => {
-                const upper = e.target.value.toUpperCase();
-                e.target.value = upper;
-                handleTransportGuideChange(idDetalle, "guia", upper);
-              }}
-              className="w-40 border border-slate-300 rounded-md py-1 text-sm
-          uppercase focus:outline-none text-center focus:ring-2 focus:ring-emerald-500"
+            <GuideAssignmentSelect
+              guides={guias}
+              value={
+                transportGuideChanges.find((change) => change.idDetalle === idDetalle)?.guia ??
+                row.original.guia ??
+                ""
+              }
+              region={row.original.region}
+              disabled={!canEditProgramacion}
+              onChange={(value) => handleTransportGuideChange(idDetalle, "guia", value)}
             />
           );
         },
@@ -556,7 +560,7 @@ const PackageList = () => {
         ),
       },
     ],
-    [canEditProgramacion, handleRowClick, handleListadoClick],
+    [canEditProgramacion, guias, handleRowClick, handleListadoClick, transportes, transportGuideChanges],
   );
 
   const confirmDeleteSelected = useCallback(() => {

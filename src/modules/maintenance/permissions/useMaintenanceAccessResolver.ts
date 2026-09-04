@@ -50,9 +50,14 @@ export const useMaintenanceAccessResolver = () => {
       ),
     [allowedSubmodules, authUser?.rawAllowedSubmodules, authUser?.rawSubmoduleActions],
   );
+  const isMaintenanceAdmin = String(authUser?.areaId ?? "").trim() === "6";
 
   return useCallback(
     (submoduleCode?: string): MaintenancePermissionAccess => {
+      if (isMaintenanceAdmin) {
+        return { read: true, create: true, edit: true, delete: true };
+      }
+
       if (!submoduleCode || !useGranularBySubmodule) {
         return {
           read: canAccessAction("maintenance", "read"),
@@ -95,6 +100,7 @@ export const useMaintenanceAccessResolver = () => {
       canAccessAction,
       canAccessSubmodule,
       canAccessSubmoduleAction,
+      isMaintenanceAdmin,
       useGranularBySubmodule,
     ],
   );
