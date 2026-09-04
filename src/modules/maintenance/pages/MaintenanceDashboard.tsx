@@ -12,6 +12,7 @@ import {
   Search,
   ArrowUpRight,
   UserPlus,
+  BadgeCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -70,6 +71,14 @@ export default function MaintenanceDashboard() {
       iconClass: "text-indigo-600",
       route: "/maintenance/transport",
       submoduleCode: "maintenance.transport",
+    },
+    {
+      title: "Guías",
+      desc: "Gestiona guías por región y sus datos de contacto.",
+      icon: BadgeCheck,
+      iconClass: "text-fuchsia-600",
+      route: "/maintenance/guides",
+      submoduleCode: "maintenance.guides",
     },
     {
       title: "Puntos de partida",

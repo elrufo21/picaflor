@@ -3,22 +3,24 @@ import { API_BASE_URL } from "@/config";
 
 export type TransporteDetail = {
   idTransporte: number;
-  clasificacion: string;
+  idRegion: number;
+  region: string;
   nombreTransporte: string;
   telefono: string;
   contacto: string;
-  categoria: string;
+  unidades: string;
   fechaRegistro: string;
   activo: boolean;
 };
 
 export type SaveTransportePayload = {
   idTransporte: number;
-  clasificacion: string;
+  idRegion: number;
+  region: string;
   nombreTransporte: string;
   telefono: string;
   contacto: string;
-  categoria: string;
+  unidades: string;
   fechaRegistro: string | null;
   activo: boolean;
 };
@@ -62,15 +64,16 @@ const parseTransportesListPayload = (payload: unknown): TransporteDetail[] => {
 
         return {
           idTransporte,
-          clasificacion: normalizeText(
-            row.clasificacion ?? row.Clasificacion ?? "",
+          idRegion: Number(row.idRegion ?? row.IdRegion ?? 0),
+          region: normalizeText(
+            row.region ?? row.Region ?? "",
           ),
           nombreTransporte: normalizeText(
             row.nombreTransporte ?? row.NombreTransporte ?? "",
           ),
           telefono: normalizeText(row.telefono ?? row.Telefono ?? ""),
           contacto: normalizeText(row.contacto ?? row.Contacto ?? ""),
-          categoria: normalizeText(row.categoria ?? row.Categoria ?? ""),
+          unidades: normalizeText(row.unidades ?? row.Unidades ?? ""),
           fechaRegistro: normalizeText(
             row.fechaRegistro ?? row.FechaRegistro ?? "",
           ),
@@ -106,11 +109,12 @@ const parseTransportesListPayload = (payload: unknown): TransporteDetail[] => {
 
       return {
         idTransporte,
-        clasificacion: normalizeText(parts[1]),
+        idRegion: Number(normalizeText(parts[1])),
+        region: "",
         nombreTransporte: normalizeText(parts[2]),
         telefono: normalizeText(parts[3]),
         contacto: normalizeText(parts[4]),
-        categoria: normalizeText(parts[5]),
+        unidades: normalizeText(parts[5]),
         fechaRegistro: normalizeText(parts[6]),
         activo: parseBoolean(parts[7]),
       } as TransporteDetail;

@@ -75,12 +75,6 @@ type CantMaxChange = {
   cantMax: number;
 };
 
-type TransportGuideChange = {
-  idDetalle: number;
-  transporte?: string;
-  guia?: string;
-};
-
 type ProgramacionEditChange = {
   idDetalle: number;
   cantMax: number;
@@ -107,9 +101,6 @@ const PackageList = () => {
   const [destino, setDestino] = useState<string>("");
   const [selectedPackages, setSelectedPackages] = useState<any[]>([]);
   const [cantMaxChanges, setCantMaxChanges] = useState<CantMaxChange[]>([]);
-  const [transportGuideChanges, setTransportGuideChanges] = useState<
-    TransportGuideChange[]
-  >([]);
 
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const userAreaId = useAuthStore((state) => String(state.user?.areaId ?? ""));
@@ -187,32 +178,11 @@ const PackageList = () => {
 
   useEffect(() => {
     setCantMaxChanges([]);
-    setTransportGuideChanges([]);
     setSelectedPackages([]);
   }, [packages]);
 
   const parsedPackages = useMemo(() => parsePackages(packages), [packages]);
-  const tableData = useMemo(() => {
-    if (!transportGuideChanges.length) return parsedPackages;
-
-    const changesById = new Map(
-      transportGuideChanges.map((change) => [change.idDetalle, change]),
-    );
-
-    return parsedPackages.map((pkg: any) => {
-      const pkgIdDetalle = pkg.idDetalle ?? pkg.id;
-      const change = changesById.get(pkgIdDetalle);
-
-      if (!change) return pkg;
-
-      return {
-        ...pkg,
-        transporte:
-          change.transporte !== undefined ? change.transporte : pkg.transporte,
-        guia: change.guia !== undefined ? change.guia : pkg.guia,
-      };
-    });
-  }, [parsedPackages, transportGuideChanges]);
+  const tableData = parsedPackages;
 
   const handleRowClick = useCallback(
     (row: { id?: number }) => {
@@ -266,30 +236,6 @@ const PackageList = () => {
     });
   };
 
-  const handleTransportGuideChange = (
-    idDetalle: number,
-    field: "transporte" | "guia",
-    value: string,
-  ) => {
-    setTransportGuideChanges((prev) => {
-      const exists = prev.find((p) => p.idDetalle === idDetalle);
-
-      if (exists) {
-        return prev.map((p) =>
-          p.idDetalle === idDetalle ? { ...p, [field]: value } : p,
-        );
-      }
-
-      return [
-        ...prev,
-        {
-          idDetalle,
-          [field]: value,
-        },
-      ];
-    });
-  };
-
   const handleGuardarCambios = async () => {
     if (!canEditProgramacion) {
       showToast({
@@ -300,7 +246,7 @@ const PackageList = () => {
       return;
     }
 
-    if (cantMaxChanges.length === 0 && transportGuideChanges.length === 0) {
+    if (cantMaxChanges.length === 0) {
       showToast({
         title: "Sin cambios",
         description: "No hay cambios para guardar",
@@ -312,7 +258,6 @@ const PackageList = () => {
     try {
       const changedIds = new Set<number>([
         ...cantMaxChanges.map((x) => x.idDetalle),
-        ...transportGuideChanges.map((x) => x.idDetalle),
       ]);
 
       const rowsById = new Map<number, any>(
@@ -325,19 +270,13 @@ const PackageList = () => {
           const maxChange = cantMaxChanges.find(
             (x) => x.idDetalle === idDetalle,
           );
-          const tgChange = transportGuideChanges.find(
-            (x) => x.idDetalle === idDetalle,
-          );
-
           const cantMax = Number(maxChange?.cantMax ?? row?.cantMaxPax ?? 0);
 
           return {
             idDetalle,
             cantMax: Number.isFinite(cantMax) ? cantMax : 0,
-            transporte: String(
-              tgChange?.transporte ?? row?.transporte ?? "",
-            ).trim(),
-            guia: String(tgChange?.guia ?? row?.guia ?? "").trim(),
+            transporte: String(row?.transporte ?? "").trim(),
+            guia: String(row?.guia ?? "").trim(),
           };
         },
       );
@@ -478,48 +417,6 @@ const PackageList = () => {
         header: "Disponibles",
         meta: { align: "center" },
       },
-      /** {
-        accessorKey: "transporte",
-        header: "Transporte",
-        cell: ({ row }: any) => {
-          const idDetalle = row.original.idDetalle ?? row.original.id;
-          return (
-            <input
-              type="text"
-              defaultValue={row.original.transporte ?? ""}
-              onClick={(e) => e.stopPropagation()}
-              onBlur={(e) => {
-                const upper = e.target.value.toUpperCase();
-                e.target.value = upper;
-                handleTransportGuideChange(idDetalle, "transporte", upper);
-              }}
-              className="w-40 border border-slate-300 rounded-md px-2 py-1 text-sm
-          uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          );
-        },
-      },
-      {
-        accessorKey: "guia",
-        header: "Guia",
-        cell: ({ row }: any) => {
-          const idDetalle = row.original.idDetalle ?? row.original.id;
-          return (
-            <input
-              type="text"
-              defaultValue={row.original.guia ?? ""}
-              onClick={(e) => e.stopPropagation()}
-              onBlur={(e) => {
-                const upper = e.target.value.toUpperCase();
-                e.target.value = upper;
-                handleTransportGuideChange(idDetalle, "guia", upper);
-              }}
-              className="w-40 border border-slate-300 rounded-md px-2 py-1 text-sm
-          uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          );
-        },
-      }, */
       {
         id: "action",
         header: "Acciones",
