@@ -692,43 +692,11 @@ const PackageList = () => {
         meta: { align: "center" },
       },
       {
-        id: "operaciones",
-        header: "Operaciones",
-        meta: { align: "center" },
-        cell: ({ row }: any) => (
-          <button
-            onClick={(event) => {
-              event.stopPropagation();
-              handleOperacionesClick(row.original);
-            }}
-            className="rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-200"
-          >
-            Operaciones
-          </button>
-        ),
-      },
-      {
-        id: "utilidad",
-        header: "Utilidad",
-        meta: { align: "center" },
-        cell: ({ row }: any) => (
-          <button
-            onClick={(event) => {
-              event.stopPropagation();
-              handleUtilidadClick(row.original);
-            }}
-            className="rounded-lg bg-violet-100 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-200"
-          >
-            Utilidad
-          </button>
-        ),
-      },
-      {
         id: "action",
         header: "Acciones",
         meta: { align: "center" },
         cell: ({ row }: any) => (
-          <div className="flex gap-2 justify-center">
+          <div className="flex flex-wrap justify-center gap-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -754,6 +722,24 @@ const PackageList = () => {
                 `}
             >
               {row.original.accionTexto}
+            </button>
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                handleOperacionesClick(row.original);
+              }}
+              className="rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-200"
+            >
+              Operaciones
+            </button>
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                handleUtilidadClick(row.original);
+              }}
+              className="rounded-lg bg-violet-100 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-200"
+            >
+              Utilidad
             </button>
           </div>
         ),

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BarChart3, Download, RefreshCw, Users } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, Users } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import * as XLSX from "xlsx-js-style";
 
 import { fetchEgresosFecha, fetchPedidosFecha, type Egreso } from "../api/fulldayApi";
 import { useAuthStore } from "@/store/auth/auth.store";
+import { serviciosDB } from "@/app/db/serviciosDB";
+import { refreshServiciosData } from "@/app/db/serviciosSync";
 
-type FullDay = { fecha?: string };
+type FullDay = { fecha?: string; id?: number; idProducto?: number; destino?: string };
+type ProductOption = { id: number; name: string };
 type SaleRow = {
   id: string;
   producto: string;
@@ -78,7 +81,9 @@ export default function FullDayUtilityDashboard() {
   const user = useAuthStore((state) => state.user);
   const fullDay = (location.state as { fullDay?: FullDay } | null)?.fullDay;
   const [date, setDate] = useState(() => dateToInput(fullDay?.fecha));
-  const [exchangeRate, setExchangeRate] = useState("");
+  const [productId, setProductId] = useState(() => String(fullDay?.idProducto ?? fullDay?.id ?? ""));
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [exchangeRate, setExchangeRate] = useState("3.4");
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [expenses, setExpenses] = useState<Egreso[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,15 +123,57 @@ export default function FullDayUtilityDashboard() {
     void loadSales();
   }, [loadSales]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        await refreshServiciosData();
+        const destinos = await serviciosDB.productos.toArray();
+        if (!cancelled) {
+          setProducts(
+            destinos
+              .map((producto) => ({ id: producto.id, name: producto.nombre.trim() }))
+              .filter((producto) => producto.name),
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "No se pudieron cargar los destinos.");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedProduct = useMemo(
+    () => products.find((item) => String(item.id) === productId),
+    [productId, products],
+  );
+  const filteredSales = useMemo(
+    () =>
+      selectedProduct
+        ? sales.filter((sale) => sale.producto.trim().toLowerCase() === selectedProduct.name.toLowerCase())
+        : sales,
+    [sales, selectedProduct],
+  );
+  const filteredExpenses = useMemo(
+    () => (productId ? expenses.filter((expense) => String(expense.idProducto) === productId) : expenses),
+    [expenses, productId],
+  );
+
   const totals = useMemo(() => {
-    const soles = sales
+    const soles = filteredSales
       .filter((sale) => sale.moneda === "SOLES")
       .reduce((sum, sale) => sum + sale.total, 0);
-    const dollars = sales
+    const dollars = filteredSales
       .filter((sale) => sale.moneda === "DOLARES")
       .reduce((sum, sale) => sum + sale.total, 0);
     const rate = number(exchangeRate);
-    const egresos = expenses.reduce((sum, expense) => sum + Number(expense.monto || 0), 0);
+    const egresos = filteredExpenses.reduce((sum, expense) => sum + Number(expense.monto || 0), 0);
     return {
       soles,
       dollars,
@@ -134,9 +181,9 @@ export default function FullDayUtilityDashboard() {
       total: soles + dollars * rate,
       egresos,
       utilidad: soles + dollars * rate - egresos,
-      pasajeros: sales.reduce((sum, sale) => sum + sale.pasajeros, 0),
+      pasajeros: filteredSales.reduce((sum, sale) => sum + sale.pasajeros, 0),
     };
-  }, [exchangeRate, expenses, sales]);
+  }, [exchangeRate, filteredExpenses, filteredSales]);
 
   const salesInSoles = useCallback(
     (sale: SaleRow) => sale.total * (sale.moneda === "DOLARES" ? totals.rate : 1),
@@ -146,7 +193,7 @@ export default function FullDayUtilityDashboard() {
   const byCounter = useMemo(
     () =>
       Object.values(
-        sales.reduce<Record<string, { name: string; pasajeros: number; total: number }>>(
+        filteredSales.reduce<Record<string, { name: string; pasajeros: number; total: number }>>(
           (result, sale) => {
             const name = sale.counter.trim() || "Sin counter";
             const item = (result[name] ??= { name, pasajeros: 0, total: 0 });
@@ -157,13 +204,13 @@ export default function FullDayUtilityDashboard() {
           {},
         ),
       ).sort((a, b) => b.total - a.total),
-    [sales, salesInSoles],
+    [filteredSales, salesInSoles],
   );
 
   const byTour = useMemo(
     () =>
       Object.values(
-        sales.reduce<Record<string, { name: string; service: string; total: number }>>(
+        filteredSales.reduce<Record<string, { name: string; service: string; total: number }>>(
           (result, sale) => {
             const key = `${sale.servicio}|${sale.producto}`;
             const item = (result[key] ??= {
@@ -177,13 +224,13 @@ export default function FullDayUtilityDashboard() {
           {},
         ),
       ).sort((a, b) => b.total - a.total),
-    [sales, salesInSoles],
+    [filteredSales, salesInSoles],
   );
 
   const byExpense = useMemo(
     () =>
       Object.values(
-        expenses.reduce<Record<string, { concept: string; total: number }>>(
+        filteredExpenses.reduce<Record<string, { concept: string; total: number }>>(
           (result, expense) => {
             const concept = expense.concepto || "Sin concepto";
             const item = (result[concept] ??= { concept, total: 0 });
@@ -193,11 +240,9 @@ export default function FullDayUtilityDashboard() {
           {},
         ),
       ).sort((a, b) => b.total - a.total),
-    [expenses],
+    [filteredExpenses],
   );
 
-  const maximum = Math.max(1, ...byTour.map((item) => item.total), ...byCounter.map((item) => item.total));
-  const maximumExpense = Math.max(1, ...byExpense.map((item) => item.total));
   const hasDollars = totals.dollars > 0;
 
   const downloadExcel = () => {
@@ -235,7 +280,7 @@ export default function FullDayUtilityDashboard() {
 
     const summaryRows: (string | number)[][] = [
       ["PICAFLOR · RESUMEN DIARIO"],
-      [`Fecha de viaje: ${displayDate(date)}`],
+      [`Fecha de viaje: ${displayDate(date)}${selectedProduct ? ` · ${selectedProduct.name}` : ""}`],
       [],
       ["INDICADOR", "MONTO"],
       ["Ingresos en soles", totals.soles],
@@ -303,15 +348,15 @@ export default function FullDayUtilityDashboard() {
       [`Fecha de viaje: ${displayDate(date)}`],
       [],
       ["Concepto", "Monto (S/)", "Usuario", "Registrado"],
-      ...expenses.map((item) => [item.concepto || "Sin concepto", Number(item.monto || 0), item.usuario || "", item.fechaRegistro || ""]),
+      ...filteredExpenses.map((item) => [item.concepto || "Sin concepto", Number(item.monto || 0), item.usuario || "", item.fechaRegistro || ""]),
     ]);
     expenseDetail["!merges"] = [XLSX.utils.decode_range("A1:D1"), XLSX.utils.decode_range("A2:D2")];
     expenseDetail["!cols"] = [{ wch: 34 }, { wch: 16 }, { wch: 24 }, { wch: 22 }];
     expenseDetail["!freeze"] = { ySplit: 3 };
     if (expenseDetail.A1) expenseDetail.A1.s = title?.s;
     if (expenseDetail.A2) expenseDetail.A2.s = subtitle?.s;
-    addTableStyle(expenseDetail, 3, 3 + Math.max(expenses.length, 1), 4);
-    for (let row = 4; row <= 3 + expenses.length; row += 1) if (expenseDetail[`B${row + 1}`]) expenseDetail[`B${row + 1}`].z = money;
+    addTableStyle(expenseDetail, 3, 3 + Math.max(filteredExpenses.length, 1), 4);
+    for (let row = 4; row <= 3 + filteredExpenses.length; row += 1) if (expenseDetail[`B${row + 1}`]) expenseDetail[`B${row + 1}`].z = money;
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, summary, "Resumen");
@@ -324,9 +369,11 @@ export default function FullDayUtilityDashboard() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm text-slate-500">Full Day y City Tour</p>
+          <p className="text-sm text-slate-500">
+            {selectedProduct?.name || "Todos los productos"} · {displayDate(date)}
+          </p>
           <h1 className="text-2xl font-bold text-slate-800">Resumen de ventas diario</h1>
-          <p className="mt-1 text-sm text-slate-500">Incluye todos los tours programados para la fecha elegida.</p>
+          <p className="mt-1 text-sm text-slate-500">Selecciona el producto y la fecha que deseas revisar.</p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-sm text-slate-600">
@@ -337,6 +384,21 @@ export default function FullDayUtilityDashboard() {
               onChange={(event) => setDate(event.target.value)}
               className="ml-2 rounded-lg border border-slate-300 px-3 py-2 text-slate-700"
             />
+          </label>
+          <label className="text-sm text-slate-600">
+            Producto
+            <select
+              value={productId}
+              onChange={(event) => setProductId(event.target.value)}
+              className="ml-2 rounded-lg border border-slate-300 px-3 py-2 text-slate-700"
+            >
+              <option value="">Todos los productos</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name}
+                </option>
+              ))}
+            </select>
           </label>
           <button
             type="button"
@@ -406,49 +468,29 @@ export default function FullDayUtilityDashboard() {
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-2">
-          <BarChart3 size={19} className="text-rose-600" />
-          <h2 className="font-semibold text-slate-800">Egresos por concepto</h2>
-        </div>
-        <div className="mt-5 grid gap-x-8 gap-y-4 md:grid-cols-2">
-          {byExpense.map((expense) => (
-            <div key={expense.concept}>
-              <div className="mb-1 flex justify-between gap-3 text-sm">
-                <span className="truncate text-slate-700">{expense.concept}</span>
-                <strong className="whitespace-nowrap text-slate-800">{formatMoney(expense.total)}</strong>
-              </div>
-              <div className="h-3 rounded-full bg-slate-100">
-                <div className="h-3 rounded-full bg-rose-500" style={{ width: `${(expense.total / maximumExpense) * 100}%` }} />
-              </div>
-            </div>
-          ))}
-          {!loading && !byExpense.length && <p className="py-4 text-sm text-slate-500">No hay egresos registrados para esta fecha.</p>}
+        <h2 className="font-semibold text-slate-800">Egresos</h2>
+        <div className="mt-4 overflow-hidden rounded-lg border border-slate-100">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Concepto</th>
+                <th className="px-3 py-2 text-right">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredExpenses.map((expense) => (
+                <tr key={expense.idEgreso} className="border-t border-slate-100">
+                  <td className="px-3 py-2 text-slate-700">{expense.concepto || "Sin concepto"}</td>
+                  <td className="px-3 py-2 text-right font-medium text-slate-800">{formatMoney(Number(expense.monto || 0))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!loading && !filteredExpenses.length && <p className="py-8 text-center text-sm text-slate-500">Sin egresos registrados.</p>}
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <BarChart3 size={19} className="text-sky-600" />
-            <h2 className="font-semibold text-slate-800">Ingresos por tour</h2>
-          </div>
-          <div className="mt-5 space-y-4">
-            {byTour.map((tour) => (
-              <div key={`${tour.service}-${tour.name}`}>
-                <div className="mb-1 flex justify-between gap-3 text-sm">
-                  <span className="truncate text-slate-700">{tour.name} <span className="text-xs text-slate-400">{tour.service}</span></span>
-                  <strong className="whitespace-nowrap text-slate-800">{formatMoney(tour.total)}</strong>
-                </div>
-                <div className="h-3 rounded-full bg-slate-100">
-                  <div className="h-3 rounded-full bg-sky-500" style={{ width: `${(tour.total / maximum) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-            {!loading && !byTour.length && <p className="py-8 text-center text-sm text-slate-500">No hay ventas de Full Day o City Tour el {displayDate(date)}.</p>}
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Users size={19} className="text-violet-600" />
@@ -473,8 +515,7 @@ export default function FullDayUtilityDashboard() {
             </table>
             {!loading && !byCounter.length && <p className="py-8 text-center text-sm text-slate-500">Sin ventas registradas.</p>}
           </div>
-        </section>
-      </div>
+      </section>
     </div>
   );
 }

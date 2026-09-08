@@ -19,6 +19,7 @@ type FormState = {
   canalVentaId: number | null;
   canalVentaNombre: string;
   canalExiste: boolean;
+  rucVerificado: boolean;
   nombreCompleto: string;
   email: string;
   telefono: string;
@@ -32,6 +33,7 @@ const emptyForm: FormState = {
   canalVentaId: null,
   canalVentaNombre: "",
   canalExiste: false,
+  rucVerificado: false,
   nombreCompleto: "",
   email: "",
   telefono: "",
@@ -63,6 +65,11 @@ const splitFullName = (fullName: string) => {
   };
 };
 
+type RucVerification = Pick<
+  FormState,
+  "ruc" | "razonSocial" | "canalVentaId" | "canalVentaNombre" | "canalExiste"
+>;
+
 const ExternalUserRegister = () => {
   const { channels, isLoading: isLoadingChannels } = useSalesChannels();
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -91,6 +98,7 @@ const ExternalUserRegister = () => {
             canalVentaId: null,
             canalVentaNombre: "",
             canalExiste: false,
+            rucVerificado: false,
             logoPreview: "",
             logoFile: null,
           }
@@ -113,44 +121,50 @@ const ExternalUserRegister = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleBuscarRuc = async () => {
-    setMessage("");
-    setError("");
-
+  const verifyRuc = async (): Promise<RucVerification> => {
     const ruc = normalizeRuc(form.ruc);
     if (!isValidRuc(ruc)) {
-      setError("El RUC debe tener 11 digitos numericos.");
-      return;
+      throw new Error("El RUC debe tener 11 digitos numericos.");
     }
 
     const existingChannel = channelByRuc.get(ruc);
     if (existingChannel) {
-      const canalVentaId = resolveSalesChannelId(existingChannel);
-      setForm((prev) => ({
-        ...prev,
+      return {
         ruc,
         razonSocial:
           existingChannel.razonSocial || existingChannel.canalNombre || "",
-        canalVentaId,
+        canalVentaId: resolveSalesChannelId(existingChannel),
         canalVentaNombre: existingChannel.canalNombre || "",
         canalExiste: true,
-        logoPreview: "",
-        logoFile: null,
-      }));
-      return;
+      };
     }
 
+    const result = await lookupRuc(ruc);
+    return {
+      ruc: result.ruc,
+      razonSocial: result.razonSocial,
+      canalVentaId: null,
+      canalVentaNombre: "",
+      canalExiste: false,
+    };
+  };
+
+  const applyRucVerification = (verification: RucVerification) => {
+    setForm((prev) => ({
+      ...prev,
+      ...verification,
+      rucVerificado: true,
+      logoPreview: "",
+      logoFile: null,
+    }));
+  };
+
+  const handleBuscarRuc = async () => {
+    setMessage("");
+    setError("");
     setIsSearchingRuc(true);
     try {
-      const result = await lookupRuc(ruc);
-      setForm((prev) => ({
-        ...prev,
-        ruc: result.ruc,
-        razonSocial: result.razonSocial,
-        canalVentaId: null,
-        canalVentaNombre: "",
-        canalExiste: false,
-      }));
+      applyRucVerification(await verifyRuc());
     } catch (lookupError) {
       setError(
         lookupError instanceof Error
@@ -167,31 +181,52 @@ const ExternalUserRegister = () => {
     setMessage("");
     setError("");
 
-    const nombre = splitFullName(form.nombreCompleto);
-    const payload = {
-      ruc: normalizeRuc(form.ruc),
-      razonSocial: form.razonSocial.trim(),
-      canalVentaId: form.canalVentaId,
-      canalExiste: form.canalExiste,
-      nombres: nombre.nombres,
-      apellidos: nombre.apellidos,
-      email: form.email.trim(),
-      telefono: form.telefono.trim(),
-    };
+    if (!event.currentTarget.checkValidity()) {
+      event.currentTarget.reportValidity();
+      return;
+    }
 
+    const nombre = splitFullName(form.nombreCompleto);
     if (
-      !isValidRuc(payload.ruc) ||
-      !payload.razonSocial ||
-      !payload.nombres ||
-      !payload.apellidos ||
-      !payload.email
+      !nombre.nombres ||
+      !nombre.apellidos ||
+      !/\p{L}/u.test(nombre.nombres) ||
+      !/\p{L}/u.test(nombre.apellidos)
     ) {
-      setError("Busca el RUC, ingresa nombres y apellidos, y completa el correo.");
+      setError("Ingresa al menos un nombre y un apellido válidos.");
+      return;
+    }
+
+    const email = form.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Ingresa un correo electrónico válido.");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const verification = form.rucVerificado
+        ? form
+        : await verifyRuc();
+      if (!form.rucVerificado) {
+        applyRucVerification(verification);
+      }
+
+      const payload = {
+        ruc: verification.ruc,
+        razonSocial: verification.razonSocial,
+        canalVentaId: verification.canalVentaId,
+        canalExiste: verification.canalExiste,
+        nombres: nombre.nombres,
+        apellidos: nombre.apellidos,
+        email,
+        telefono: form.telefono.trim(),
+      };
+
+      if (!isValidRuc(payload.ruc) || !payload.razonSocial) {
+        throw new Error("No se pudo validar el RUC.");
+      }
+
       const formData = new FormData();
       formData.append("ruc", payload.ruc);
       formData.append("razonSocial", payload.razonSocial);
@@ -244,8 +279,8 @@ const ExternalUserRegister = () => {
       setForm(emptyForm);
       setMessage(
         correoEnviado
-          ? `Solicitud registrada. Correo enviado a ${correosAdmin || "administracion"}.`
-          : "Solicitud registrada, pero no se pudo enviar el correo al administrador.",
+          ? `Solicitud registrada. Enviamos una confirmación a tu correo y notificamos a ${correosAdmin || "administración"}.`
+          : "Solicitud registrada, pero no se pudieron enviar todos los correos de notificación.",
       );
     } catch (submitError) {
       setError(
