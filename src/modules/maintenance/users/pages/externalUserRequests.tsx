@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Check, Eye, EyeOff, Wrench, XCircle } from "lucide-react";
+import { Check, Eye, EyeOff, RotateCcw, Wrench, XCircle } from "lucide-react";
 
 import DndTable from "@/components/dataTabla/DndTable";
 import { showToast } from "@/components/ui/AppToast";
@@ -86,6 +86,9 @@ const formatDate = (value?: string) => {
 
 const isPending = (row: SolicitudUsuarioExterno) =>
   String(row.estado ?? "").trim().toUpperCase() === "PENDIENTE";
+
+const isApproved = (row: SolicitudUsuarioExterno) =>
+  String(row.estado ?? "").trim().toUpperCase() === "APROBADA";
 
 const PasswordField = ({
   value,
@@ -370,6 +373,43 @@ const ExternalUserRequests = () => {
     [access.delete, fetchRows, openDialog],
   );
 
+  const devolverAPendiente = useCallback(
+    (row: SolicitudUsuarioExterno) => {
+      if (!access.edit) return;
+
+      openDialog({
+        title: "Devolver a pendiente",
+        description: `Se desactivará el acceso de ${row.usuarioAlias}.`,
+        size: "sm",
+        confirmLabel: "Devolver a pendiente",
+        initialPayload: { comentario: "" },
+        content: ({ payload, setPayload }) => (
+          <label className="block text-sm">
+            <span className="mb-1 block text-slate-600">Motivo</span>
+            <textarea
+              value={String(payload.comentario ?? "")}
+              onChange={(event) =>
+                setPayload({ ...payload, comentario: event.target.value })
+              }
+              className="min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+            />
+          </label>
+        ),
+        onConfirm: async (payload) => {
+          await apiRequest({
+            url: `${API_BASE_URL}/SolicitudesUsuarioExterno/${row.solicitudId}/devolver-pendiente`,
+            method: "POST",
+            data: { comentario: String(payload.comentario ?? "").trim() },
+          });
+          showToast({ title: "Exito", description: "Solicitud devuelta a pendiente.", type: "success" });
+          await fetchRows();
+          return true;
+        },
+      });
+    },
+    [access.edit, fetchRows, openDialog],
+  );
+
   const columns = useMemo(() => {
     const columnHelper = createColumnHelper<SolicitudUsuarioExterno>();
     return [
@@ -466,12 +506,23 @@ const ExternalUserRequests = () => {
                 <XCircle className="h-4 w-4" />
               </button>
             </div>
-          ) : (
-            "-"
-          ),
+          ) : isApproved(row.original) ? (
+            <button
+              type="button"
+              disabled={!access.edit}
+              onClick={(event) => {
+                event.stopPropagation();
+                devolverAPendiente(row.original);
+              }}
+              className="text-amber-600 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Devolver a pendiente"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          ) : "-",
       }),
     ];
-  }, [access.create, access.delete, aprobar, rechazar, regularizar]);
+  }, [access.create, access.delete, access.edit, aprobar, devolverAPendiente, rechazar, regularizar]);
 
   return (
     <MaintenancePageFrame

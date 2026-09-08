@@ -593,6 +593,9 @@ const FulldayListado = () => {
                 placeholder="Nombre del pasajero"
                 className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md"
               />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="w-20" />
               <button
                 type="button"
                 onClick={() => navigate("/fullday")}
