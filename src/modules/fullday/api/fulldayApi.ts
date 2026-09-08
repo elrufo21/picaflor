@@ -144,6 +144,60 @@ export const editarCantMax = async (Valores: string) => {
   return res.json();
 };
 
+export type Egreso = {
+  idEgreso: number;
+  idProducto: number;
+  fecha: string;
+  concepto: string;
+  monto: number;
+  fechaRegistro: string;
+  usuario: string;
+};
+
+export const fetchEgresos = async (idProducto: number, fecha: string): Promise<Egreso[]> => {
+  const params = new URLSearchParams({ idProducto: String(idProducto), fecha });
+  const res = await fetch(`${PROGRAMACION_API_URL}/egresos?${params}`, {
+    headers: { accept: "application/json" },
+  });
+
+  if (!res.ok) throw new Error((await res.text()) || "No se pudieron cargar los egresos");
+  return res.json();
+};
+
+export const fetchEgresosFecha = async (fecha: string): Promise<Egreso[]> => {
+  const res = await fetch(`${PROGRAMACION_API_URL}/egresos/resumen?fecha=${encodeURIComponent(fecha)}`, {
+    headers: { accept: "application/json" },
+  });
+
+  if (!res.ok) throw new Error((await res.text()) || "No se pudieron cargar los egresos");
+  return res.json();
+};
+
+export const fetchTotalImpuestosIslas = async (idProducto: number, fecha: string): Promise<number> => {
+  const params = new URLSearchParams({ idProducto: String(idProducto), fecha });
+  const res = await fetch(`${PROGRAMACION_API_URL}/egresos/impuestos-islas?${params}`, {
+    headers: { accept: "application/json" },
+  });
+
+  if (!res.ok) throw new Error((await res.text()) || "No se pudo calcular el impuesto de Islas");
+  return Number(await res.json()) || 0;
+};
+
+export const guardarEgresos = async (payload: {
+  idProducto: number;
+  fecha: string;
+  usuario: string;
+  egresos: { concepto: string; monto: number }[];
+}) => {
+  const res = await fetch(`${PROGRAMACION_API_URL}/egresos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error((await res.text()) || "No se pudieron guardar los egresos");
+};
+
 export async function fetchLiquidaciones(
   areaId: number | string,
   usuarioId: number | string,

@@ -19,9 +19,8 @@ type FormState = {
   canalVentaId: number | null;
   canalVentaNombre: string;
   canalExiste: boolean;
-  nombres: string;
-  apellidos: string;
-  usuarioAlias: string;
+  rucVerificado: boolean;
+  nombreCompleto: string;
   email: string;
   telefono: string;
   logoPreview: string;
@@ -34,9 +33,8 @@ const emptyForm: FormState = {
   canalVentaId: null,
   canalVentaNombre: "",
   canalExiste: false,
-  nombres: "",
-  apellidos: "",
-  usuarioAlias: "",
+  rucVerificado: false,
+  nombreCompleto: "",
   email: "",
   telefono: "",
   logoPreview: "",
@@ -48,8 +46,6 @@ type RegisterResponse = {
   SolicitudId?: number;
   correoEnviado?: boolean;
   CorreoEnviado?: boolean;
-  correosAdmin?: string;
-  CorreosAdmin?: string;
 };
 
 const resolveSalesChannelId = (channel?: SalesChannelDetail) => {
@@ -58,6 +54,19 @@ const resolveSalesChannelId = (channel?: SalesChannelDetail) => {
   );
   return Number.isFinite(id) && id > 0 ? id : null;
 };
+
+const splitFullName = (fullName: string) => {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  return {
+    nombres: parts.slice(0, -1).join(" "),
+    apellidos: parts.at(-1) ?? "",
+  };
+};
+
+type RucVerification = Pick<
+  FormState,
+  "ruc" | "razonSocial" | "canalVentaId" | "canalVentaNombre" | "canalExiste"
+>;
 
 const ExternalUserRegister = () => {
   const { channels, isLoading: isLoadingChannels } = useSalesChannels();
@@ -87,12 +96,11 @@ const ExternalUserRegister = () => {
             canalVentaId: null,
             canalVentaNombre: "",
             canalExiste: false,
+            rucVerificado: false,
             logoPreview: "",
             logoFile: null,
           }
-        : {
-            [key]: key === "usuarioAlias" ? value.replace(/\s+/g, "") : value,
-          }),
+        : { [key]: value }),
     }));
   };
 
@@ -111,44 +119,50 @@ const ExternalUserRegister = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleBuscarRuc = async () => {
-    setMessage("");
-    setError("");
-
+  const verifyRuc = async (): Promise<RucVerification> => {
     const ruc = normalizeRuc(form.ruc);
     if (!isValidRuc(ruc)) {
-      setError("El RUC debe tener 11 digitos numericos.");
-      return;
+      throw new Error("El RUC debe tener 11 digitos numericos.");
     }
 
     const existingChannel = channelByRuc.get(ruc);
     if (existingChannel) {
-      const canalVentaId = resolveSalesChannelId(existingChannel);
-      setForm((prev) => ({
-        ...prev,
+      return {
         ruc,
         razonSocial:
           existingChannel.razonSocial || existingChannel.canalNombre || "",
-        canalVentaId,
+        canalVentaId: resolveSalesChannelId(existingChannel),
         canalVentaNombre: existingChannel.canalNombre || "",
         canalExiste: true,
-        logoPreview: "",
-        logoFile: null,
-      }));
-      return;
+      };
     }
 
+    const result = await lookupRuc(ruc);
+    return {
+      ruc: result.ruc,
+      razonSocial: result.razonSocial,
+      canalVentaId: null,
+      canalVentaNombre: "",
+      canalExiste: false,
+    };
+  };
+
+  const applyRucVerification = (verification: RucVerification) => {
+    setForm((prev) => ({
+      ...prev,
+      ...verification,
+      rucVerificado: true,
+      logoPreview: "",
+      logoFile: null,
+    }));
+  };
+
+  const handleBuscarRuc = async () => {
+    setMessage("");
+    setError("");
     setIsSearchingRuc(true);
     try {
-      const result = await lookupRuc(ruc);
-      setForm((prev) => ({
-        ...prev,
-        ruc: result.ruc,
-        razonSocial: result.razonSocial,
-        canalVentaId: null,
-        canalVentaNombre: "",
-        canalExiste: false,
-      }));
+      applyRucVerification(await verifyRuc());
     } catch (lookupError) {
       setError(
         lookupError instanceof Error
@@ -165,31 +179,52 @@ const ExternalUserRegister = () => {
     setMessage("");
     setError("");
 
-    const payload = {
-      ruc: normalizeRuc(form.ruc),
-      razonSocial: form.razonSocial.trim(),
-      canalVentaId: form.canalVentaId,
-      canalExiste: form.canalExiste,
-      nombres: form.nombres.trim(),
-      apellidos: form.apellidos.trim(),
-      usuarioAlias: form.usuarioAlias.trim(),
-      email: form.email.trim(),
-      telefono: form.telefono.trim(),
-    };
+    if (!event.currentTarget.checkValidity()) {
+      event.currentTarget.reportValidity();
+      return;
+    }
 
+    const nombre = splitFullName(form.nombreCompleto);
     if (
-      !isValidRuc(payload.ruc) ||
-      !payload.razonSocial ||
-      !payload.nombres ||
-      !payload.apellidos ||
-      !payload.usuarioAlias
+      !nombre.nombres ||
+      !nombre.apellidos ||
+      !/\p{L}/u.test(nombre.nombres) ||
+      !/\p{L}/u.test(nombre.apellidos)
     ) {
-      setError("Busca el RUC y completa nombres, apellidos y usuario.");
+      setError("Ingresa al menos un nombre y un apellido válidos.");
+      return;
+    }
+
+    const email = form.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Ingresa un correo electrónico válido.");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const verification = form.rucVerificado
+        ? form
+        : await verifyRuc();
+      if (!form.rucVerificado) {
+        applyRucVerification(verification);
+      }
+
+      const payload = {
+        ruc: verification.ruc,
+        razonSocial: verification.razonSocial,
+        canalVentaId: verification.canalVentaId,
+        canalExiste: verification.canalExiste,
+        nombres: nombre.nombres,
+        apellidos: nombre.apellidos,
+        email,
+        telefono: form.telefono.trim(),
+      };
+
+      if (!isValidRuc(payload.ruc) || !payload.razonSocial) {
+        throw new Error("No se pudo validar el RUC.");
+      }
+
       const formData = new FormData();
       formData.append("ruc", payload.ruc);
       formData.append("razonSocial", payload.razonSocial);
@@ -199,7 +234,7 @@ const ExternalUserRegister = () => {
       }
       formData.append("nombres", payload.nombres);
       formData.append("apellidos", payload.apellidos);
-      formData.append("usuarioAlias", payload.usuarioAlias);
+      formData.append("usuarioAlias", payload.email);
       formData.append("email", payload.email);
       formData.append("telefono", payload.telefono);
       if (!payload.canalExiste && form.logoFile) {
@@ -234,16 +269,11 @@ const ExternalUserRegister = () => {
         typeof result === "object" && result !== null
           ? Boolean(result.correoEnviado ?? result.CorreoEnviado)
           : false;
-      const correosAdmin =
-        typeof result === "object" && result !== null
-          ? String(result.correosAdmin ?? result.CorreosAdmin ?? "").trim()
-          : "";
-
       setForm(emptyForm);
       setMessage(
         correoEnviado
-          ? `Solicitud registrada. Correo enviado a ${correosAdmin || "administracion"}.`
-          : "Solicitud registrada, pero no se pudo enviar el correo al administrador.",
+          ? "Solicitud registrada. Te enviamos un correo."
+          : "Solicitud registrada, pero no se pudieron enviar todos los correos de notificación.",
       );
     } catch (submitError) {
       setError(
@@ -319,39 +349,12 @@ const ExternalUserRegister = () => {
                 </div>
               ) : null}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="mb-1 block text-slate-300">Nombres</span>
-                  <input
-                    value={form.nombres}
-                    onChange={(event) =>
-                      updateField("nombres", event.target.value)
-                    }
-                    className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-white outline-none focus:border-cyan-400"
-                    required
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="mb-1 block text-slate-300">Apellidos</span>
-                  <input
-                    value={form.apellidos}
-                    onChange={(event) =>
-                      updateField("apellidos", event.target.value)
-                    }
-                    className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-white outline-none focus:border-cyan-400"
-                    required
-                  />
-                </label>
-              </div>
-
               <label className="block text-sm">
-                <span className="mb-1 block text-slate-300">
-                  Usuario / Alias
-                </span>
+                <span className="mb-1 block text-slate-300">Nombres y apellidos</span>
                 <input
-                  value={form.usuarioAlias}
+                  value={form.nombreCompleto}
                   onChange={(event) =>
-                    updateField("usuarioAlias", event.target.value)
+                    updateField("nombreCompleto", event.target.value)
                   }
                   className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-white outline-none focus:border-cyan-400"
                   required
@@ -360,7 +363,7 @@ const ExternalUserRegister = () => {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block text-sm">
-                  <span className="mb-1 block text-slate-300">Email</span>
+                  <span className="mb-1 block text-slate-300">Correo electrónico</span>
                   <input
                     type="email"
                     value={form.email}
@@ -368,7 +371,9 @@ const ExternalUserRegister = () => {
                       updateField("email", event.target.value)
                     }
                     className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-white outline-none focus:border-cyan-400"
+                    required
                   />
+                  <span className="mt-1 block text-xs text-slate-400">Se usará como nombre de usuario.</span>
                 </label>
                 <label className="block text-sm">
                   <span className="mb-1 block text-slate-300">Telefono</span>

@@ -8,6 +8,7 @@ import FulldayListado from "./pages/fulldayListado";
 import InvoicePreview from "./pages/fulldayInvoicePreview";
 import ProgramacionLiquidaciones from "./pages/programacionLiquidaciones";
 import FullDayBoletaPreview from "./pages/fulldayBoletaPreview";
+import FullDayUtilityDashboard from "./pages/fulldayUtilityDashboard";
 
 export default [
   {
@@ -57,6 +58,13 @@ export default [
     element: <FullDayBoletaPreview />,
     handle: {
       breadcrumb: [{ label: "Full Day", to: "/fullday" }, { label: "Boleta" }],
+    },
+  },
+  {
+    path: "fullday/utilidad",
+    element: <FullDayUtilityDashboard />,
+    handle: {
+      breadcrumb: [{ label: "Full Day", to: "/fullday" }, { label: "Utilidad" }],
     },
   },
   {

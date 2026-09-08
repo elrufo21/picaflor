@@ -71,6 +71,16 @@ export const SUBMODULE_OPTIONS: SubmoduleOption[] = [
     detail: "Habilita el boton Guardar en Programacion de liquidaciones.",
   },
   {
+    code: "fullday.programacion_liquidaciones.btn_egresos",
+    label: "Full Day - Boton Egresos",
+    detail: "Habilita el boton Egresos en el listado de Full Day.",
+  },
+  {
+    code: "fullday.programacion_liquidaciones.btn_utilidad",
+    label: "Full Day - Boton Utilidad",
+    detail: "Habilita el boton Utilidad en el listado de Full Day.",
+  },
+  {
     code: "citytour.programacion_liquidaciones.btn_agregar",
     label: "City Tour - Boton Agregar",
     detail: "Habilita el boton Agregar en Programacion de liquidaciones.",
