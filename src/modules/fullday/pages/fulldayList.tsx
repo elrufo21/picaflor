@@ -127,6 +127,10 @@ const PackageList = () => {
     "fullday.programacion_liquidaciones.btn_agregar";
   const BTN_SAVE_SUBMODULE_CODE =
     "fullday.programacion_liquidaciones.btn_guardar";
+  const BTN_EGRESOS_SUBMODULE_CODE =
+    "fullday.programacion_liquidaciones.btn_egresos";
+  const BTN_UTILIDAD_SUBMODULE_CODE =
+    "fullday.programacion_liquidaciones.btn_utilidad";
 
   /* =========================
      STATES
@@ -161,6 +165,16 @@ const PackageList = () => {
     : hasSubmodulePermissions
       ? canAccessSubmodule(BTN_SAVE_SUBMODULE_CODE)
       : canAccessAction("fullday", "edit");
+  const canManageEgresos = hasSubmoduleActionRules
+    ? canAccessSubmoduleAction(BTN_EGRESOS_SUBMODULE_CODE, "edit")
+    : hasSubmodulePermissions
+      ? canAccessSubmodule(BTN_EGRESOS_SUBMODULE_CODE)
+      : canAccessAction("fullday", "edit");
+  const canViewUtilidad = hasSubmoduleActionRules
+    ? canAccessSubmoduleAction(BTN_UTILIDAD_SUBMODULE_CODE, "read")
+    : hasSubmodulePermissions
+      ? canAccessSubmodule(BTN_UTILIDAD_SUBMODULE_CODE)
+      : canAccessAction("fullday", "read");
   const {
     packages,
     loadPackages,
@@ -320,8 +334,8 @@ const PackageList = () => {
     }
 
     openDialog({
-      title: `Operaciones · ${row.destino || "Full Day"}`,
-      description: "Registra los precios de transporte, guía y demás egresos.",
+      title: `Egresos · ${row.destino || "Full Day"}`,
+      description: `Fecha: ${row.fecha || date}`,
       size: "lg",
       confirmLabel: canEditProgramacion ? "Guardar" : "Cerrar",
       showCancel: canEditProgramacion,
@@ -489,7 +503,7 @@ const PackageList = () => {
             })),
           });
           showToast({
-            title: "Operaciones registradas",
+            title: "Egresos registrados",
             description: "Los egresos quedaron guardados.",
             type: "success",
           });
@@ -723,29 +737,33 @@ const PackageList = () => {
             >
               {row.original.accionTexto}
             </button>
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
-                handleOperacionesClick(row.original);
-              }}
-              className="rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-200"
-            >
-              Operaciones
-            </button>
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
-                handleUtilidadClick(row.original);
-              }}
-              className="rounded-lg bg-violet-100 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-200"
-            >
-              Utilidad
-            </button>
+            {canManageEgresos && (
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleOperacionesClick(row.original);
+                }}
+                className="rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-200"
+              >
+                Egresos
+              </button>
+            )}
+            {canViewUtilidad && (
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleUtilidadClick(row.original);
+                }}
+                className="rounded-lg bg-violet-100 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-200"
+              >
+                Utilidad
+              </button>
+            )}
           </div>
         ),
       },
     ],
-    [canEditProgramacion, handleRowClick, handleListadoClick, guias, transportes],
+    [canEditProgramacion, canManageEgresos, canViewUtilidad, handleRowClick, handleListadoClick, guias, transportes],
   );
 
   const confirmDeleteSelected = useCallback(() => {

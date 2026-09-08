@@ -46,8 +46,6 @@ type RegisterResponse = {
   SolicitudId?: number;
   correoEnviado?: boolean;
   CorreoEnviado?: boolean;
-  correosAdmin?: string;
-  CorreosAdmin?: string;
 };
 
 const resolveSalesChannelId = (channel?: SalesChannelDetail) => {
@@ -271,15 +269,10 @@ const ExternalUserRegister = () => {
         typeof result === "object" && result !== null
           ? Boolean(result.correoEnviado ?? result.CorreoEnviado)
           : false;
-      const correosAdmin =
-        typeof result === "object" && result !== null
-          ? String(result.correosAdmin ?? result.CorreosAdmin ?? "").trim()
-          : "";
-
       setForm(emptyForm);
       setMessage(
         correoEnviado
-          ? `Solicitud registrada. Enviamos una confirmación a tu correo y notificamos a ${correosAdmin || "administración"}.`
+          ? "Solicitud registrada. Te enviamos un correo."
           : "Solicitud registrada, pero no se pudieron enviar todos los correos de notificación.",
       );
     } catch (submitError) {

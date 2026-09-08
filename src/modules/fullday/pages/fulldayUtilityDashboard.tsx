@@ -10,6 +10,7 @@ import { refreshServiciosData } from "@/app/db/serviciosSync";
 
 type FullDay = { fecha?: string; id?: number; idProducto?: number; destino?: string };
 type ProductOption = { id: number; name: string };
+type PaymentCondition = "ACUENTA" | "CREDITO" | "CANCELADO" | "";
 type SaleRow = {
   id: string;
   producto: string;
@@ -18,6 +19,7 @@ type SaleRow = {
   total: number;
   moneda: "SOLES" | "DOLARES";
   servicio: "FULL DAY" | "CITY TOUR";
+  condicion: PaymentCondition;
 };
 
 const number = (value: unknown) => {
@@ -27,6 +29,11 @@ const number = (value: unknown) => {
 
 const normalizeCurrency = (value: string): SaleRow["moneda"] =>
   /DOL|USD|\$/.test(value.toUpperCase()) ? "DOLARES" : "SOLES";
+
+const paymentCondition = (values: string[]): PaymentCondition =>
+  (values
+    .map((value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s/g, "").toUpperCase())
+    .find((value) => value === "ACUENTA" || value === "CREDITO" || value === "CANCELADO") ?? "") as PaymentCondition;
 
 const dateToInput = (value?: string) => {
   const match = String(value ?? "").match(/^(\d{2})\/(\d{2})\/(\d{4})/);
@@ -71,6 +78,7 @@ const parseSales = (payload: string): SaleRow[] =>
         total: number(values[17]),
         moneda: normalizeCurrency(values[43] ?? ""),
         servicio,
+        condicion: paymentCondition(values),
       } as SaleRow;
     })
     .filter((row): row is SaleRow => Boolean(row));
@@ -184,6 +192,18 @@ export default function FullDayUtilityDashboard() {
       pasajeros: filteredSales.reduce((sum, sale) => sum + sale.pasajeros, 0),
     };
   }, [exchangeRate, filteredExpenses, filteredSales]);
+
+  const paymentTotals = useMemo(
+    () =>
+      filteredSales.reduce(
+        (result, sale) => {
+          if (sale.condicion) result[sale.condicion] += 1;
+          return result;
+        },
+        { ACUENTA: 0, CREDITO: 0, CANCELADO: 0 },
+      ),
+    [filteredSales],
+  );
 
   const salesInSoles = useCallback(
     (sale: SaleRow) => sale.total * (sale.moneda === "DOLARES" ? totals.rate : 1),
@@ -429,41 +449,56 @@ export default function FullDayUtilityDashboard() {
 
       {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-          <p className="text-sm font-medium text-emerald-700">Ingresos en soles</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-900">{formatMoney(totals.soles)}</p>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="font-semibold text-slate-800">Resumen financiero</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-medium text-emerald-700">Ingresos en soles</p>
+              <p className="mt-2 text-2xl font-bold text-emerald-900">{formatMoney(totals.soles)}</p>
+            </section>
+            <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-medium text-amber-700">Ingresos en dólares</p>
+              <p className="mt-2 text-2xl font-bold text-amber-900">US$ {totals.dollars.toFixed(2)}</p>
+              {hasDollars && (
+                <label className="mt-3 flex items-center gap-2 text-sm text-amber-800">
+                  Tipo de cambio
+                  <input type="number" min="0" step="0.001" value={exchangeRate} onChange={(event) => setExchangeRate(event.target.value)} placeholder="Ej. 3.40" className="w-24 rounded-md border border-amber-300 bg-white px-2 py-1" />
+                </label>
+              )}
+            </section>
+            <section className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+              <p className="text-sm font-medium text-sky-700">Total ingresos en soles</p>
+              <p className="mt-2 text-2xl font-bold text-sky-900">{formatMoney(totals.total)}</p>
+              {hasDollars && !totals.rate && <p className="mt-2 text-xs text-sky-700">Ingresa el tipo de cambio para sumar los dólares.</p>}
+            </section>
+            <section className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+              <p className="text-sm font-medium text-rose-700">Total egresos</p>
+              <p className="mt-2 text-2xl font-bold text-rose-900">{formatMoney(totals.egresos)}</p>
+            </section>
+            <section className="rounded-xl border border-violet-200 bg-violet-50 p-4 sm:col-span-2">
+              <p className="text-sm font-medium text-violet-700">Utilidad estimada</p>
+              <p className="mt-2 text-2xl font-bold text-violet-900">{formatMoney(totals.utilidad)}</p>
+            </section>
+          </div>
         </section>
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-          <p className="text-sm font-medium text-amber-700">Ingresos en dólares</p>
-          <p className="mt-2 text-3xl font-bold text-amber-900">US$ {totals.dollars.toFixed(2)}</p>
-          {hasDollars && (
-            <label className="mt-3 flex items-center gap-2 text-sm text-amber-800">
-              Tipo de cambio
-              <input
-                type="number"
-                min="0"
-                step="0.001"
-                value={exchangeRate}
-                onChange={(event) => setExchangeRate(event.target.value)}
-                placeholder="Ej. 3.40"
-                className="w-28 rounded-md border border-amber-300 bg-white px-2 py-1"
-              />
-            </label>
-          )}
-        </section>
-        <section className="rounded-xl border border-sky-200 bg-sky-50 p-5">
-          <p className="text-sm font-medium text-sky-700">Total ingresos en soles</p>
-          <p className="mt-2 text-3xl font-bold text-sky-900">{formatMoney(totals.total)}</p>
-          {hasDollars && !totals.rate && <p className="mt-2 text-xs text-sky-700">Ingresa el tipo de cambio para sumar los dólares.</p>}
-        </section>
-        <section className="rounded-xl border border-rose-200 bg-rose-50 p-5">
-          <p className="text-sm font-medium text-rose-700">Total egresos</p>
-          <p className="mt-2 text-3xl font-bold text-rose-900">{formatMoney(totals.egresos)}</p>
-        </section>
-        <section className="rounded-xl border border-violet-200 bg-violet-50 p-5">
-          <p className="text-sm font-medium text-violet-700">Utilidad estimada</p>
-          <p className="mt-2 text-3xl font-bold text-violet-900">{formatMoney(totals.utilidad)}</p>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="font-semibold text-slate-800">Estado de pagos</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <section className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+              <p className="text-sm font-medium text-orange-700">A cuenta</p>
+              <p className="mt-2 text-2xl font-bold text-orange-900">{paymentTotals.ACUENTA}</p>
+            </section>
+            <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+              <p className="text-sm font-medium text-indigo-700">Créditos</p>
+              <p className="mt-2 text-2xl font-bold text-indigo-900">{paymentTotals.CREDITO}</p>
+            </section>
+            <section className="rounded-xl border border-teal-200 bg-teal-50 p-4">
+              <p className="text-sm font-medium text-teal-700">Cancelados</p>
+              <p className="mt-2 text-2xl font-bold text-teal-900">{paymentTotals.CANCELADO}</p>
+            </section>
+          </div>
         </section>
       </div>
 

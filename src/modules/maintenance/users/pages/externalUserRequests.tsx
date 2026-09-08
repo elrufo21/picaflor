@@ -90,6 +90,12 @@ const isPending = (row: SolicitudUsuarioExterno) =>
 const isApproved = (row: SolicitudUsuarioExterno) =>
   String(row.estado ?? "").trim().toUpperCase() === "APROBADA";
 
+const isRejected = (row: SolicitudUsuarioExterno) =>
+  String(row.estado ?? "").trim().toUpperCase() === "RECHAZADA";
+
+const hasValidTemporaryPassword = (value: string) =>
+  /[A-Z]/.test(value) && /[a-z]/.test(value) && /\d/.test(value);
+
 const PasswordField = ({
   value,
   onChange,
@@ -177,6 +183,7 @@ const ExternalUserRequests = () => {
                   setPayload({ ...payload, usuarioClave })
                 }
               />
+              <span className="mt-1 block text-xs text-slate-500">Debe incluir una mayúscula, una minúscula y un número.</span>
             </label>
             <label className="block text-sm">
               <span className="mb-1 block text-slate-600">Comentario</span>
@@ -194,6 +201,10 @@ const ExternalUserRequests = () => {
           const usuarioClave = String(payload.usuarioClave ?? "").trim();
           if (!usuarioClave) {
             showToast({ title: "Atencion", description: "Ingresa una clave temporal.", type: "warning" });
+            return false;
+          }
+          if (!hasValidTemporaryPassword(usuarioClave)) {
+            showToast({ title: "Atencion", description: "La clave debe incluir una mayúscula, una minúscula y un número.", type: "warning" });
             return false;
           }
 
@@ -379,7 +390,9 @@ const ExternalUserRequests = () => {
 
       openDialog({
         title: "Devolver a pendiente",
-        description: `Se desactivará el acceso de ${row.usuarioAlias}.`,
+        description: isApproved(row)
+          ? `Se desactivará el acceso de ${row.usuarioAlias}.`
+          : `La solicitud de ${row.usuarioAlias} volverá a estar pendiente.`,
         size: "sm",
         confirmLabel: "Devolver a pendiente",
         initialPayload: { comentario: "" },
@@ -456,17 +469,16 @@ const ExternalUserRequests = () => {
         header: "Estado",
         cell: (info) => info.getValue() ?? "-",
       }),
-      columnHelper.display({
+      ...(access.create || access.edit || access.delete ? [columnHelper.display({
         id: "acciones",
         header: "Acciones",
         meta: { align: "center" },
         cell: ({ row }) =>
           isPending(row.original) ? (
             <div className="flex items-center justify-center gap-3">
-              {!row.original.canalVentaId || !row.original.canalExiste ? (
+              {access.create && (!row.original.canalVentaId || !row.original.canalExiste) ? (
                 <button
                   type="button"
-                  disabled={!access.create}
                   onClick={(event) => {
                     event.stopPropagation();
                     regularizar(row.original);
@@ -477,25 +489,23 @@ const ExternalUserRequests = () => {
                   <Wrench className="h-4 w-4" />
                 </button>
               ) : null}
-              <button
+              {access.create && (
+                <button
+                  type="button"
+                  disabled={!row.original.canalVentaId || !row.original.canalExiste}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    aprobar(row.original);
+                  }}
+                  className="text-emerald-600 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Aprobar"
+                >
+                  <Check className="h-4 w-4" />
+                </button>
+              )}
+              {access.delete && (
+                <button
                 type="button"
-                disabled={
-                  !access.create ||
-                  !row.original.canalVentaId ||
-                  !row.original.canalExiste
-                }
-                onClick={(event) => {
-                  event.stopPropagation();
-                  aprobar(row.original);
-                }}
-                className="text-emerald-600 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
-                title="Aprobar"
-              >
-                <Check className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                disabled={!access.delete}
                 onClick={(event) => {
                   event.stopPropagation();
                   rechazar(row.original);
@@ -505,11 +515,11 @@ const ExternalUserRequests = () => {
               >
                 <XCircle className="h-4 w-4" />
               </button>
+              )}
             </div>
-          ) : isApproved(row.original) ? (
-            <button
+          ) : isApproved(row.original) || isRejected(row.original) ? (
+            access.edit ? <button
               type="button"
-              disabled={!access.edit}
               onClick={(event) => {
                 event.stopPropagation();
                 devolverAPendiente(row.original);
@@ -518,9 +528,9 @@ const ExternalUserRequests = () => {
               title="Devolver a pendiente"
             >
               <RotateCcw className="h-4 w-4" />
-            </button>
+            </button> : "-"
           ) : "-",
-      }),
+      })] : []),
     ];
   }, [access.create, access.delete, access.edit, aprobar, devolverAPendiente, rechazar, regularizar]);
 
