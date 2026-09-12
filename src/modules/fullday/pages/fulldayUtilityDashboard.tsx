@@ -1,14 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Download, RefreshCw, Users } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
+import { ArrowLeft, Download, Loader2, RefreshCw, Users } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import * as XLSX from "xlsx-js-style";
 
-import { fetchEgresosFecha, fetchPedidosFecha, type Egreso } from "../api/fulldayApi";
+import {
+  fetchEgresosFecha,
+  fetchPedidosFecha,
+  type Egreso,
+} from "../api/fulldayApi";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { serviciosDB } from "@/app/db/serviciosDB";
 import { refreshServiciosData } from "@/app/db/serviciosSync";
 
-type FullDay = { fecha?: string; id?: number; idProducto?: number; destino?: string };
+type FullDay = {
+  fecha?: string;
+  id?: number;
+  idProducto?: number;
+  destino?: string;
+};
 type ProductOption = { id: number; name: string };
 type PaymentCondition = "ACUENTA" | "CREDITO" | "CANCELADO" | "";
 type SaleRow = {
@@ -23,7 +38,11 @@ type SaleRow = {
 };
 
 const number = (value: unknown) => {
-  const parsed = Number(String(value ?? "").replace(/,/g, "").trim());
+  const parsed = Number(
+    String(value ?? "")
+      .replace(/,/g, "")
+      .trim(),
+  );
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
@@ -32,8 +51,17 @@ const normalizeCurrency = (value: string): SaleRow["moneda"] =>
 
 const paymentCondition = (values: string[]): PaymentCondition =>
   (values
-    .map((value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s/g, "").toUpperCase())
-    .find((value) => value === "ACUENTA" || value === "CREDITO" || value === "CANCELADO") ?? "") as PaymentCondition;
+    .map((value) =>
+      value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s/g, "")
+        .toUpperCase(),
+    )
+    .find(
+      (value) =>
+        value === "ACUENTA" || value === "CREDITO" || value === "CANCELADO",
+    ) ?? "") as PaymentCondition;
 
 const dateToInput = (value?: string) => {
   const match = String(value ?? "").match(/^(\d{2})\/(\d{2})\/(\d{4})/);
@@ -89,12 +117,15 @@ export default function FullDayUtilityDashboard() {
   const user = useAuthStore((state) => state.user);
   const fullDay = (location.state as { fullDay?: FullDay } | null)?.fullDay;
   const [date, setDate] = useState(() => dateToInput(fullDay?.fecha));
-  const [productId, setProductId] = useState(() => String(fullDay?.idProducto ?? fullDay?.id ?? ""));
+  const [productId, setProductId] = useState(() =>
+    String(fullDay?.idProducto ?? fullDay?.id ?? ""),
+  );
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [exchangeRate, setExchangeRate] = useState("3.4");
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [expenses, setExpenses] = useState<Egreso[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isChangingFilter, startTransition] = useTransition();
   const [error, setError] = useState("");
 
   const loadSales = useCallback(async () => {
@@ -121,7 +152,11 @@ export default function FullDayUtilityDashboard() {
       setSales(parseSales(payload));
       setExpenses(egresos);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudieron cargar las ventas.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudieron cargar las ventas.",
+      );
     } finally {
       setLoading(false);
     }
@@ -141,13 +176,20 @@ export default function FullDayUtilityDashboard() {
         if (!cancelled) {
           setProducts(
             destinos
-              .map((producto) => ({ id: producto.id, name: producto.nombre.trim() }))
+              .map((producto) => ({
+                id: producto.id,
+                name: producto.nombre.trim(),
+              }))
               .filter((producto) => producto.name),
           );
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "No se pudieron cargar los destinos.");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "No se pudieron cargar los destinos.",
+          );
         }
       }
     })();
@@ -164,12 +206,19 @@ export default function FullDayUtilityDashboard() {
   const filteredSales = useMemo(
     () =>
       selectedProduct
-        ? sales.filter((sale) => sale.producto.trim().toLowerCase() === selectedProduct.name.toLowerCase())
+        ? sales.filter(
+            (sale) =>
+              sale.producto.trim().toLowerCase() ===
+              selectedProduct.name.toLowerCase(),
+          )
         : sales,
     [sales, selectedProduct],
   );
   const filteredExpenses = useMemo(
-    () => (productId ? expenses.filter((expense) => String(expense.idProducto) === productId) : expenses),
+    () =>
+      productId
+        ? expenses.filter((expense) => String(expense.idProducto) === productId)
+        : expenses,
     [expenses, productId],
   );
 
@@ -181,7 +230,10 @@ export default function FullDayUtilityDashboard() {
       .filter((sale) => sale.moneda === "DOLARES")
       .reduce((sum, sale) => sum + sale.total, 0);
     const rate = number(exchangeRate);
-    const egresos = filteredExpenses.reduce((sum, expense) => sum + Number(expense.monto || 0), 0);
+    const egresos = filteredExpenses.reduce(
+      (sum, expense) => sum + Number(expense.monto || 0),
+      0,
+    );
     return {
       soles,
       dollars,
@@ -206,23 +258,23 @@ export default function FullDayUtilityDashboard() {
   );
 
   const salesInSoles = useCallback(
-    (sale: SaleRow) => sale.total * (sale.moneda === "DOLARES" ? totals.rate : 1),
+    (sale: SaleRow) =>
+      sale.total * (sale.moneda === "DOLARES" ? totals.rate : 1),
     [totals.rate],
   );
 
   const byCounter = useMemo(
     () =>
       Object.values(
-        filteredSales.reduce<Record<string, { name: string; pasajeros: number; total: number }>>(
-          (result, sale) => {
-            const name = sale.counter.trim() || "Sin counter";
-            const item = (result[name] ??= { name, pasajeros: 0, total: 0 });
-            item.pasajeros += sale.pasajeros;
-            item.total += salesInSoles(sale);
-            return result;
-          },
-          {},
-        ),
+        filteredSales.reduce<
+          Record<string, { name: string; pasajeros: number; total: number }>
+        >((result, sale) => {
+          const name = sale.counter.trim() || "Sin counter";
+          const item = (result[name] ??= { name, pasajeros: 0, total: 0 });
+          item.pasajeros += sale.pasajeros;
+          item.total += salesInSoles(sale);
+          return result;
+        }, {}),
       ).sort((a, b) => b.total - a.total),
     [filteredSales, salesInSoles],
   );
@@ -230,19 +282,18 @@ export default function FullDayUtilityDashboard() {
   const byTour = useMemo(
     () =>
       Object.values(
-        filteredSales.reduce<Record<string, { name: string; service: string; total: number }>>(
-          (result, sale) => {
-            const key = `${sale.servicio}|${sale.producto}`;
-            const item = (result[key] ??= {
-              name: sale.producto,
-              service: sale.servicio,
-              total: 0,
-            });
-            item.total += salesInSoles(sale);
-            return result;
-          },
-          {},
-        ),
+        filteredSales.reduce<
+          Record<string, { name: string; service: string; total: number }>
+        >((result, sale) => {
+          const key = `${sale.servicio}|${sale.producto}`;
+          const item = (result[key] ??= {
+            name: sale.producto,
+            service: sale.servicio,
+            total: 0,
+          });
+          item.total += salesInSoles(sale);
+          return result;
+        }, {}),
       ).sort((a, b) => b.total - a.total),
     [filteredSales, salesInSoles],
   );
@@ -250,20 +301,20 @@ export default function FullDayUtilityDashboard() {
   const byExpense = useMemo(
     () =>
       Object.values(
-        filteredExpenses.reduce<Record<string, { concept: string; total: number }>>(
-          (result, expense) => {
-            const concept = expense.concepto || "Sin concepto";
-            const item = (result[concept] ??= { concept, total: 0 });
-            item.total += Number(expense.monto || 0);
-            return result;
-          },
-          {},
-        ),
+        filteredExpenses.reduce<
+          Record<string, { concept: string; total: number }>
+        >((result, expense) => {
+          const concept = expense.concepto || "Sin concepto";
+          const item = (result[concept] ??= { concept, total: 0 });
+          item.total += Number(expense.monto || 0);
+          return result;
+        }, {}),
       ).sort((a, b) => b.total - a.total),
     [filteredExpenses],
   );
 
   const hasDollars = totals.dollars > 0;
+  const isDashboardLoading = loading || isChangingFilter;
 
   const downloadExcel = () => {
     const border = { style: "thin", color: { rgb: "D7DEE8" } };
@@ -274,9 +325,15 @@ export default function FullDayUtilityDashboard() {
       border: { top: border, bottom: border, left: border, right: border },
     };
     const money = '"S/" #,##0.00';
-    const addTableStyle = (sheet: XLSX.WorkSheet, headerRow: number, lastRow: number, columns: number) => {
+    const addTableStyle = (
+      sheet: XLSX.WorkSheet,
+      headerRow: number,
+      lastRow: number,
+      columns: number,
+    ) => {
       for (let column = 0; column < columns; column += 1) {
-        const header = sheet[XLSX.utils.encode_cell({ r: headerRow, c: column })];
+        const header =
+          sheet[XLSX.utils.encode_cell({ r: headerRow, c: column })];
         if (header) header.s = headerStyle;
       }
       for (let row = headerRow + 1; row <= lastRow; row += 1) {
@@ -285,8 +342,16 @@ export default function FullDayUtilityDashboard() {
           if (!cell) continue;
           cell.s = {
             fill: { fgColor: { rgb: row % 2 ? "FFF7ED" : "FFFFFF" } },
-            border: { top: border, bottom: border, left: border, right: border },
-            alignment: { vertical: "center", horizontal: column ? "right" : "left" },
+            border: {
+              top: border,
+              bottom: border,
+              left: border,
+              right: border,
+            },
+            alignment: {
+              vertical: "center",
+              horizontal: column ? "right" : "left",
+            },
           };
         }
       }
@@ -300,7 +365,9 @@ export default function FullDayUtilityDashboard() {
 
     const summaryRows: (string | number)[][] = [
       ["PICAFLOR · RESUMEN DIARIO"],
-      [`Fecha de viaje: ${displayDate(date)}${selectedProduct ? ` · ${selectedProduct.name}` : ""}`],
+      [
+        `Fecha de viaje: ${displayDate(date)}${selectedProduct ? ` · ${selectedProduct.name}` : ""}`,
+      ],
       [],
       ["INDICADOR", "MONTO"],
       ["Ingresos en soles", totals.soles],
@@ -332,21 +399,62 @@ export default function FullDayUtilityDashboard() {
     summary["!cols"] = [{ wch: 34 }, { wch: 16 }, { wch: 18 }];
     summary["!freeze"] = { ySplit: 3 };
     const title = summary.A1;
-    if (title) title.s = { font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "C2410C" } }, alignment: { horizontal: "center", vertical: "center" } };
+    if (title)
+      title.s = {
+        font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "C2410C" } },
+        alignment: { horizontal: "center", vertical: "center" },
+      };
     const subtitle = summary.A2;
-    if (subtitle) subtitle.s = { font: { italic: true, color: { rgb: "475569" } }, fill: { fgColor: { rgb: "FFF7ED" } }, alignment: { horizontal: "center" } };
+    if (subtitle)
+      subtitle.s = {
+        font: { italic: true, color: { rgb: "475569" } },
+        fill: { fgColor: { rgb: "FFF7ED" } },
+        alignment: { horizontal: "center" },
+      };
     addTableStyle(summary, 3, 9, 2);
-    ["B5", "B8", "B9", "B10"].forEach((cell) => { if (summary[cell]) summary[cell].z = money; });
+    ["B5", "B8", "B9", "B10"].forEach((cell) => {
+      if (summary[cell]) summary[cell].z = money;
+    });
     if (summary.B6) summary.B6.z = '"US$" #,##0.00';
     if (summary.B7) summary.B7.z = "0.000";
-    ["A8", "B8"].forEach((cell) => { if (summary[cell]) summary[cell].s = { ...summary[cell].s, font: { bold: true, color: { rgb: "075985" } }, fill: { fgColor: { rgb: "E0F2FE" } } }; });
-    ["A9", "B9"].forEach((cell) => { if (summary[cell]) summary[cell].s = { ...summary[cell].s, font: { bold: true, color: { rgb: "9F1239" } }, fill: { fgColor: { rgb: "FFE4E6" } } }; });
-    ["A10", "B10"].forEach((cell) => { if (summary[cell]) summary[cell].s = { ...summary[cell].s, font: { bold: true, color: { rgb: "5B21B6" } }, fill: { fgColor: { rgb: "EDE9FE" } } }; });
-    ["A12", `A${expenseHeaderRow}`].forEach((cell) => { if (summary[cell]) summary[cell].s = { font: { bold: true, color: { rgb: "C2410C" } }, fill: { fgColor: { rgb: "FFEDD5" } } }; });
+    ["A8", "B8"].forEach((cell) => {
+      if (summary[cell])
+        summary[cell].s = {
+          ...summary[cell].s,
+          font: { bold: true, color: { rgb: "075985" } },
+          fill: { fgColor: { rgb: "E0F2FE" } },
+        };
+    });
+    ["A9", "B9"].forEach((cell) => {
+      if (summary[cell])
+        summary[cell].s = {
+          ...summary[cell].s,
+          font: { bold: true, color: { rgb: "9F1239" } },
+          fill: { fgColor: { rgb: "FFE4E6" } },
+        };
+    });
+    ["A10", "B10"].forEach((cell) => {
+      if (summary[cell])
+        summary[cell].s = {
+          ...summary[cell].s,
+          font: { bold: true, color: { rgb: "5B21B6" } },
+          fill: { fgColor: { rgb: "EDE9FE" } },
+        };
+    });
+    ["A12", `A${expenseHeaderRow}`].forEach((cell) => {
+      if (summary[cell])
+        summary[cell].s = {
+          font: { bold: true, color: { rgb: "C2410C" } },
+          fill: { fgColor: { rgb: "FFEDD5" } },
+        };
+    });
     addTableStyle(summary, counterHeaderRow, counterLastRow, 3);
     addTableStyle(summary, expenseHeaderRow, expenseLastRow, 2);
-    for (let row = counterHeaderRow + 1; row <= counterLastRow; row += 1) if (summary[`C${row + 1}`]) summary[`C${row + 1}`].z = money;
-    for (let row = expenseHeaderRow + 1; row <= expenseLastRow; row += 1) if (summary[`B${row + 1}`]) summary[`B${row + 1}`].z = money;
+    for (let row = counterHeaderRow + 1; row <= counterLastRow; row += 1)
+      if (summary[`C${row + 1}`]) summary[`C${row + 1}`].z = money;
+    for (let row = expenseHeaderRow + 1; row <= expenseLastRow; row += 1)
+      if (summary[`B${row + 1}`]) summary[`B${row + 1}`].z = money;
 
     const tour = XLSX.utils.aoa_to_sheet([
       ["VENTAS POR TOUR"],
@@ -355,28 +463,62 @@ export default function FullDayUtilityDashboard() {
       ["Tour", "Servicio", "Ventas (S/)"],
       ...byTour.map((item) => [item.name, item.service, item.total]),
     ]);
-    tour["!merges"] = [XLSX.utils.decode_range("A1:C1"), XLSX.utils.decode_range("A2:C2")];
+    tour["!merges"] = [
+      XLSX.utils.decode_range("A1:C1"),
+      XLSX.utils.decode_range("A2:C2"),
+    ];
     tour["!cols"] = [{ wch: 48 }, { wch: 18 }, { wch: 18 }];
     tour["!freeze"] = { ySplit: 3 };
     if (tour.A1) tour.A1.s = title?.s;
     if (tour.A2) tour.A2.s = subtitle?.s;
     addTableStyle(tour, 3, 3 + Math.max(byTour.length, 1), 3);
-    for (let row = 4; row <= 3 + byTour.length; row += 1) if (tour[`C${row + 1}`]) tour[`C${row + 1}`].z = money;
+    for (let row = 4; row <= 3 + byTour.length; row += 1) {
+      const serviceCell = tour[`B${row + 1}`];
+      if (serviceCell)
+        serviceCell.s = {
+          ...serviceCell.s,
+          alignment: {
+            ...serviceCell.s?.alignment,
+            horizontal: "left",
+            vertical: "center",
+          },
+        };
+      if (tour[`C${row + 1}`]) tour[`C${row + 1}`].z = money;
+    }
 
     const expenseDetail = XLSX.utils.aoa_to_sheet([
       ["DETALLE DE EGRESOS"],
       [`Fecha de viaje: ${displayDate(date)}`],
       [],
       ["Concepto", "Monto (S/)", "Usuario", "Registrado"],
-      ...filteredExpenses.map((item) => [item.concepto || "Sin concepto", Number(item.monto || 0), item.usuario || "", item.fechaRegistro || ""]),
+      ...filteredExpenses.map((item) => [
+        item.concepto || "Sin concepto",
+        Number(item.monto || 0),
+        item.usuario || "",
+        item.fechaRegistro || "",
+      ]),
     ]);
-    expenseDetail["!merges"] = [XLSX.utils.decode_range("A1:D1"), XLSX.utils.decode_range("A2:D2")];
-    expenseDetail["!cols"] = [{ wch: 34 }, { wch: 16 }, { wch: 24 }, { wch: 22 }];
+    expenseDetail["!merges"] = [
+      XLSX.utils.decode_range("A1:D1"),
+      XLSX.utils.decode_range("A2:D2"),
+    ];
+    expenseDetail["!cols"] = [
+      { wch: 34 },
+      { wch: 16 },
+      { wch: 24 },
+      { wch: 22 },
+    ];
     expenseDetail["!freeze"] = { ySplit: 3 };
     if (expenseDetail.A1) expenseDetail.A1.s = title?.s;
     if (expenseDetail.A2) expenseDetail.A2.s = subtitle?.s;
-    addTableStyle(expenseDetail, 3, 3 + Math.max(filteredExpenses.length, 1), 4);
-    for (let row = 4; row <= 3 + filteredExpenses.length; row += 1) if (expenseDetail[`B${row + 1}`]) expenseDetail[`B${row + 1}`].z = money;
+    addTableStyle(
+      expenseDetail,
+      3,
+      3 + Math.max(filteredExpenses.length, 1),
+      4,
+    );
+    for (let row = 4; row <= 3 + filteredExpenses.length; row += 1)
+      if (expenseDetail[`B${row + 1}`]) expenseDetail[`B${row + 1}`].z = money;
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, summary, "Resumen");
@@ -386,14 +528,35 @@ export default function FullDayUtilityDashboard() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="relative space-y-5">
+      {isDashboardLoading && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/60 backdrop-blur-[1px]"
+          role="status"
+        >
+          <span className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-lg">
+            <Loader2 size={20} className="animate-spin text-sky-600" /> Cargando
+            dashboard…
+          </span>
+        </div>
+      )}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm text-slate-500">
-            {selectedProduct?.name || "Todos los productos"} · {displayDate(date)}
-          </p>
-          <h1 className="text-2xl font-bold text-slate-800">Resumen de ventas diario</h1>
-          <p className="mt-1 text-sm text-slate-500">Selecciona el producto y la fecha que deseas revisar.</p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/fullday")}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">
+              Resumen de ventas diario
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Selecciona el producto y la fecha que deseas revisar.
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-sm text-slate-600">
@@ -401,7 +564,9 @@ export default function FullDayUtilityDashboard() {
             <input
               type="date"
               value={date}
-              onChange={(event) => setDate(event.target.value)}
+              onChange={(event) =>
+                startTransition(() => setDate(event.target.value))
+              }
               className="ml-2 rounded-lg border border-slate-300 px-3 py-2 text-slate-700"
             />
           </label>
@@ -409,7 +574,9 @@ export default function FullDayUtilityDashboard() {
             Producto
             <select
               value={productId}
-              onChange={(event) => setProductId(event.target.value)}
+              onChange={(event) =>
+                startTransition(() => setProductId(event.target.value))
+              }
               className="ml-2 rounded-lg border border-slate-300 px-3 py-2 text-slate-700"
             >
               <option value="">Todos los productos</option>
@@ -423,80 +590,120 @@ export default function FullDayUtilityDashboard() {
           <button
             type="button"
             onClick={() => void loadSales()}
-            disabled={loading}
+            disabled={isDashboardLoading}
             className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
           >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Actualizar
+            <RefreshCw
+              size={16}
+              className={isDashboardLoading ? "animate-spin" : ""}
+            />{" "}
+            Actualizar
           </button>
           <button
             type="button"
             onClick={downloadExcel}
-            disabled={loading || (hasDollars && !totals.rate)}
-            title={hasDollars && !totals.rate ? "Ingresa el tipo de cambio antes de descargar" : undefined}
+            disabled={isDashboardLoading || (hasDollars && !totals.rate)}
+            title={
+              hasDollars && !totals.rate
+                ? "Ingresa el tipo de cambio antes de descargar"
+                : undefined
+            }
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Download size={16} /> Descargar Excel
           </button>
-          <button
-            type="button"
-            onClick={() => navigate("/fullday")}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <ArrowLeft size={16} /> Volver
-          </button>
         </div>
       </div>
 
-      {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
+      {error && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {error}
+        </div>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-slate-800">Resumen financiero</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-sm font-medium text-emerald-700">Ingresos en soles</p>
-              <p className="mt-2 text-2xl font-bold text-emerald-900">{formatMoney(totals.soles)}</p>
+              <p className="text-sm font-medium text-emerald-700">
+                Ingresos en soles
+              </p>
+              <p className="mt-2 text-2xl font-bold text-emerald-900">
+                {formatMoney(totals.soles)}
+              </p>
             </section>
             <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-medium text-amber-700">Ingresos en dólares</p>
-              <p className="mt-2 text-2xl font-bold text-amber-900">US$ {totals.dollars.toFixed(2)}</p>
+              <p className="text-sm font-medium text-amber-700">
+                Ingresos en dólares
+              </p>
+              <p className="mt-2 text-2xl font-bold text-amber-900">
+                US$ {totals.dollars.toFixed(2)}
+              </p>
               {hasDollars && (
                 <label className="mt-3 flex items-center gap-2 text-sm text-amber-800">
                   Tipo de cambio
-                  <input type="number" min="0" step="0.001" value={exchangeRate} onChange={(event) => setExchangeRate(event.target.value)} placeholder="Ej. 3.40" className="w-24 rounded-md border border-amber-300 bg-white px-2 py-1" />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={exchangeRate}
+                    onChange={(event) => setExchangeRate(event.target.value)}
+                    placeholder="Ej. 3.40"
+                    className="w-24 rounded-md border border-amber-300 bg-white px-2 py-1"
+                  />
                 </label>
               )}
             </section>
             <section className="rounded-xl border border-sky-200 bg-sky-50 p-4">
-              <p className="text-sm font-medium text-sky-700">Total ingresos en soles</p>
-              <p className="mt-2 text-2xl font-bold text-sky-900">{formatMoney(totals.total)}</p>
-              {hasDollars && !totals.rate && <p className="mt-2 text-xs text-sky-700">Ingresa el tipo de cambio para sumar los dólares.</p>}
+              <p className="text-sm font-medium text-sky-700">
+                Total ingresos en soles
+              </p>
+              <p className="mt-2 text-2xl font-bold text-sky-900">
+                {formatMoney(totals.total)}
+              </p>
+              {hasDollars && !totals.rate && (
+                <p className="mt-2 text-xs text-sky-700">
+                  Ingresa el tipo de cambio para sumar los dólares.
+                </p>
+              )}
             </section>
             <section className="rounded-xl border border-rose-200 bg-rose-50 p-4">
               <p className="text-sm font-medium text-rose-700">Total egresos</p>
-              <p className="mt-2 text-2xl font-bold text-rose-900">{formatMoney(totals.egresos)}</p>
+              <p className="mt-2 text-2xl font-bold text-rose-900">
+                {formatMoney(totals.egresos)}
+              </p>
             </section>
             <section className="rounded-xl border border-violet-200 bg-violet-50 p-4 sm:col-span-2">
-              <p className="text-sm font-medium text-violet-700">Utilidad estimada</p>
-              <p className="mt-2 text-2xl font-bold text-violet-900">{formatMoney(totals.utilidad)}</p>
+              <p className="text-sm font-medium text-violet-700">
+                Utilidad estimada
+              </p>
+              <p className="mt-2 text-2xl font-bold text-violet-900">
+                {formatMoney(totals.utilidad)}
+              </p>
             </section>
           </div>
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="font-semibold text-slate-800">Estado de pagos</h2>
+          <h2 className="font-semibold text-slate-800">Liquidaciones</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <section className="rounded-xl border border-orange-200 bg-orange-50 p-4">
               <p className="text-sm font-medium text-orange-700">A cuenta</p>
-              <p className="mt-2 text-2xl font-bold text-orange-900">{paymentTotals.ACUENTA}</p>
+              <p className="mt-2 text-2xl font-bold text-orange-900">
+                {paymentTotals.ACUENTA}
+              </p>
             </section>
             <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
               <p className="text-sm font-medium text-indigo-700">Créditos</p>
-              <p className="mt-2 text-2xl font-bold text-indigo-900">{paymentTotals.CREDITO}</p>
+              <p className="mt-2 text-2xl font-bold text-indigo-900">
+                {paymentTotals.CREDITO}
+              </p>
             </section>
             <section className="rounded-xl border border-teal-200 bg-teal-50 p-4">
               <p className="text-sm font-medium text-teal-700">Cancelados</p>
-              <p className="mt-2 text-2xl font-bold text-teal-900">{paymentTotals.CANCELADO}</p>
+              <p className="mt-2 text-2xl font-bold text-teal-900">
+                {paymentTotals.CANCELADO}
+              </p>
             </section>
           </div>
         </section>
@@ -514,42 +721,65 @@ export default function FullDayUtilityDashboard() {
             </thead>
             <tbody>
               {filteredExpenses.map((expense) => (
-                <tr key={expense.idEgreso} className="border-t border-slate-100">
-                  <td className="px-3 py-2 text-slate-700">{expense.concepto || "Sin concepto"}</td>
-                  <td className="px-3 py-2 text-right font-medium text-slate-800">{formatMoney(Number(expense.monto || 0))}</td>
+                <tr
+                  key={expense.idEgreso}
+                  className="border-t border-slate-100"
+                >
+                  <td className="px-3 py-2 text-slate-700">
+                    {expense.concepto || "Sin concepto"}
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium text-slate-800">
+                    {formatMoney(Number(expense.monto || 0))}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {!loading && !filteredExpenses.length && <p className="py-8 text-center text-sm text-slate-500">Sin egresos registrados.</p>}
+          {!isDashboardLoading && !filteredExpenses.length && (
+            <p className="py-8 text-center text-sm text-slate-500">
+              Sin egresos registrados.
+            </p>
+          )}
         </div>
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Users size={19} className="text-violet-600" />
-              <h2 className="font-semibold text-slate-800">Ventas por counter</h2>
-            </div>
-            <span className="text-sm text-slate-500">{totals.pasajeros} pax</span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Users size={19} className="text-violet-600" />
+            <h2 className="font-semibold text-slate-800">Ventas por counter</h2>
           </div>
-          <div className="mt-4 overflow-hidden rounded-lg border border-slate-100">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                <tr><th className="px-3 py-2">Counter</th><th className="px-3 py-2 text-center">Pax</th><th className="px-3 py-2 text-right">Ventas</th></tr>
-              </thead>
-              <tbody>
-                {byCounter.map((counter) => (
-                  <tr key={counter.name} className="border-t border-slate-100">
-                    <td className="px-3 py-2 text-slate-700">{counter.name}</td>
-                    <td className="px-3 py-2 text-center text-slate-600">{counter.pasajeros}</td>
-                    <td className="px-3 py-2 text-right font-medium text-slate-800">{formatMoney(counter.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!loading && !byCounter.length && <p className="py-8 text-center text-sm text-slate-500">Sin ventas registradas.</p>}
-          </div>
+          <span className="text-sm text-slate-500">{totals.pasajeros} pax</span>
+        </div>
+        <div className="mt-4 overflow-hidden rounded-lg border border-slate-100">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Counter</th>
+                <th className="px-3 py-2 text-center">Pax</th>
+                <th className="px-3 py-2 text-right">Ventas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byCounter.map((counter) => (
+                <tr key={counter.name} className="border-t border-slate-100">
+                  <td className="px-3 py-2 text-slate-700">{counter.name}</td>
+                  <td className="px-3 py-2 text-center text-slate-600">
+                    {counter.pasajeros}
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium text-slate-800">
+                    {formatMoney(counter.total)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!isDashboardLoading && !byCounter.length && (
+            <p className="py-8 text-center text-sm text-slate-500">
+              Sin ventas registradas.
+            </p>
+          )}
+        </div>
       </section>
     </div>
   );

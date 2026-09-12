@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import type { KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { useDialogStore } from "../../app/store/dialogStore";
+import { getFocusableElements } from "@/shared/helpers/formFocus";
 
 const sizeClassMap = {
   sm: "max-w-md",
@@ -75,6 +77,38 @@ const Dialog = () => {
 
   const sizeClass = sizeClassMap[config.size ?? "lg"];
 
+  const handleArrowNavigation = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    const moveFocus = (reverse = false) => {
+      const dialog = target.closest("[data-app-dialog]");
+      if (!dialog) return;
+      const fields = getFocusableElements(dialog);
+      const index = fields.indexOf(target);
+      fields[index + (reverse ? -1 : 1)]?.focus();
+    };
+
+    if (target.type === "number" && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      event.preventDefault();
+      moveFocus(event.key === "ArrowUp");
+      return;
+    }
+
+    if (target.type !== "text") return;
+    const cursor = target.selectionStart ?? 0;
+    if (event.key === "ArrowLeft" && cursor === 0) {
+      event.preventDefault();
+      moveFocus(true);
+    }
+    if (event.key === "ArrowRight" && cursor === target.value.length) {
+      event.preventDefault();
+      moveFocus();
+    }
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div
@@ -85,6 +119,8 @@ const Dialog = () => {
       />
 
       <div
+        data-app-dialog
+        onKeyDownCapture={handleArrowNavigation}
         className={`relative w-full ${sizeClass} bg-white rounded-xl shadow-2xl border border-slate-200`}
       >
         <div className="flex items-start gap-3 p-5 border-b border-slate-200">

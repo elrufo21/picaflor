@@ -26,7 +26,7 @@ function SelectControlled<T extends FieldValues>({
   control,
   options,
   defaultValue,
-  autoAdvance,
+  autoAdvance = true,
   ...rest
 }: Props<T>) {
   return (

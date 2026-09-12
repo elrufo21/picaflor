@@ -10,7 +10,8 @@ export type ModuleCode =
   | "cashflow"
   | "maintenance"
   | "security"
-  | "sale_liquidation";
+  | "sale_liquidation"
+  | "biblia";
 
 export type ModulePermissionOverride = {
   allow?: ModuleCode[];
@@ -48,6 +49,7 @@ export const MODULE_DEFAULT_PATHS: Record<ModuleCode, string> = {
   maintenance: "/maintenance",
   security: "/seguridad",
   sale_liquidation: "/sale-liquidations",
+  biblia: "/biblia",
 };
 
 export const resolveMockModulePermissions = (user: AuthUser | null) => {

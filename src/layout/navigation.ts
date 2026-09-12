@@ -6,6 +6,7 @@ import {
   Car,
   CalendarDays,
   Briefcase,
+  BookOpen,
   ShieldCheck,
 } from "lucide-react";
 import type { ModuleCode } from "@/app/auth/mockModulePermissions";
@@ -103,6 +104,24 @@ export const navigationItems: NavigationItem[] = [
     description: "Listado y creacion de paquetes",
     end: true,
     moduleCode: "paquete_viaje",
+  },
+  {
+    label: "La Biblia",
+    to: "/biblia",
+    icon: BookOpen,
+    description: "Calendario de actividades",
+    end: true,
+    children: [
+      {
+        label: "Movilidad",
+        to: "/biblia/movilidad",
+        icon: Car,
+        description: "Liquidación de traslados",
+        end: true,
+        moduleCode: "biblia",
+      },
+    ],
+    moduleCode: "biblia",
   },
 
   {
