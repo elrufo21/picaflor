@@ -398,7 +398,7 @@ const PackageList = () => {
                               const concepto = event.target.value;
                               updateEntry({
                                 concepto,
-                                ...(concepto === "IMPUESTOS" ? { precio: String(totalImpuestos) } : {}),
+                                precio: concepto === "IMPUESTOS" ? String(totalImpuestos) : "",
                               });
                               requestAnimationFrame(() => operationPriceRefs.current[entry.id]?.focus());
                             }}

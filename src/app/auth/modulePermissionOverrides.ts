@@ -17,6 +17,7 @@ const isModuleCode = (value: string): value is ModuleCode =>
     "maintenance",
     "security",
     "sale_liquidation",
+    "biblia",
   ].includes(value);
 
 const sanitizeOverride = (value: ModulePermissionOverride): ModulePermissionOverride => {

@@ -23,6 +23,7 @@ export const MODULE_CODES: ModuleCode[] = [
   "maintenance",
   "security",
   "sale_liquidation",
+  "biblia",
 ];
 
 const ACTIONS: PermissionAction[] = ["read", "create", "edit", "delete"];

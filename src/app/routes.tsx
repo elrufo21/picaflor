@@ -19,6 +19,7 @@ import PasswordRecovery from "./pages/PasswordRecovery";
 import Forbidden from "./pages/Forbidden";
 import type { ModuleCode } from "./auth/mockModulePermissions";
 import saleLiquidationRoutes from "../modules/saleLiquidation/router";
+import bibleRoutes from "../modules/biblia/routes";
 
 type RouteEntry = {
   path?: string;
@@ -85,6 +86,7 @@ const router = createBrowserRouter([
       ...withModuleGuard(citytourRoutes as RouteEntry[], "citytour"),
       ...withModuleGuard(travelPackageRoutes as RouteEntry[], "paquete_viaje"),
       ...withModuleGuard(cashFlowRoutes as RouteEntry[], "cashflow"),
+      ...withModuleGuard(bibleRoutes as RouteEntry[], "biblia"),
       ...withModuleGuard(maintenanceRoutes as RouteEntry[], "maintenance"),
       ...withModuleGuard(securityRoutes as RouteEntry[], "security"),
       { path: "*", element: <ModuleDefaultRedirect /> },
