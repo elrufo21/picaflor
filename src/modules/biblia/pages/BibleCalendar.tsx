@@ -1,264 +1,381 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState, type PointerEvent } from "react";
 import { useNavigate } from "react-router";
 import {
   CalendarDays,
+  CarFront,
   ChevronLeft,
   ChevronRight,
-  Clock3,
-  CarFront,
   Plus,
+  RefreshCw,
+  Save,
+  Table2,
 } from "lucide-react";
-import { useDialogStore, type DialogPayload } from "@/app/store/dialogStore";
-import { useAuthStore } from "@/store/auth/auth.store";
-import { TableTextInput } from "@/components/ui/inputs";
-import { showToast } from "@/components/ui/AppToast";
-import { focusNextElement } from "@/shared/helpers/formFocus";
 import {
-  deleteBibleCalendarEvent,
+  TableSelectInput,
+  TableTextareaInput,
+  TableTextInput,
+} from "@/components/ui/inputs";
+import { showToast } from "@/components/ui/AppToast";
+import { useDialogStore } from "@/app/store/dialogStore";
+import { useAuthStore } from "@/store/auth/auth.store";
+import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
+import {
   listBibleCalendarEvents,
   loadBibleCalendarCatalogs,
   saveBibleCalendarEvent,
-  type BibleCalendarCatalogOption,
   type BibleCalendarCatalogs,
-  type BibleCalendarEvent as CalendarEvent,
+  type BibleCalendarEvent,
 } from "../api/bibleCalendarApi";
+import BibleWeekCalendar from "../components/BibleWeekCalendar";
+import BibleActivityFields, {
+  type BibleActivityDraft,
+} from "../components/BibleActivityFields";
 
-const weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const hours = Array.from({ length: 16 }, (_, index) => index + 5);
-const monthFormatter = new Intl.DateTimeFormat("es-PE", {
-  month: "long",
-  year: "numeric",
-});
-const dayFormatter = new Intl.DateTimeFormat("es-PE", {
-  day: "numeric",
-  month: "short",
-});
+type DailyRow = BibleCalendarEvent & {
+  localId: string;
+  isNew?: boolean;
+  dirty?: boolean;
+};
 
+const languages = ["ESPAÑOL", "INGLÉS", "PORTUGUÉS", "FRANCÉS", "OTRO"];
+const emptyCatalogs: BibleCalendarCatalogs = {
+  products: [],
+  counters: [],
+  canales: [],
+  transportes: [],
+  guias: [],
+};
 const toDateKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-
 const fromDateKey = (value: string) => {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
 };
-
-const startOfWeek = (date: Date) => {
-  const result = new Date(date);
-  result.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-  result.setHours(0, 0, 0, 0);
-  return result;
-};
-
-const addDays = (date: Date, days: number) => {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-};
-
-const formatHour = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
-const emptyCatalogs: BibleCalendarCatalogs = {
-  products: [], counters: [], canales: [], transportes: [], guias: [],
-};
-const languages = ["ESPAÑOL", "INGLÉS", "PORTUGUÉS", "FRANCÉS", "OTRO"];
-
-const SelectField = ({ label, value, options, onChange, placeholder = "Seleccione", required = false }: {
-  label: string;
-  value: string;
-  options: BibleCalendarCatalogOption[];
-  onChange: (value: string) => void;
-  placeholder?: string;
-  required?: boolean;
-}) => (
-  <label className="block text-sm font-medium text-slate-700">
-    {label}{required ? <span className="text-rose-600"> *</span> : null}
-    <select
-      value={value}
-      required={required}
-      onChange={(event) => {
-        onChange(event.target.value);
-        const target = event.currentTarget;
-        setTimeout(() => focusNextElement(target, target.closest("form")), 0);
-      }}
-      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-700"
-    >
-      <option value="">{placeholder}</option>
-      {options.map((option, index) => <option key={`${option.id}-${index}`} value={option.id}>{option.label}</option>)}
-    </select>
-  </label>
+const addDays = (date: Date, amount: number) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
+const startOfWeek = (date: Date) =>
+  new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() - ((date.getDay() + 6) % 7),
+  );
+const titleFormatter = new Intl.DateTimeFormat("es-PE", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+const monthTitleFormatter = new Intl.DateTimeFormat("es-PE", {
+  month: "long",
+  year: "numeric",
+});
+const bibleColumns = [
+  { key: "hora", label: "Hora", width: 104, minWidth: 90 },
+  { key: "operacion", label: "Operación", width: 168, minWidth: 120 },
+  { key: "monitoreado", label: "Monitoreado", width: 116, minWidth: 100 },
+  { key: "counter", label: "Counter", width: 150, minWidth: 110 },
+  { key: "destino", label: "Destino", width: 210, minWidth: 140 },
+  { key: "idioma", label: "Idioma", width: 110, minWidth: 95 },
+  { key: "pax", label: "CNT PAX", width: 104, minWidth: 85 },
+  { key: "servicio", label: "Servicio", width: 360, minWidth: 240 },
+  { key: "cliente", label: "Cliente", width: 185, minWidth: 130 },
+  { key: "lq", label: "LQ", width: 102, minWidth: 80 },
+  { key: "contacto", label: "Contacto", width: 190, minWidth: 130 },
+  { key: "telefono", label: "Teléf.", width: 150, minWidth: 110 },
+  { key: "transporte", label: "Transporte", width: 195, minWidth: 130 },
+  { key: "guia", label: "Guía", width: 165, minWidth: 110 },
+] as const;
+const initialColumnWidths = Object.fromEntries(
+  bibleColumns.map((column) => [column.key, column.width]),
 );
+const blankRows = (date: string) =>
+  Array.from({ length: 3 }, () => newRow(date));
+const rowHasContent = (row: DailyRow) =>
+  Boolean(
+    row.time ||
+    row.title.trim() ||
+    row.monitored ||
+    row.idioma ||
+    row.pax ||
+    row.noteId ||
+    row.service.trim() ||
+    row.counterId ||
+    row.auxiliarId ||
+    row.clientId ||
+    row.transportId ||
+    row.guideId ||
+    row.destination ||
+    row.telefono ||
+    row.observacion,
+  );
+
+const newRow = (date: string): DailyRow => ({
+  id: "",
+  localId: `new-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  isNew: true,
+  dirty: true,
+  date,
+  time: "",
+  title: "",
+  color: "",
+  monitored: false,
+  idioma: "",
+  pax: "",
+  noteId: "",
+  service: "",
+  counterId: "",
+  auxiliarId: "",
+  clientId: "",
+  transportId: "",
+  guideId: "",
+  destination: "",
+  telefono: "",
+  observacion: "",
+  estado: "ACTIVO",
+});
 
 export default function BibleCalendar() {
   const navigate = useNavigate();
-  const today = new Date();
-  const [selectedDate, setSelectedDate] = useState(today);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [catalogs, setCatalogs] = useState<BibleCalendarCatalogs>(emptyCatalogs);
-  const [catalogsLoading, setCatalogsLoading] = useState(true);
   const openDialog = useDialogStore((state) => state.openDialog);
   const usuarioId = Number(useAuthStore((state) => state.user?.id) ?? 0);
-  const weekStart = startOfWeek(selectedDate);
-  const week = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-  const weekStartKey = toDateKey(weekStart);
-  const weekEndKey = toDateKey(week[6]);
+  const canAccessAction = useModulePermissionsStore(
+    (state) => state.canAccessAction,
+  );
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [rows, setRows] = useState<DailyRow[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<BibleCalendarEvent[]>(
+    [],
+  );
+  const [view, setView] = useState<"table" | "calendar">("calendar");
+  const [catalogs, setCatalogs] =
+    useState<BibleCalendarCatalogs>(emptyCatalogs);
+  const [loading, setLoading] = useState(true);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [catalogsLoading, setCatalogsLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [columnWidths, setColumnWidths] =
+    useState<Record<string, number>>(initialColumnWidths);
+  const selectedKey = toDateKey(selectedDate);
+  const selectedWeekKey = toDateKey(startOfWeek(selectedDate));
+  const canCreate = canAccessAction("biblia", "create");
+  const canEdit = canAccessAction("biblia", "edit");
 
-  const loadEvents = useCallback(async () => {
+  const loadRows = useCallback(async () => {
     setLoading(true);
-    setLoadError("");
+    setError("");
     try {
-      setEvents(await listBibleCalendarEvents(weekStartKey, weekEndKey));
-    } catch (error) {
-      setEvents([]);
-      setLoadError(error instanceof Error ? error.message : "No se pudo cargar la agenda.");
+      const events = await listBibleCalendarEvents(selectedKey, selectedKey);
+      const savedRows = events
+        .sort((a, b) => a.time.localeCompare(b.time))
+        .map((event) => ({ ...event, localId: event.id }));
+      setRows([...savedRows, ...blankRows(selectedKey)]);
+    } catch (loadError) {
+      setRows([]);
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "No se pudo cargar la agenda diaria.",
+      );
     } finally {
       setLoading(false);
     }
-  }, [weekEndKey, weekStartKey]);
+  }, [selectedKey]);
+
+  const loadWeekEvents = useCallback(async () => {
+    const firstDay = fromDateKey(selectedWeekKey);
+    const lastDay = addDays(firstDay, 6);
+    setCalendarLoading(true);
+    try {
+      setCalendarEvents(
+        await listBibleCalendarEvents(toDateKey(firstDay), toDateKey(lastDay)),
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "No se pudo cargar el calendario semanal.",
+      );
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, [selectedWeekKey]);
 
   useEffect(() => {
-    void loadEvents();
-  }, [loadEvents]);
-
+    void loadRows();
+  }, [loadRows]);
+  useEffect(() => {
+    void loadWeekEvents();
+  }, [loadWeekEvents]);
   useEffect(() => {
     void loadBibleCalendarCatalogs()
       .then(setCatalogs)
-      .catch((error) => setLoadError(error instanceof Error ? error.message : "No se pudieron cargar los catálogos."))
+      .catch((catalogError) =>
+        setError(
+          catalogError instanceof Error
+            ? catalogError.message
+            : "No se pudieron cargar los catálogos.",
+        ),
+      )
       .finally(() => setCatalogsLoading(false));
   }, []);
 
-  const miniCalendarDays = useMemo(() => {
-    const month = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    const firstWeekday = (month.getDay() + 6) % 7;
-    const totalDays = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-
-    return Array.from({ length: 42 }, (_, index) =>
-      index < firstWeekday || index >= firstWeekday + totalDays
-        ? null
-        : new Date(month.getFullYear(), month.getMonth(), index - firstWeekday + 1),
+  const updateRow = (localId: string, patch: Partial<DailyRow>) => {
+    setRows((current) =>
+      current.map((row) =>
+        row.localId === localId ? { ...row, ...patch, dirty: true } : row,
+      ),
     );
-  }, [selectedDate]);
+  };
 
-  const eventsByDate = useMemo(
-    () =>
-      events.reduce<Record<string, CalendarEvent[]>>((result, event) => {
-        (result[event.date] ??= []).push(event);
-        return result;
-      }, {}),
-    [events],
-  );
-  const selectedEvents = (eventsByDate[toDateKey(selectedDate)] ?? []).sort((a, b) =>
-    a.time.localeCompare(b.time),
-  );
-
-  const openEventDialog = (
-    date: Date,
-    time = "09:00",
-    currentEvent?: CalendarEvent,
+  const startColumnResize = (
+    event: PointerEvent<HTMLButtonElement>,
+    key: string,
+    minWidth: number,
   ) => {
-    if (catalogsLoading) {
-      setLoadError("Espere un momento mientras se cargan los catálogos.");
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = columnWidths[key];
+    const resize = (moveEvent: globalThis.PointerEvent) => {
+      setColumnWidths((current) => ({
+        ...current,
+        [key]: Math.max(minWidth, startWidth + moveEvent.clientX - startX),
+      }));
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", resize);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", resize);
+    window.addEventListener("pointerup", stop, { once: true });
+  };
+
+  const saveChanges = async () => {
+    const changedRows = rows.filter((row) =>
+      row.isNew ? rowHasContent(row) : row.dirty,
+    );
+    if (!changedRows.length) {
+      showToast({
+        title: "Agenda diaria",
+        description: "No hay cambios por guardar.",
+        type: "info",
+      });
       return;
     }
+    if (
+      changedRows.some(
+        (row) =>
+          !row.date || !row.time || !row.counterId || Number(row.pax) <= 0,
+      )
+    ) {
+      showToast({
+        title: "Completa la fila",
+        description:
+          "Hora, counter y PAX son requeridos. Operación es opcional.",
+        type: "warning",
+      });
+      return;
+    }
+    setSaving(true);
+    try {
+      await Promise.all(
+        changedRows.map((row) =>
+          saveBibleCalendarEvent({
+            id: row.isNew ? undefined : row.id,
+            date: row.date,
+            time: row.time,
+            title: row.title,
+            monitored: row.monitored,
+            idioma: row.idioma,
+            pax: row.pax,
+            noteId: row.noteId,
+            service: row.service,
+            counterId: row.counterId,
+            auxiliarId: row.auxiliarId,
+            clientId: row.clientId,
+            transportId: row.transportId,
+            guideId: row.guideId,
+            destination: row.destination,
+            telefono: row.telefono,
+            observacion: row.observacion,
+            estado: "ACTIVO",
+            usuarioId,
+          }),
+        ),
+      );
+      showToast({
+        title: "Agenda diaria",
+        description: "Cambios guardados correctamente.",
+        type: "success",
+      });
+      await Promise.all([loadRows(), loadWeekEvents()]);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "No se pudieron guardar los cambios.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openActivityDialog = (
+    date: Date,
+    time = "09:00",
+    event?: BibleCalendarEvent,
+  ) => {
+    const editing = Boolean(event?.id);
+    if (editing ? !canEdit : !canCreate) return;
+
+    const draft: BibleActivityDraft = {
+      id: event?.id,
+      date: event?.date ?? toDateKey(date),
+      time: event?.time ?? time,
+      title: event?.title ?? "",
+      monitored: event?.monitored ?? false,
+      idioma: event?.idioma ?? "",
+      pax: event?.pax ?? "",
+      noteId: event?.noteId ?? "",
+      service: event?.service ?? "",
+      counterId: event?.counterId ?? "",
+      auxiliarId: event?.auxiliarId ?? "",
+      clientId: event?.clientId ?? "",
+      transportId: event?.transportId ?? "",
+      guideId: event?.guideId ?? "",
+      destination: event?.destination ?? "",
+      telefono: event?.telefono ?? "",
+      observacion: event?.observacion ?? "",
+    };
 
     openDialog({
-      title: currentEvent ? "Editar actividad" : "Nueva actividad",
-      description: "Los cambios se guardan en la agenda del sistema.",
-      size: "xl",
-      confirmLabel: currentEvent ? "Guardar cambios" : "Crear actividad",
-      dangerLabel: currentEvent ? "Eliminar" : undefined,
-      initialPayload: {
-        title: currentEvent?.title ?? "",
-        date: currentEvent?.date ?? toDateKey(date),
-        time: currentEvent?.time ?? time,
-        monitored: currentEvent?.monitored ?? false,
-        counterId: currentEvent?.counterId ?? "",
-        productId: currentEvent?.productId ?? "",
-        idioma: currentEvent?.idioma ?? "",
-        pax: currentEvent?.pax ?? "",
-        noteId: currentEvent?.noteId ?? "",
-        auxiliarId: currentEvent?.auxiliarId ?? "",
-        clientId: currentEvent?.clientId ?? "",
-        transportId: currentEvent?.transportId ?? "",
-        guideId: currentEvent?.guideId ?? "",
-        observacion: currentEvent?.observacion ?? "",
-        estado: "ACTIVO",
-      },
+      title: editing ? "Editar actividad" : "Crear actividad",
+      description: "Registra los datos que se mostrarán en el calendario.",
+      size: "lg",
+      confirmLabel: editing ? "Guardar" : "Crear",
+      initialPayload: draft,
       content: ({ payload, setPayload }) => (
-        <form onSubmit={(event) => event.preventDefault()} className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
-          {catalogsLoading ? <p className="text-sm text-slate-400">Cargando catálogos...</p> : null}
-          <label className="block text-sm font-medium text-slate-700">
-            Operación <span className="text-rose-600">*</span>
-            <TableTextInput
-              value={String(payload.title ?? "")}
-              onChange={(title) => setPayload({ ...payload, title })}
-              placeholder="Ej. Recojo hotel / tour"
-              className="mt-1"
-            />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm font-medium text-slate-700">
-              Fecha <span className="text-rose-600">*</span>
-              <input
-                type="date"
-                required
-                value={String(payload.date ?? "")}
-                onChange={(event) => setPayload({ ...payload, date: event.target.value })}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-700"
-              />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Hora <span className="text-rose-600">*</span>
-              <input
-                type="time"
-                required
-                value={String(payload.time ?? "")}
-                onChange={(event) => setPayload({ ...payload, time: event.target.value })}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-700"
-              />
-            </label>
-            <label className="flex items-end gap-2 pb-2 text-sm font-medium text-slate-700">
-              <input type="checkbox" checked={Boolean(payload.monitored)} onChange={(event) => setPayload({ ...payload, monitored: event.target.checked })} className="h-4 w-4 rounded border-slate-300 text-sky-600" />
-              Monitoreado
-            </label>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField label="Counter" required value={String(payload.counterId ?? "")} options={catalogs.counters} onChange={(counterId) => setPayload({ ...payload, counterId })} />
-            <SelectField label="Servicio / destino" value={String(payload.productId ?? "")} options={catalogs.products} onChange={(productId) => setPayload({ ...payload, productId })} />
-            <SelectField label="Idioma" value={String(payload.idioma ?? "")} options={languages.map((language) => ({ id: language, label: language }))} onChange={(idioma) => setPayload({ ...payload, idioma })} />
-            <label className="block text-sm font-medium text-slate-700">
-              CNT. PAX <span className="text-rose-600">*</span>
-              <TableTextInput type="number" value={String(payload.pax ?? "")} onChange={(pax) => setPayload({ ...payload, pax })} className="mt-1" />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              LQ / reserva
-              <TableTextInput value={String(payload.noteId ?? "")} onChange={(noteId) => setPayload({ ...payload, noteId })} placeholder="Ej. 44838" className="mt-1" />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Cliente
-              <TableTextInput value={String(payload.clientId ?? "")} onChange={(clientId) => setPayload({ ...payload, clientId })} placeholder="Nombre del cliente" className="mt-1" />
-            </label>
-            <SelectField label="Canal / contacto" value={String(payload.auxiliarId ?? "")} options={catalogs.canales} onChange={(auxiliarId) => setPayload({ ...payload, auxiliarId })} />
-            <SelectField label="Transporte" value={String(payload.transportId ?? "")} options={catalogs.transportes} onChange={(transportId) => setPayload({ ...payload, transportId })} />
-            <SelectField label="Guía" value={String(payload.guideId ?? "")} options={catalogs.guias} onChange={(guideId) => setPayload({ ...payload, guideId })} />
-            <p className="self-end rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">Estado: Activo</p>
-          </div>
-          <label className="block text-sm font-medium text-slate-700">
-            Observación
-            <textarea value={String(payload.observacion ?? "")} onChange={(event) => setPayload({ ...payload, observacion: event.target.value })} rows={3} className="mt-1 w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-slate-700" />
-          </label>
-        </form>
+        <BibleActivityFields
+          value={payload as BibleActivityDraft}
+          catalogs={catalogs}
+          onChange={(patch) =>
+            setPayload((current) => ({ ...current, ...patch }))
+          }
+        />
       ),
-      onConfirm: async (payload: DialogPayload) => {
-        const title = String(payload.title ?? "").trim();
-        const date = String(payload.date ?? "");
-        const eventTime = String(payload.time ?? "");
-        const counterId = String(payload.counterId ?? "");
-        const pax = String(payload.pax ?? "");
-        if (!title || !date || !eventTime || !counterId || !pax.trim() || Number(pax) <= 0) {
+      onConfirm: async (payload) => {
+        const values = payload as BibleActivityDraft;
+        if (
+          !values.title.trim() ||
+          !values.date ||
+          !values.time ||
+          !values.counterId ||
+          Number(values.pax) <= 0
+        ) {
           showToast({
             title: "Completa los campos obligatorios",
-            description: "Operación, Counter, Fecha, Hora y CNT. PAX son requeridos.",
+            description:
+              "Operación, counter, fecha, hora y CNT. PAX son requeridos.",
             type: "warning",
           });
           return false;
@@ -266,63 +383,199 @@ export default function BibleCalendar() {
 
         try {
           await saveBibleCalendarEvent({
-            id: currentEvent?.id,
-            date,
-            time: eventTime,
-            title,
-            monitored: Boolean(payload.monitored),
-            counterId,
-            productId: String(payload.productId ?? ""),
-            idioma: String(payload.idioma ?? ""),
-            pax,
-            noteId: String(payload.noteId ?? ""),
-            auxiliarId: String(payload.auxiliarId ?? ""),
-            clientId: String(payload.clientId ?? ""),
-            transportId: String(payload.transportId ?? ""),
-            guideId: String(payload.guideId ?? ""),
-            observacion: String(payload.observacion ?? ""),
+            ...values,
+            id: values.id || undefined,
             estado: "ACTIVO",
             usuarioId,
           });
-          setSelectedDate(fromDateKey(date));
-          await loadEvents();
+          showToast({
+            title: "Calendario",
+            description: editing
+              ? "Actividad actualizada correctamente."
+              : "Actividad registrada correctamente.",
+            type: "success",
+          });
+          await Promise.all([loadRows(), loadWeekEvents()]);
           return true;
-        } catch (error) {
-          setLoadError(error instanceof Error ? error.message : "No se pudo guardar la actividad.");
+        } catch (saveError) {
+          setError(
+            saveError instanceof Error
+              ? saveError.message
+              : "No se pudo guardar la actividad.",
+          );
           return false;
         }
       },
-      onDanger: currentEvent
-        ? async () => {
-            try {
-              await deleteBibleCalendarEvent(currentEvent.id, usuarioId);
-              await loadEvents();
-              return true;
-            } catch (error) {
-              setLoadError(error instanceof Error ? error.message : "No se pudo eliminar la actividad.");
-              return false;
-            }
-          }
-        : undefined,
     });
   };
 
-  const isToday = (date: Date) => toDateKey(date) === toDateKey(today);
-  const isSelected = (date: Date) => toDateKey(date) === toDateKey(selectedDate);
-  const moveWeek = (offset: number) => setSelectedDate((date) => addDays(date, offset * 7));
+  const renderRow = (row: DailyRow, index: number) => {
+    const editable = row.isNew ? canCreate : canEdit;
+    const disabled = !editable || saving;
+    const change = (patch: Partial<DailyRow>) => updateRow(row.localId, patch);
+    return (
+      <tr
+        key={row.localId}
+        className={
+          row.isNew ? "bg-emerald-50/60" : "bg-white hover:bg-sky-50/35"
+        }
+      >
+        <td>
+          <TableTextInput
+            type="time"
+            value={row.time}
+            onChange={(time) => change({ time })}
+            disabled={disabled}
+            navColumn="hora"
+            navRow={index}
+          />
+        </td>
+        <td>
+          <TableTextInput
+            value={row.title}
+            onChange={(title) => change({ title })}
+            disabled={disabled}
+            placeholder="RECOJO / TOUR"
+            navColumn="operacion"
+            navRow={index}
+          />
+        </td>
+        <td className="text-center">
+          <input
+            type="checkbox"
+            checked={row.monitored}
+            disabled={disabled}
+            onChange={(event) => change({ monitored: event.target.checked })}
+            className="h-4 w-4 accent-emerald-600"
+            aria-label="Monitoreado"
+          />
+        </td>
+        <td>
+          <TableSelectInput
+            value={row.counterId}
+            onChange={(counterId) => change({ counterId })}
+            options={catalogs.counters}
+            disabled={disabled || catalogsLoading}
+          />
+        </td>
+        <td>
+          <TableTextInput
+            value={row.destination}
+            onChange={(destination) => change({ destination })}
+            disabled={disabled}
+            placeholder="DESTINO"
+            navColumn="destino"
+            navRow={index}
+          />
+        </td>
+        <td>
+          <TableSelectInput
+            value={row.idioma}
+            onChange={(idioma) => change({ idioma })}
+            options={languages.map((language) => ({
+              id: language,
+              label: language,
+            }))}
+            disabled={disabled}
+            placeholder="-"
+          />
+        </td>
+        <td>
+          <TableTextInput
+            type="text"
+            inputMode="numeric"
+            value={row.pax}
+            onChange={(pax) => change({ pax })}
+            disabled={disabled}
+            textAlign="center"
+            navColumn="pax"
+            navRow={index}
+          />
+        </td>
+        <td>
+          <TableTextareaInput
+            value={row.service}
+            onChange={(service) => change({ service })}
+            disabled={disabled}
+            placeholder="SERVICIO"
+            maxLength={500}
+          />
+        </td>
+        <td>
+          <TableTextInput
+            value={row.clientId}
+            onChange={(clientId) => change({ clientId })}
+            disabled={disabled}
+            placeholder="CLIENTE"
+            navColumn="cliente"
+            navRow={index}
+          />
+        </td>
+        <td>
+          <TableTextInput
+            value={row.noteId}
+            onChange={(noteId) => change({ noteId })}
+            disabled={disabled}
+            placeholder="LQ"
+            navColumn="lq"
+            navRow={index}
+          />
+        </td>
+        <td>
+          <TableSelectInput
+            value={row.auxiliarId}
+            onChange={(auxiliarId) => change({ auxiliarId })}
+            options={catalogs.canales}
+            disabled={disabled || catalogsLoading}
+            placeholder="Sin contacto"
+          />
+        </td>
+        <td>
+          <TableTextInput
+            value={row.telefono}
+            onChange={(telefono) => change({ telefono })}
+            disabled={disabled}
+            placeholder="TELÉFONO"
+            navColumn="telefono"
+            navRow={index}
+          />
+        </td>
+        <td>
+          <TableSelectInput
+            value={row.transportId}
+            onChange={(transportId) => change({ transportId })}
+            options={catalogs.transportes}
+            disabled={disabled || catalogsLoading}
+            placeholder="Sin transporte"
+          />
+        </td>
+        <td>
+          <TableSelectInput
+            value={row.guideId}
+            onChange={(guideId) => change({ guideId })}
+            options={catalogs.guias}
+            disabled={disabled || catalogsLoading}
+            placeholder="Sin guía"
+          />
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="w-full space-y-4">
       <header className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2 text-slate-800">
           <CalendarDays size={22} className="text-sky-600" />
-          <span className="font-semibold">Calendario</span>
+          <span className="font-semibold">
+            {view === "calendar" ? "Calendario" : "Gestión diaria"}
+          </span>
         </div>
         <button
           type="button"
-          onClick={() => openEventDialog(selectedDate)}
-          disabled={catalogsLoading}
-          className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-wait disabled:opacity-60"
+          onClick={() => openActivityDialog(selectedDate)}
+          disabled={!canCreate || catalogsLoading}
+          className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Plus size={17} /> Crear
         </button>
@@ -341,116 +594,182 @@ export default function BibleCalendar() {
           Hoy
         </button>
         <div className="flex items-center rounded-lg border border-slate-300">
-          <button type="button" onClick={() => moveWeek(-1)} aria-label="Semana anterior" className="p-2 text-slate-600 hover:bg-slate-50">
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedDate((date) =>
+                view === "calendar" ? addDays(date, -7) : addDays(date, -1),
+              )
+            }
+            className="p-2 text-slate-600 hover:bg-slate-50"
+            aria-label={
+              view === "calendar" ? "Semana anterior" : "Día anterior"
+            }
+          >
             <ChevronLeft size={18} />
           </button>
-          <button type="button" onClick={() => moveWeek(1)} aria-label="Semana siguiente" className="border-l border-slate-300 p-2 text-slate-600 hover:bg-slate-50">
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedDate((date) =>
+                view === "calendar" ? addDays(date, 7) : addDays(date, 1),
+              )
+            }
+            className="border-l border-slate-300 p-2 text-slate-600 hover:bg-slate-50"
+            aria-label={
+              view === "calendar" ? "Semana siguiente" : "Día siguiente"
+            }
+          >
             <ChevronRight size={18} />
           </button>
         </div>
+        {view === "table" ? (
+          <input
+            type="date"
+            value={selectedKey}
+            onChange={(event) =>
+              setSelectedDate(fromDateKey(event.target.value))
+            }
+            className="h-10 rounded-lg border border-slate-300 px-3 text-sm text-slate-700"
+          />
+        ) : null}
         <h1 className="min-w-40 text-lg font-semibold capitalize text-slate-800">
-          {monthFormatter.format(weekStart)}
+          {view === "calendar"
+            ? monthTitleFormatter.format(selectedDate)
+            : titleFormatter.format(selectedDate)}
         </h1>
-        {loading ? <span className="text-sm text-slate-400">Cargando agenda...</span> : null}
-        <span className="ml-auto rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600">
-          Semana
-        </span>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <div className="inline-flex rounded-lg border border-slate-300 p-0.5">
+            <button
+              type="button"
+              onClick={() => setView("calendar")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium ${
+                view === "calendar"
+                  ? "bg-sky-600 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <CalendarDays size={16} /> Semana
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("table")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium ${
+                view === "table"
+                  ? "bg-sky-600 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <Table2 size={16} /> Tabla
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => void Promise.all([loadRows(), loadWeekEvents()])}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            <RefreshCw size={16} /> Actualizar
+          </button>
+          {view === "table" ? (
+            <button
+              type="button"
+              onClick={() => void saveChanges()}
+              disabled={saving || !rows.some((row) => row.isNew || row.dirty)}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Save size={17} /> Guardar cambios
+            </button>
+          ) : null}
+          {view === "table" ? (
+            <button
+              type="button"
+              onClick={() =>
+                setRows((current) => [...current, newRow(selectedKey)])
+              }
+              disabled={!canCreate || catalogsLoading || saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Plus size={17} /> Nueva fila
+            </button>
+          ) : null}
+        </div>
       </header>
 
-      {loadError ? <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{loadError}</p> : null}
+      {error ? (
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {error}
+        </p>
+      ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
-          <p className="mb-3 text-sm font-semibold capitalize text-slate-700">
-            {monthFormatter.format(selectedDate)}
-          </p>
-          <div className="grid grid-cols-7 text-center text-[10px] font-semibold uppercase text-slate-400">
-            {weekdays.map((weekday) => <span key={weekday} className="py-1">{weekday.slice(0, 1)}</span>)}
-          </div>
-          <div className="grid grid-cols-7 gap-y-1 text-center">
-            {miniCalendarDays.map((date, index) =>
-              date ? (
-                <button
-                  key={toDateKey(date)}
-                  type="button"
-                  onClick={() => setSelectedDate(date)}
-                  className={`relative mx-auto h-7 w-7 rounded-full text-xs transition ${
-                    isSelected(date)
-                      ? "bg-sky-600 text-white"
-                      : isToday(date)
-                        ? "bg-sky-100 text-sky-700"
-                        : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {date.getDate()}
-                  {eventsByDate[toDateKey(date)]?.length ? <span className="absolute bottom-0 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-current" /> : null}
-                </button>
-              ) : <span key={`empty-${index}`} />, 
-            )}
-          </div>
-
-          <div className="mt-6 border-t border-slate-200 pt-4">
-            <p className="mb-2 text-sm font-semibold text-slate-700">Actividades del día</p>
-            <div className="space-y-2">
-              {selectedEvents.length ? selectedEvents.map((event) => (
-                <button key={event.id} type="button" onClick={() => openEventDialog(fromDateKey(event.date), event.time, event)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-50">
-                  <span className={`h-2 w-2 rounded-full ${event.color}`} />
-                  <span className="min-w-0 flex-1 truncate text-xs text-slate-700">{event.time} · {event.title}</span>
-                </button>
-              )) : <p className="text-xs text-slate-400">Sin actividades.</p>}
-            </div>
-          </div>
-        </aside>
-
+      {view === "calendar" ? (
+        <BibleWeekCalendar
+          date={selectedDate}
+          events={calendarEvents}
+          loading={calendarLoading}
+          onSelectDate={(date) => {
+            setSelectedDate(date);
+          }}
+          onOpenActivity={openActivityDialog}
+        />
+      ) : (
         <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="min-w-[970px]">
-            <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: "72px repeat(7, minmax(128px, 1fr))" }}>
-              <div />
-              {week.map((date, index) => (
-                <button key={toDateKey(date)} type="button" onClick={() => setSelectedDate(date)} className="border-l border-slate-200 px-2 py-3 text-center hover:bg-slate-50">
-                  <span className="block text-[11px] font-semibold uppercase text-slate-500">{weekdays[index]}</span>
-                  <span className={`mt-1 inline-flex h-8 w-8 items-center justify-center rounded-full text-lg ${isToday(date) ? "bg-sky-600 text-white" : "text-slate-800"}`}>{date.getDate()}</span>
-                </button>
+          <table className="w-max table-fixed border-collapse text-sm">
+            <colgroup>
+              {bibleColumns.map((column) => (
+                <col
+                  key={column.key}
+                  style={{ width: columnWidths[column.key] }}
+                />
               ))}
-            </div>
-
-            {hours.map((hour) => (
-              <div key={hour} className="grid" style={{ gridTemplateColumns: "72px repeat(7, minmax(128px, 1fr))" }}>
-                <div className="border-b border-slate-200 pr-3 pt-2 text-right text-xs text-slate-400">{formatHour(hour)}</div>
-                {week.map((date) => {
-                  const cellEvents = (eventsByDate[toDateKey(date)] ?? []).filter((event) => event.time.slice(0, 2) === String(hour).padStart(2, "0"));
-                  return (
-                    <div key={toDateKey(date)} className="relative h-16 border-b border-l border-slate-200 p-1">
-                      <button
-                        type="button"
-                        onClick={() => openEventDialog(date, formatHour(hour))}
-                        className="absolute inset-0 hover:bg-sky-50"
-                        aria-label={`Crear actividad el ${toDateKey(date)} a las ${formatHour(hour)}`}
-                      />
-                      <div className="relative z-10">
-                        {cellEvents.map((event) => (
-                          <button
-                            key={event.id}
-                            type="button"
-                            onClick={() => openEventDialog(fromDateKey(event.date), event.time, event)}
-                            className={`mb-1 block w-full truncate rounded px-2 py-1 text-left text-xs font-medium text-white ${event.color}`}
-                          >
-                            {event.time} {event.title}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+            </colgroup>
+            <thead className="bg-[#dbe7f8] text-[11px] uppercase tracking-wide text-slate-700">
+              <tr>
+                {bibleColumns.map((column) => (
+                  <th
+                    key={column.key}
+                    className="relative border-b border-r border-slate-300 px-2 py-3 font-semibold last:border-r-0"
+                  >
+                    {column.label}
+                    <button
+                      type="button"
+                      aria-label={`Cambiar ancho de ${column.label}`}
+                      title="Arrastra para cambiar el ancho"
+                      onPointerDown={(event) =>
+                        startColumnResize(event, column.key, column.minWidth)
+                      }
+                      className="absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize touch-none border-l border-transparent hover:border-sky-500 hover:bg-sky-400/20"
+                    />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="[&_td]:border-b [&_td]:border-r [&_td]:border-slate-200 [&_td]:p-1 last:[&_td]:border-r-0">
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={14}
+                    className="px-4 py-10 text-center text-slate-400"
+                  >
+                    Cargando actividades del día...
+                  </td>
+                </tr>
+              ) : null}
+              {!loading && !rows.length ? (
+                <tr>
+                  <td
+                    colSpan={14}
+                    className="px-4 py-10 text-center text-slate-400"
+                  >
+                    No hay actividades para este día. Usa “Nueva fila” para
+                    registrar una.
+                  </td>
+                </tr>
+              ) : null}
+              {!loading ? rows.map(renderRow) : null}
+            </tbody>
+          </table>
         </section>
-      </div>
-
-      <div className="flex items-center gap-2 text-xs text-slate-400">
-        <Clock3 size={14} /> Haz clic en un bloque horario para registrar una actividad.
-      </div>
+      )}
     </div>
   );
 }

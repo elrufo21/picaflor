@@ -11,12 +11,14 @@ export type BibleCalendarEvent = {
   idioma: string;
   pax: string;
   noteId: string;
-  productId: string;
+  service: string;
   counterId: string;
   auxiliarId: string;
   clientId: string;
   transportId: string;
   guideId: string;
+  destination: string;
+  telefono: string;
   observacion: string;
   estado: string;
 };
@@ -40,12 +42,14 @@ export type SaveBibleCalendarEvent = {
   idioma: string;
   pax: string;
   noteId: string;
-  productId: string;
+  service: string;
   counterId: string;
   auxiliarId: string;
   clientId: string;
   transportId: string;
   guideId: string;
+  destination: string;
+  telefono: string;
   observacion: string;
   estado: string;
   usuarioId?: number;
@@ -101,7 +105,7 @@ export const listBibleCalendarEvents = async (from: string, to: string): Promise
       color: colors[index % colors.length],
       monitored: fields[4]?.trim() === "1",
       counterId: fields[5]?.trim() || "",
-      productId: fields[7]?.trim() || "",
+      service: fields[8]?.trim() || "",
       idioma: fields[9]?.trim() || "",
       pax: fields[10]?.trim() || "",
       clientId: fields[12]?.trim() || "",
@@ -111,18 +115,20 @@ export const listBibleCalendarEvents = async (from: string, to: string): Promise
       guideId: fields[20]?.trim() || "",
       observacion: fields[22]?.trim() || "",
       estado: fields[23]?.trim() || "ACTIVO",
+      destination: fields[24]?.trim() || "",
+      telefono: fields[25]?.trim() || "",
     }];
   });
 };
 
 export const saveBibleCalendarEvent = async ({
-  id, date, time, title, monitored, idioma, pax, noteId, productId, counterId, auxiliarId, clientId,
-  transportId, guideId, observacion, estado, usuarioId,
+  id, date, time, title, monitored, idioma, pax, noteId, service, counterId, auxiliarId, clientId,
+  transportId, guideId, observacion, estado, usuarioId, destination, telefono,
 }: SaveBibleCalendarEvent) => {
   const values = [
-    "GUARDAR", id ?? "", date, time, title, monitored ? "1" : "0", idioma, pax, noteId, productId,
+    "GUARDAR", id ?? "", date, time, title, monitored ? "1" : "0", idioma, pax, noteId, service,
     counterId, auxiliarId, clientId, transportId, guideId, observacion, estado,
-    usuarioId && usuarioId > 0 ? usuarioId : "",
+    usuarioId && usuarioId > 0 ? usuarioId : "", destination, telefono,
   ].map(sanitize);
   return execute(values.join("|"));
 };
