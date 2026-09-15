@@ -96,8 +96,8 @@ const bibleColumns = [
 const initialColumnWidths = Object.fromEntries(
   bibleColumns.map((column) => [column.key, column.width]),
 );
-const blankRows = (date: string) =>
-  Array.from({ length: 3 }, () => newRow(date));
+const blankRows = (date: string, count = 3) =>
+  Array.from({ length: count }, () => newRow(date));
 const rowHasContent = (row: DailyRow) =>
   Boolean(
     row.time ||
@@ -181,7 +181,7 @@ export default function BibleCalendar() {
       const savedRows = events
         .sort((a, b) => a.time.localeCompare(b.time))
         .map((event) => ({ ...event, localId: event.id }));
-      setRows([...savedRows, ...blankRows(selectedKey)]);
+      setRows([...savedRows, ...blankRows(selectedKey, Math.max(0, 3 - savedRows.length))]);
     } catch (loadError) {
       setRows([]);
       setError(
@@ -242,6 +242,14 @@ export default function BibleCalendar() {
       current.map((row) =>
         row.localId === localId ? { ...row, ...patch, dirty: true } : row,
       ),
+    );
+  };
+
+  const addRow = () => {
+    setRows((current) =>
+      current.some((row) => row.isNew && !rowHasContent(row))
+        ? current
+        : [...current, newRow(selectedKey)],
     );
   };
 
@@ -736,9 +744,7 @@ export default function BibleCalendar() {
           {view === "table" ? (
           <button
             type="button"
-            onClick={() =>
-              setRows((current) => [...current, newRow(selectedKey)])
-            }
+            onClick={addRow}
             disabled={!canCreate || catalogsLoading || saving}
             aria-label="Nuevo"
             title="Nuevo"
