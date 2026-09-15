@@ -111,16 +111,6 @@ export const navigationItems: NavigationItem[] = [
     icon: BookOpen,
     description: "Calendario de actividades",
     end: true,
-    children: [
-      {
-        label: "Movilidad",
-        to: "/biblia/movilidad",
-        icon: Car,
-        description: "Liquidación de traslados",
-        end: true,
-        moduleCode: "biblia",
-      },
-    ],
     moduleCode: "biblia",
   },
 

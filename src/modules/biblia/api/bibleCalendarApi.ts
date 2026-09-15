@@ -128,7 +128,7 @@ export const listBibleCalendarEvents = async (from: string, to: string): Promise
       counterId: fields[5]?.trim() || "",
       service: fields[8]?.trim() || "",
       idioma: fields[9]?.trim() || "",
-      pax: fields[10]?.trim() || "",
+      pax: fields[10]?.trim() === "0" ? "" : fields[10]?.trim() || "",
       clientId: fields[12]?.trim() || "",
       noteId: fields[14]?.trim() || "",
       auxiliarId: fields[15]?.trim() || "",
@@ -171,6 +171,18 @@ const asOption = (id: unknown, label: unknown): BibleCalendarCatalogOption | nul
 
 const asRows = (payload: unknown) => Array.isArray(payload) ? payload as Record<string, unknown>[] : [];
 
+const isExternalUser = (row: Record<string, unknown>) =>
+  String(row.tipoUsuario ?? row.TipoUsuario ?? "").trim().toUpperCase() === "EXTERNO" ||
+  ["1", "true"].includes(String(row.usuarioExterno ?? row.UsuarioExterno ?? row.esExterno ?? "").trim().toLowerCase());
+
+const counterLabel = (row: Record<string, unknown>) => {
+  const fullName = [row.nombres ?? row.Nombres, row.apellidos ?? row.Apellidos]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return fullName || String(row.nombre ?? row.Nombre ?? row.usuarioAlias ?? row.UsuarioAlias ?? "").trim();
+};
+
 export const loadBibleCalendarCatalogs = async (): Promise<BibleCalendarCatalogs> => {
   const [products, counters, canales, transportes, guias] = await Promise.all([
     loadCatalog("/Productos/listaPro?companiaId=1").catch(() => []),
@@ -186,7 +198,8 @@ export const loadBibleCalendarCatalogs = async (): Promise<BibleCalendarCatalogs
       return option ? [option] : [];
     }),
     counters: asRows(counters).flatMap((row) => {
-      const option = asOption(row.usuarioID ?? row.UsuarioID, row.usuarioAlias ?? row.UsuarioAlias ?? row.nombres ?? row.Nombres);
+      if (isExternalUser(row)) return [];
+      const option = asOption(row.usuarioID ?? row.UsuarioID, counterLabel(row));
       return option ? [option] : [];
     }),
     canales: parseCanalPayload(canales).flatMap((item) => {

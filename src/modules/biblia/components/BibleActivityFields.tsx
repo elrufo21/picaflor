@@ -45,7 +45,6 @@ export default function BibleActivityFields({
             onChange({ title: event.target.value.toUpperCase() })
           }
           className={fieldClass}
-          placeholder="Ej. Recojo hotel / tour"
           autoFocus
         />
       </label>
@@ -86,8 +85,9 @@ export default function BibleActivityFields({
         CNT. PAX
         <input
           value={value.pax}
-          onChange={(event) => onChange({ pax: event.target.value })}
+          onChange={(event) => onChange({ pax: event.target.value.replace(/\D/g, "") })}
           inputMode="numeric"
+          pattern="[0-9]*"
           className={fieldClass}
         />
       </label>

@@ -154,7 +154,7 @@ export default function BibleCalendar() {
   const [calendarEvents, setCalendarEvents] = useState<BibleCalendarEvent[]>(
     [],
   );
-  const [view, setView] = useState<"table" | "calendar">("calendar");
+  const [view, setView] = useState<"table" | "calendar">("table");
   const [catalogs, setCatalogs] =
     useState<BibleCalendarCatalogs>(emptyCatalogs);
   const [loading, setLoading] = useState(true);
@@ -489,7 +489,6 @@ export default function BibleCalendar() {
             value={row.title}
             onChange={(title) => change({ title })}
             disabled={disabled}
-            placeholder="RECOJO / TOUR"
             className={cellInputClassName("operacion")}
             style={cellInputStyle("operacion")}
           />
@@ -543,8 +542,7 @@ export default function BibleCalendar() {
         </td>
         <td {...cellProps("pax")}>
           <TableTextInput
-            type="text"
-            inputMode="numeric"
+            integerOnly
             value={row.pax}
             onChange={(pax) => change({ pax })}
             disabled={disabled}
@@ -577,11 +575,11 @@ export default function BibleCalendar() {
           />
         </td>
         <td {...cellProps("lq")}>
-          <TableTextareaInput
+          <TableTextInput
             value={row.noteId}
             onChange={(noteId) => change({ noteId })}
             disabled={disabled}
-            placeholder="LQ"
+            integerOnly
             className={cellInputClassName("lq")}
             style={cellInputStyle("lq")}
           />
@@ -724,22 +722,26 @@ export default function BibleCalendar() {
           </div>
 
           {view === "table" ? (
-            <button
-              type="button"
-              onClick={() => void saveChanges()}
-              disabled={saving || !rows.some((row) => row.isNew || row.dirty)}
+          <button
+            type="button"
+            onClick={() => void saveChanges()}
+            disabled={saving || !rows.some((row) => row.isNew || row.dirty)}
+            aria-label="Guardar"
+            title="Guardar"
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Save size={17} />
             </button>
           ) : null}
           {view === "table" ? (
-            <button
-              type="button"
-              onClick={() =>
-                setRows((current) => [...current, newRow(selectedKey)])
-              }
-              disabled={!canCreate || catalogsLoading || saving}
+          <button
+            type="button"
+            onClick={() =>
+              setRows((current) => [...current, newRow(selectedKey)])
+            }
+            disabled={!canCreate || catalogsLoading || saving}
+            aria-label="Nuevo"
+            title="Nuevo"
               className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Plus size={17} />
