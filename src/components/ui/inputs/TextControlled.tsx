@@ -99,6 +99,7 @@ function TextControlled<T extends FieldValues>({
           typeof restProps.type === "string"
             ? restProps.type.toLowerCase()
             : "text";
+        const shouldShrinkLabel = inputType === "date" || inputType === "time";
         const historyAutoCompleteValue = shouldDisableHistory
           ? "new-password"
           : restProps.autoComplete;
@@ -200,6 +201,10 @@ function TextControlled<T extends FieldValues>({
             value={displayValue}
             inputRef={handleInputRef}
             autoComplete={historyAutoCompleteValue}
+            InputLabelProps={{
+              ...restProps.InputLabelProps,
+              shrink: restProps.InputLabelProps?.shrink ?? shouldShrinkLabel,
+            }}
             onFocus={(event) => {
               if (shouldDisableHistory && !historyUnlocked) {
                 setHistoryUnlocked(true);
