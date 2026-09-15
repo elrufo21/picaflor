@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, type CSSProperties } from "react";
 import { getFocusableElements } from "@/shared/helpers/formFocus";
 import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
@@ -11,6 +11,7 @@ type Props = {
   textAlign?: "left" | "center" | "right";
   disabled?: boolean;
   className?: string;
+  style?: CSSProperties;
   navColumn?: string;
   navRow?: number;
   textSize?: "xs" | "sm" | "base" | "lg";
@@ -27,6 +28,7 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
       textAlign = "left",
       disabled = false,
       className,
+      style,
       navColumn,
       navRow,
       textSize = "sm",
@@ -158,6 +160,7 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
         data-form-type="other"
         data-autocomplete="off"
         className={resolvedClassName}
+        style={style}
       />
     );
   },

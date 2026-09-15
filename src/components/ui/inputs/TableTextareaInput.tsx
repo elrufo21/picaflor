@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type CSSProperties } from "react";
 
 type Props = {
   value: string;
@@ -6,6 +6,7 @@ type Props = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  style?: CSSProperties;
   rows?: number;
   maxLength?: number;
 };
@@ -16,6 +17,7 @@ const TableTextareaInput = ({
   placeholder,
   disabled = false,
   className,
+  style,
   rows = 1,
   maxLength,
 }: Props) => {
@@ -37,6 +39,7 @@ const TableTextareaInput = ({
       disabled={disabled}
       rows={rows}
       maxLength={maxLength}
+      style={style}
       className={`block min-h-10 w-full resize-none overflow-hidden rounded border border-slate-300 px-2 py-1 text-sm focus:border-emerald-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400 ${className ?? ""}`}
     />
   );

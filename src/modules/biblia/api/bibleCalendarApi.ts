@@ -7,6 +7,7 @@ export type BibleCalendarEvent = {
   time: string;
   title: string;
   color: string;
+  cellColors: Record<string, { background?: string; text?: string }>;
   monitored: boolean;
   idioma: string;
   pax: string;
@@ -52,6 +53,7 @@ export type SaveBibleCalendarEvent = {
   telefono: string;
   observacion: string;
   estado: string;
+  cellColors?: Record<string, { background?: string; text?: string }>;
   usuarioId?: number;
 };
 
@@ -60,6 +62,24 @@ const colors = ["bg-sky-600", "bg-violet-600", "bg-emerald-600", "bg-amber-600"]
 
 const sanitize = (value: string | number | undefined | null) =>
   String(value ?? "").replace(/[|¬]/g, " ").trim();
+
+const parseCellColors = (value: string | undefined) =>
+  (value ?? "").replace(/Â/g, "").split(",").reduce<Record<string, { background?: string; text?: string }>>((colors, pair) => {
+    const [column, background, text] = pair.split(":");
+    if (column && (background || text)) {
+      colors[column] = {
+        ...(background ? { background } : {}),
+        ...(text ? { text } : {}),
+      };
+    }
+    return colors;
+  }, {});
+
+const serializeCellColors = (colors?: Record<string, { background?: string; text?: string }>) =>
+  Object.entries(colors ?? {})
+    .filter(([, style]) => style.background || style.text)
+    .map(([column, style]) => `${column}:${style.background ?? ""}:${style.text ?? ""}`)
+    .join(",");
 
 const parseResponse = (raw: string) => {
   try {
@@ -103,6 +123,7 @@ export const listBibleCalendarEvents = async (from: string, to: string): Promise
       time: fields[2]?.trim() || "09:00",
       title: fields[3]?.trim() || fields[11]?.trim() || fields[8]?.trim() || "Actividad",
       color: colors[index % colors.length],
+      cellColors: parseCellColors(fields[26]?.trim()),
       monitored: fields[4]?.trim() === "1",
       counterId: fields[5]?.trim() || "",
       service: fields[8]?.trim() || "",
@@ -123,12 +144,12 @@ export const listBibleCalendarEvents = async (from: string, to: string): Promise
 
 export const saveBibleCalendarEvent = async ({
   id, date, time, title, monitored, idioma, pax, noteId, service, counterId, auxiliarId, clientId,
-  transportId, guideId, observacion, estado, usuarioId, destination, telefono,
+  transportId, guideId, observacion, estado, usuarioId, destination, telefono, cellColors,
 }: SaveBibleCalendarEvent) => {
   const values = [
     "GUARDAR", id ?? "", date, time, title, monitored ? "1" : "0", idioma, pax, noteId, service,
     counterId, auxiliarId, clientId, transportId, guideId, observacion, estado,
-    usuarioId && usuarioId > 0 ? usuarioId : "", destination, telefono,
+    usuarioId && usuarioId > 0 ? usuarioId : "", destination, telefono, serializeCellColors(cellColors),
   ].map(sanitize);
   return execute(values.join("|"));
 };
