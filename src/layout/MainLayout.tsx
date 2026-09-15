@@ -33,12 +33,22 @@ const TRAVEL_PACKAGE_STALE_STORAGE_KEY = "travel-package:list:stale:v1";
 const TRAVEL_PACKAGE_MANUAL_REFRESH_EVENT =
   "picaflor:travel-package:list:manual-refresh";
 
+const BIBLIA_SELECTED_DATE_EVENT = "picaflor:biblia:selected-date";
+
+const formatBibleTitle = (value?: string) => {
+  const [year, month, day] = String(value ?? "").split("-").map(Number);
+  const date = year && month && day ? new Date(year, month - 1, day) : new Date();
+  const monthName = new Intl.DateTimeFormat("es-PE", { month: "long" }).format(date);
+  return `Biblia ${date.getDate()} de ${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} de ${date.getFullYear()}`;
+};
+
 const MainLayout = () => {
   const [isDesktop, setIsDesktop] = useState(false);
   const { isSidebarOpen, setSidebarOpen, toggleSidebar, closeSidebar } =
     useLayoutStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [navFilter, setNavFilter] = useState("");
+  const [bibleSelectedDate, setBibleSelectedDate] = useState("");
   const open = Boolean(anchorEl);
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -54,6 +64,18 @@ const MainLayout = () => {
   const { user, logout } = useAuthStore();
   const { canAccessModule, canAccessAction } = useModulePermissionsStore();
   const isTravelPackageRoute = location.pathname.includes("/paquete-viaje");
+  const isBibleRoute = location.pathname.startsWith("/biblia");
+
+  useEffect(() => {
+    const updateBibleDate = (event: Event) => {
+      const value = (event as CustomEvent<string>).detail;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+        setBibleSelectedDate(value);
+      }
+    };
+    window.addEventListener(BIBLIA_SELECTED_DATE_EVENT, updateBibleDate);
+    return () => window.removeEventListener(BIBLIA_SELECTED_DATE_EVENT, updateBibleDate);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -188,6 +210,11 @@ const MainLayout = () => {
       (Number.isFinite(canalVentaId) && canalVentaId > 0)
     );
   }, [user]);
+  const headerTitle = isBibleRoute
+    ? formatBibleTitle(bibleSelectedDate)
+    : isExternalUser
+      ? user?.canalVentaNombre
+      : "Picaflor";
   const desktopNav = (
     <aside
       className={`hidden md:flex sticky top-0 h-screen  flex-col
@@ -427,8 +454,7 @@ const MainLayout = () => {
               <MenuIcon size={18} className="text-white" />
             </button>
             <h1 className="text-lg font-semibold text-white">
-              {" "}
-              {isExternalUser ? user?.canalVentaNombre : "Picaflor"}
+              {headerTitle}
             </h1>
           </div>
 

@@ -38,7 +38,7 @@ export default function BibleActivityFields({
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
-        Operación <span className="text-rose-600">*</span>
+        Operación
         <input
           value={value.title}
           onChange={(event) =>
@@ -50,7 +50,7 @@ export default function BibleActivityFields({
         />
       </label>
       <label className="block text-sm font-medium text-slate-700">
-        Fecha <span className="text-rose-600">*</span>
+        Fecha
         <input
           type="date"
           value={value.date}
@@ -59,7 +59,7 @@ export default function BibleActivityFields({
         />
       </label>
       <label className="block text-sm font-medium text-slate-700">
-        Hora <span className="text-rose-600">*</span>
+        Hora
         <input
           type="time"
           value={value.time}
@@ -68,7 +68,7 @@ export default function BibleActivityFields({
         />
       </label>
       <label className="block text-sm font-medium text-slate-700">
-        Counter <span className="text-rose-600">*</span>
+        Counter
         <select
           value={value.counterId}
           onChange={(event) => onChange({ counterId: event.target.value })}
@@ -83,7 +83,7 @@ export default function BibleActivityFields({
         </select>
       </label>
       <label className="block text-sm font-medium text-slate-700">
-        CNT. PAX <span className="text-rose-600">*</span>
+        CNT. PAX
         <input
           value={value.pax}
           onChange={(event) => onChange({ pax: event.target.value })}

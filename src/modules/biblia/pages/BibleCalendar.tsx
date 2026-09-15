@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useState, type PointerEvent } from "react";
-import { useNavigate } from "react-router";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
 import {
   CalendarDays,
-  CarFront,
   ChevronLeft,
   ChevronRight,
   Plus,
-  RefreshCw,
   Save,
   Table2,
+  Trash2,
 } from "lucide-react";
 import {
   TableSelectInput,
@@ -16,6 +20,11 @@ import {
   TableTextInput,
 } from "@/components/ui/inputs";
 import { showToast } from "@/components/ui/AppToast";
+import CellColorContextMenu from "@/components/ui/CellColorContextMenu";
+import {
+  getCellHighlightStyle,
+  getCellTextStyle,
+} from "@/components/ui/cellHighlight";
 import { useDialogStore } from "@/app/store/dialogStore";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
@@ -23,6 +32,7 @@ import {
   listBibleCalendarEvents,
   loadBibleCalendarCatalogs,
   saveBibleCalendarEvent,
+  deleteBibleCalendarEvent,
   type BibleCalendarCatalogs,
   type BibleCalendarEvent,
 } from "../api/bibleCalendarApi";
@@ -35,6 +45,13 @@ type DailyRow = BibleCalendarEvent & {
   localId: string;
   isNew?: boolean;
   dirty?: boolean;
+};
+
+type CellColorMenu = {
+  localId: string;
+  column: string;
+  x: number;
+  y: number;
 };
 
 const languages = ["ESPAÑOL", "INGLÉS", "PORTUGUÉS", "FRANCÉS", "OTRO"];
@@ -59,16 +76,6 @@ const startOfWeek = (date: Date) =>
     date.getMonth(),
     date.getDate() - ((date.getDay() + 6) % 7),
   );
-const titleFormatter = new Intl.DateTimeFormat("es-PE", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-const monthTitleFormatter = new Intl.DateTimeFormat("es-PE", {
-  month: "long",
-  year: "numeric",
-});
 const bibleColumns = [
   { key: "hora", label: "Hora", width: 104, minWidth: 90 },
   { key: "operacion", label: "Operación", width: 168, minWidth: 120 },
@@ -84,6 +91,7 @@ const bibleColumns = [
   { key: "telefono", label: "Teléf.", width: 150, minWidth: 110 },
   { key: "transporte", label: "Transporte", width: 195, minWidth: 130 },
   { key: "guia", label: "Guía", width: 165, minWidth: 110 },
+  { key: "acciones", label: "Acciones", width: 110, minWidth: 100 },
 ] as const;
 const initialColumnWidths = Object.fromEntries(
   bibleColumns.map((column) => [column.key, column.width]),
@@ -118,6 +126,7 @@ const newRow = (date: string): DailyRow => ({
   time: "",
   title: "",
   color: "",
+  cellColors: {},
   monitored: false,
   idioma: "",
   pax: "",
@@ -135,7 +144,6 @@ const newRow = (date: string): DailyRow => ({
 });
 
 export default function BibleCalendar() {
-  const navigate = useNavigate();
   const openDialog = useDialogStore((state) => state.openDialog);
   const usuarioId = Number(useAuthStore((state) => state.user?.id) ?? 0);
   const canAccessAction = useModulePermissionsStore(
@@ -156,10 +164,14 @@ export default function BibleCalendar() {
   const [error, setError] = useState("");
   const [columnWidths, setColumnWidths] =
     useState<Record<string, number>>(initialColumnWidths);
+  const [cellColorMenu, setCellColorMenu] = useState<CellColorMenu | null>(
+    null,
+  );
   const selectedKey = toDateKey(selectedDate);
   const selectedWeekKey = toDateKey(startOfWeek(selectedDate));
   const canCreate = canAccessAction("biblia", "create");
   const canEdit = canAccessAction("biblia", "edit");
+  const canDelete = canAccessAction("biblia", "delete");
 
   const loadRows = useCallback(async () => {
     setLoading(true);
@@ -207,6 +219,11 @@ export default function BibleCalendar() {
   useEffect(() => {
     void loadWeekEvents();
   }, [loadWeekEvents]);
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("picaflor:biblia:selected-date", { detail: selectedKey }),
+    );
+  }, [selectedKey]);
   useEffect(() => {
     void loadBibleCalendarCatalogs()
       .then(setCatalogs)
@@ -262,20 +279,6 @@ export default function BibleCalendar() {
       });
       return;
     }
-    if (
-      changedRows.some(
-        (row) =>
-          !row.date || !row.time || !row.counterId || Number(row.pax) <= 0,
-      )
-    ) {
-      showToast({
-        title: "Completa la fila",
-        description:
-          "Hora, counter y PAX son requeridos. Operación es opcional.",
-        type: "warning",
-      });
-      return;
-    }
     setSaving(true);
     try {
       await Promise.all(
@@ -299,13 +302,14 @@ export default function BibleCalendar() {
             telefono: row.telefono,
             observacion: row.observacion,
             estado: "ACTIVO",
+            cellColors: row.cellColors,
             usuarioId,
           }),
         ),
       );
       showToast({
         title: "Agenda diaria",
-        description: "Cambios guardados correctamente.",
+        description: "Cambios importados correctamente.",
         type: "success",
       });
       await Promise.all([loadRows(), loadWeekEvents()]);
@@ -365,27 +369,12 @@ export default function BibleCalendar() {
       ),
       onConfirm: async (payload) => {
         const values = payload as BibleActivityDraft;
-        if (
-          !values.title.trim() ||
-          !values.date ||
-          !values.time ||
-          !values.counterId ||
-          Number(values.pax) <= 0
-        ) {
-          showToast({
-            title: "Completa los campos obligatorios",
-            description:
-              "Operación, counter, fecha, hora y CNT. PAX son requeridos.",
-            type: "warning",
-          });
-          return false;
-        }
-
         try {
           await saveBibleCalendarEvent({
             ...values,
             id: values.id || undefined,
             estado: "ACTIVO",
+            cellColors: event?.cellColors,
             usuarioId,
           });
           showToast({
@@ -409,18 +398,81 @@ export default function BibleCalendar() {
     });
   };
 
+  const deleteRow = (row: DailyRow) => {
+    if (row.isNew) {
+      setRows((current) =>
+        current.filter((item) => item.localId !== row.localId),
+      );
+      return;
+    }
+    if (!canDelete) return;
+
+    openDialog({
+      title: "Eliminar actividad",
+      description: "La actividad se quitará de la agenda.",
+      size: "sm",
+      content: () => (
+        <p className="text-sm text-slate-600">
+          ¿Deseas eliminar esta fila de forma definitiva?
+        </p>
+      ),
+      showCancel: false,
+      confirmLabel: "Cancelar",
+      dangerLabel: "Eliminar",
+      onDanger: async () => {
+        try {
+          await deleteBibleCalendarEvent(row.id, usuarioId);
+          showToast({
+            title: "Agenda diaria",
+            description: "Fila eliminada correctamente.",
+            type: "success",
+          });
+          await Promise.all([loadRows(), loadWeekEvents()]);
+          return true;
+        } catch (deleteError) {
+          setError(
+            deleteError instanceof Error
+              ? deleteError.message
+              : "No se pudo eliminar la fila.",
+          );
+          return false;
+        }
+      },
+    });
+  };
+
   const renderRow = (row: DailyRow, index: number) => {
     const editable = row.isNew ? canCreate : canEdit;
     const disabled = !editable || saving;
     const change = (patch: Partial<DailyRow>) => updateRow(row.localId, patch);
+    const cellStyle = (column: string) =>
+      getCellHighlightStyle(row.cellColors[column]?.background);
+    const cellTextStyle = (column: string) =>
+      getCellTextStyle(row.cellColors[column]?.text);
+    const cellClassName = (column: string) =>
+      `${cellStyle(column)?.cellClassName ?? ""} ${cellTextStyle(column)?.className ?? ""}`;
+    const cellInputClassName = (column: string) =>
+      `${cellStyle(column)?.inputClassName ?? ""} ${cellTextStyle(column)?.className ?? ""}`;
+    const cellInputStyle = (column: string) =>
+      cellTextStyle(column)?.color
+        ? { color: cellTextStyle(column)?.color }
+        : undefined;
+    const cellProps = (column: string) => ({
+      className: cellClassName(column),
+      onContextMenu: (event: MouseEvent<HTMLTableCellElement>) => {
+        if (!editable) return;
+        event.preventDefault();
+        setCellColorMenu({
+          localId: row.localId,
+          column,
+          x: event.clientX,
+          y: event.clientY,
+        });
+      },
+    });
     return (
-      <tr
-        key={row.localId}
-        className={
-          row.isNew ? "bg-emerald-50/60" : "bg-white hover:bg-sky-50/35"
-        }
-      >
-        <td>
+      <tr key={row.localId} className="bg-white hover:bg-sky-50/35">
+        <td {...cellProps("hora")}>
           <TableTextInput
             type="time"
             value={row.time}
@@ -428,19 +480,24 @@ export default function BibleCalendar() {
             disabled={disabled}
             navColumn="hora"
             navRow={index}
+            className={cellInputClassName("hora")}
+            style={cellInputStyle("hora")}
           />
         </td>
-        <td>
-          <TableTextInput
+        <td {...cellProps("operacion")}>
+          <TableTextareaInput
             value={row.title}
             onChange={(title) => change({ title })}
             disabled={disabled}
             placeholder="RECOJO / TOUR"
-            navColumn="operacion"
-            navRow={index}
+            className={cellInputClassName("operacion")}
+            style={cellInputStyle("operacion")}
           />
         </td>
-        <td className="text-center">
+        <td
+          {...cellProps("monitoreado")}
+          className={`text-center ${cellClassName("monitoreado")}`}
+        >
           <input
             type="checkbox"
             checked={row.monitored}
@@ -450,25 +507,27 @@ export default function BibleCalendar() {
             aria-label="Monitoreado"
           />
         </td>
-        <td>
+        <td {...cellProps("counter")}>
           <TableSelectInput
             value={row.counterId}
             onChange={(counterId) => change({ counterId })}
             options={catalogs.counters}
             disabled={disabled || catalogsLoading}
+            className={cellInputClassName("counter")}
+            style={cellInputStyle("counter")}
           />
         </td>
-        <td>
-          <TableTextInput
+        <td {...cellProps("destino")}>
+          <TableTextareaInput
             value={row.destination}
             onChange={(destination) => change({ destination })}
             disabled={disabled}
             placeholder="DESTINO"
-            navColumn="destino"
-            navRow={index}
+            className={cellInputClassName("destino")}
+            style={cellInputStyle("destino")}
           />
         </td>
-        <td>
+        <td {...cellProps("idioma")}>
           <TableSelectInput
             value={row.idioma}
             onChange={(idioma) => change({ idioma })}
@@ -478,9 +537,11 @@ export default function BibleCalendar() {
             }))}
             disabled={disabled}
             placeholder="-"
+            className={cellInputClassName("idioma")}
+            style={cellInputStyle("idioma")}
           />
         </td>
-        <td>
+        <td {...cellProps("pax")}>
           <TableTextInput
             type="text"
             inputMode="numeric"
@@ -490,73 +551,97 @@ export default function BibleCalendar() {
             textAlign="center"
             navColumn="pax"
             navRow={index}
+            className={cellInputClassName("pax")}
+            style={cellInputStyle("pax")}
           />
         </td>
-        <td>
+        <td {...cellProps("servicio")}>
           <TableTextareaInput
             value={row.service}
             onChange={(service) => change({ service })}
             disabled={disabled}
             placeholder="SERVICIO"
             maxLength={500}
+            className={cellInputClassName("servicio")}
+            style={cellInputStyle("servicio")}
           />
         </td>
-        <td>
-          <TableTextInput
+        <td {...cellProps("cliente")}>
+          <TableTextareaInput
             value={row.clientId}
             onChange={(clientId) => change({ clientId })}
             disabled={disabled}
             placeholder="CLIENTE"
-            navColumn="cliente"
-            navRow={index}
+            className={cellInputClassName("cliente")}
+            style={cellInputStyle("cliente")}
           />
         </td>
-        <td>
-          <TableTextInput
+        <td {...cellProps("lq")}>
+          <TableTextareaInput
             value={row.noteId}
             onChange={(noteId) => change({ noteId })}
             disabled={disabled}
             placeholder="LQ"
-            navColumn="lq"
-            navRow={index}
+            className={cellInputClassName("lq")}
+            style={cellInputStyle("lq")}
           />
         </td>
-        <td>
+        <td {...cellProps("contacto")}>
           <TableSelectInput
             value={row.auxiliarId}
             onChange={(auxiliarId) => change({ auxiliarId })}
             options={catalogs.canales}
             disabled={disabled || catalogsLoading}
             placeholder="Sin contacto"
+            className={cellInputClassName("contacto")}
+            style={cellInputStyle("contacto")}
           />
         </td>
-        <td>
-          <TableTextInput
+        <td {...cellProps("telefono")}>
+          <TableTextareaInput
             value={row.telefono}
             onChange={(telefono) => change({ telefono })}
             disabled={disabled}
             placeholder="TELÉFONO"
-            navColumn="telefono"
-            navRow={index}
+            className={cellInputClassName("telefono")}
+            style={cellInputStyle("telefono")}
           />
         </td>
-        <td>
+        <td {...cellProps("transporte")}>
           <TableSelectInput
             value={row.transportId}
             onChange={(transportId) => change({ transportId })}
             options={catalogs.transportes}
             disabled={disabled || catalogsLoading}
             placeholder="Sin transporte"
+            className={cellInputClassName("transporte")}
+            style={cellInputStyle("transporte")}
           />
         </td>
-        <td>
+        <td {...cellProps("guia")}>
           <TableSelectInput
             value={row.guideId}
             onChange={(guideId) => change({ guideId })}
             options={catalogs.guias}
             disabled={disabled || catalogsLoading}
             placeholder="Sin guía"
+            className={cellInputClassName("guia")}
+            style={cellInputStyle("guia")}
           />
+        </td>
+        <td className="text-center">
+          {(row.isNew ? canCreate : canDelete) ? (
+            <button
+              type="button"
+              onClick={() => deleteRow(row)}
+              disabled={saving}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Eliminar fila"
+              title="Eliminar fila"
+            >
+              <Trash2 size={17} />
+            </button>
+          ) : null}
         </td>
       </tr>
     );
@@ -565,27 +650,6 @@ export default function BibleCalendar() {
   return (
     <div className="w-full space-y-4">
       <header className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-2 text-slate-800">
-          <CalendarDays size={22} className="text-sky-600" />
-          <span className="font-semibold">
-            {view === "calendar" ? "Calendario" : "Gestión diaria"}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => openActivityDialog(selectedDate)}
-          disabled={!canCreate || catalogsLoading}
-          className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Plus size={17} /> Crear
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate("/biblia/movilidad")}
-          className="inline-flex items-center gap-2 rounded-lg border border-sky-300 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50"
-        >
-          <CarFront size={17} /> Movilidad
-        </button>
         <button
           type="button"
           onClick={() => setSelectedDate(new Date())}
@@ -633,11 +697,6 @@ export default function BibleCalendar() {
             className="h-10 rounded-lg border border-slate-300 px-3 text-sm text-slate-700"
           />
         ) : null}
-        <h1 className="min-w-40 text-lg font-semibold capitalize text-slate-800">
-          {view === "calendar"
-            ? monthTitleFormatter.format(selectedDate)
-            : titleFormatter.format(selectedDate)}
-        </h1>
         <div className="ml-auto flex flex-wrap gap-2">
           <div className="inline-flex rounded-lg border border-slate-300 p-0.5">
             <button
@@ -649,7 +708,7 @@ export default function BibleCalendar() {
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
-              <CalendarDays size={16} /> Semana
+              <CalendarDays size={16} /> Calendario
             </button>
             <button
               type="button"
@@ -663,13 +722,7 @@ export default function BibleCalendar() {
               <Table2 size={16} /> Tabla
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => void Promise.all([loadRows(), loadWeekEvents()])}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw size={16} /> Actualizar
-          </button>
+
           {view === "table" ? (
             <button
               type="button"
@@ -677,7 +730,7 @@ export default function BibleCalendar() {
               disabled={saving || !rows.some((row) => row.isNew || row.dirty)}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Save size={17} /> Guardar cambios
+              <Save size={17} />
             </button>
           ) : null}
           {view === "table" ? (
@@ -689,7 +742,7 @@ export default function BibleCalendar() {
               disabled={!canCreate || catalogsLoading || saving}
               className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Plus size={17} /> Nueva fila
+              <Plus size={17} />
             </button>
           ) : null}
         </div>
@@ -747,7 +800,7 @@ export default function BibleCalendar() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={14}
+                    colSpan={bibleColumns.length}
                     className="px-4 py-10 text-center text-slate-400"
                   >
                     Cargando actividades del día...
@@ -757,7 +810,7 @@ export default function BibleCalendar() {
               {!loading && !rows.length ? (
                 <tr>
                   <td
-                    colSpan={14}
+                    colSpan={bibleColumns.length}
                     className="px-4 py-10 text-center text-slate-400"
                   >
                     No hay actividades para este día. Usa “Nueva fila” para
@@ -770,6 +823,42 @@ export default function BibleCalendar() {
           </table>
         </section>
       )}
+      <CellColorContextMenu
+        position={
+          cellColorMenu ? { x: cellColorMenu.x, y: cellColorMenu.y } : null
+        }
+        value={
+          rows.find((row) => row.localId === cellColorMenu?.localId)
+            ?.cellColors[cellColorMenu?.column ?? ""]
+        }
+        onChange={(patch) => {
+          if (!cellColorMenu) return;
+          setRows((current) =>
+            current.map((row) => {
+              if (row.localId !== cellColorMenu.localId) return row;
+              const cellColors = { ...row.cellColors };
+              const currentStyle = cellColors[cellColorMenu.column] ?? {};
+              const nextStyle = {
+                ...currentStyle,
+                ...(patch.background !== undefined
+                  ? { background: patch.background || undefined }
+                  : {}),
+                ...(patch.text !== undefined
+                  ? { text: patch.text || undefined }
+                  : {}),
+              };
+              if (!nextStyle.background && !nextStyle.text) {
+                delete cellColors[cellColorMenu.column];
+              } else {
+                cellColors[cellColorMenu.column] = nextStyle;
+              }
+              return { ...row, cellColors, dirty: true };
+            }),
+          );
+          setCellColorMenu(null);
+        }}
+        onClose={() => setCellColorMenu(null)}
+      />
     </div>
   );
 }
