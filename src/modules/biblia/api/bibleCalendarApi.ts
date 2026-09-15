@@ -121,7 +121,7 @@ export const listBibleCalendarEvents = async (from: string, to: string): Promise
       id,
       date,
       time: fields[2]?.trim() || "09:00",
-      title: fields[3]?.trim() || fields[11]?.trim() || fields[8]?.trim() || "Actividad",
+      title: fields[3]?.trim() || "",
       color: colors[index % colors.length],
       cellColors: parseCellColors(fields[26]?.trim()),
       monitored: fields[4]?.trim() === "1",
@@ -176,11 +176,9 @@ const isExternalUser = (row: Record<string, unknown>) =>
   ["1", "true"].includes(String(row.usuarioExterno ?? row.UsuarioExterno ?? row.esExterno ?? "").trim().toLowerCase());
 
 const counterLabel = (row: Record<string, unknown>) => {
-  const fullName = [row.nombres ?? row.Nombres, row.apellidos ?? row.Apellidos]
-    .map((value) => String(value ?? "").trim())
-    .filter(Boolean)
-    .join(" ");
-  return fullName || String(row.nombre ?? row.Nombre ?? row.usuarioAlias ?? row.UsuarioAlias ?? "").trim();
+  const firstName = String(row.nombres ?? row.Nombres ?? "").trim().split(/\s+/)[0];
+  const firstLastName = String(row.apellidos ?? row.Apellidos ?? "").trim().split(/\s+/)[0];
+  return [firstName, firstLastName].filter(Boolean).join(" ") || String(row.nombre ?? row.Nombre ?? row.usuarioAlias ?? row.UsuarioAlias ?? "").trim();
 };
 
 export const loadBibleCalendarCatalogs = async (): Promise<BibleCalendarCatalogs> => {
