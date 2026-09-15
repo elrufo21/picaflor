@@ -1,4 +1,4 @@
-import { forwardRef, type CSSProperties } from "react";
+import { forwardRef, type CSSProperties, type InputHTMLAttributes } from "react";
 import { getFocusableElements } from "@/shared/helpers/formFocus";
 import { formatCurrency } from "@/shared/helpers/formatCurrency";
 
@@ -8,6 +8,8 @@ type Props = {
   onChange: (value: string) => void;
   placeholder?: string;
   type?: React.HTMLInputTypeAttribute;
+  inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"];
+  integerOnly?: boolean;
   textAlign?: "left" | "center" | "right";
   disabled?: boolean;
   className?: string;
@@ -25,6 +27,8 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
       onChange,
       placeholder,
       type = "text",
+      inputMode,
+      integerOnly = false,
       textAlign = "left",
       disabled = false,
       className,
@@ -49,7 +53,7 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
       focusables[nextIndex]?.focus();
     };
 
-    const shouldUppercase = type === "text";
+    const shouldUppercase = type === "text" && !integerOnly;
     const focusVertical = (
       target: HTMLInputElement,
       direction: "up" | "down",
@@ -95,12 +99,16 @@ const TableTextInput = forwardRef<HTMLInputElement, Props>(
         id={id}
         data-nav-col={navColumn}
         data-nav-row={navRow}
-        type={disabled && type === "number" ? "text" : type}
+        type={integerOnly || (disabled && type === "number") ? "text" : type}
+        inputMode={integerOnly ? "numeric" : inputMode}
+        pattern={integerOnly ? "[0-9]*" : undefined}
         value={displayValue}
         onChange={(event) => {
-          const nextValue = shouldUppercase
-            ? event.target.value.toUpperCase()
-            : event.target.value;
+          const nextValue = integerOnly
+            ? event.target.value.replace(/\D/g, "")
+            : shouldUppercase
+              ? event.target.value.toUpperCase()
+              : event.target.value;
           event.target.value = nextValue;
           onChange(nextValue);
         }}
