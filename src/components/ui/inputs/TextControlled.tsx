@@ -203,7 +203,9 @@ function TextControlled<T extends FieldValues>({
             autoComplete={historyAutoCompleteValue}
             InputLabelProps={{
               ...restProps.InputLabelProps,
-              shrink: restProps.InputLabelProps?.shrink ?? shouldShrinkLabel,
+              shrink:
+                restProps.InputLabelProps?.shrink ??
+                (shouldShrinkLabel ? true : undefined),
             }}
             onFocus={(event) => {
               if (shouldDisableHistory && !historyUnlocked) {
