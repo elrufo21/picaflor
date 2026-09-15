@@ -125,7 +125,7 @@ export const listBibleCalendarEvents = async (from: string, to: string): Promise
       color: colors[index % colors.length],
       cellColors: parseCellColors(fields[26]?.trim()),
       monitored: fields[4]?.trim() === "1",
-      counterId: fields[5]?.trim() || "",
+      counterId: fields[5]?.trim() === "0" ? "" : fields[5]?.trim() || "",
       service: fields[8]?.trim() || "",
       idioma: fields[9]?.trim() || "",
       pax: fields[10]?.trim() === "0" ? "" : fields[10]?.trim() || "",
