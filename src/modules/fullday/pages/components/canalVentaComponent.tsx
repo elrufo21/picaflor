@@ -487,39 +487,8 @@ const CanalVentaComponent = ({
           control={control}
           label="Teléfono"
           inputProps={{
-            "data-focus-next": 'input[id="condicion"]',
+            "data-focus-next": "#moneda-input",
           }}
-          size="small"
-        />
-        <AutocompleteControlled
-          id="condicion"
-          name="condicion"
-          control={control}
-          label="Condición"
-          onValueChange={(e) => {
-            if (e?.value === "ACUENTA" || e?.value === "CREDITO") {
-              setValue("acuenta", 0);
-              setValue("deposito", 0);
-              setValue("efectivo", 0);
-            }
-            if (e?.value === "CANCELADO") {
-              setValue("acuenta", watch("precioTotal"));
-              setValue("medioPago", "");
-              setValue("entidadBancaria", "-");
-              setValue("nroOperacion", "");
-            }
-            if (e?.value === "ACUENTA" || e?.value === "CREDITO") {
-              setValue("medioPago", "");
-              setValue("entidadBancaria", "-");
-              setValue("nroOperacion", "");
-            }
-          }}
-          options={estadoPagoOptions}
-          getOptionLabel={(option: any) => option.label}
-          isOptionEqualToValue={(option: any, value: any) =>
-            option.value === value.value
-          }
-          data-focus-next="#moneda-input"
           size="small"
         />
         <SelectControlled
@@ -563,9 +532,40 @@ const CanalVentaComponent = ({
           }}
           InputLabelProps={{ shrink: true }}
           inputProps={{
-            "data-focus-next": 'input[name="nombreCompleto"]',
+            "data-focus-next": 'input[id="condicion"]',
             min: minFechaViajeEdicion || undefined,
           }}
+        />
+        <AutocompleteControlled
+          id="condicion"
+          name="condicion"
+          control={control}
+          label="Condición"
+          onValueChange={(e) => {
+            if (e?.value === "ACUENTA" || e?.value === "CREDITO") {
+              setValue("acuenta", 0);
+              setValue("deposito", 0);
+              setValue("efectivo", 0);
+            }
+            if (e?.value === "CANCELADO") {
+              setValue("acuenta", watch("precioTotal"));
+              setValue("medioPago", "");
+              setValue("entidadBancaria", "-");
+              setValue("nroOperacion", "");
+            }
+            if (e?.value === "ACUENTA" || e?.value === "CREDITO") {
+              setValue("medioPago", "");
+              setValue("entidadBancaria", "-");
+              setValue("nroOperacion", "");
+            }
+          }}
+          options={estadoPagoOptions}
+          getOptionLabel={(option: any) => option.label}
+          isOptionEqualToValue={(option: any, value: any) =>
+            option.value === value.value
+          }
+          data-focus-next='input[name="nombreCompleto"]'
+          size="small"
         />
       </div>
     </div>

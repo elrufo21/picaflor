@@ -61,6 +61,13 @@ export default function BibleWeekCalendar({
     },
     {},
   );
+  const openActivityAfterDoubleClick = (
+    day: Date,
+    time: string,
+    event?: BibleCalendarEvent,
+  ) => {
+    onOpenActivity(day, time, event);
+  };
 
   return (
     <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
@@ -116,7 +123,8 @@ export default function BibleWeekCalendar({
                 <button
                   key={event.id}
                   type="button"
-                  onClick={() => onOpenActivity(date, event.time, event)}
+                  onClick={() => onSelectDate(date)}
+                  onDoubleClick={() => openActivityAfterDoubleClick(date, event.time, event)}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-50"
                 >
                   <span className={`h-2 w-2 rounded-full ${event.color}`} />
@@ -187,7 +195,8 @@ export default function BibleWeekCalendar({
                   >
                     <button
                       type="button"
-                      onClick={() => onOpenActivity(day, toTime(hour))}
+                      onClick={() => onSelectDate(day)}
+                      onDoubleClick={() => openActivityAfterDoubleClick(day, toTime(hour))}
                       className="absolute inset-0 hover:bg-sky-50"
                       aria-label={`Crear actividad el ${toDateKey(day)} a las ${toTime(hour)}`}
                     />
@@ -196,7 +205,8 @@ export default function BibleWeekCalendar({
                         <button
                           key={event.id}
                           type="button"
-                          onClick={() => onOpenActivity(day, event.time, event)}
+                          onClick={() => onSelectDate(day)}
+                          onDoubleClick={() => openActivityAfterDoubleClick(day, event.time, event)}
                           className={`mb-1 block w-full break-words whitespace-normal rounded px-2 py-1.5 text-left text-xs font-medium leading-4 text-white ${event.color}`}
                         >
                           {event.time}{" "}

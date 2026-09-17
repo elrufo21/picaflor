@@ -4,6 +4,7 @@ import {
   Wrench,
   Plane,
   Car,
+  CarFront,
   CalendarDays,
   Briefcase,
   BookOpen,
@@ -112,6 +113,14 @@ export const navigationItems: NavigationItem[] = [
     description: "Calendario de actividades",
     end: true,
     moduleCode: "biblia",
+  },
+  {
+    label: "Traslados",
+    to: "/traslados",
+    icon: CarFront,
+    description: "Registro y programación de traslados",
+    end: true,
+    moduleCode: "traslados",
   },
 
   {

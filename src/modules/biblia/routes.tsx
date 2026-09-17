@@ -1,5 +1,5 @@
 import BibleCalendar from "./pages/BibleCalendar";
-import MobilityLiquidation from "./pages/MobilityLiquidation";
+import { Navigate } from "react-router";
 
 export default [
   {
@@ -9,11 +9,6 @@ export default [
       breadcrumb: [{ label: "La Biblia" }],
     },
   },
-  {
-    path: "biblia/movilidad",
-    element: <MobilityLiquidation />,
-    handle: {
-      breadcrumb: [{ label: "La Biblia", to: "/biblia" }, { label: "Liquidación de movilidad" }],
-    },
-  },
+  { path: "biblia/traslados", element: <Navigate to="/traslados" replace /> },
+  { path: "biblia/movilidad", element: <Navigate to="/traslados" replace /> },
 ];

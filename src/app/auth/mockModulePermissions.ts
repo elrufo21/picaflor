@@ -11,7 +11,8 @@ export type ModuleCode =
   | "maintenance"
   | "security"
   | "sale_liquidation"
-  | "biblia";
+  | "biblia"
+  | "traslados";
 
 export type ModulePermissionOverride = {
   allow?: ModuleCode[];
@@ -29,6 +30,7 @@ const BASE_MODULES_BY_AREA: Record<string, ModuleCode[]> = {
     "maintenance",
     "security",
     "sale_liquidation",
+    "traslados",
   ],
   // Default comercial
   default: ["fullday", "programacion", "citytour", "paquete_viaje", "cashflow"],
@@ -50,6 +52,7 @@ export const MODULE_DEFAULT_PATHS: Record<ModuleCode, string> = {
   security: "/seguridad",
   sale_liquidation: "/sale-liquidations",
   biblia: "/biblia",
+  traslados: "/traslados",
 };
 
 export const resolveMockModulePermissions = (user: AuthUser | null) => {
