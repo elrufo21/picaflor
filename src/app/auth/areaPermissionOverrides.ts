@@ -14,6 +14,7 @@ const MODULE_CODES: ModuleCode[] = [
   "security",
   "sale_liquidation",
   "biblia",
+  "traslados",
 ];
 
 const isModuleCode = (value: string): value is ModuleCode =>

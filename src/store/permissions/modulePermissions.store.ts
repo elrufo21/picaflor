@@ -35,6 +35,20 @@ const resolveBibleByArea = (
   return Array.from(allowed);
 };
 
+const addAreaDefaultModules = (
+  user: AuthUser | null,
+  modules: ModuleCode[],
+): ModuleCode[] => {
+  const allowed = new Set(modules);
+  const areaId = String(user?.areaId ?? user?.area ?? "").trim();
+
+  // Traslados se habilitó para el área administrativa. Las sesiones creadas
+  // antes de registrar el módulo no lo traen en su lista almacenada.
+  if (areaId === "6") allowed.add("traslados");
+
+  return Array.from(allowed);
+};
+
 const resolveAllowedModulesFromLogin = (user: AuthUser | null): ModuleCode[] => {
   if (!user?.permissionsFromLogin) return [];
 
@@ -96,7 +110,10 @@ export const useModulePermissionsStore = create<ModulePermissionsState>(
           : resolveMockModulePermissions(user);
       const allowedModules = resolveBibleByArea(
         user,
-        applyUserOverride(user, resolvedBaseModules),
+        applyUserOverride(
+          user,
+          addAreaDefaultModules(user, resolvedBaseModules),
+        ),
       );
       const moduleActions = resolveUserModuleActionPermissions(user, allowedModules);
       set({ allowedModules, moduleActions, loaded: true });
