@@ -304,7 +304,6 @@ export default function UserFormBase({
         .trim();
       const password = values.UsuarioClave ?? "";
       const confirmPassword = values.ConfirmClave ?? "";
-      const initialPassword = String(initialData?.UsuarioClave ?? "");
 
       if (!passwordChangeOnly) {
         if (isExternal) {
@@ -348,24 +347,9 @@ export default function UserFormBase({
         }
       }
 
-      if (!alias) {
-        setError("UsuarioAlias", {
-          type: "required",
-          message: "Usuario/Alias es obligatorio.",
-        });
-        setFocus("UsuarioAlias");
-        showToast({ title: "Error", description: "Ingrese usuario o alias", type: "error" });
-        return false;
-      }
-
-      const isEditWithoutPasswordChange =
-        mode === "edit" &&
-        !passwordChangeOnly &&
-        password === initialPassword &&
-        confirmPassword === initialPassword;
-
-      if (!isEditWithoutPasswordChange) {
-        if (!password?.trim()) {
+      const hasPassword = Boolean(password.trim() || confirmPassword.trim());
+      if (hasPassword) {
+        if (!password.trim()) {
           setError("UsuarioClave", {
             type: "required",
             message: "Contraseña es obligatoria.",
@@ -375,7 +359,7 @@ export default function UserFormBase({
           return false;
         }
 
-        if (!confirmPassword?.trim()) {
+        if (!confirmPassword.trim()) {
           setError("ConfirmClave", {
             type: "required",
             message: "Confirma la contraseña.",
@@ -432,8 +416,6 @@ export default function UserFormBase({
       onNew,
       reset,
       passwordChangeOnly,
-      initialData?.UsuarioClave,
-      mode,
       emptyValues,
     ],
   );
@@ -672,7 +654,6 @@ export default function UserFormBase({
                     autoComplete="off"
                     disableAutoUppercase={true}
                     placeholder="ej: jramirez"
-                    required
                     disabled={lockIdentityFields}
                     size="small"
                     inputProps={{
@@ -695,7 +676,6 @@ export default function UserFormBase({
                     autoComplete="off"
                     disableAutoUppercase
                     placeholder="Ingrese contraseña"
-                    required
                     size="small"
                     disableHistory
                     inputProps={{
@@ -742,7 +722,6 @@ export default function UserFormBase({
                     autoComplete="off"
                     disableAutoUppercase
                     placeholder="Repita la contraseña"
-                    required
                     size="small"
                     disableHistory
                     inputProps={{

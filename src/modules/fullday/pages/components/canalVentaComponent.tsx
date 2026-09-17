@@ -4,7 +4,7 @@ import {
   TextControlled,
 } from "@/components/ui/inputs";
 import { useForm } from "react-hook-form";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCanalVenta } from "../../hooks/useCanalVenta";
 import { showToast } from "@/components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -12,6 +12,20 @@ import { usePackageStore } from "../../store/fulldayStore";
 import { useAuthStore } from "@/store/auth/auth.store";
 import type { AuthUser } from "@/store/auth/auth.store";
 import { AUTH_STORAGE_KEY } from "@/shared/auth/session";
+import { API_BASE_URL } from "@/config";
+
+type ComercialOption = { value: string; label: string };
+
+const toComercialOption = (user: Record<string, unknown>): ComercialOption | null => {
+  if (Number(user.areaId ?? user.AreaId) !== 15) return null;
+
+  const value = String(user.usuarioID ?? user.UsuarioID ?? user.id ?? "").trim();
+  const firstWord = (value: unknown) => String(value ?? "").trim().split(/\s+/)[0] ?? "";
+  const label = [firstWord(user.nombres ?? user.Nombres), firstWord(user.apellidos ?? user.Apellidos)]
+    .filter(Boolean)
+    .join(" ") || String(user.usuarioAlias ?? user.UsuarioAlias ?? "").trim();
+  return value && label ? { value, label: label.toUpperCase() } : null;
+};
 
 const normalizeSessionText = (value: unknown): string =>
   String(value ?? "").trim();
@@ -160,6 +174,39 @@ const CanalVentaComponent = ({
   const canEditFechaViaje = isEditing && isEditMode;
   const { openDialog } = useDialogStore();
   const { canalVentaList, addCanalToList, saveCanalVenta } = useCanalVenta();
+  const [comercialOptions, setComercialOptions] = useState<ComercialOption[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void fetch(`${API_BASE_URL}/UsuariosCrud/list?estado=ACTIVO`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((users: unknown) => {
+        if (!active || !Array.isArray(users)) return;
+        setComercialOptions(
+          users.flatMap((user) => {
+            const option = toComercialOption(user as Record<string, unknown>);
+            return option ? [option] : [];
+          }),
+        );
+      })
+      .catch(() => {
+        if (active) setComercialOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedComercial = watch("comercial");
+  useEffect(() => {
+    const selectedId = String(selectedComercial?.value ?? selectedComercial ?? "").trim();
+    if (!selectedId) return;
+
+    const option = comercialOptions.find((item) => item.value === selectedId);
+    if (option && option.label !== selectedComercial?.label) {
+      setValue("comercial", option);
+    }
+  }, [comercialOptions, selectedComercial, setValue]);
   const lockedCanalVentaOption = useMemo(() => {
     if (!lockedCanalVenta) return null;
 
@@ -422,23 +469,18 @@ const CanalVentaComponent = ({
           disabled
           size="small"
         />
-        <SelectControlled
-          name="moneda"
+        <AutocompleteControlled
+          name="comercial"
           control={control}
-          label="Moneda"
-          options={monedaOptions}
+          label="Comercial"
+          options={comercialOptions}
+          getOptionLabel={(option: ComercialOption) => option.label}
+          isOptionEqualToValue={(option, value) => option.value === value.value}
           disabled={!isEditing}
-          required
           size="small"
-          inputProps={{
-            id: "moneda-input",
-          }}
         />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <div className="col-span-2"></div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <TextControlled
           id="canalDeVentaTelefono"
           name="canalDeVentaTelefono"
@@ -449,83 +491,82 @@ const CanalVentaComponent = ({
           }}
           size="small"
         />
-        <div className="grid grid-cols-2 gap-2">
-          <AutocompleteControlled
-            id="condicion"
-            name="condicion"
-            control={control}
-            label="Condición"
-            onValueChange={(e) => {
-              if (e?.value === "ACUENTA" || e?.value === "CREDITO") {
-                setValue("acuenta", 0);
-                setValue("deposito", 0);
-                setValue("efectivo", 0);
-              }
-              if (e?.value === "CANCELADO") {
-                setValue("acuenta", watch("precioTotal"));
-                setValue("medioPago", "");
-                setValue("entidadBancaria", "-");
-                setValue("nroOperacion", "");
-              }
-              if (e?.value === "ACUENTA") {
-                setValue("medioPago", "");
-                setValue("medioPago", "");
-                setValue("entidadBancaria", "-");
-                setValue("nroOperacion", "");
-              }
-              if (e?.value === "CREDITO") {
-                setValue("medioPago", "");
-                setValue("entidadBancaria", "-");
-                setValue("nroOperacion", "");
-              }
-            }}
-            options={estadoPagoOptions}
-            getOptionLabel={(option: any) => option.label}
-            isOptionEqualToValue={(option: any, value: any) =>
-              option.value === value.value
+        <AutocompleteControlled
+          id="condicion"
+          name="condicion"
+          control={control}
+          label="Condición"
+          onValueChange={(e) => {
+            if (e?.value === "ACUENTA" || e?.value === "CREDITO") {
+              setValue("acuenta", 0);
+              setValue("deposito", 0);
+              setValue("efectivo", 0);
             }
-            data-focus-next={
-              canEditFechaViaje
-                ? 'input[name="fechaViaje"]'
-                : 'input[name="nombreCompleto"]'
+            if (e?.value === "CANCELADO") {
+              setValue("acuenta", watch("precioTotal"));
+              setValue("medioPago", "");
+              setValue("entidadBancaria", "-");
+              setValue("nroOperacion", "");
             }
-            size="small"
-          />
-          <TextControlled
-            id="fechaViaje"
-            name="fechaViaje"
-            control={control}
-            label="Fecha de viaje"
-            type="date"
-            size="small"
-            disabled={!canEditFechaViaje}
-            onChange={(event) => {
-              if (!canEditFechaViaje) return;
+            if (e?.value === "ACUENTA" || e?.value === "CREDITO") {
+              setValue("medioPago", "");
+              setValue("entidadBancaria", "-");
+              setValue("nroOperacion", "");
+            }
+          }}
+          options={estadoPagoOptions}
+          getOptionLabel={(option: any) => option.label}
+          isOptionEqualToValue={(option: any, value: any) =>
+            option.value === value.value
+          }
+          data-focus-next="#moneda-input"
+          size="small"
+        />
+        <SelectControlled
+          name="moneda"
+          control={control}
+          label="Moneda"
+          options={monedaOptions}
+          disabled={!isEditing}
+          required
+          size="small"
+          data-focus-next='input[name="fechaViaje"]'
+          inputProps={{ id: "moneda-input" }}
+        />
+        <TextControlled
+          id="fechaViaje"
+          name="fechaViaje"
+          control={control}
+          label="Fecha de viaje"
+          type="date"
+          size="small"
+          disabled={!canEditFechaViaje}
+          onChange={(event) => {
+            if (!canEditFechaViaje) return;
 
-              const minFechaViaje = minFechaViajeEdicion;
-              const nextFechaViaje = normalizeDateInputValue(event.target.value);
+            const minFechaViaje = minFechaViajeEdicion;
+            const nextFechaViaje = normalizeDateInputValue(event.target.value);
 
-              if (minFechaViaje && nextFechaViaje && nextFechaViaje < minFechaViaje) {
-                setValue("fechaViaje", minFechaViaje, {
-                  shouldDirty: true,
-                  shouldTouch: true,
-                  shouldValidate: true,
-                });
-                showToast({
-                  title: "Validación",
-                  description:
-                    "En modo edición, la fecha de viaje solo puede moverse desde la fecha actual hacia adelante.",
-                  type: "warning",
-                });
-              }
-            }}
-            InputLabelProps={{ shrink: true }}
-            inputProps={{
-              "data-focus-next": 'input[name="nombreCompleto"]',
-              min: minFechaViajeEdicion || undefined,
-            }}
-          />
-        </div>
+            if (minFechaViaje && nextFechaViaje && nextFechaViaje < minFechaViaje) {
+              setValue("fechaViaje", minFechaViaje, {
+                shouldDirty: true,
+                shouldTouch: true,
+                shouldValidate: true,
+              });
+              showToast({
+                title: "Validación",
+                description:
+                  "En modo edición, la fecha de viaje solo puede moverse desde la fecha actual hacia adelante.",
+                type: "warning",
+              });
+            }
+          }}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{
+            "data-focus-next": 'input[name="nombreCompleto"]',
+            min: minFechaViajeEdicion || undefined,
+          }}
+        />
       </div>
     </div>
   );

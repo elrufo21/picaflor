@@ -3,7 +3,7 @@ import {
   SelectControlled,
   TextControlled,
 } from "@/components/ui/inputs";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCanalVenta } from "../../hooks/useCanalVenta";
 import { showToast } from "@/components/ui/AppToast";
 import { useDialogStore } from "@/app/store/dialogStore";
@@ -11,6 +11,20 @@ import { usePackageStore } from "../../store/cityTourStore";
 import { useAuthStore } from "@/store/auth/auth.store";
 import type { AuthUser } from "@/store/auth/auth.store";
 import { AUTH_STORAGE_KEY } from "@/shared/auth/session";
+import { API_BASE_URL } from "@/config";
+
+type ComercialOption = { value: string; label: string };
+
+const toComercialOption = (user: Record<string, unknown>): ComercialOption | null => {
+  if (Number(user.areaId ?? user.AreaId) !== 15) return null;
+
+  const value = String(user.usuarioID ?? user.UsuarioID ?? user.id ?? "").trim();
+  const firstWord = (value: unknown) => String(value ?? "").trim().split(/\s+/)[0] ?? "";
+  const label = [firstWord(user.nombres ?? user.Nombres), firstWord(user.apellidos ?? user.Apellidos)]
+    .filter(Boolean)
+    .join(" ") || String(user.usuarioAlias ?? user.UsuarioAlias ?? "").trim();
+  return value && label ? { value, label: label.toUpperCase() } : null;
+};
 
 const normalizeSessionText = (value: unknown): string =>
   String(value ?? "").trim();
@@ -70,6 +84,39 @@ const CanalVentaComponent = ({
   const canEditFechaViaje = isEditing && isEditMode;
   const { openDialog } = useDialogStore();
   const { canalVentaList, addCanalToList } = useCanalVenta();
+  const [comercialOptions, setComercialOptions] = useState<ComercialOption[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void fetch(`${API_BASE_URL}/UsuariosCrud/list?estado=ACTIVO`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((users: unknown) => {
+        if (!active || !Array.isArray(users)) return;
+        setComercialOptions(
+          users.flatMap((user) => {
+            const option = toComercialOption(user as Record<string, unknown>);
+            return option ? [option] : [];
+          }),
+        );
+      })
+      .catch(() => {
+        if (active) setComercialOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedComercial = watch("comercial");
+  useEffect(() => {
+    const selectedId = String(selectedComercial?.value ?? selectedComercial ?? "").trim();
+    if (!selectedId) return;
+
+    const option = comercialOptions.find((item) => item.value === selectedId);
+    if (option && option.label !== selectedComercial?.label) {
+      setValue("comercial", option);
+    }
+  }, [comercialOptions, selectedComercial, setValue]);
   const lockedCanalVentaOption = useMemo(() => {
     if (!lockedCanalVenta) return null;
 
@@ -421,23 +468,18 @@ const CanalVentaComponent = ({
           disabled
           size="small"
         />
-        <SelectControlled
-          name="moneda"
+        <AutocompleteControlled
+          name="comercial"
           control={control}
-          label="Moneda"
-          options={monedaOptions}
+          label="Comercial"
+          options={comercialOptions}
+          getOptionLabel={(option: ComercialOption) => option.label}
+          isOptionEqualToValue={(option, value) => option.value === value.value}
           disabled={!isEditing}
-          required
           size="small"
-          inputProps={{
-            id: "moneda-input",
-          }}
         />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <div className="col-span-2"></div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <TextControlled
           id="canalDeVentaTelefono"
           name="canalDeVentaTelefono"
@@ -448,7 +490,6 @@ const CanalVentaComponent = ({
           }}
           size="small"
         />
-        <div className="grid grid-cols-2 gap-2">
         <AutocompleteControlled
           id="condicion"
           name="condicion"
@@ -484,12 +525,21 @@ const CanalVentaComponent = ({
             option.value === value.value
           }
           data-focus-next={
-            canEditFechaViaje
-              ? 'input[name="fechaViaje"]'
-              : 'input[name="nombreCompleto"]'
+            "#moneda-input"
           }
           required
           size="small"
+        />
+        <SelectControlled
+          name="moneda"
+          control={control}
+          label="Moneda"
+          options={monedaOptions}
+          disabled={!isEditing}
+          required
+          size="small"
+          data-focus-next='input[name="fechaViaje"]'
+          inputProps={{ id: "moneda-input" }}
         />
         <TextControlled
           id="fechaViaje"
@@ -525,7 +575,6 @@ const CanalVentaComponent = ({
             min: minFechaViajeEdicion || undefined,
           }}
         />
-        </div>
       </div>
     </div>
   );
