@@ -92,7 +92,10 @@ const parseSales = (payload: string): SaleRow[] =>
       if (!raw[0] || raw[0].toUpperCase() === "NOTAID") return null;
 
       // Algunos listados antiguos insertan clienteId en la posición 6.
-      const values = raw.length >= 56 ? raw.filter((_, i) => i !== 6) : raw;
+      const values = raw.length === 56 || raw.length >= 58
+        ? raw.filter((_, i) => i !== 6)
+        : raw;
+      if (values[26]?.toUpperCase() === "ANULADO") return null;
       const flag = values[51] ?? "";
       const servicio =
         flag === "1" ? "FULL DAY" : flag === "2" ? "CITY TOUR" : "";

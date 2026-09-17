@@ -4,7 +4,11 @@ import { Plus, Calendar, RefreshCw, Trash2 } from "lucide-react";
 
 import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/fulldayStore";
-import { fetchEgresos, fetchTotalImpuestosIslas, guardarEgresos } from "../api/fulldayApi";
+import {
+  fetchEgresos,
+  fetchTotalImpuestosIslas,
+  guardarEgresos,
+} from "../api/fulldayApi";
 import { serviciosDB } from "@/app/db/serviciosDB";
 import { refreshServiciosData } from "@/app/db/serviciosSync";
 import { showToast } from "../../../components/ui/AppToast";
@@ -92,7 +96,9 @@ type OperationDraft = {
   precio: string;
 };
 
-const newOperation = (tipo: OperationDraft["tipo"] = "LIBRE"): OperationDraft => ({
+const newOperation = (
+  tipo: OperationDraft["tipo"] = "LIBRE",
+): OperationDraft => ({
   id: `${Date.now()}-${Math.random()}`,
   tipo,
   concepto: "",
@@ -115,7 +121,9 @@ const OPERATION_CONCEPTS = [
 
 const toApiDate = (value?: string) => {
   const match = String(value ?? "").match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  return match ? `${match[3]}-${match[2]}-${match[1]}` : String(value ?? "").slice(0, 10);
+  return match
+    ? `${match[3]}-${match[2]}-${match[1]}`
+    : String(value ?? "").slice(0, 10);
 };
 
 /* =========================
@@ -145,7 +153,9 @@ const PackageList = () => {
   const { transportes } = useTransportes();
 
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
-  const operationPriceRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const operationPriceRefs = useRef<Record<string, HTMLInputElement | null>>(
+    {},
+  );
   const authUser = useAuthStore((state) => state.user);
   const canAccessAction = useModulePermissionsStore(
     (state) => state.canAccessAction,
@@ -313,21 +323,27 @@ const PackageList = () => {
             (item) => item.nombreTransporte.trim().toLowerCase() === normalized,
           )
             ? "TRANSPORTE"
-            : guias.some((item) => item.nombre.trim().toLowerCase() === normalized)
+            : guias.some(
+                  (item) => item.nombre.trim().toLowerCase() === normalized,
+                )
               ? "GUIA"
               : "LIBRE";
           return {
             id: String(egreso.idEgreso),
             tipo,
             concepto,
-            precio: concepto === "IMPUESTOS" ? String(totalImpuestos) : String(egreso.monto),
+            precio:
+              concepto === "IMPUESTOS"
+                ? String(totalImpuestos)
+                : String(egreso.monto),
           };
         });
       }
     } catch (error) {
       showToast({
         title: "No se pudieron cargar los egresos",
-        description: error instanceof Error ? error.message : "Inténtalo nuevamente.",
+        description:
+          error instanceof Error ? error.message : "Inténtalo nuevamente.",
         type: "error",
       });
       return;
@@ -347,7 +363,10 @@ const PackageList = () => {
           : [];
         const updateEntries = (nextEntries: OperationDraft[]) =>
           setPayload({ ...payload, entries: nextEntries });
-        const total = entries.reduce((sum, entry) => sum + (Number(entry.precio) || 0), 0);
+        const total = entries.reduce(
+          (sum, entry) => sum + (Number(entry.precio) || 0),
+          0,
+        );
 
         return (
           <div className="space-y-4">
@@ -376,11 +395,18 @@ const PackageList = () => {
                           item.region.trim().toLowerCase() ===
                             String(row.region).trim().toLowerCase()),
                     );
-                    const options = entry.tipo === "TRANSPORTE"
-                      ? (availableTransportes.length ? availableTransportes : transportes.filter((item) => item.activo)).map((item) => item.nombreTransporte)
-                      : entry.tipo === "GUIA"
-                        ? (availableGuias.length ? availableGuias : guias.filter((item) => item.activo)).map((item) => item.nombre)
-                        : OPERATION_CONCEPTS;
+                    const options =
+                      entry.tipo === "TRANSPORTE"
+                        ? (availableTransportes.length
+                            ? availableTransportes
+                            : transportes.filter((item) => item.activo)
+                          ).map((item) => item.nombreTransporte)
+                        : entry.tipo === "GUIA"
+                          ? (availableGuias.length
+                              ? availableGuias
+                              : guias.filter((item) => item.activo)
+                            ).map((item) => item.nombre)
+                          : OPERATION_CONCEPTS;
                     const updateEntry = (change: Partial<OperationDraft>) =>
                       updateEntries(
                         entries.map((item) =>
@@ -398,17 +424,29 @@ const PackageList = () => {
                               const concepto = event.target.value;
                               updateEntry({
                                 concepto,
-                                precio: concepto === "IMPUESTOS" ? String(totalImpuestos) : "",
+                                precio:
+                                  concepto === "IMPUESTOS"
+                                    ? String(totalImpuestos)
+                                    : "",
                               });
-                              requestAnimationFrame(() => operationPriceRefs.current[entry.id]?.focus());
+                              requestAnimationFrame(() =>
+                                operationPriceRefs.current[entry.id]?.focus(),
+                              );
                             }}
                             className="w-full rounded-md border border-slate-300 px-2 py-1.5"
                           >
                             <option value="">
-                              Seleccione {entry.tipo === "TRANSPORTE" ? "transporte" : entry.tipo === "GUIA" ? "guía" : "concepto"}
+                              Seleccione{" "}
+                              {entry.tipo === "TRANSPORTE"
+                                ? "transporte"
+                                : entry.tipo === "GUIA"
+                                  ? "guía"
+                                  : "concepto"}
                             </option>
                             {options.map((name) => (
-                              <option key={name} value={name}>{name}</option>
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
                             ))}
                           </select>
                         </td>
@@ -423,11 +461,23 @@ const PackageList = () => {
                             }}
                             disabled={!canEditProgramacion}
                             readOnly={entry.concepto === "IMPUESTOS"}
-                            onChange={(event) => updateEntry({ precio: event.target.value })}
+                            onChange={(event) =>
+                              updateEntry({ precio: event.target.value })
+                            }
                             onKeyDown={(event) => {
-                              const direction = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+                              const direction =
+                                event.key === "ArrowUp"
+                                  ? -1
+                                  : event.key === "ArrowDown"
+                                    ? 1
+                                    : 0;
                               if (!direction) return;
-                              const next = entries[entries.findIndex((item) => item.id === entry.id) + direction];
+                              const next =
+                                entries[
+                                  entries.findIndex(
+                                    (item) => item.id === entry.id,
+                                  ) + direction
+                                ];
                               if (!next) return;
                               event.preventDefault();
                               operationPriceRefs.current[next.id]?.focus();
@@ -438,8 +488,14 @@ const PackageList = () => {
                         <td className="px-3 py-2 text-center">
                           <button
                             type="button"
-                            disabled={!canEditProgramacion || entries.length === 1}
-                            onClick={() => updateEntries(entries.filter((item) => item.id !== entry.id))}
+                            disabled={
+                              !canEditProgramacion || entries.length === 1
+                            }
+                            onClick={() =>
+                              updateEntries(
+                                entries.filter((item) => item.id !== entry.id),
+                              )
+                            }
                             className="text-rose-600 hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-30"
                             title="Quitar"
                           >
@@ -452,8 +508,12 @@ const PackageList = () => {
                 </tbody>
                 <tfoot className="border-t-2 border-slate-200 bg-slate-50">
                   <tr>
-                    <td className="px-3 py-3 text-right text-sm font-semibold text-slate-700">Total</td>
-                    <td className="px-3 py-3 text-right text-base font-bold text-slate-900">S/ {total.toFixed(2)}</td>
+                    <td className="px-3 py-3 text-right text-sm font-semibold text-slate-700">
+                      Total
+                    </td>
+                    <td className="px-3 py-3 text-right text-base font-bold text-slate-900">
+                      S/ {total.toFixed(2)}
+                    </td>
                     <td />
                   </tr>
                 </tfoot>
@@ -496,7 +556,8 @@ const PackageList = () => {
           await guardarEgresos({
             idProducto,
             fecha,
-            usuario: authUser?.displayName?.trim() || authUser?.username || "sistema",
+            usuario:
+              authUser?.displayName?.trim() || authUser?.username || "sistema",
             egresos: entries.map((entry) => ({
               concepto: entry.concepto.trim(),
               monto: Number(entry.precio),
@@ -511,7 +572,8 @@ const PackageList = () => {
         } catch (error) {
           showToast({
             title: "No se pudieron guardar los egresos",
-            description: error instanceof Error ? error.message : "Inténtalo nuevamente.",
+            description:
+              error instanceof Error ? error.message : "Inténtalo nuevamente.",
             type: "error",
           });
           return false;
@@ -745,7 +807,7 @@ const PackageList = () => {
                 }}
                 className="rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-200"
               >
-                Egresos
+                EGRESOS
               </button>
             )}
             {canViewUtilidad && (
@@ -756,14 +818,22 @@ const PackageList = () => {
                 }}
                 className="rounded-lg bg-violet-100 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-200"
               >
-                Utilidad
+                UTILIDAD
               </button>
             )}
           </div>
         ),
       },
     ],
-    [canEditProgramacion, canManageEgresos, canViewUtilidad, handleRowClick, handleListadoClick, guias, transportes],
+    [
+      canEditProgramacion,
+      canManageEgresos,
+      canViewUtilidad,
+      handleRowClick,
+      handleListadoClick,
+      guias,
+      transportes,
+    ],
   );
 
   const confirmDeleteSelected = useCallback(() => {
