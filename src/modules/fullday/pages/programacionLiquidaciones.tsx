@@ -653,6 +653,8 @@ const LIQUIDACION_FIELDS = [
   { key: "flagVerificado", label: "FlagVerificado", sourceIndex: 52 },
   { key: "idPaqueteViaje", label: "IdPaqueteViaje", sourceIndex: 53 },
   { key: "grupo", label: "Grupo", sourceIndex: 54 },
+  { key: "comercialUsuarioId", label: "ComercialUsuarioId", sourceIndex: 55 },
+  { key: "comercialNombre", label: "ComercialNombre", sourceIndex: 56 },
 ] as const;
 
 type LiquidacionFieldDefinition = (typeof LIQUIDACION_FIELDS)[number];
@@ -1816,6 +1818,9 @@ const LiquidacionesPage = () => {
       fechaEmision: parseFechaBackend(data.fechaRegistro?.split(" ")[0]),
       fechaRegistro: data.fechaRegistro,
       counter: data.notaUsuario,
+      comercial: data.comercialUsuarioId
+        ? { value: data.comercialUsuarioId, label: data.comercialNombre }
+        : null,
       canalVenta: null,
       canalDeVentaTelefono: data.telefonoAuxiliar,
 

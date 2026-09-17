@@ -159,9 +159,7 @@ function d(v: any) {
 function buildRegionWithGrupo(region: unknown, grupo: unknown) {
   const normalizedRegion = n(region).replace(/\|/g, " ").trim();
   const normalizedGrupo = n(grupo).replace(/\|/g, " ").trim();
-  return normalizedGrupo
-    ? `${normalizedRegion}|${normalizedGrupo}`
-    : normalizedRegion;
+  return `${normalizedRegion}|${normalizedGrupo}`;
 }
 
 function normalizeFlagVerificado(value: unknown): "0" | "1" {
@@ -729,6 +727,7 @@ function buildListaOrdenCreate(data) {
     "",
     n(data?.hotel?.label ?? ""),
     buildRegionWithGrupo(data.region, data.grupo),
+    n(data.comercial?.value),
   ].join("|");
 
   return `${orden}[${detalle}`;
@@ -794,6 +793,7 @@ function buildListaOrdenEdit(data) {
     "", // 49 NotaImagen
     n(data?.hotel?.label ?? ""), // 50 Hotel
     buildRegionWithGrupo(data.region, data.grupo), // 51 Region|Grupo
+    n(data.comercial?.value), // 52 ComercialUsuarioId
   ].join("|");
 
   return `${orden}[${detalle}`;
@@ -1037,6 +1037,7 @@ const ViajeForm = () => {
       region: "",
       grupo: "",
       counter: "",
+      comercial: null,
       moneda: "SOLES",
       canalDeVentaTelefono: "",
       fechaAdelanto: parseDateForInput(Date()),

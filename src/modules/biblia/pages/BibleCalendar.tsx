@@ -50,6 +50,7 @@ type DailyRow = BibleCalendarEvent & {
 type CellColorMenu = {
   localId: string;
   column: string;
+  scope: "cell" | "row";
   x: number;
   y: number;
 };
@@ -453,10 +454,12 @@ export default function BibleCalendar() {
     const editable = row.isNew ? canCreate : canEdit;
     const disabled = !editable || saving;
     const change = (patch: Partial<DailyRow>) => updateRow(row.localId, patch);
+    const rowStyle = getCellHighlightStyle(row.cellColors.fila?.background);
+    const rowTextStyle = getCellTextStyle(row.cellColors.fila?.text);
     const cellStyle = (column: string) =>
-      getCellHighlightStyle(row.cellColors[column]?.background);
+      getCellHighlightStyle(row.cellColors[column]?.background) ?? rowStyle;
     const cellTextStyle = (column: string) =>
-      getCellTextStyle(row.cellColors[column]?.text);
+      getCellTextStyle(row.cellColors[column]?.text) ?? rowTextStyle;
     const cellClassName = (column: string) =>
       `${cellStyle(column)?.cellClassName ?? ""} ${cellTextStyle(column)?.className ?? ""}`;
     const cellInputClassName = (column: string) =>
@@ -466,20 +469,24 @@ export default function BibleCalendar() {
         ? { color: cellTextStyle(column)?.color }
         : undefined;
     const cellProps = (column: string) => ({
-      className: cellClassName(column),
+        className: cellClassName(column),
       onContextMenu: (event: MouseEvent<HTMLTableCellElement>) => {
         if (!editable) return;
         event.preventDefault();
         setCellColorMenu({
           localId: row.localId,
           column,
+          scope: "cell",
           x: event.clientX,
           y: event.clientY,
         });
       },
     });
     return (
-      <tr key={row.localId} className="bg-white hover:bg-sky-50/35">
+      <tr
+        key={row.localId}
+        className={`${rowStyle?.cellClassName ?? "bg-white"} ${rowTextStyle?.className ?? ""} hover:bg-sky-50/35`}
+      >
         <td {...cellProps("hora")}>
           <TableTextInput
             type="time"
@@ -837,7 +844,17 @@ export default function BibleCalendar() {
         }
         value={
           rows.find((row) => row.localId === cellColorMenu?.localId)
-            ?.cellColors[cellColorMenu?.column ?? ""]
+            ?.cellColors[
+              cellColorMenu?.scope === "row"
+                ? "fila"
+                : cellColorMenu?.column ?? ""
+            ]
+        }
+        scope={cellColorMenu?.scope}
+        onScopeChange={(scope) =>
+          setCellColorMenu((current) =>
+            current ? { ...current, scope } : current,
+          )
         }
         onChange={(patch) => {
           if (!cellColorMenu) return;
@@ -845,7 +862,11 @@ export default function BibleCalendar() {
             current.map((row) => {
               if (row.localId !== cellColorMenu.localId) return row;
               const cellColors = { ...row.cellColors };
-              const currentStyle = cellColors[cellColorMenu.column] ?? {};
+              const colorKey =
+                cellColorMenu.scope === "row"
+                  ? "fila"
+                  : cellColorMenu.column;
+              const currentStyle = cellColors[colorKey] ?? {};
               const nextStyle = {
                 ...currentStyle,
                 ...(patch.background !== undefined
@@ -856,9 +877,9 @@ export default function BibleCalendar() {
                   : {}),
               };
               if (!nextStyle.background && !nextStyle.text) {
-                delete cellColors[cellColorMenu.column];
+                delete cellColors[colorKey];
               } else {
-                cellColors[cellColorMenu.column] = nextStyle;
+                cellColors[colorKey] = nextStyle;
               }
               return { ...row, cellColors, dirty: true };
             }),

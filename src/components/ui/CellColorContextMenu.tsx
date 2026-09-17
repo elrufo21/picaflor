@@ -11,6 +11,8 @@ type CellColorStyle = { background?: string; text?: string };
 type Props = {
   position: { x: number; y: number } | null;
   value?: CellColorStyle;
+  scope?: "cell" | "row";
+  onScopeChange?: (scope: "cell" | "row") => void;
   onChange: (patch: {
     background?: CellHighlightColor | "";
     text?: CellTextColor | "";
@@ -21,6 +23,8 @@ type Props = {
 export default function CellColorContextMenu({
   position,
   value,
+  scope = "cell",
+  onScopeChange,
   onChange,
   onClose,
 }: Props) {
@@ -48,13 +52,31 @@ export default function CellColorContextMenu({
   return (
     <div
       role="menu"
-      aria-label="Color de celda"
+      aria-label="Color de resaltado"
       onMouseDown={(event) => event.stopPropagation()}
       className="fixed z-50 min-w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
       style={{ left: position.x, top: position.y }}
     >
+      {onScopeChange ? (
+        <div className="mb-1 grid grid-cols-2 gap-1 border-b border-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => onScopeChange("cell")}
+            className={`rounded px-2 py-1 text-xs font-medium ${scope === "cell" ? "bg-sky-100 text-sky-800" : "text-slate-600 hover:bg-slate-100"}`}
+          >
+            Celda
+          </button>
+          <button
+            type="button"
+            onClick={() => onScopeChange("row")}
+            className={`rounded px-2 py-1 text-xs font-medium ${scope === "row" ? "bg-sky-100 text-sky-800" : "text-slate-600 hover:bg-slate-100"}`}
+          >
+            Fila
+          </button>
+        </div>
+      ) : null}
       <p className="px-2 py-1 text-xs font-medium text-slate-500">
-        Resaltar celda
+        Resaltar {scope === "row" ? "fila" : "celda"}
       </p>
       {cellHighlightOptions.map((option) => (
         <button
