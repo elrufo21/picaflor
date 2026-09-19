@@ -187,9 +187,7 @@ const normalizeObjectRow = (item: Record<string, unknown>, index: number) => {
         item[field.label],
       ) ?? "";
     row[field.key] =
-      value === null || value === undefined
-        ? ""
-        : cleanListadoValue(value);
+      value === null || value === undefined ? "" : cleanListadoValue(value);
   });
 
   const idCandidate =
@@ -524,26 +522,28 @@ const FulldayListado = () => {
           {filteredListado
             .filter((row: any) => row.hora !== "~")
             .map((row: any, index: number) => (
-            <View key={row.id ?? index} style={pdfStyles.row}>
-              {pdfColumns.map((field) => (
-                <Text
-                  key={field.key}
-                  style={[
-                    pdfStyles.cell,
-                    field.center ? pdfStyles.center : {},
-                    field.red ||
-                    (field.key === "condicion" &&
-                      toPlainText(row?.[field.key]).toUpperCase().includes("DEBE"))
-                      ? pdfStyles.red
-                      : {},
-                    { width: field.width },
-                  ]}
-                >
-                  {toPlainText(row?.[field.key])}
-                </Text>
-              ))}
-            </View>
-          ))}
+              <View key={row.id ?? index} style={pdfStyles.row}>
+                {pdfColumns.map((field) => (
+                  <Text
+                    key={field.key}
+                    style={[
+                      pdfStyles.cell,
+                      field.center ? pdfStyles.center : {},
+                      field.red ||
+                      (field.key === "condicion" &&
+                        toPlainText(row?.[field.key])
+                          .toUpperCase()
+                          .includes("DEBE"))
+                        ? pdfStyles.red
+                        : {},
+                      { width: field.width },
+                    ]}
+                  >
+                    {toPlainText(row?.[field.key])}
+                  </Text>
+                ))}
+              </View>
+            ))}
         </View>
       </Page>
     </Document>
@@ -570,32 +570,8 @@ const FulldayListado = () => {
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <label className="w-20 text-sm font-semibold text-slate-700">
-                Full Day:
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                disabled
-                className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md bg-slate-50 text-slate-600"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="w-20 text-sm font-semibold text-slate-700">
-                Buscar:
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Nombre del pasajero"
-                className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="w-20" />
+          <div className="flex items-start gap-4">
+            <div className="flex items-center h-full mt-8">
               <button
                 type="button"
                 onClick={() => navigate("/fullday")}
@@ -605,6 +581,31 @@ const FulldayListado = () => {
                 <ArrowLeft size={14} />
                 Volver
               </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <label className="w-20 text-sm font-semibold text-slate-700">
+                  Full Day:
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  disabled
+                  className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md bg-slate-50 text-slate-600"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="w-20 text-sm font-semibold text-slate-700">
+                  Buscar:
+                </label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Nombre del pasajero"
+                  className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md"
+                />
+              </div>
             </div>
           </div>
 

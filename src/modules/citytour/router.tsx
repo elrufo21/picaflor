@@ -8,6 +8,7 @@ import CityTourListado from "./pages/cityTourListado";
 import CityInvoicePreview from "./pages/cityTourInvoicePreview";
 import ProgramacionLiquidaciones from "./pages/gramacionLiquidaciones";
 import CityTourBoletaPreview from "./pages/cityTourBoletaPreview";
+import FullDayUtilityDashboard from "../fullday/pages/fulldayUtilityDashboard";
 
 export default [
   {
@@ -15,6 +16,13 @@ export default [
     element: <PackageList />,
     handle: {
       breadcrumb: [{ label: "City Tour" }],
+    },
+  },
+  {
+    path: "citytour/utilidad",
+    element: <FullDayUtilityDashboard />,
+    handle: {
+      breadcrumb: [{ label: "City Tour", to: "/citytour" }, { label: "Utilidad" }],
     },
   },
   {

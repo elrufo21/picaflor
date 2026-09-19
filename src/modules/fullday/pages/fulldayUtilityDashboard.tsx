@@ -118,7 +118,14 @@ export default function FullDayUtilityDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
-  const fullDay = (location.state as { fullDay?: FullDay } | null)?.fullDay;
+  const locationState = location.state as {
+    fullDay?: FullDay;
+    isCityTour?: boolean;
+  } | null;
+  const isCityTour =
+    location.pathname.includes("citytour") ||
+    Boolean(locationState?.isCityTour);
+  const fullDay = locationState?.fullDay;
   const [date, setDate] = useState(() => dateToInput(fullDay?.fecha));
   const [productId, setProductId] = useState(() =>
     String(fullDay?.idProducto ?? fullDay?.id ?? ""),
@@ -175,7 +182,9 @@ export default function FullDayUtilityDashboard() {
     void (async () => {
       try {
         await refreshServiciosData();
-        const destinos = await serviciosDB.productos.toArray();
+        const destinos = isCityTour
+          ? await serviciosDB.productosCityTourOrdena.toArray()
+          : await serviciosDB.productos.toArray();
         if (!cancelled) {
           setProducts(
             destinos
@@ -200,30 +209,36 @@ export default function FullDayUtilityDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isCityTour]);
 
   const selectedProduct = useMemo(
     () => products.find((item) => String(item.id) === productId),
     [productId, products],
   );
-  const filteredSales = useMemo(
-    () =>
-      selectedProduct
-        ? sales.filter(
-            (sale) =>
-              sale.producto.trim().toLowerCase() ===
-              selectedProduct.name.toLowerCase(),
-          )
-        : sales,
-    [sales, selectedProduct],
-  );
-  const filteredExpenses = useMemo(
-    () =>
-      productId
-        ? expenses.filter((expense) => String(expense.idProducto) === productId)
-        : expenses,
-    [expenses, productId],
-  );
+  const filteredSales = useMemo(() => {
+    const baseSales = sales.filter((sale) =>
+      isCityTour ? sale.servicio === "CITY TOUR" : sale.servicio === "FULL DAY",
+    );
+    return selectedProduct
+      ? baseSales.filter(
+          (sale) =>
+            sale.producto.trim().toLowerCase() ===
+            selectedProduct.name.toLowerCase(),
+        )
+      : baseSales;
+  }, [sales, selectedProduct, isCityTour]);
+
+  const filteredExpenses = useMemo(() => {
+    if (productId) {
+      return expenses.filter(
+        (expense) => String(expense.idProducto) === productId,
+      );
+    }
+    const productIds = new Set(products.map((p) => String(p.id)));
+    return expenses.filter((expense) =>
+      productIds.has(String(expense.idProducto)),
+    );
+  }, [expenses, productId, products]);
 
   const totals = useMemo(() => {
     const soles = filteredSales
@@ -527,7 +542,10 @@ export default function FullDayUtilityDashboard() {
     XLSX.utils.book_append_sheet(workbook, summary, "Resumen");
     XLSX.utils.book_append_sheet(workbook, tour, "Ventas por tour");
     XLSX.utils.book_append_sheet(workbook, expenseDetail, "Egresos");
-    XLSX.writeFile(workbook, `resumen-diario-${date}.xlsx`);
+    XLSX.writeFile(
+      workbook,
+      `resumen-diario-${isCityTour ? "citytour" : "fullday"}-${date}.xlsx`,
+    );
   };
 
   return (
@@ -547,14 +565,14 @@ export default function FullDayUtilityDashboard() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate("/fullday")}
+            onClick={() => navigate(isCityTour ? "/citytour" : "/fullday")}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             <ArrowLeft size={16} />
           </button>
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
-              Resumen de ventas diario
+              Resumen de ventas diario {isCityTour ? "· City Tour" : "· Full Day"}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
               Selecciona el producto y la fecha que deseas revisar.

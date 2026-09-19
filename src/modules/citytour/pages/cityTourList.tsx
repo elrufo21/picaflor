@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { Plus, Calendar, RefreshCw } from "lucide-react";
+import { Plus, Calendar, RefreshCw, Trash2 } from "lucide-react";
 
 import DndTable from "../../../components/dataTabla/DndTable";
 import { usePackageStore } from "../store/cityTourStore";
+import {
+  fetchEgresos,
+  fetchTotalImpuestosIslas,
+  guardarEgresos,
+} from "../api/cityTourApi";
 import { serviciosDB } from "@/app/db/serviciosDB";
 import { refreshServiciosData } from "@/app/db/serviciosSync";
 import { showToast } from "../../../components/ui/AppToast";
@@ -11,6 +16,8 @@ import { useDialogStore } from "@/app/store/dialogStore";
 import { useModulePermissionsStore } from "@/store/permissions/modulePermissions.store";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useSubmodulePermissionsStore } from "@/store/permissions/submodulePermissions.store";
+import { useGuias } from "../../maintenance/guides/hooks/useGuias";
+import { useTransportes } from "../../maintenance/transport/hooks/useTransportes";
 
 /* =========================
    HELPERS
@@ -82,6 +89,43 @@ type ProgramacionEditChange = {
   guia: string;
 };
 
+type OperationDraft = {
+  id: string;
+  tipo: "TRANSPORTE" | "GUIA" | "LIBRE";
+  concepto: string;
+  precio: string;
+};
+
+const newOperation = (
+  tipo: OperationDraft["tipo"] = "LIBRE",
+): OperationDraft => ({
+  id: `${Date.now()}-${Math.random()}`,
+  tipo,
+  concepto: "",
+  precio: "",
+});
+
+const OPERATION_CONCEPTS = [
+  "MOV 1",
+  "MOV 2",
+  "GUIA 1",
+  "TC",
+  "GUIA HUGO",
+  "EXTERNOS",
+  "ISLAS",
+  "IMPUESTOS",
+  "ALMUERZOS",
+  "TUBULARES",
+  "TUB SUNSET",
+] as const;
+
+const toApiDate = (value?: string) => {
+  const match = String(value ?? "").match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  return match
+    ? `${match[3]}-${match[2]}-${match[1]}`
+    : String(value ?? "").slice(0, 10);
+};
+
 /* =========================
    COMPONENT
 ========================= */
@@ -91,6 +135,10 @@ const PackageList = () => {
     "citytour.programacion_liquidaciones.btn_agregar";
   const BTN_SAVE_SUBMODULE_CODE =
     "citytour.programacion_liquidaciones.btn_guardar";
+  const BTN_EGRESOS_SUBMODULE_CODE =
+    "citytour.programacion_liquidaciones.btn_egresos";
+  const BTN_UTILIDAD_SUBMODULE_CODE =
+    "citytour.programacion_liquidaciones.btn_utilidad";
 
   /* =========================
      STATES
@@ -101,8 +149,13 @@ const PackageList = () => {
   const [destino, setDestino] = useState<string>("");
   const [selectedPackages, setSelectedPackages] = useState<any[]>([]);
   const [cantMaxChanges, setCantMaxChanges] = useState<CantMaxChange[]>([]);
+  const { guias } = useGuias();
+  const { transportes } = useTransportes();
 
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const operationPriceRefs = useRef<Record<string, HTMLInputElement | null>>(
+    {},
+  );
   const userAreaId = useAuthStore((state) => String(state.user?.areaId ?? ""));
   const authUser = useAuthStore((state) => state.user);
   const canAccessAction = useModulePermissionsStore(
@@ -123,6 +176,16 @@ const PackageList = () => {
     : hasSubmodulePermissions
       ? canAccessSubmodule(BTN_SAVE_SUBMODULE_CODE)
       : canAccessAction("citytour", "edit");
+  const canManageEgresos = hasSubmoduleActionRules
+    ? canAccessSubmoduleAction(BTN_EGRESOS_SUBMODULE_CODE, "edit")
+    : hasSubmodulePermissions
+      ? canAccessSubmodule(BTN_EGRESOS_SUBMODULE_CODE)
+      : canAccessAction("citytour", "edit");
+  const canViewUtilidad = hasSubmoduleActionRules
+    ? canAccessSubmoduleAction(BTN_UTILIDAD_SUBMODULE_CODE, "read")
+    : hasSubmodulePermissions
+      ? canAccessSubmodule(BTN_UTILIDAD_SUBMODULE_CODE)
+      : canAccessAction("citytour", "read");
 
   const {
     packages,
@@ -187,7 +250,7 @@ const PackageList = () => {
   const handleRowClick = useCallback(
     (row: { id?: number }) => {
       if (row?.id) {
-        navigate(`/cityTour/${row.id}/passengers/new`);
+        navigate(`/citytour/${row.id}/passengers/new`);
       }
     },
     [navigate],
@@ -204,7 +267,7 @@ const PackageList = () => {
       const idProducto = row?.idProducto ?? row?.id;
       if (!idProducto) return;
       setSelectedFullDayName(row?.destino ?? "");
-      navigate(`/cityTour/${idProducto}/listado`, {
+      navigate(`/citytour/${idProducto}/listado`, {
         state: {
           transporte: row?.transporte ?? "",
           guia: row?.guia ?? "",
@@ -233,6 +296,296 @@ const PackageList = () => {
           cantMax: value,
         },
       ];
+    });
+  };
+
+  const handleOperacionesClick = async (row: any) => {
+    const idProducto = Number(row.idProducto ?? row.id);
+    const fecha = toApiDate(row.fecha);
+    if (!idProducto || !fecha) return;
+
+    let initialEntries: OperationDraft[] = [
+      newOperation("TRANSPORTE"),
+      newOperation("GUIA"),
+    ];
+
+    let totalImpuestos = 0;
+    try {
+      const [egresos, impuestos] = await Promise.all([
+        fetchEgresos(idProducto, fecha),
+        fetchTotalImpuestosIslas(idProducto, fecha),
+      ]);
+      totalImpuestos = impuestos;
+      if (egresos.length) {
+        initialEntries = egresos.map((egreso) => {
+          const concepto = egreso.concepto;
+          const normalized = concepto.trim().toLowerCase();
+          const tipo = transportes.some(
+            (item) => item.nombreTransporte.trim().toLowerCase() === normalized,
+          )
+            ? "TRANSPORTE"
+            : guias.some(
+                  (item) => item.nombre.trim().toLowerCase() === normalized,
+                )
+              ? "GUIA"
+              : "LIBRE";
+          return {
+            id: String(egreso.idEgreso),
+            tipo,
+            concepto,
+            precio:
+              concepto === "IMPUESTOS"
+                ? String(totalImpuestos)
+                : String(egreso.monto),
+          };
+        });
+      }
+    } catch (error) {
+      showToast({
+        title: "No se pudieron cargar los egresos",
+        description:
+          error instanceof Error ? error.message : "Inténtalo nuevamente.",
+        type: "error",
+      });
+      return;
+    }
+
+    openDialog({
+      title: `Egresos · ${row.destino || "City Tour"}`,
+      description: `Fecha: ${row.fecha || date}`,
+      size: "lg",
+      confirmLabel: canEditProgramacion ? "Guardar" : "Cerrar",
+      showCancel: canEditProgramacion,
+      cancelLabel: "Cancelar",
+      initialPayload: { entries: initialEntries },
+      content: ({ payload, setPayload }) => {
+        const entries = Array.isArray(payload.entries)
+          ? (payload.entries as OperationDraft[])
+          : [];
+        const updateEntries = (nextEntries: OperationDraft[]) =>
+          setPayload({ ...payload, entries: nextEntries });
+        const total = entries.reduce(
+          (sum, entry) => sum + (Number(entry.precio) || 0),
+          0,
+        );
+
+        return (
+          <div className="space-y-4">
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full min-w-[460px] text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2">Concepto</th>
+                    <th className="px-3 py-2">Precio (S/)</th>
+                    <th className="w-12 px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry) => {
+                    const availableTransportes = transportes.filter(
+                      (item) =>
+                        item.activo &&
+                        (!row.region ||
+                          item.region.trim().toLowerCase() ===
+                            String(row.region).trim().toLowerCase()),
+                    );
+                    const availableGuias = guias.filter(
+                      (item) =>
+                        item.activo &&
+                        (!row.region ||
+                          item.region.trim().toLowerCase() ===
+                            String(row.region).trim().toLowerCase()),
+                    );
+                    const options =
+                      entry.tipo === "TRANSPORTE"
+                        ? (availableTransportes.length
+                            ? availableTransportes
+                            : transportes.filter((item) => item.activo)
+                          ).map((item) => item.nombreTransporte)
+                        : entry.tipo === "GUIA"
+                          ? (availableGuias.length
+                              ? availableGuias
+                              : guias.filter((item) => item.activo)
+                            ).map((item) => item.nombre)
+                          : OPERATION_CONCEPTS;
+                    const updateEntry = (change: Partial<OperationDraft>) =>
+                      updateEntries(
+                        entries.map((item) =>
+                          item.id === entry.id ? { ...item, ...change } : item,
+                        ),
+                      );
+
+                    return (
+                      <tr key={entry.id} className="border-t border-slate-100">
+                        <td className="px-3 py-2">
+                          <select
+                            value={entry.concepto}
+                            disabled={!canEditProgramacion}
+                            onChange={(event) => {
+                              const concepto = event.target.value;
+                              updateEntry({
+                                concepto,
+                                precio:
+                                  concepto === "IMPUESTOS"
+                                    ? String(totalImpuestos)
+                                    : "",
+                              });
+                              requestAnimationFrame(() =>
+                                operationPriceRefs.current[entry.id]?.focus(),
+                              );
+                            }}
+                            className="w-full rounded-md border border-slate-300 px-2 py-1.5"
+                          >
+                            <option value="">
+                              Seleccione{" "}
+                              {entry.tipo === "TRANSPORTE"
+                                ? "transporte"
+                                : entry.tipo === "GUIA"
+                                  ? "guía"
+                                  : "concepto"}
+                            </option>
+                            {options.map((name) => (
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={entry.precio}
+                            ref={(element) => {
+                              operationPriceRefs.current[entry.id] = element;
+                            }}
+                            disabled={!canEditProgramacion}
+                            readOnly={entry.concepto === "IMPUESTOS"}
+                            onChange={(event) =>
+                              updateEntry({ precio: event.target.value })
+                            }
+                            onKeyDown={(event) => {
+                              const direction =
+                                event.key === "ArrowUp"
+                                  ? -1
+                                  : event.key === "ArrowDown"
+                                    ? 1
+                                    : 0;
+                              if (!direction) return;
+                              const next =
+                                entries[
+                                  entries.findIndex(
+                                    (item) => item.id === entry.id,
+                                  ) + direction
+                                ];
+                              if (!next) return;
+                              event.preventDefault();
+                              operationPriceRefs.current[next.id]?.focus();
+                            }}
+                            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-right read-only:bg-slate-100"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            type="button"
+                            disabled={
+                              !canEditProgramacion || entries.length === 1
+                            }
+                            onClick={() =>
+                              updateEntries(
+                                entries.filter((item) => item.id !== entry.id),
+                              )
+                            }
+                            className="text-rose-600 hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-30"
+                            title="Quitar"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="border-t-2 border-slate-200 bg-slate-50">
+                  <tr>
+                    <td className="px-3 py-3 text-right text-sm font-semibold text-slate-700">
+                      Total
+                    </td>
+                    <td className="px-3 py-3 text-right text-base font-bold text-slate-900">
+                      S/ {total.toFixed(2)}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {canEditProgramacion && (
+              <button
+                type="button"
+                onClick={() => updateEntries([...entries, newOperation()])}
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-200 px-3 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
+              >
+                <Plus size={16} /> Agregar concepto
+              </button>
+            )}
+          </div>
+        );
+      },
+      onConfirm: async (payload) => {
+        if (!canEditProgramacion) return true;
+        const entries = Array.isArray(payload.entries)
+          ? (payload.entries as OperationDraft[])
+          : [];
+        const invalidEntry = entries.some(
+          (entry) =>
+            !entry.concepto.trim() ||
+            !entry.precio.trim() ||
+            !Number.isFinite(Number(entry.precio)) ||
+            Number(entry.precio) < 0,
+        );
+        if (invalidEntry) {
+          showToast({
+            title: "Completa las operaciones",
+            description: "Completa el concepto y registra un precio válido.",
+            type: "warning",
+          });
+          return false;
+        }
+
+        try {
+          await guardarEgresos({
+            idProducto,
+            fecha,
+            usuario:
+              authUser?.displayName?.trim() || authUser?.username || "sistema",
+            egresos: entries.map((entry) => ({
+              concepto: entry.concepto.trim(),
+              monto: Number(entry.precio),
+            })),
+          });
+          showToast({
+            title: "Egresos registrados",
+            description: "Los egresos quedaron guardados.",
+            type: "success",
+          });
+          return true;
+        } catch (error) {
+          showToast({
+            title: "No se pudieron guardar los egresos",
+            description:
+              error instanceof Error ? error.message : "Inténtalo nuevamente.",
+            type: "error",
+          });
+          return false;
+        }
+      },
+    });
+  };
+
+  const handleUtilidadClick = (row: any) => {
+    navigate("/citytour/utilidad", {
+      state: { fullDay: row, isCityTour: true },
     });
   };
 
@@ -283,7 +636,6 @@ const PackageList = () => {
 
       await editarCantMax(payload, date);
       setCantMaxChanges([]);
-      setTransportGuideChanges([]);
       showToast({
         title: "Guardado",
         description: "Cambios guardados correctamente",
@@ -422,7 +774,7 @@ const PackageList = () => {
         header: "Acciones",
         meta: { align: "center" },
         cell: ({ row }: any) => (
-          <div className="flex gap-2 justify-center">
+          <div className="flex flex-wrap justify-center gap-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -449,11 +801,41 @@ const PackageList = () => {
             >
               {row.original.accionTexto}
             </button>
+            {canManageEgresos && (
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleOperacionesClick(row.original);
+                }}
+                className="rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-200"
+              >
+                EGRESOS
+              </button>
+            )}
+            {canViewUtilidad && (
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleUtilidadClick(row.original);
+                }}
+                className="rounded-lg bg-violet-100 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-200"
+              >
+                UTILIDAD
+              </button>
+            )}
           </div>
         ),
       },
     ],
-    [canEditProgramacion, handleRowClick, handleListadoClick],
+    [
+      canEditProgramacion,
+      canManageEgresos,
+      canViewUtilidad,
+      handleRowClick,
+      handleListadoClick,
+      guias,
+      transportes,
+    ],
   );
 
   const confirmDeleteSelected = useCallback(() => {

@@ -90,4 +90,14 @@ export const SUBMODULE_OPTIONS: SubmoduleOption[] = [
     label: "City Tour - Boton Guardar",
     detail: "Habilita el boton Guardar en Programacion de liquidaciones.",
   },
+  {
+    code: "citytour.programacion_liquidaciones.btn_egresos",
+    label: "City Tour - Boton Egresos",
+    detail: "Habilita el boton Egresos en el listado de City Tour.",
+  },
+  {
+    code: "citytour.programacion_liquidaciones.btn_utilidad",
+    label: "City Tour - Boton Utilidad",
+    detail: "Habilita el boton Utilidad en el listado de City Tour.",
+  },
 ];

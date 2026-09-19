@@ -156,31 +156,26 @@ export type Egreso = {
 
 export const fetchEgresos = async (idProducto: number, fecha: string): Promise<Egreso[]> => {
   const params = new URLSearchParams({ idProducto: String(idProducto), fecha });
-  const res = await fetch(`${PROGRAMACION_API_URL}/egresos?${params}`, {
-    headers: { accept: "application/json" },
+  return apiRequest<Egreso[], unknown, never>({
+    url: `${PROGRAMACION_API_URL}/egresos?${params}`,
+    config: { headers: { accept: "application/json" } },
   });
-
-  if (!res.ok) throw new Error((await res.text()) || "No se pudieron cargar los egresos");
-  return res.json();
 };
 
 export const fetchEgresosFecha = async (fecha: string): Promise<Egreso[]> => {
-  const res = await fetch(`${PROGRAMACION_API_URL}/egresos/resumen?fecha=${encodeURIComponent(fecha)}`, {
-    headers: { accept: "application/json" },
+  return apiRequest<Egreso[], unknown, never>({
+    url: `${PROGRAMACION_API_URL}/egresos/resumen?fecha=${encodeURIComponent(fecha)}`,
+    config: { headers: { accept: "application/json" } },
   });
-
-  if (!res.ok) throw new Error((await res.text()) || "No se pudieron cargar los egresos");
-  return res.json();
 };
 
 export const fetchTotalImpuestosIslas = async (idProducto: number, fecha: string): Promise<number> => {
   const params = new URLSearchParams({ idProducto: String(idProducto), fecha });
-  const res = await fetch(`${PROGRAMACION_API_URL}/egresos/impuestos-islas?${params}`, {
-    headers: { accept: "application/json" },
+  const response = await apiRequest<number, unknown, never>({
+    url: `${PROGRAMACION_API_URL}/egresos/impuestos-islas?${params}`,
+    config: { headers: { accept: "application/json" } },
   });
-
-  if (!res.ok) throw new Error((await res.text()) || "No se pudo calcular el impuesto de Islas");
-  return Number(await res.json()) || 0;
+  return Number(response) || 0;
 };
 
 export const guardarEgresos = async (payload: {
@@ -189,13 +184,14 @@ export const guardarEgresos = async (payload: {
   usuario: string;
   egresos: { concepto: string; monto: number }[];
 }) => {
-  const res = await fetch(`${PROGRAMACION_API_URL}/egresos`, {
+  await apiRequest<void, typeof payload, never>({
+    url: `${PROGRAMACION_API_URL}/egresos`,
     method: "POST",
-    headers: { "Content-Type": "application/json", accept: "application/json" },
-    body: JSON.stringify(payload),
+    data: payload,
+    config: {
+      headers: { "Content-Type": "application/json", accept: "application/json" },
+    },
   });
-
-  if (!res.ok) throw new Error((await res.text()) || "No se pudieron guardar los egresos");
 };
 
 export async function fetchLiquidaciones(
