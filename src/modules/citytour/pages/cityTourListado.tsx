@@ -496,17 +496,6 @@ const CityTourListado = () => {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
           <div className="flex items-start gap-4">
-            <div className="flex items-center h-full mt-8">
-              <button
-                type="button"
-                onClick={() => navigate("/citytour")}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold border rounded-md text-slate-600 hover:bg-slate-50"
-                aria-label="Volver a City Tour"
-              >
-                <ArrowLeft size={14} />
-                Volver
-              </button>
-            </div>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <label className="w-20 text-sm font-semibold text-slate-700">
@@ -530,6 +519,15 @@ const CityTourListado = () => {
                   placeholder="Nombre del pasajero"
                   className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md"
                 />
+                <button
+                  type="button"
+                  onClick={() => navigate("/citytour")}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold border rounded-md text-slate-600 hover:bg-slate-50"
+                  aria-label="Volver a City Tour"
+                >
+                  <ArrowLeft size={14} />
+                  Volver
+                </button>
               </div>
             </div>
           </div>
