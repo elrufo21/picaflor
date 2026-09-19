@@ -84,9 +84,7 @@ const normalizeObjectRow = (item: Record<string, unknown>, index: number) => {
         item[field.label],
       ) ?? "";
     row[field.key] =
-      value === null || value === undefined
-        ? ""
-        : cleanListadoValue(value);
+      value === null || value === undefined ? "" : cleanListadoValue(value);
   });
 
   const idCandidate =
@@ -300,12 +298,10 @@ const CityTourListado = () => {
 
     const centeredKeys = NUMERIC_KEYS;
 
-    const centeredCols = excelFields.map((f, i) =>
-      centeredKeys.includes(f.key) ? i : null,
-    ).filter((i) => i !== null) as number[];
-    const horaColIndex = excelFields.findIndex(
-      (field) => field.key === "hora",
-    );
+    const centeredCols = excelFields
+      .map((f, i) => (centeredKeys.includes(f.key) ? i : null))
+      .filter((i) => i !== null) as number[];
+    const horaColIndex = excelFields.findIndex((field) => field.key === "hora");
 
     const lastCol = XLSX.utils.encode_col(excelFields.length - 1);
     const lastRow = data.length + 1;
@@ -315,9 +311,9 @@ const CityTourListado = () => {
     };
 
     ws["!cols"] = excelFields.map((field) => excelColumnWidth(field, data));
-    const numericCols = excelFields.map((f, i) =>
-      NUMERIC_KEYS.includes(f.key) ? i : null,
-    ).filter((i) => i !== null) as number[];
+    const numericCols = excelFields
+      .map((f, i) => (NUMERIC_KEYS.includes(f.key) ? i : null))
+      .filter((i) => i !== null) as number[];
 
     const range = XLSX.utils.decode_range(ws["!ref"]!);
     for (let R = 1; R <= range.e.r; R++) {
@@ -459,7 +455,9 @@ const CityTourListado = () => {
                       pdfStyles.cell,
                       field.center ? pdfStyles.center : {},
                       field.key === "condicion" &&
-                      toPlainText(row?.[field.key]).toUpperCase().includes("DEBE")
+                      toPlainText(row?.[field.key])
+                        .toUpperCase()
+                        .includes("DEBE")
                         ? pdfStyles.red
                         : {},
                       { width: field.width },
@@ -497,32 +495,8 @@ const CityTourListado = () => {
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <label className="w-20 text-sm font-semibold text-slate-700">
-                City Tour:
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                disabled
-                className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md bg-slate-50 text-slate-600"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="w-20 text-sm font-semibold text-slate-700">
-                Buscar:
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Nombre del pasajero"
-                className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="w-20" />
+          <div className="flex items-start gap-4">
+            <div className="flex items-center h-full mt-8">
               <button
                 type="button"
                 onClick={() => navigate("/citytour")}
@@ -532,6 +506,31 @@ const CityTourListado = () => {
                 <ArrowLeft size={14} />
                 Volver
               </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <label className="w-20 text-sm font-semibold text-slate-700">
+                  City Tour:
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  disabled
+                  className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md bg-slate-50 text-slate-600"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="w-20 text-sm font-semibold text-slate-700">
+                  Buscar:
+                </label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Nombre del pasajero"
+                  className="w-[260px] max-w-full px-3 py-2 text-sm border rounded-md"
+                />
+              </div>
             </div>
           </div>
 
@@ -584,4 +583,3 @@ const CityTourListado = () => {
 };
 
 export default CityTourListado;
-

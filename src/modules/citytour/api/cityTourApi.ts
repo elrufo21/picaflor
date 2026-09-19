@@ -135,6 +135,56 @@ export const editarCantMax = async (Valores: string) => {
   return res.json();
 };
 
+export type Egreso = {
+  idEgreso: number;
+  idProducto: number;
+  fecha: string;
+  concepto: string;
+  monto: number;
+  fechaRegistro: string;
+  usuario: string;
+};
+
+export const fetchEgresos = async (idProducto: number, fecha: string): Promise<Egreso[]> => {
+  const params = new URLSearchParams({ idProducto: String(idProducto), fecha });
+  return apiRequest<Egreso[], unknown, never>({
+    url: `${PROGRAMACION_API_URL}/egresos?${params}`,
+    config: { headers: { accept: "application/json" } },
+  });
+};
+
+export const fetchEgresosFecha = async (fecha: string): Promise<Egreso[]> => {
+  return apiRequest<Egreso[], unknown, never>({
+    url: `${PROGRAMACION_API_URL}/egresos/resumen?fecha=${encodeURIComponent(fecha)}`,
+    config: { headers: { accept: "application/json" } },
+  });
+};
+
+export const fetchTotalImpuestosIslas = async (idProducto: number, fecha: string): Promise<number> => {
+  const params = new URLSearchParams({ idProducto: String(idProducto), fecha });
+  const response = await apiRequest<number, unknown, never>({
+    url: `${PROGRAMACION_API_URL}/egresos/impuestos-islas?${params}`,
+    config: { headers: { accept: "application/json" } },
+  });
+  return Number(response) || 0;
+};
+
+export const guardarEgresos = async (payload: {
+  idProducto: number;
+  fecha: string;
+  usuario: string;
+  egresos: { concepto: string; monto: number }[];
+}) => {
+  await apiRequest<void, typeof payload, never>({
+    url: `${PROGRAMACION_API_URL}/egresos`,
+    method: "POST",
+    data: payload,
+    config: {
+      headers: { "Content-Type": "application/json", accept: "application/json" },
+    },
+  });
+};
+
 export async function fetchLiquidaciones(
   areaId: number | string,
   usuarioId: number | string,
