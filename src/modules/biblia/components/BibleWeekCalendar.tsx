@@ -123,8 +123,7 @@ export default function BibleWeekCalendar({
                 <button
                   key={event.id}
                   type="button"
-                  onClick={() => onSelectDate(date)}
-                  onDoubleClick={() => openActivityAfterDoubleClick(date, event.time, event)}
+                  onClick={() => onOpenActivity(date, event.time, event)}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-50"
                 >
                   <span className={`h-2 w-2 rounded-full ${event.color}`} />

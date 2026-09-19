@@ -174,12 +174,12 @@ export default function TransferForm() {
               onChangeFrom={(value) => updateField("fechaInicioViaje", value)}
               onChangeTo={(value) => updateField("fechaFinViaje", value)}
             />
-            <TextField label="Programa" value={form.programa} onChange={(event) => updateField("programa", event.target.value)} size="small" fullWidth />
-            <TextField label="Cantidad Pax" value={form.cantPax} onChange={(event) => setPaxCount(event.target.value)} inputProps={{ inputMode: "numeric", maxLength: 2 }} size="small" fullWidth />
-            <TextField select label="Moneda" value={form.moneda} onChange={(event) => updateField("moneda", event.target.value as TravelPackageFormState["moneda"])} size="small" fullWidth SelectProps={{ native: true }}>
+            <TextField select label="Moneda" value={form.moneda} onChange={(event) => updateField("moneda", event.target.value as TravelPackageFormState["moneda"])} size="small" fullWidth className="md:col-span-2 xl:col-span-2" SelectProps={{ native: true }}>
               <option value="SOLES">Soles</option>
               <option value="DOLARES">Dólares</option>
             </TextField>
+            <TextField label="Programa" value={form.programa} onChange={(event) => updateField("programa", event.target.value)} size="small" fullWidth />
+            <TextField label="Cantidad Pax" value={form.cantPax} onChange={(event) => setPaxCount(event.target.value)} inputProps={{ inputMode: "numeric", maxLength: 2 }} size="small" fullWidth />
           </div>
         </SectionCard>
 

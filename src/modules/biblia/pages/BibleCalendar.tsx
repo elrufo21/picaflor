@@ -182,7 +182,10 @@ export default function BibleCalendar() {
       const savedRows = events
         .sort((a, b) => a.time.localeCompare(b.time))
         .map((event) => ({ ...event, localId: event.id }));
-      setRows([...savedRows, ...blankRows(selectedKey, Math.max(0, 3 - savedRows.length))]);
+      setRows([
+        ...savedRows,
+        ...blankRows(selectedKey, Math.max(0, 3 - savedRows.length)),
+      ]);
     } catch (loadError) {
       setRows([]);
       setError(
@@ -469,7 +472,7 @@ export default function BibleCalendar() {
         ? { color: cellTextStyle(column)?.color }
         : undefined;
     const cellProps = (column: string) => ({
-        className: cellClassName(column),
+      className: cellClassName(column),
       onContextMenu: (event: MouseEvent<HTMLTableCellElement>) => {
         if (!editable) return;
         event.preventDefault();
@@ -714,17 +717,6 @@ export default function BibleCalendar() {
           <div className="inline-flex rounded-lg border border-slate-300 p-0.5">
             <button
               type="button"
-              onClick={() => setView("calendar")}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium ${
-                view === "calendar"
-                  ? "bg-sky-600 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <CalendarDays size={16} /> Calendario
-            </button>
-            <button
-              type="button"
               onClick={() => setView("table")}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium ${
                 view === "table"
@@ -734,27 +726,38 @@ export default function BibleCalendar() {
             >
               <Table2 size={16} /> Tabla
             </button>
+            <button
+              type="button"
+              onClick={() => setView("calendar")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium ${
+                view === "calendar"
+                  ? "bg-sky-600 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <CalendarDays size={16} /> Calendario
+            </button>
           </div>
 
           {view === "table" ? (
-          <button
-            type="button"
-            onClick={() => void saveChanges()}
-            disabled={saving || !rows.some((row) => row.isNew || row.dirty)}
-            aria-label="Guardar"
-            title="Guardar"
+            <button
+              type="button"
+              onClick={() => void saveChanges()}
+              disabled={saving || !rows.some((row) => row.isNew || row.dirty)}
+              aria-label="Guardar"
+              title="Guardar"
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Save size={17} />
             </button>
           ) : null}
           {view === "table" ? (
-          <button
-            type="button"
-            onClick={addRow}
-            disabled={!canCreate || catalogsLoading || saving}
-            aria-label="Nuevo"
-            title="Nuevo"
+            <button
+              type="button"
+              onClick={addRow}
+              disabled={!canCreate || catalogsLoading || saving}
+              aria-label="Nuevo"
+              title="Nuevo"
               className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Plus size={17} />
@@ -845,10 +848,10 @@ export default function BibleCalendar() {
         value={
           rows.find((row) => row.localId === cellColorMenu?.localId)
             ?.cellColors[
-              cellColorMenu?.scope === "row"
-                ? "fila"
-                : cellColorMenu?.column ?? ""
-            ]
+            cellColorMenu?.scope === "row"
+              ? "fila"
+              : (cellColorMenu?.column ?? "")
+          ]
         }
         scope={cellColorMenu?.scope}
         onScopeChange={(scope) =>
@@ -863,9 +866,7 @@ export default function BibleCalendar() {
               if (row.localId !== cellColorMenu.localId) return row;
               const cellColors = { ...row.cellColors };
               const colorKey =
-                cellColorMenu.scope === "row"
-                  ? "fila"
-                  : cellColorMenu.column;
+                cellColorMenu.scope === "row" ? "fila" : cellColorMenu.column;
               const currentStyle = cellColors[colorKey] ?? {};
               const nextStyle = {
                 ...currentStyle,
