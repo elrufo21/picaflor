@@ -204,7 +204,8 @@ export default function BibleCalendar() {
     setCalendarLoading(true);
     try {
       setCalendarEvents(
-        await listBibleCalendarEvents(toDateKey(firstDay), toDateKey(lastDay)),
+        (await listBibleCalendarEvents(toDateKey(firstDay), toDateKey(lastDay)))
+          .filter((event) => event.destination.trim()),
       );
     } catch (loadError) {
       setError(

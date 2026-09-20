@@ -98,14 +98,16 @@ type OperationDraft = {
 
 const newOperation = (
   tipo: OperationDraft["tipo"] = "LIBRE",
+  concepto = "",
 ): OperationDraft => ({
   id: `${Date.now()}-${Math.random()}`,
   tipo,
-  concepto: "",
+  concepto,
   precio: "",
 });
 
 const OPERATION_CONCEPTS = [
+  "INGRESO",
   "MOV 1",
   "MOV 2",
   "GUIA 1",
@@ -158,6 +160,7 @@ const PackageList = () => {
   );
   const userAreaId = useAuthStore((state) => String(state.user?.areaId ?? ""));
   const authUser = useAuthStore((state) => state.user);
+  const canViewListado = authUser?.isExternal !== true;
   const canAccessAction = useModulePermissionsStore(
     (state) => state.canAccessAction,
   );
@@ -307,6 +310,7 @@ const PackageList = () => {
     let initialEntries: OperationDraft[] = [
       newOperation("TRANSPORTE"),
       newOperation("GUIA"),
+      newOperation("LIBRE", "INGRESO"),
     ];
 
     let totalImpuestos = 0;
@@ -790,7 +794,7 @@ const PackageList = () => {
             >
               {row.original.estado}
             </button>
-            <button
+            {canViewListado && <button
               onClick={(e) => {
                 e.stopPropagation();
                 if (Number(row.original.cantTotalPax) === 0) return;
@@ -800,7 +804,7 @@ const PackageList = () => {
                 `}
             >
               {row.original.accionTexto}
-            </button>
+            </button>}
             {canManageEgresos && (
               <button
                 onClick={(event) => {
@@ -830,6 +834,7 @@ const PackageList = () => {
     [
       canEditProgramacion,
       canManageEgresos,
+      canViewListado,
       canViewUtilidad,
       handleRowClick,
       handleListadoClick,

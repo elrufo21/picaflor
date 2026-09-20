@@ -157,6 +157,7 @@ const PackageList = () => {
     {},
   );
   const authUser = useAuthStore((state) => state.user);
+  const canViewListado = authUser?.isExternal !== true;
   const canAccessAction = useModulePermissionsStore(
     (state) => state.canAccessAction,
   );
@@ -788,7 +789,7 @@ const PackageList = () => {
             >
               {row.original.estado}
             </button>
-            <button
+            {canViewListado && <button
               onClick={(e) => {
                 e.stopPropagation();
                 if (Number(row.original.cantTotalPax) === 0) return;
@@ -798,7 +799,7 @@ const PackageList = () => {
                 `}
             >
               {row.original.accionTexto}
-            </button>
+            </button>}
             {canManageEgresos && (
               <button
                 onClick={(event) => {
@@ -828,6 +829,7 @@ const PackageList = () => {
     [
       canEditProgramacion,
       canManageEgresos,
+      canViewListado,
       canViewUtilidad,
       handleRowClick,
       handleListadoClick,

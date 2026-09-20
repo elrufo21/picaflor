@@ -3,6 +3,7 @@ import { TextField } from "@mui/material";
 import { CarFront, ChevronLeft, Plus, Save } from "lucide-react";
 import { useNavigate } from "react-router";
 import { showToast } from "@/components/ui/AppToast";
+import { serviciosDB, type Hotel } from "@/app/db/serviciosDB";
 import { roundCurrency } from "@/shared/helpers/formatCurrency";
 import { useAuthStore } from "@/store/auth/auth.store";
 import AgencySection from "@/modules/travelPackage/components/AgencySection";
@@ -40,6 +41,7 @@ export default function TransferForm() {
   const usuarioId = Number(user?.id ?? 0);
   const [form, setForm] = useState(() => newForm(counter));
   const [days, setDays] = useState<TransferDay[]>([]);
+  const [hoteles, setHoteles] = useState<Hotel[]>([]);
   const [saving, setSaving] = useState(false);
 
   const updateField = useCallback(
@@ -91,9 +93,23 @@ export default function TransferForm() {
     );
   }, [form.fechaInicioViaje, form.fechaFinViaje]);
 
+  useEffect(() => {
+    let active = true;
+    void serviciosDB.hoteles.toArray().then((rows) => {
+      if (active) {
+        setHoteles(
+          [...rows].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+        );
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const updateDay = (
     fecha: string,
-    field: "destino" | "detalle" | "hora" | "precio",
+    field: "destino" | "hotel" | "tipoUnidad" | "tipoTraslado" | "detalle" | "hora" | "precio",
     value: string,
   ) => {
     setDays((previous) =>
@@ -184,6 +200,9 @@ export default function TransferForm() {
         dias: days.map((day) => ({
           fecha: day.fecha,
           destino: day.destino.trim(),
+          hotel: day.hotel.trim(),
+          tipoUnidad: day.tipoUnidad,
+          tipoTraslado: day.tipoTraslado,
           detalle: day.detalle.trim(),
           hora: day.hora,
           precio: roundCurrency(day.precio),
@@ -323,7 +342,7 @@ export default function TransferForm() {
             }))
           }
         />
-        <TransferDaysSection days={days} onChange={updateDay} />
+        <TransferDaysSection days={days} hoteles={hoteles} onChange={updateDay} />
         <SectionCard
           icon={CarFront}
           title="5. Totales"
