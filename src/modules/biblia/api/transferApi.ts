@@ -23,7 +23,7 @@ export type TransferPayload = {
     tipoPasajero: string;
     totalTipoPasajero: number;
   }[];
-  dias: { fecha: string; destino: string; detalle: string; hora: string; precio: number }[];
+  dias: { fecha: string; destino: string; hotel: string; tipoUnidad: string; tipoTraslado: string; detalle: string; hora: string; precio: number }[];
 };
 
 export async function saveTransfer(payload: TransferPayload): Promise<number> {

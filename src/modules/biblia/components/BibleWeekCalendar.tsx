@@ -209,7 +209,7 @@ export default function BibleWeekCalendar({
                           className={`mb-1 block w-full break-words whitespace-normal rounded px-2 py-1.5 text-left text-xs font-medium leading-4 text-white ${event.color}`}
                         >
                           {event.time}{" "}
-                          {event.title || event.service || "Actividad"}
+                          {event.title || event.service || "Actividad"} · {event.destination}
                         </button>
                       ))}
                     </div>
