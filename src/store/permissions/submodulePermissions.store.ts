@@ -1,13 +1,6 @@
 import { create } from "zustand";
 import type { AuthUser } from "@/store/auth/auth.store";
-import {
-  readAreaSubmodulePermissionOverride,
-  readAreaSubmoduleActionModes,
-} from "@/app/auth/areaSubmodulePermissionOverrides";
-import {
-  readUserSubmodulePermissionOverride,
-  readUserSubmoduleActionModes,
-} from "@/app/auth/submodulePermissionOverrides";
+import { readUserSubmoduleActionModes } from "@/app/auth/submodulePermissionOverrides";
 import type { PermissionAction, PermissionMode } from "@/app/auth/moduleActionPermissions";
 import { SUBMODULE_OPTIONS } from "@/app/auth/submoduleCatalog";
 
@@ -89,49 +82,14 @@ export const useSubmodulePermissionsStore = create<SubmodulePermissionsState>(
         const code = normalizeSubmoduleCode(rawCode);
         if (code) unique.add(code);
       });
-      const areaId = String(user.areaId ?? user.area ?? "").trim();
       const userId = String(user.id ?? "").trim();
-
-      const areaOverride = areaId
-        ? readAreaSubmodulePermissionOverride(areaId)
-        : {};
-      (areaOverride.allow ?? []).forEach((rawCode) => {
-        const code = normalizeSubmoduleCode(rawCode);
-        if (code) unique.add(code);
-      });
-      (areaOverride.deny ?? []).forEach((rawCode) => {
-        const code = normalizeSubmoduleCode(rawCode);
-        if (code) unique.delete(code);
-      });
-
-      const userOverride = userId
-        ? readUserSubmodulePermissionOverride(userId)
-        : {};
-      (userOverride.allow ?? []).forEach((rawCode) => {
-        const code = normalizeSubmoduleCode(rawCode);
-        if (code) unique.add(code);
-      });
-      (userOverride.deny ?? []).forEach((rawCode) => {
-        const code = normalizeSubmoduleCode(rawCode);
-        if (code) unique.delete(code);
-      });
-
-      const areaActionModes = areaId
-        ? readAreaSubmoduleActionModes(areaId)
-        : {};
-      const userActionModes = userId
+      const userActionModes = user.id
         ? readUserSubmoduleActionModes(userId)
         : {};
       const submoduleActions = defaultSubmoduleActionPermissions();
 
       Object.keys(submoduleActions).forEach((submoduleCode) => {
         const baseAllowed = unique.has(submoduleCode);
-        const areaModes = areaActionModes[submoduleCode] ?? {
-          read: "inherit",
-          create: "inherit",
-          edit: "inherit",
-          delete: "inherit",
-        };
         const userModes = userActionModes[submoduleCode] ?? {
           read: "inherit",
           create: "inherit",
@@ -139,25 +97,12 @@ export const useSubmodulePermissionsStore = create<SubmodulePermissionsState>(
           delete: "inherit",
         };
 
-        const areaRead = resolveActionValue(areaModes.read, baseAllowed);
-        const areaCreate = areaRead
-          ? resolveActionValue(areaModes.create, baseAllowed)
-          : false;
-        const areaEdit = areaRead
-          ? resolveActionValue(areaModes.edit, baseAllowed)
-          : false;
-        const areaDelete = areaRead
-          ? resolveActionValue(areaModes.delete, baseAllowed)
-          : false;
-
-        const read = resolveActionValue(userModes.read, areaRead);
+        const read = resolveActionValue(userModes.read, baseAllowed);
         const create = read
-          ? resolveActionValue(userModes.create, areaCreate)
+          ? resolveActionValue(userModes.create, baseAllowed)
           : false;
-        const edit = read ? resolveActionValue(userModes.edit, areaEdit) : false;
-        const del = read
-          ? resolveActionValue(userModes.delete, areaDelete)
-          : false;
+        const edit = read ? resolveActionValue(userModes.edit, baseAllowed) : false;
+        const del = read ? resolveActionValue(userModes.delete, baseAllowed) : false;
 
         submoduleActions[submoduleCode] = {
           read,
