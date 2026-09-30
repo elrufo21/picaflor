@@ -5,7 +5,6 @@ import {
   type ModuleCode,
 } from "@/app/auth/mockModulePermissions";
 import { readUserModulePermissionOverride } from "@/app/auth/modulePermissionOverrides";
-import { readAreaModulePermissionOverride } from "@/app/auth/areaPermissionOverrides";
 import {
   resolveUserModuleActionPermissions,
   type PermissionAction,
@@ -15,25 +14,6 @@ import type { AuthUser } from "@/store/auth/auth.store";
 
 const isModuleCode = (value: string): value is ModuleCode =>
   value in MODULE_DEFAULT_PATHS;
-
-const resolveBibleByArea = (
-  user: AuthUser | null,
-  modules: ModuleCode[],
-): ModuleCode[] => {
-  const allowed = new Set(modules);
-  const areaId = String(user?.areaId ?? user?.area ?? "").trim();
-  const override = readAreaModulePermissionOverride(areaId);
-
-  if (override.deny?.includes("biblia")) {
-    allowed.delete("biblia");
-  } else if (override.allow?.includes("biblia")) {
-    allowed.add("biblia");
-  } else {
-    allowed.delete("biblia");
-  }
-
-  return Array.from(allowed);
-};
 
 const addAreaDefaultModules = (
   user: AuthUser | null,
@@ -108,12 +88,9 @@ export const useModulePermissionsStore = create<ModulePermissionsState>(
         user?.permissionsFromLogin
           ? modulesFromLogin
           : resolveMockModulePermissions(user);
-      const allowedModules = resolveBibleByArea(
+      const allowedModules = applyUserOverride(
         user,
-        applyUserOverride(
-          user,
-          addAreaDefaultModules(user, resolvedBaseModules),
-        ),
+        addAreaDefaultModules(user, resolvedBaseModules),
       );
       const moduleActions = resolveUserModuleActionPermissions(user, allowedModules);
       set({ allowedModules, moduleActions, loaded: true });
