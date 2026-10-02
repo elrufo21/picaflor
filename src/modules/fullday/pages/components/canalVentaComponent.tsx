@@ -16,6 +16,13 @@ import { API_BASE_URL } from "@/config";
 
 type ComercialOption = { value: string; label: string };
 
+const normalizeCanalSearch = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("es");
+
 const toComercialOption = (user: Record<string, unknown>): ComercialOption | null => {
   if (Number(user.areaId ?? user.AreaId) !== 15) return null;
 
@@ -443,6 +450,14 @@ const CanalVentaComponent = ({
               }}
               name="canalDeVenta"
               options={canalVentaList}
+              filterOptions={(options, state) => {
+                const query = normalizeCanalSearch(state.inputValue);
+                return query
+                  ? options.filter((option) =>
+                      normalizeCanalSearch(option.label).includes(query),
+                    )
+                  : options;
+              }}
               control={control}
               label="Canal de venta"
               disabled={isCanalVentaLocked}
