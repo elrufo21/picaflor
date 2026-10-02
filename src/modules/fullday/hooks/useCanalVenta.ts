@@ -76,11 +76,11 @@ export const useCanalVenta = () => {
           if (!mapped || mapped.length === 0) return prev;
 
           const existing = new Map(
-            prev.map((opt) => [opt.value.toLowerCase(), opt]),
+            prev.map((opt) => [opt.label.trim().toLocaleLowerCase("es"), opt]),
           );
 
           mapped.forEach((opt) => {
-            const key = opt.value.toLowerCase();
+            const key = opt.label.trim().toLocaleLowerCase("es");
             if (!existing.has(key)) {
               existing.set(key, opt);
             }
@@ -140,5 +140,11 @@ export const useCanalVenta = () => {
     return parseSavedCanalId(responseText);
   };
 
-  return { canalVentaList, addCanalToList, saveCanalVenta };
+  return {
+    canalVentaList: [...canalVentaList].sort((a, b) =>
+      a.label.localeCompare(b.label, "es", { sensitivity: "base" }),
+    ),
+    addCanalToList,
+    saveCanalVenta,
+  };
 };

@@ -15,10 +15,12 @@ import {
   Trash2,
 } from "lucide-react";
 import {
+  AutocompleteTable,
   TableSelectInput,
   TableTextareaInput,
   TableTextInput,
 } from "@/components/ui/inputs";
+import { createFilterOptions } from "@mui/material/Autocomplete";
 import { showToast } from "@/components/ui/AppToast";
 import CellColorContextMenu from "@/components/ui/CellColorContextMenu";
 import {
@@ -33,6 +35,7 @@ import {
   loadBibleCalendarCatalogs,
   saveBibleCalendarEvent,
   deleteBibleCalendarEvent,
+  type BibleCalendarCatalogOption,
   type BibleCalendarCatalogs,
   type BibleCalendarEvent,
 } from "../api/bibleCalendarApi";
@@ -63,6 +66,10 @@ const emptyCatalogs: BibleCalendarCatalogs = {
   transportes: [],
   guias: [],
 };
+const filterContactOptions = createFilterOptions<BibleCalendarCatalogOption>({
+  stringify: (option) => option.label,
+  trim: true,
+});
 const toDateKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const fromDateKey = (value: string) => {
@@ -292,6 +299,14 @@ export default function BibleCalendar() {
       });
       return;
     }
+    if (changedRows.some((row) => !row.noteId.trim())) {
+      showToast({
+        title: "LQ obligatoria",
+        description: "Ingresa la LQ en cada fila antes de guardar.",
+        type: "warning",
+      });
+      return;
+    }
     setSaving(true);
     try {
       await Promise.all(
@@ -382,6 +397,14 @@ export default function BibleCalendar() {
       ),
       onConfirm: async (payload) => {
         const values = payload as BibleActivityDraft;
+        if (!values.noteId.trim()) {
+          showToast({
+            title: "LQ obligatoria",
+            description: "Ingresa la LQ antes de guardar la actividad.",
+            type: "warning",
+          });
+          return false;
+        }
         try {
           await saveBibleCalendarEvent({
             ...values,
@@ -418,7 +441,7 @@ export default function BibleCalendar() {
       );
       return;
     }
-    if (!canDelete) return;
+    if (!canDelete || row.creatorId !== String(usuarioId)) return;
 
     openDialog({
       title: "Eliminar actividad",
@@ -604,12 +627,27 @@ export default function BibleCalendar() {
           />
         </td>
         <td {...cellProps("contacto")}>
-          <TableSelectInput
-            value={row.auxiliarId}
-            onChange={(auxiliarId) => change({ auxiliarId })}
+          <AutocompleteTable
             options={catalogs.canales}
+            value={
+              catalogs.canales.find((option) => option.id === row.auxiliarId) ??
+              null
+            }
+            onChange={(option) => change({ auxiliarId: option?.id ?? "" })}
+            columns={[
+              {
+                key: "contacto",
+                header: "Contacto",
+                render: (option) => option.label,
+              },
+            ]}
+            getOptionLabel={(option) => option.label}
+            getOptionKey={(option) => option.id}
+            filterOptions={filterContactOptions}
             disabled={disabled || catalogsLoading}
-            placeholder="Sin contacto"
+            placeholder="Buscar contacto"
+            noOptionsText="Sin contactos"
+            autoAdvanceOnSelect={false}
             className={cellInputClassName("contacto")}
             style={cellInputStyle("contacto")}
           />
@@ -647,7 +685,9 @@ export default function BibleCalendar() {
           />
         </td>
         <td className="text-center">
-          {(row.isNew ? canCreate : canDelete) ? (
+          {(row.isNew
+            ? canCreate
+            : canDelete && row.creatorId === String(usuarioId)) ? (
             <button
               type="button"
               onClick={() => deleteRow(row)}

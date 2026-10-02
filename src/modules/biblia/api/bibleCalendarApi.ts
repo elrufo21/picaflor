@@ -3,6 +3,7 @@ import { parseCanalPayload } from "@/modules/fullday/hooks/canalUtils";
 
 export type BibleCalendarEvent = {
   id: string;
+  creatorId: string;
   date: string;
   time: string;
   title: string;
@@ -119,6 +120,7 @@ export const listBibleCalendarEvents = async (from: string, to: string): Promise
 
     return [{
       id,
+      creatorId: fields[27]?.trim() || "",
       date,
       time: fields[2]?.trim() || "09:00",
       title: fields[3]?.trim() || "",
@@ -146,6 +148,8 @@ export const saveBibleCalendarEvent = async ({
   id, date, time, title, monitored, idioma, pax, noteId, service, counterId, auxiliarId, clientId,
   transportId, guideId, observacion, estado, usuarioId, destination, telefono, cellColors,
 }: SaveBibleCalendarEvent) => {
+  if (!noteId.trim()) throw new Error("La LQ es obligatoria.");
+
   const values = [
     "GUARDAR", id ?? "", date, time, title, monitored ? "1" : "0", idioma, pax, noteId, service,
     counterId, auxiliarId, clientId, transportId, guideId, observacion, estado,
