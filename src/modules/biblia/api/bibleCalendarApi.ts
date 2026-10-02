@@ -175,6 +175,9 @@ const isExternalUser = (row: Record<string, unknown>) =>
   String(row.tipoUsuario ?? row.TipoUsuario ?? "").trim().toUpperCase() === "EXTERNO" ||
   ["1", "true"].includes(String(row.usuarioExterno ?? row.UsuarioExterno ?? row.esExterno ?? "").trim().toLowerCase());
 
+const isActiveUser = (row: Record<string, unknown>) =>
+  String(row.usuarioEstado ?? row.UsuarioEstado ?? row.estado ?? row.Estado ?? "").trim().toUpperCase() === "ACTIVO";
+
 const counterLabel = (row: Record<string, unknown>) => {
   const firstName = String(row.nombres ?? row.Nombres ?? "").trim().split(/\s+/)[0];
   const firstLastName = String(row.apellidos ?? row.Apellidos ?? "").trim().split(/\s+/)[0];
@@ -196,7 +199,7 @@ export const loadBibleCalendarCatalogs = async (): Promise<BibleCalendarCatalogs
       return option ? [option] : [];
     }),
     counters: asRows(counters).flatMap((row) => {
-      if (isExternalUser(row)) return [];
+      if (!isActiveUser(row) || isExternalUser(row)) return [];
       const option = asOption(row.usuarioID ?? row.UsuarioID, counterLabel(row));
       return option ? [option] : [];
     }),
