@@ -106,11 +106,19 @@ export default function MaintenanceDashboard() {
     },
     {
       title: "Usuarios",
-      desc: "Registra y controla usuarios del sistema.",
+      desc: "Registra y controla usuarios internos del sistema.",
       icon: UserCheck2Icon,
       iconClass: "text-violet-600",
       route: "/maintenance/users",
       submoduleCode: "maintenance.users",
+    },
+    {
+      title: "Asociados",
+      desc: "Gestiona usuarios externos asociados a canales de venta.",
+      icon: Handshake,
+      iconClass: "text-cyan-700",
+      route: "/maintenance/associates",
+      submoduleCode: "maintenance.associates",
     },
     {
       title: "Solicitudes externas",

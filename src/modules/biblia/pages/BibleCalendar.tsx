@@ -238,7 +238,14 @@ export default function BibleCalendar() {
   }, [selectedKey]);
   useEffect(() => {
     void loadBibleCalendarCatalogs()
-      .then(setCatalogs)
+      .then((loadedCatalogs) =>
+        setCatalogs({
+          ...loadedCatalogs,
+          canales: [...loadedCatalogs.canales].sort((a, b) =>
+            a.label.localeCompare(b.label, "es", { sensitivity: "base" }),
+          ),
+        }),
+      )
       .catch((catalogError) =>
         setError(
           catalogError instanceof Error

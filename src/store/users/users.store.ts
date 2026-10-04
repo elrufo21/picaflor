@@ -20,35 +20,51 @@ type UserPayloadInput = Partial<User> & {
   flag?: number;
 };
 
-const mapApiToUser = (item: any): User => ({
-  UsuarioID: item?.usuarioID ?? item?.UsuarioID ?? item?.id ?? 0,
-  PersonalId: item?.personalId ?? item?.PersonalId ?? item?.personalID ?? 0,
-  AreaId: item?.areaId ?? item?.AreaId ?? "",
-  TipoUsuario: item?.tipoUsuario ?? item?.TipoUsuario ?? "INTERNO",
-  UsuarioExterno:
-    item?.usuarioExterno ?? item?.UsuarioExterno ?? item?.esExterno ?? 0,
-  CanalVentaId:
-    item?.canalVentaId ?? item?.CanalVentaId ?? item?.idCanal ?? item?.IdCanal,
-  CanalVentaNombre:
-    item?.canalVentaNombre ??
-    item?.CanalVentaNombre ??
-    item?.canalNombre ??
-    item?.CanalNombre ??
-    "",
-  Nombres: item?.nombres ?? item?.Nombres ?? "",
-  Apellidos: item?.apellidos ?? item?.Apellidos ?? "",
-  UsuarioAlias: item?.usuarioAlias ?? item?.UsuarioAlias ?? "",
-  UsuarioClave: item?.usuarioClave ?? item?.UsuarioClave ?? "",
-  UsuarioFechaReg: item?.usuarioFechaReg ?? item?.UsuarioFechaReg ?? "",
-  UsuarioEstado: item?.usuarioEstado ?? item?.UsuarioEstado ?? "",
-  UsuarioSerie: item?.usuarioSerie ?? item?.UsuarioSerie ?? "B001",
-  EnviaBoleta: item?.enviaBoleta ?? item?.EnviaBoleta ?? 0,
-  EnviarFactura: item?.enviarFactura ?? item?.EnviarFactura ?? 0,
-  EnviaNC: item?.enviaNC ?? item?.EnviaNC ?? 0,
-  EnviaND: item?.enviaND ?? item?.EnviaND ?? 0,
-  Administrador: item?.administrador ?? item?.Administrador ?? 0,
-  area: item?.area ?? item?.Area ?? "",
-});
+const mapApiToUser = (item: any): User => {
+  const tipoUsuario = String(item?.tipoUsuario ?? item?.TipoUsuario ?? "")
+    .trim()
+    .toUpperCase();
+  const usuarioExterno = String(
+    item?.usuarioExterno ?? item?.UsuarioExterno ?? item?.esExterno ?? "",
+  )
+    .trim()
+    .toUpperCase();
+  const isExternal =
+    tipoUsuario === "EXTERNO" ||
+    tipoUsuario === "USUARIO EXTERNO" ||
+    usuarioExterno === "1" ||
+    usuarioExterno === "TRUE" ||
+    Number(item?.canalVentaId ?? item?.CanalVentaId ?? item?.idCanal ?? item?.IdCanal) > 0;
+
+  return {
+    UsuarioID: item?.usuarioID ?? item?.UsuarioID ?? item?.id ?? 0,
+    PersonalId: item?.personalId ?? item?.PersonalId ?? item?.personalID ?? 0,
+    AreaId: item?.areaId ?? item?.AreaId ?? "",
+    TipoUsuario: isExternal ? "EXTERNO" : "INTERNO",
+    UsuarioExterno: isExternal ? 1 : 0,
+    CanalVentaId:
+      item?.canalVentaId ?? item?.CanalVentaId ?? item?.idCanal ?? item?.IdCanal,
+    CanalVentaNombre:
+      item?.canalVentaNombre ??
+      item?.CanalVentaNombre ??
+      item?.canalNombre ??
+      item?.CanalNombre ??
+      "",
+    Nombres: item?.nombres ?? item?.Nombres ?? "",
+    Apellidos: item?.apellidos ?? item?.Apellidos ?? "",
+    UsuarioAlias: item?.usuarioAlias ?? item?.UsuarioAlias ?? "",
+    UsuarioClave: item?.usuarioClave ?? item?.UsuarioClave ?? "",
+    UsuarioFechaReg: item?.usuarioFechaReg ?? item?.UsuarioFechaReg ?? "",
+    UsuarioEstado: item?.usuarioEstado ?? item?.UsuarioEstado ?? "",
+    UsuarioSerie: item?.usuarioSerie ?? item?.UsuarioSerie ?? "B001",
+    EnviaBoleta: item?.enviaBoleta ?? item?.EnviaBoleta ?? 0,
+    EnviarFactura: item?.enviarFactura ?? item?.EnviarFactura ?? 0,
+    EnviaNC: item?.enviaNC ?? item?.EnviaNC ?? 0,
+    EnviaND: item?.enviaND ?? item?.EnviaND ?? 0,
+    Administrador: item?.administrador ?? item?.Administrador ?? 0,
+    area: item?.area ?? item?.Area ?? "",
+  };
+};
 
 const isAliasDuplicateResponse = (result: unknown) => {
   const status =

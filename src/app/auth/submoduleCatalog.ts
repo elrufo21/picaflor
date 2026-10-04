@@ -56,6 +56,11 @@ export const SUBMODULE_OPTIONS: SubmoduleOption[] = [
     detail: "Permite abrir la pantalla de usuarios.",
   },
   {
+    code: "maintenance.associates",
+    label: "Mantenimiento - Asociados",
+    detail: "Permite gestionar cuentas de usuarios externos.",
+  },
+  {
     code: "maintenance.external_user_requests",
     label: "Mantenimiento - Solicitudes externas",
     detail: "Permite aprobar accesos de usuarios externos.",

@@ -69,7 +69,8 @@ export const useMaintenanceAccessResolver = () => {
 
       const code = normalize(submoduleCode);
       const fallbackCode =
-        code === "maintenance.external_user_requests"
+        code === "maintenance.external_user_requests" ||
+        code === "maintenance.associates"
           ? "maintenance.users"
           : "";
       const canRead =

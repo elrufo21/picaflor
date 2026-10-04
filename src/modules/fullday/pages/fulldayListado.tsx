@@ -298,10 +298,37 @@ const FulldayListado = () => {
         accessorKey: field.key,
         header: field.label,
         meta: field.meta,
-        cell: ({ getValue }: { getValue: () => unknown }) =>
-          toPlainText(getValue()),
+        cell: ({ getValue }: { getValue: () => unknown }) => {
+          const value = toPlainText(getValue()).trim();
+          if (field.key !== "lq" || !/^\d+$/.test(value) || Number(value) <= 0) {
+            return value;
+          }
+
+          return (
+            <button
+              type="button"
+              className="cursor-pointer font-medium text-blue-700 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+              title={`Abrir detalle de liquidación ${value}`}
+              aria-label={`Abrir detalle de liquidación ${value}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(
+                  `/fullday/programacion/liquidaciones?searchMode=numero&searchNumber=${encodeURIComponent(value)}`,
+                  {
+                    state: {
+                      autoOpenNotaId: value,
+                      returnTo: location.pathname,
+                    },
+                  },
+                );
+              }}
+            >
+              {value}
+            </button>
+          );
+        },
       })),
-    [listadoFields],
+    [listadoFields, location.pathname, navigate],
   );
 
   const exportCsvValue = (value: string) => {

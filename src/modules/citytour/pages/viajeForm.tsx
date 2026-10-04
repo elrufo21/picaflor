@@ -1822,7 +1822,16 @@ const ViajeForm = () => {
                     className="cursor-pointer"
                     onClick={() => {
                       if (liquidacionId) {
-                        navigate("/fullday/programacion/liquidaciones");
+                        const returnTo = (
+                          location.state as { returnTo?: unknown } | null
+                        )?.returnTo;
+                        navigate(
+                          typeof returnTo === "string" &&
+                            (returnTo.startsWith("/fullday/") ||
+                              returnTo.startsWith("/citytour/"))
+                            ? returnTo
+                            : "/citytour/programacion/liquidaciones",
+                        );
                       } else {
                         navigate("/citytour");
                       }
