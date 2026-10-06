@@ -1002,10 +1002,23 @@ const LiquidacionesPage = () => {
   }, [user]);
   const navigate = useNavigate();
   const location = useLocation();
-  const refreshKey =
+  const locationState =
     location.state && typeof location.state === "object"
-      ? (location.state as { refresh?: unknown }).refresh
+      ? (location.state as {
+          refresh?: unknown;
+          autoOpenNotaId?: unknown;
+          returnTo?: unknown;
+        })
+      : {};
+  const autoOpenNotaId = normalizeStringValue(
+    String(locationState.autoOpenNotaId ?? ""),
+  );
+  const returnTo =
+    typeof locationState.returnTo === "string"
+      ? locationState.returnTo
       : undefined;
+  const refreshKey =
+    locationState.refresh;
   const { loadServicios, loadServiciosFromDB, setFormData } = usePackageStore();
   const [rows, setRows] = useState<LiquidacionRow[]>([]);
   const [filteredRowsForTotals, setFilteredRowsForTotals] = useState<
@@ -1042,6 +1055,7 @@ const LiquidacionesPage = () => {
   const initialReloadRef = useRef(false);
   const handledRefreshKeyRef = useRef<unknown>(undefined);
   const productosLoadedRef = useRef(false);
+  const handledAutoOpenNotaRef = useRef("");
   useEffect(() => {
     pendingStartDateRef.current = pendingStartDate;
   }, [pendingStartDate]);
@@ -1502,7 +1516,7 @@ const LiquidacionesPage = () => {
           setSearchLoading(false);
           searchAbortRef.current = null;
         });
-    }, 1000);
+    }, autoOpenNotaId ? 0 : 1000);
 
     return () => {
       if (searchDebounceRef.current) {
@@ -1510,7 +1524,7 @@ const LiquidacionesPage = () => {
         searchDebounceRef.current = null;
       }
     };
-  }, [searchMode, searchNumber]);
+  }, [autoOpenNotaId, searchMode, searchNumber]);
 
   useEffect(() => {
     if (productosLoadedRef.current) {
@@ -1765,13 +1779,13 @@ const LiquidacionesPage = () => {
     return containsMatch?.id ?? 0;
   };
 
-  const handleView = async (row: LiquidacionRow) => {
+  const handleView = async (row: LiquidacionRow, returnTo?: string) => {
     const flagServicio = normalizeStringValue(row.flagServicio);
     if (flagServicio === "0") {
       const idPaqueteViaje = Number(normalizeStringValue(row.idPaqueteViaje));
       if (Number.isFinite(idPaqueteViaje) && idPaqueteViaje > 0) {
         navigate(`/paquete-viaje/${idPaqueteViaje}/edit`, {
-          state: { fromLiquidaciones: true, notaId: row.notaId },
+          state: { fromLiquidaciones: true, notaId: row.notaId, returnTo },
         });
       } else {
         setError("No se encontró el paquete de viaje vinculado a esta nota.");
@@ -1883,14 +1897,48 @@ const LiquidacionesPage = () => {
     }
     if (row.flagServicio == "1") {
       navigate(`/fullday/${targetId}/passengers/view/${row.notaId}`, {
-        state: { formData: normalizedData },
+        state: { formData: normalizedData, returnTo },
       });
     } else if (row.flagServicio == "2") {
       navigate(`/citytour/${targetId}/passengers/view/${row.notaId}`, {
-        state: { formData: normalizedData },
+        state: { formData: normalizedData, returnTo },
       });
     }
   };
+
+  useEffect(() => {
+    if (
+      !autoOpenNotaId ||
+      searchMode !== "numero" ||
+      searchLoading ||
+      !searchResults ||
+      handledAutoOpenNotaRef.current === autoOpenNotaId
+    ) {
+      return;
+    }
+
+    handledAutoOpenNotaRef.current = autoOpenNotaId;
+    const row = searchResults.find(
+      (item) => String(item.notaId) === autoOpenNotaId,
+    );
+    if (!row) {
+      showToast({
+        title: "No se encontró la liquidación",
+        description: `No hay una liquidación disponible con LQ ${autoOpenNotaId}.`,
+        type: "error",
+      });
+      return;
+    }
+
+    void handleView(row, returnTo);
+  }, [
+    autoOpenNotaId,
+    handleView,
+    returnTo,
+    searchLoading,
+    searchMode,
+    searchResults,
+  ]);
   const columnHelper = createColumnHelper<LiquidacionRow>();
   const isPagoVerificado = useCallback((row: LiquidacionRow) => {
     return normalizeStringValue(row.flagVerificado) === "1";

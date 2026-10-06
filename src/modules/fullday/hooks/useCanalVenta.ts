@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { API_BASE_URL } from "@/config";
 import { parseCanalPayload, type CanalOption } from "./canalUtils";
 import { useOnceEffect } from "@/shared/hooks/useOnceEffect";
@@ -140,10 +140,16 @@ export const useCanalVenta = () => {
     return parseSavedCanalId(responseText);
   };
 
+  const sortedCanalVentaList = useMemo(
+    () =>
+      [...canalVentaList].sort((a, b) =>
+        a.label.localeCompare(b.label, "es", { sensitivity: "base" }),
+      ),
+    [canalVentaList],
+  );
+
   return {
-    canalVentaList: [...canalVentaList].sort((a, b) =>
-      a.label.localeCompare(b.label, "es", { sensitivity: "base" }),
-    ),
+    canalVentaList: sortedCanalVentaList,
     addCanalToList,
     saveCanalVenta,
   };

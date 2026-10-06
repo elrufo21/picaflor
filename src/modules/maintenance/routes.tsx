@@ -184,6 +184,16 @@ const maintenanceRoutes = [
     },
   },
   {
+    path: "maintenance/associates",
+    element: <UserList userType="EXTERNO" />,
+    handle: {
+      breadcrumb: [
+        { label: "Mantenimiento", to: "/maintenance" },
+        { label: "Asociados" },
+      ],
+    },
+  },
+  {
     path: "maintenance/external-user-requests",
     element: <ExternalUserRequests />,
     handle: {

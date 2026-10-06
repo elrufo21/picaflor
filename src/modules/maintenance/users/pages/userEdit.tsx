@@ -44,20 +44,20 @@ const UserEdit = () => {
   const handleDelete = () => {
     if (!id) return;
     openDialog({
-      title: "Eliminar",
-      content: <p>Seguro que deseas eliminar este usuario?</p>,
+      title: "Desactivar usuario",
+      content: <p>¿Deseas desactivar este usuario? Podrás reactivarlo desde Inactivos.</p>,
       onConfirm: async () => {
         try {
           const result = await deleteUser(Number(id));
           if (result === false) {
-            showToast({ title: "Error", description: "No se pudo eliminar el usuario.", type: "error" });
+            showToast({ title: "Error", description: "No se pudo desactivar el usuario.", type: "error" });
             return;
           }
-          showToast({ title: "Exito", description: "Empleado eliminado correctamente", type: "success" });
+          showToast({ title: "Exito", description: "Usuario desactivado correctamente", type: "success" });
           navigate("/maintenance/users");
         } catch (error) {
           console.error("Error eliminando usuario", error);
-          showToast({ title: "Error", description: "Ocurrio un error al eliminar el usuario.", type: "error" });
+          showToast({ title: "Error", description: "Ocurrio un error al desactivar el usuario.", type: "error" });
         }
       },
     });

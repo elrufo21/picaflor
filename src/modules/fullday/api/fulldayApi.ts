@@ -154,6 +154,36 @@ export type Egreso = {
   usuario: string;
 };
 
+export type CityTourUtilitySale = {
+  notaId: number;
+  productoId: number;
+  producto: string;
+  counter: string;
+  pasajeros: number;
+  total: number;
+  moneda: string;
+  condicion: string;
+  estado: string;
+};
+
+export const fetchCityTourUtilitySales = async (payload: {
+  fechaInicio: string;
+  fechaFin: string;
+  areaId: number | string;
+  usuarioId: number | string;
+}): Promise<CityTourUtilitySale[]> => {
+  const params = new URLSearchParams({
+    fechaInicio: payload.fechaInicio,
+    fechaFin: payload.fechaFin,
+    areaId: String(payload.areaId),
+    usuarioId: String(payload.usuarioId),
+  });
+  return apiRequest<CityTourUtilitySale[]>({
+    url: `${PROGRAMACION_API_URL}/city-tour-ventas-actividad?${params}`,
+    config: { headers: { accept: "application/json" } },
+  });
+};
+
 export const fetchEgresos = async (idProducto: number, fecha: string): Promise<Egreso[]> => {
   const params = new URLSearchParams({ idProducto: String(idProducto), fecha });
   return apiRequest<Egreso[], unknown, never>({

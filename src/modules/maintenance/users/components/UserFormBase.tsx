@@ -30,6 +30,7 @@ interface UserFormBaseProps {
   onNew?: () => void;
   onDelete?: () => void;
   onSelectUser?: (user: any) => void;
+  forcedUserType?: UserType;
   passwordChangeOnly?: boolean;
   hideHeaderActions?: boolean;
   showUsersTable?: boolean;
@@ -76,13 +77,15 @@ export default function UserFormBase({
   onNew,
   onDelete,
   onSelectUser,
+  forcedUserType,
   passwordChangeOnly = false,
   hideHeaderActions = false,
   showUsersTable: showUsersTableProp,
   onRegisterSubmit,
 }: UserFormBaseProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { users, fetchUsers } = useUsersStore();
+  const users = useUsersStore((state) => state.users);
+  const fetchUsers = useUsersStore((state) => state.fetchUsers);
   const { employees, fetchEmployees } = useEmployeesStore();
   const { canalVentaList } = useCanalVenta();
 
@@ -97,7 +100,7 @@ export default function UserFormBase({
   const lockIdentityFields = passwordChangeOnly;
 
   const emptyValues: UserFormValues = {
-    TipoUsuario: "INTERNO",
+    TipoUsuario: forcedUserType ?? "INTERNO",
     PersonalId: null,
     CanalVenta: null,
     Nombres: "",
@@ -163,8 +166,12 @@ export default function UserFormBase({
   } = form;
 
   const selectedUserType = watch("TipoUsuario");
-  const isExternalUser = !passwordChangeOnly && selectedUserType === "EXTERNO";
-  const disableUserTypeSelect = lockIdentityFields;
+  const isExternalUser =
+    !passwordChangeOnly &&
+    (forcedUserType
+      ? forcedUserType === "EXTERNO"
+      : selectedUserType === "EXTERNO");
+  const disableUserTypeSelect = lockIdentityFields || Boolean(forcedUserType);
 
   const handleExternalUserToggle = (checked: boolean) => {
     const nextType: UserType = checked ? "EXTERNO" : "INTERNO";
@@ -239,7 +246,7 @@ export default function UserFormBase({
         : "INTERNO";
 
     return {
-      TipoUsuario: tipoUsuarioResolved,
+      TipoUsuario: forcedUserType ?? tipoUsuarioResolved,
       PersonalId: personalOpt,
       CanalVenta: canalOpt,
       Nombres: String(
@@ -276,7 +283,7 @@ export default function UserFormBase({
     const mappedValues = mapInitialData(mode === "create" ? undefined : initialData);
     reset(mappedValues);
     focusFirstInput(containerRef.current);
-  }, [initialData, mode, reset, employeeOptions, canalVentaOptions]);
+  }, [initialData, mode, reset, employeeOptions, canalVentaOptions, forcedUserType]);
 
   const onSubmit = useCallback(
     async (values: UserFormValues): Promise<boolean> => {
@@ -291,7 +298,9 @@ export default function UserFormBase({
         "ConfirmClave",
       ]);
 
-      const isExternal = values.TipoUsuario === "EXTERNO";
+      const isExternal = forcedUserType
+        ? forcedUserType === "EXTERNO"
+        : values.TipoUsuario === "EXTERNO";
       const personalId = values.PersonalId
         ? Number(values.PersonalId.value)
         : 0;
@@ -381,7 +390,7 @@ export default function UserFormBase({
       }
 
       const payload = {
-        TipoUsuario: values.TipoUsuario,
+        TipoUsuario: isExternal ? "EXTERNO" : "INTERNO",
         PersonalId: isExternal ? 0 : personalId,
         AreaId: isExternal ? 14 : "",
         CanalVentaId: isExternal ? canalVentaId : "",
@@ -416,6 +425,7 @@ export default function UserFormBase({
       onNew,
       reset,
       passwordChangeOnly,
+      forcedUserType,
       emptyValues,
     ],
   );

@@ -10,8 +10,10 @@ import { useLocation, useNavigate } from "react-router";
 import * as XLSX from "xlsx-js-style";
 
 import {
+  fetchCityTourUtilitySales,
   fetchEgresosFecha,
   fetchPedidosFecha,
+  type CityTourUtilitySale,
   type Egreso,
 } from "../api/fulldayApi";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -114,6 +116,22 @@ const parseSales = (payload: string): SaleRow[] =>
     })
     .filter((row): row is SaleRow => Boolean(row));
 
+const parseCityTourUtilitySales = (
+  sales: CityTourUtilitySale[],
+): SaleRow[] =>
+  sales
+    .filter((sale) => sale.estado.trim().toUpperCase() !== "ANULADO")
+    .map((sale) => ({
+      id: String(sale.notaId),
+      producto: sale.producto,
+      counter: sale.counter || "Sin counter",
+      pasajeros: number(sale.pasajeros),
+      total: number(sale.total),
+      moneda: normalizeCurrency(sale.moneda),
+      servicio: "CITY TOUR",
+      condicion: paymentCondition([sale.condicion, sale.estado]),
+    }));
+
 export default function FullDayUtilityDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -149,17 +167,24 @@ export default function FullDayUtilityDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [payload, egresos] = await Promise.all([
-        fetchPedidosFecha({
-          fechaInicio: date,
-          fechaFin: date,
-          areaId,
-          usuarioId,
-          esViaje: true,
-        }),
+      const [loadedSales, egresos] = await Promise.all([
+        isCityTour
+          ? fetchCityTourUtilitySales({
+              fechaInicio: date,
+              fechaFin: date,
+              areaId,
+              usuarioId,
+            }).then(parseCityTourUtilitySales)
+          : fetchPedidosFecha({
+              fechaInicio: date,
+              fechaFin: date,
+              areaId,
+              usuarioId,
+              esViaje: true,
+            }).then(parseSales),
         fetchEgresosFecha(date),
       ]);
-      setSales(parseSales(payload));
+      setSales(loadedSales);
       setExpenses(egresos);
     } catch (err) {
       setError(
@@ -170,7 +195,7 @@ export default function FullDayUtilityDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [date, user]);
+  }, [date, isCityTour, user]);
 
   useEffect(() => {
     void loadSales();
