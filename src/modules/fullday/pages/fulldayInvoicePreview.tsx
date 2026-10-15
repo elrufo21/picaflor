@@ -5,6 +5,7 @@ import { showToast } from "@/components/ui/AppToast";
 import PdfDocument, { type InvoiceData } from "@/components/invoice/Invoice";
 import { formatFechaParaMostrar } from "@/shared/helpers/helpers";
 import { Download, Printer } from "lucide-react";
+import { useCompanyRuc } from "@/shared/hooks/useCompanyRuc";
 
 type LocationState = {
   invoiceData?: InvoiceData;
@@ -21,6 +22,7 @@ const InvoicePreview = () => {
   const location = useLocation();
   const { invoiceData, backendPayload } = (location.state ??
     {}) as LocationState;
+  const companyRuc = useCompanyRuc();
 
   const backendInfo = useMemo(() => {
     const parts = String(backendPayload ?? "").split("¬");
@@ -42,7 +44,13 @@ const InvoicePreview = () => {
   const createPdfBlob = async () => {
     if (!invoiceData)
       throw new Error("No se encontró la información de la factura.");
-    return pdf(<PdfDocument data={invoiceData} pdfName={pdfName} />).toBlob();
+    return pdf(
+      <PdfDocument
+        data={invoiceData}
+        pdfName={pdfName}
+        companyRuc={companyRuc}
+      />,
+    ).toBlob();
   };
 
   const handleDownload = async () => {
@@ -224,7 +232,11 @@ const InvoicePreview = () => {
                 showToolbar={false}
                 style={{ width: "100%", height: INVOICE_HEIGHT }}
               >
-                <PdfDocument data={invoiceData} pdfName={pdfName} />
+                <PdfDocument
+                  data={invoiceData}
+                  pdfName={pdfName}
+                  companyRuc={companyRuc}
+                />
               </PDFViewer>
             </div>
           )

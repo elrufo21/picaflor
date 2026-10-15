@@ -415,6 +415,15 @@ const styles = StyleSheet.create({
     height: 100,
     objectFit: "contain",
   },
+  companyRuc: {
+    position: "absolute",
+    top: 70,
+    left: 0,
+    width: "100%",
+    color: "#ffffff",
+    fontSize: 11,
+    textAlign: "center",
+  },
   content: {
     padding: 10, // 👈 antes 15
   },
@@ -688,9 +697,11 @@ const contactS = StyleSheet.create({
 const InvoiceCityTour = ({
   data,
   pdfName,
+  companyRuc = "",
 }: {
   data?: InvoiceData;
   pdfName?: string;
+  companyRuc?: string;
 }) => {
   const { isExternalUser, canalVentaLogo } = useAuthStore((state) => {
     const user = state.user;
@@ -766,7 +777,12 @@ const InvoiceCityTour = ({
   return (
     <Document title={pdfName}>
       <Page size="A4" style={styles.page}>
-        <Image src={headerImageSrc} style={styles.headerImage} />
+        <View style={{ position: "relative", width: "100%", height: 100 }}>
+          <Image src={headerImageSrc} style={styles.headerImage} />
+          {companyRuc && (
+            <Text style={styles.companyRuc}>{companyRuc}</Text>
+          )}
+        </View>
 
         <View style={styles.content}>
           <Text style={styles.title}>ATRACTIVOS DE LIMA</Text>

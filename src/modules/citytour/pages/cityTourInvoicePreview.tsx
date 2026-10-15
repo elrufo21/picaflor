@@ -6,6 +6,7 @@ import PdfDocument, { type InvoiceData } from "@/components/invoice/Invoice";
 import { formatFechaParaMostrar } from "@/shared/helpers/helpers";
 import InvoiceCityTour from "@/components/invoice/InvoiceCityTour";
 import { ChevronLeft } from "lucide-react";
+import { useCompanyRuc } from "@/shared/hooks/useCompanyRuc";
 
 type LocationState = {
   invoiceData?: InvoiceData;
@@ -22,6 +23,7 @@ const CityInvoicePreview = () => {
   const location = useLocation();
   const { invoiceData, backendPayload } = (location.state ??
     {}) as LocationState;
+  const companyRuc = useCompanyRuc();
 
   const backendInfo = useMemo(() => {
     const parts = String(backendPayload ?? "").split("¬");
@@ -44,7 +46,11 @@ const CityInvoicePreview = () => {
       throw new Error("No se encontró la información de la factura.");
 
     return pdf(
-      <InvoiceCityTour data={invoiceData} pdfName={pdfName} />,
+      <InvoiceCityTour
+        data={invoiceData}
+        pdfName={pdfName}
+        companyRuc={companyRuc}
+      />,
     ).toBlob();
   };
 
@@ -243,7 +249,11 @@ const CityInvoicePreview = () => {
                 showToolbar={false}
                 style={{ width: "100%", height: INVOICE_HEIGHT }}
               >
-                <InvoiceCityTour data={invoiceData} pdfName={pdfName} />
+                <InvoiceCityTour
+                  data={invoiceData}
+                  pdfName={pdfName}
+                  companyRuc={companyRuc}
+                />
               </PDFViewer>
             </div>
           )
