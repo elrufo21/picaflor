@@ -48,7 +48,7 @@ export default [
     handle: {
       breadcrumb: [
         { label: "City Tour", to: "/citytour" },
-        { label: "Liquidación", to: "/citytour/programacion/liquidaciones" },
+        { label: "Liquidación", to: "/fullday/programacion/liquidaciones" },
         { label: "Ver" },
       ],
     },
