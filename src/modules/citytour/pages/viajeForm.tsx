@@ -1830,7 +1830,7 @@ const ViajeForm = () => {
                             (returnTo.startsWith("/fullday/") ||
                               returnTo.startsWith("/citytour/"))
                             ? returnTo
-                            : "/citytour/programacion/liquidaciones",
+                            : "/fullday/programacion/liquidaciones",
                         );
                       } else {
                         navigate("/citytour");
