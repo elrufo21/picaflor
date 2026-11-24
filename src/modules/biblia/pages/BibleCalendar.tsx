@@ -488,7 +488,9 @@ export default function BibleCalendar() {
     const editable = row.isNew ? canCreate : canEdit;
     const disabled = !editable || saving;
     const change = (patch: Partial<DailyRow>) => updateRow(row.localId, patch);
-    const rowStyle = getCellHighlightStyle(row.cellColors.fila?.background);
+    const rowStyle = getCellHighlightStyle(
+      row.monitored ? "VERDE" : row.cellColors.fila?.background,
+    );
     const rowTextStyle = getCellTextStyle(row.cellColors.fila?.text);
     const cellStyle = (column: string) =>
       getCellHighlightStyle(row.cellColors[column]?.background) ?? rowStyle;
