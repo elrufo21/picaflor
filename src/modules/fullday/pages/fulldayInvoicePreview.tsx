@@ -49,6 +49,7 @@ const InvoicePreview = () => {
         data={invoiceData}
         pdfName={pdfName}
         companyRuc={companyRuc}
+        liquidationNumber={backendInfo.orden}
       />,
     ).toBlob();
   };
@@ -236,6 +237,7 @@ const InvoicePreview = () => {
                   data={invoiceData}
                   pdfName={pdfName}
                   companyRuc={companyRuc}
+                  liquidationNumber={backendInfo.orden}
                 />
               </PDFViewer>
             </div>

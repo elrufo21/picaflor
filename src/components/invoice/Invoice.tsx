@@ -1,3 +1,4 @@
+import LiquidationNumber from "./LiquidationNumber";
 import {
   Document,
   Page,
@@ -562,7 +563,7 @@ const contactS = StyleSheet.create({
     paddingVertical: 2,
   },
   tarifaTitle: {
-    width: "55%",
+    width: "70%",
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "center",
@@ -581,8 +582,7 @@ const contactS = StyleSheet.create({
     fontSize: 8,
     padding: 3,
   },
-  tarifaDesc: { width: "35%", fontSize: 8, padding: 3 },
-  tarifaUnit: { width: "15%", fontSize: 8, textAlign: "center", padding: 3 },
+  tarifaDesc: { width: "50%", fontSize: 8, padding: 3 },
   tarifaCant: { width: "15%", fontSize: 8, textAlign: "center", padding: 3 },
   tarifaSub: {
     width: "15%",
@@ -687,10 +687,12 @@ const PdfDocument = ({
   data,
   pdfName,
   companyRuc = "",
+  liquidationNumber,
 }: {
   data?: InvoiceData;
   pdfName?: string;
   companyRuc?: string;
+  liquidationNumber?: string | null;
 }) => {
   const { isExternalUser, canalVentaLogo } = useAuthStore((state) => {
     const user = state.user;
@@ -758,6 +760,7 @@ const PdfDocument = ({
       <Page size="A4" style={styles.page}>
         <View style={{ position: "relative", width: "100%", height: 65 }}>
           <Image src={headerImageSrc} style={styles.headerImage} />
+          <LiquidationNumber number={liquidationNumber} top={48} />
           {companyRuc && (
             <Text style={styles.companyRuc}>{companyRuc}</Text>
           )}
@@ -918,7 +921,6 @@ const PdfDocument = ({
             {/* HEADER */}
             <View style={contactS.tarifaHeaderRow}>
               <Text style={contactS.tarifaTitle}>DETALLE DE TARIFA :</Text>
-              <Text style={contactS.tarifaColHeader}>Precio Unit.</Text>
               <Text style={contactS.tarifaColHeader}>Cant.</Text>
               <Text style={contactS.tarifaColHeader}>Sub Total</Text>
             </View>
@@ -928,11 +930,6 @@ const PdfDocument = ({
               <View key={idx} style={contactS.tarifaRow}>
                 <Text style={contactS.tarifaLabel}>{it.label}</Text>
                 <Text style={contactS.tarifaDesc}>{it.descripcion}</Text>
-                <Text style={contactS.tarifaUnit}>
-                  {it.precio != null && it.precio != 0
-                    ? formatNumber(it.precio)
-                    : ""}
-                </Text>
                 <Text style={contactS.tarifaCant}>
                   {it.precio != null && it.precio != 0 ? it.cantidad : ""}
                 </Text>
