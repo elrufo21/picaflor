@@ -416,15 +416,6 @@ const styles = StyleSheet.create({
     height: 100,
     objectFit: "contain",
   },
-  companyRuc: {
-    position: "absolute",
-    top: 70,
-    left: 0,
-    width: "100%",
-    color: "#ffffff",
-    fontSize: 11,
-    textAlign: "center",
-  },
   content: {
     padding: 10, // 👈 antes 15
   },
@@ -698,12 +689,10 @@ const contactS = StyleSheet.create({
 const InvoiceCityTour = ({
   data,
   pdfName,
-  companyRuc = "",
   liquidationNumber,
 }: {
   data?: InvoiceData;
   pdfName?: string;
-  companyRuc?: string;
   liquidationNumber?: string | null;
 }) => {
   const { isExternalUser, canalVentaLogo } = useAuthStore((state) => {
@@ -783,9 +772,6 @@ const InvoiceCityTour = ({
         <View style={{ position: "relative", width: "100%", height: 100 }}>
           <Image src={headerImageSrc} style={styles.headerImage} />
           <LiquidationNumber number={liquidationNumber} top={66} />
-          {companyRuc && (
-            <Text style={styles.companyRuc}>{companyRuc}</Text>
-          )}
         </View>
 
         <View style={styles.content}>

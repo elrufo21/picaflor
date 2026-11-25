@@ -6,7 +6,6 @@ import PdfDocument, { type InvoiceData } from "@/components/invoice/Invoice";
 import { formatFechaParaMostrar } from "@/shared/helpers/helpers";
 import InvoiceCityTour from "@/components/invoice/InvoiceCityTour";
 import { ChevronLeft } from "lucide-react";
-import { useCompanyRuc } from "@/shared/hooks/useCompanyRuc";
 
 type LocationState = {
   invoiceData?: InvoiceData;
@@ -23,7 +22,6 @@ const CityInvoicePreview = () => {
   const location = useLocation();
   const { invoiceData, backendPayload } = (location.state ??
     {}) as LocationState;
-  const companyRuc = useCompanyRuc();
 
   const backendInfo = useMemo(() => {
     const parts = String(backendPayload ?? "").split("¬");
@@ -49,7 +47,6 @@ const CityInvoicePreview = () => {
       <InvoiceCityTour
         data={invoiceData}
         pdfName={pdfName}
-        companyRuc={companyRuc}
         liquidationNumber={backendInfo.orden}
       />,
     ).toBlob();
@@ -253,7 +250,6 @@ const CityInvoicePreview = () => {
                 <InvoiceCityTour
                   data={invoiceData}
                   pdfName={pdfName}
-                  companyRuc={companyRuc}
                   liquidationNumber={backendInfo.orden}
                 />
               </PDFViewer>

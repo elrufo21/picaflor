@@ -5,7 +5,6 @@ import { showToast } from "@/components/ui/AppToast";
 import PdfDocument, { type InvoiceData } from "@/components/invoice/Invoice";
 import { formatFechaParaMostrar } from "@/shared/helpers/helpers";
 import { Download, Printer } from "lucide-react";
-import { useCompanyRuc } from "@/shared/hooks/useCompanyRuc";
 
 type LocationState = {
   invoiceData?: InvoiceData;
@@ -22,7 +21,6 @@ const InvoicePreview = () => {
   const location = useLocation();
   const { invoiceData, backendPayload } = (location.state ??
     {}) as LocationState;
-  const companyRuc = useCompanyRuc();
 
   const backendInfo = useMemo(() => {
     const parts = String(backendPayload ?? "").split("¬");
@@ -48,7 +46,6 @@ const InvoicePreview = () => {
       <PdfDocument
         data={invoiceData}
         pdfName={pdfName}
-        companyRuc={companyRuc}
         liquidationNumber={backendInfo.orden}
       />,
     ).toBlob();
@@ -236,7 +233,6 @@ const InvoicePreview = () => {
                 <PdfDocument
                   data={invoiceData}
                   pdfName={pdfName}
-                  companyRuc={companyRuc}
                   liquidationNumber={backendInfo.orden}
                 />
               </PDFViewer>
